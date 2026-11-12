@@ -39,7 +39,7 @@ case $MODE in
   ram)
     Q+=(-kernel "$KIMG" -initrd "$D/kwickos-$ARCH-initramfs.cpio.zst" -append "console=$CON $CMDLINE") ;;
   microvm)
-    Q=(qemu-system-x86_64 -M microvm,accel=$ACCEL,x-option-roms=off,isa-serial=on,rtc=on -cpu host -m $MEM -smp $SMP -nodefaults -no-user-config
+    Q=(qemu-system-x86_64 -M microvm,accel=$ACCEL,isa-serial=on,rtc=on -cpu host -m $MEM -smp $SMP -nodefaults -no-user-config
        -nographic -no-reboot -serial mon:stdio -kernel "$K/vmlinuz" -initrd "$D/kwickos-$ARCH-initramfs.cpio.zst"
        -append "console=ttyS0 reboot=t $CMDLINE"
        -netdev user,id=n0 -device virtio-net-device,netdev=n0) ;;

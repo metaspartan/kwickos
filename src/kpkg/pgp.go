@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/sha1"
 	_ "crypto/sha256"
 	_ "crypto/sha512"
@@ -22,10 +21,49 @@ import (
 	"strings"
 )
 
+type rsaKey struct {
+	N *big.Int
+	E int
+}
+
 type pgpKey struct {
 	id  uint64
-	rsa *rsa.PublicKey
+	rsa *rsaKey
 	ed  ed25519.PublicKey
+}
+
+// DER DigestInfo prefixes for EMSA-PKCS1-v1_5 (RFC 8017, section 9.2).
+var digestInfoPrefix = map[crypto.Hash][]byte{
+	crypto.SHA224: {0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1c},
+	crypto.SHA256: {0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20},
+	crypto.SHA384: {0x30, 0x41, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05, 0x00, 0x04, 0x30},
+	crypto.SHA512: {0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40},
+}
+
+// rsaVerifyPKCS1v15 checks an RSASSA-PKCS1-v1_5 signature. Verification
+// only touches public data, so a plain math/big implementation is fine and
+// avoids linking Go's FIPS RSA module (~0.5 MB).
+func rsaVerifyPKCS1v15(k *rsaKey, h crypto.Hash, digest, sig []byte) bool {
+	size := (k.N.BitLen() + 7) / 8
+	prefix, ok := digestInfoPrefix[h]
+	if !ok || len(sig) != size || k.E < 3 {
+		return false
+	}
+	s := new(big.Int).SetBytes(sig)
+	if s.Cmp(k.N) >= 0 {
+		return false
+	}
+	em := new(big.Int).Exp(s, big.NewInt(int64(k.E)), k.N).FillBytes(make([]byte, size))
+	tLen := len(prefix) + len(digest)
+	if size < tLen+11 || em[0] != 0 || em[1] != 1 || em[size-tLen-1] != 0 {
+		return false
+	}
+	for _, b := range em[2 : size-tLen-1] {
+		if b != 0xff {
+			return false
+		}
+	}
+	return bytes.Equal(em[size-tLen:size-len(digest)], prefix) && bytes.Equal(em[size-len(digest):], digest)
 }
 
 type Keyring map[uint64]*pgpKey
@@ -109,7 +147,7 @@ func parseKey(body []byte) (k *pgpKey) {
 	case 1, 2, 3:
 		n, rest := readMPI(p)
 		e, _ := readMPI(rest)
-		k.rsa = &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
+		k.rsa = &rsaKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
 	case 22:
 		ol := int(p[0])
 		if !bytes.Equal(p[1:1+ol], oidEd25519) {
@@ -267,7 +305,7 @@ func verifySig(body, signed []byte, kr Keyring) (ok bool, err error) {
 		if len(s) < kl {
 			s = append(make([]byte, kl-len(s)), s...)
 		}
-		if err := rsa.VerifyPKCS1v15(key.rsa, hh, digest, s); err != nil {
+		if !rsaVerifyPKCS1v15(key.rsa, hh, digest, s) {
 			return false, errors.New("BADSIG")
 		}
 		return true, nil

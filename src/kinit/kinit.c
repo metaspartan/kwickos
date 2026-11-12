@@ -52,6 +52,7 @@
 #include <sys/un.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -264,8 +265,15 @@ static int loop_attach(const char *file, char *dev, size_t devsz)
 	struct loop_config cfg;
 	memset(&cfg, 0, sizeof cfg);
 	cfg.fd = ffd;
-	cfg.info.lo_flags = LO_FLAGS_READ_ONLY | LO_FLAGS_AUTOCLEAR | LO_FLAGS_DIRECT_IO;
+	/* no LO_FLAGS_DIRECT_IO: the backing file usually lives on iso9660,
+	 * which has no O_DIRECT support */
+	cfg.info.lo_flags = LO_FLAGS_READ_ONLY; /* no AUTOCLEAR: we close the fd before mounting */
+	cfg.block_size = 4096;
 	int r = ioctl(lfd, LOOP_CONFIGURE, &cfg);
+	if (r) {
+		cfg.block_size = 0;
+		r = ioctl(lfd, LOOP_CONFIGURE, &cfg);
+	}
 	close(ffd);
 	close(lfd);
 	return r;
@@ -307,9 +315,14 @@ static int setup_live(const char *media)
 		if (copy_file(img, "/run/rw/root.erofs") == 0) { img = "/run/rw/root.erofs"; }
 	}
 	char loopdev[32];
-	if (loop_attach(img, loopdev, sizeof loopdev)) return -1;
 	mkdir_p("/run/lower", 0755);
-	if (mount(loopdev, "/run/lower", "erofs", MS_RDONLY, NULL)) return -1;
+	if (loop_attach(img, loopdev, sizeof loopdev) ||
+	    try_mount(loopdev, "/run/lower", "erofs,squashfs", MS_RDONLY, NULL)) {
+		say("live: cannot mount %s: %s", img, strerror(errno));
+		umount2("/run/rw", MNT_DETACH);
+		umount2("/run/media", MNT_DETACH);
+		return -1;
+	}
 	char pdev[64];
 	if (resolve_dev("PARTLABEL=kwick-persist", pdev, sizeof pdev) || resolve_dev("LABEL=kwick-persist", pdev, sizeof pdev)) {
 		umount("/run/rw");
@@ -975,7 +988,7 @@ static void coldplug(void)
 	int n = 0;
 	coldplug_walk("/sys/devices", list, &n, 4000, 0);
 	char **argv = calloc(n + 4, sizeof *argv);
-	argv[0] = "modprobe"; argv[1] = "-abq";
+	argv[0] = "modprobe"; argv[1] = "-aq";
 	for (int i = 0; i < n; i++) argv[2 + i] = list[i];
 	spawn_bg(argv);
 	/* /etc/modules */
@@ -1003,7 +1016,7 @@ static void handle_uevent(void)
 		buf[n] = 0;
 		if (strncmp(buf, "add@", 4)) continue;
 		for (char *p = buf; p < buf + n; p += strlen(p) + 1)
-			if (!strncmp(p, "MODALIAS=", 9)) { char *a[] = { "modprobe", "-bq", p + 9, NULL }; spawn_bg(a); }
+			if (!strncmp(p, "MODALIAS=", 9)) { char *a[] = { "modprobe", "-q", p + 9, NULL }; spawn_bg(a); }
 	}
 }
 
@@ -1202,6 +1215,9 @@ static void do_shutdown(int how)
 	for (int i = nm - 1; i >= 0; i--) umount2(mps[i], MNT_DETACH);
 	mount(NULL, "/", NULL, MS_REMOUNT | MS_RDONLY, NULL);
 	sync();
+	/* let the (serial) console drain, otherwise the last lines are lost */
+	int con = open("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
+	if (con >= 0) { tcdrain(con); close(con); }
 	reboot(how == 3 ? RB_AUTOBOOT : how == 2 ? RB_POWER_OFF : RB_HALT_SYSTEM);
 	for (;;) pause();
 }
