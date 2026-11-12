@@ -64,6 +64,11 @@ func mainApk(args []string) int {
 			return 1
 		}
 	}
+	args, gerr := guardApkAdd(bin, args)
+	if gerr != nil {
+		fmt.Fprintln(os.Stderr, "ERROR:", gerr)
+		return 1
+	}
 	argv := append([]string{"apk"}, args...)
 	if err := syscall.Exec(bin, argv, os.Environ()); err != nil {
 		fmt.Fprintln(os.Stderr, "apk:", err)

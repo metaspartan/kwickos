@@ -1,0 +1,37 @@
+name: security
+
+# CVE gate: kernel freshness vs kernel.org (+ Linux CNA CVE count), Go
+# vulnerabilities in kpkg (govulncheck), OSV advisories for pinned sources,
+# and a grype scan of the built container image. Runs on every push/PR and
+# nightly, so newly published CVEs fail the badge even without code changes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  cve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build kwickos container image (amd64)
+        run: |
+          docker build -t kwick-builder -f docker/Dockerfile.builder docker
+          docker volume create kwick-cache
+          make userland kpkg rootfs ARCH=amd64
+          make container ARCH=amd64
+      - name: CVE gate
+        env:
+          GOTOOLCHAIN: auto
+        run: bash scripts/cve-check.sh docker:kwickos:$(cat VERSION)-amd64
