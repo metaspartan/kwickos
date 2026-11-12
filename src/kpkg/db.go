@@ -241,6 +241,13 @@ func (db *DB) lookupInstalled(name string) *Installed {
 	if i, ok := db.Installed[name]; ok {
 		return i
 	}
+	// "pkg:amd64", "pkg:all", "pkg:any" (as passed by py3compile, dh helpers)
+	if base, arch, ok := strings.Cut(name, ":"); ok && (arch == cfg.Arch || arch == "all" || arch == "any") {
+		if i, ok := db.Installed[base]; ok {
+			return i
+		}
+		name = base
+	}
 	if i, ok := db.Installed[name+":"+cfg.Arch]; ok {
 		return i
 	}

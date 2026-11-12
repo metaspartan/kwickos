@@ -41,3 +41,10 @@ RUN set -e; \
     echo "KwickOS Desktop $(cat /etc/kwick-release | cut -d' ' -f2)" > /etc/kwick-edition; \
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true; \
     ls -l /usr/libexec/elogind /usr/lib/systemd/systemd-udevd /usr/bin/startplasma-wayland
+
+# wait-for-dbus drop-ins: kinit starts services in parallel, these register
+# D-Bus names and must not race dbus-daemon.
+RUN for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do \
+      mkdir -p /etc/systemd/system/$u.service.d; \
+      printf '[Service]\nExecStartPre=/usr/lib/kwick/wait-for dbus\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf; \
+    done
