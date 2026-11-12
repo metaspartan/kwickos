@@ -16,7 +16,21 @@ root@kwick:/# apt update && apt install -y nginx python3
 root@kwick:/# systemctl enable --now nginx      # works in containers too
 ```
 
-<!-- BENCH-SUMMARY -->
+## Results (measured, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md))
+
+| | Alpine 3.24.4 | **KwickOS 0.1** |
+|---|---:|---:|
+| container image (uncompressed / gzip) | 8.43 / 3.72 MB | **5.53 / 2.60 MB** |
+| memory of a `sh` in a container (anon + page tables) | 88 KiB | **56 KiB** |
+| VM boot to shell prompt (QEMU/KVM, live ISO, wall time) | 3.73 s | **1.17 s** |
+| guest boot time at shell (`/proc/uptime`) | 3.10 s | **0.75 s** (0.22 s as microVM) |
+| memory in use after boot | 69.7 MiB | **38.3 MiB** |
+| live ISO | 70 MB | **24 MB** |
+| packages available | ~20k (musl) | **~69k (Debian 13, glibc)** |
+
+Real software from the Debian archive passes a 31-package compatibility matrix:
+PostgreSQL 17, MariaDB 11.8, Docker, OpenJDK 21, Go, gcc, Node.js, Python+pip, PHP, Ruby,
+Redis, nginx, Apache, OpenSSH, and others ([docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)).
 
 ## Why it's different
 

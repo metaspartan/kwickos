@@ -431,6 +431,18 @@ func (pl *Plan) Execute(purge bool) error {
 		tf.Close()
 		defer os.Remove(triggerFile)
 	}
+	var debList []string
+	for _, f := range files {
+		debList = append(debList, f)
+	}
+	predecompress(debList)
+	defer func() {
+		for _, f := range debList {
+			if pt := takePreTar(f); pt != "" {
+				os.Remove(pt)
+			}
+		}
+	}()
 	tx.loadOwners()
 	// removals first (conflicting packages, explicit removes)
 	for _, k := range sortedKeys(pl.Remove) {

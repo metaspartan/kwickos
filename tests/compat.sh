@@ -20,7 +20,7 @@ nginx|nginx -t 2>&1 | tail -1
 apache2|apache2ctl -t 2>&1 | tail -1
 tzdata|ls -l /etc/localtime
 git|git --version
-openssh-server|systemd-tmpfiles --create && /usr/sbin/sshd -t && echo sshd config ok
+openssh-server|systemctl start ssh && sleep 1 && systemctl is-active ssh && ls -d /run/sshd
 redis-server|redis-server --version
 postgresql|ls /usr/lib/postgresql/*/bin/postgres && pg_lsclusters
 mariadb-server|mariadbd --version

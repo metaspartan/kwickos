@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/ulikunitz/xz"
@@ -195,18 +194,27 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 	defer f.Close()
 	res := &extractResult{Conffiles: map[string]string{}}
 	var hardlinks [][2]string
-	type dirMeta struct {
-		host  string
-		mtime time.Time
+	member := func(fn func(dr io.Reader) error) error {
+		if pt := takePreTar(debPath); pt != "" {
+			tf, err := os.Open(pt)
+			if err == nil {
+				defer os.Remove(pt)
+				defer tf.Close()
+				return fn(bufio.NewReaderSize(tf, 1<<16))
+			}
+		}
+		return arIter(f, func(name string, size int64, r io.Reader) (bool, error) {
+			if !strings.HasPrefix(name, "data.tar") {
+				return false, nil
+			}
+			dr, err := decompressor(name, r)
+			if err != nil {
+				return true, err
+			}
+			return true, fn(dr)
+		})
 	}
-	err = arIter(f, func(name string, size int64, r io.Reader) (bool, error) {
-		if !strings.HasPrefix(name, "data.tar") {
-			return false, nil
-		}
-		dr, err := decompressor(name, r)
-		if err != nil {
-			return true, err
-		}
+	err = member(func(dr io.Reader) error {
 		tr := tar.NewReader(dr)
 		for {
 			h, err := tr.Next()
@@ -214,7 +222,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				break
 			}
 			if err != nil {
-				return true, err
+				return err
 			}
 			p := path.Clean("/" + h.Name)
 			if p == "/" {
@@ -227,7 +235,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 			}
 			parent, err := resolveInRoot(cfg.Root, path.Dir(p), true)
 			if err != nil {
-				return true, err
+				return err
 			}
 			host := filepath.Join(parent, path.Base(p))
 			if h.Typeflag != tar.TypeDir && canOverwrite != nil && !canOverwrite(p) {
@@ -251,7 +259,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				}
 				os.MkdirAll(parent, 0755)
 				if err := os.Mkdir(host, mode); err != nil && !os.IsExist(err) {
-					return true, err
+					return err
 				}
 				os.Lchown(host, h.Uid, h.Gid)
 				os.Chmod(host, mode)
@@ -260,7 +268,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				if conffiles[p] {
 					data, err := io.ReadAll(tr)
 					if err != nil {
-						return true, err
+						return err
 					}
 					sum := md5.Sum(data)
 					newMD5 := hex.EncodeToString(sum[:])
@@ -272,19 +280,19 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 						if curMD5 != newMD5 && (!tracked || curMD5 != old) {
 							// locally modified (or pre-existing): keep it
 							if err := writeAtomic(host+".dpkg-dist", data, mode, h); err != nil {
-								return true, err
+								return err
 							}
 							fmt.Printf("Configuration file '%s' modified locally; new version saved as %s.dpkg-dist\n", p, p)
 							continue
 						}
 					}
 					if err := writeAtomic(host, data, mode, h); err != nil {
-						return true, err
+						return err
 					}
 					continue
 				}
 				if err := writeStreamAtomic(host, tr, mode, h); err != nil {
-					return true, fmt.Errorf("unpacking %s: %w", p, err)
+					return fmt.Errorf("unpacking %s: %w", p, err)
 				}
 			case tar.TypeSymlink:
 				os.MkdirAll(parent, 0755)
@@ -295,11 +303,11 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				tmp := host + ".dpkg-new"
 				os.Remove(tmp)
 				if err := os.Symlink(h.Linkname, tmp); err != nil {
-					return true, err
+					return err
 				}
 				os.Lchown(tmp, h.Uid, h.Gid)
 				if err := os.Rename(tmp, host); err != nil {
-					return true, err
+					return err
 				}
 			case tar.TypeLink:
 				hardlinks = append(hardlinks, [2]string{path.Clean("/" + h.Linkname), p})
@@ -318,7 +326,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				syscall.Mknod(host, m, int(mkdev(h.Devmajor, h.Devminor)))
 			}
 		}
-		return true, nil
+		return nil
 	})
 	if err != nil {
 		return nil, err

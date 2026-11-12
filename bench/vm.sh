@@ -23,7 +23,7 @@ MICRO=(qemu-system-x86_64 -M microvm,accel=kvm,isa-serial=on,rtc=on -cpu host -m
       -nographic -no-reboot -netdev user,id=n0 -device virtio-net-device,netdev=n0)
 cd_dev() { echo -drive file="$1",media=cdrom,if=none,id=cd,readonly=on -device virtio-scsi-pci -device scsi-cd,drive=cd; }
 
-MEASURE='echo __U=$(cut -d" " -f1 /proc/uptime); awk "/MemTotal/{t=\$2}/MemAvailable/{a=\$2}END{print \"__M=\" t-a}" /proc/meminfo; echo __P=$(ls -d /proc/[0-9]* | wc -l); poweroff'
+MEASURE='echo __U=$(cut -d" " -f1 /proc/uptime); awk "/MemTotal/{t=\$2}/MemAvailable/{a=\$2}END{print \"__M=\" t-a}" /proc/meminfo; echo __P=$(for p in /proc/[0-9]*; do readlink $p/exe >/dev/null 2>&1 && echo x; done | wc -l); poweroff'
 
 # run_login <name> <prompt-regex> <login-user-or-empty> qemu args...
 run_login() {
@@ -42,9 +42,9 @@ run_login() {
     sleep 0.02
   done
   kill $pid 2>/dev/null; wait $pid 2>/dev/null; exec 3>&-; rm -f "$fifo"
-  local u=$(grep -ao '__U=[0-9.]*' "$log" | head -1 | cut -d= -f2)
-  local m=$(grep -ao '__M=[0-9]*' "$log" | head -1 | cut -d= -f2)
-  local p=$(grep -ao '__P=[0-9]*' "$log" | head -1 | cut -d= -f2)
+  local u=$(grep -ao '__U=[0-9][0-9.]*' "$log" | head -1 | cut -d= -f2)
+  local m=$(grep -ao '__M=[0-9][0-9]*' "$log" | head -1 | cut -d= -f2)
+  local p=$(grep -ao '__P=[0-9][0-9]*' "$log" | head -1 | cut -d= -f2)
   # the login step waits 1.5 s before measuring: don't count it
   [ -n "$user" ] && [ -n "$u" ] && u=$(echo "$u - 1.5" | bc)
   echo "$name ${t1:+$(( (t1-t0)/1000000 ))} ${u:-?} ${m:-?} ${p:-?}"

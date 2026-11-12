@@ -1,3 +1,8 @@
 #!/bin/sh
-# Used by kinit's getty when /etc/kinit/autologin names a user.
-exec /bin/login -f "${KWICK_AUTOLOGIN:-root}"
+# Called by kinit's getty (getty -n -l) when /etc/kinit/autologin names a
+# user. `login -f` refuses locked accounts (root has no password on KwickOS
+# images), so start the login shell through su, which needs no password
+# when run by root.
+user=${KWICK_AUTOLOGIN:-root}
+[ -r /etc/motd ] && cat /etc/motd
+exec /bin/su -l "$user"

@@ -12,7 +12,7 @@ for b in busybox kinit kpkg busybox.links; do [ -e "$U/$b" ] || { echo "missing 
 rm -rf "$R"; mkdir -p "$R"; cd "$R"
 
 # --- skeleton (merged /usr like Debian) ---------------------------------
-mkdir -p usr/bin usr/sbin usr/lib usr/share/kwick usr/local/bin usr/local/sbin usr/local/lib usr/local/share \
+mkdir -p usr/bin usr/sbin usr/lib usr/share/kwick usr/share/keyrings usr/local/bin usr/local/sbin usr/local/lib usr/local/share \
   etc/apt/apt.conf.d etc/apt/preferences.d etc/apt/trusted.gpg.d etc/apt/sources.list.d etc/ld.so.conf.d \
   etc/profile.d etc/kinit etc/systemd/system/multi-user.target.wants etc/network/if-up.d etc/network/if-down.d \
   etc/network/if-pre-up.d etc/network/if-post-down.d etc/sysctl.d etc/sysusers.d etc/tmpfiles.d etc/default etc/opt \
