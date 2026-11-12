@@ -23,7 +23,7 @@ EFIV=$(efibin "$KV")
 cp "$EFIV" "$D/kwickos-$ARCH.efi"
 
 # --- 1. whole OS as initramfs -------------------------------------------
-( cd "$R0" && find . -mindepth 1 | LC_ALL=C sort | cpio --quiet -o -H newc -R 0:0 ) | zstd -19 -T0 -q > "$D/kwickos-$ARCH-initramfs.cpio.zst"
+( cd "$R0" && find . -mindepth 1 | LC_ALL=C sort | cpio --quiet -o -H newc -R 0:0 ) | zstd -19 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" -q > "$D/kwickos-$ARCH-initramfs.cpio.zst"
 
 # --- 2. GPT disk image (virt kernel) --------------------------------------
 ROOTMB=${ROOTMB:-1024}; ESPMB=48
@@ -52,7 +52,7 @@ if [ -f "$KI/modules.tar.zst" ]; then
 fi
 EFII=$(efibin "$KI")
 LR="$W/live"; mkdir -p "$LR/kwick"
-mkfs.erofs --quiet -zlz4hc,12 -T0 --all-root "$LR/kwick/root.erofs" "$RI"
+mkfs.erofs --quiet -zlz4hc,12 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$LR/kwick/root.erofs" "$RI"
 echo "KwickOS $(cat "$RI/etc/kwick-release" 2>/dev/null) live ($(cat "$KI/version"))" > "$LR/kwick/README"
 mkfs.vfat -n KWICK-ESP -C "$W/efiboot.img" $(( $(stat -c %s "$EFII") / 1024 + 512 )) >/dev/null
 mmd -i "$W/efiboot.img" ::/EFI ::/EFI/BOOT

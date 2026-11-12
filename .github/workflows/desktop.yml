@@ -1,0 +1,60 @@
+name: desktop
+
+# Builds the KwickOS Desktop (KDE Plasma 6) live ISO on top of the headless
+# build artifacts. Reused by release.yml; can also be run by hand.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      ARCH: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space (desktop rootfs is ~4 GB unpacked)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af >/dev/null
+          df -h /
+
+      - name: Builder image
+        run: docker build -t kwick-builder -f docker/Dockerfile.builder docker
+
+      - name: Base build (userland, kpkg, generic kernel, rootfs)
+        run: |
+          docker volume create kwick-cache
+          make userland kpkg kernel-generic rootfs ARCH=$ARCH
+          make container ARCH=$ARCH
+
+      - name: Desktop rootfs (Plasma, drivers, firmware, effects)
+        run: docker build --progress=plain --build-arg BASE=kwickos:$(cat VERSION)-$ARCH -t kwickos-desktop:ci desktop/
+
+      - name: Desktop live ISO
+        run: |
+          docker create --name deskx kwickos-desktop:ci /bin/true
+          docker export deskx -o "$PWD/out/desktop-rootfs.tar"
+          docker rm deskx
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build kwick-builder \
+            bash /src/scripts/mkdesktop-iso.sh $ARCH /out/desktop-rootfs.tar
+          rm -f out/desktop-rootfs.tar
+
+      - name: Boot test (live ISO reaches the Plasma session)
+        run: |
+          [ -e /dev/kvm ] && sudo chmod 666 /dev/kvm || true
+          docker run --rm $( [ -w /dev/kvm ] && echo --device /dev/kvm ) -v "$PWD:/src" -v "$PWD/out:/out" \
+            kwick-builder bash /src/tests/desktop-boot.sh /out/$ARCH/kwickos-desktop-$ARCH.iso /out/desktop-shot.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwickos-desktop-amd64
+          path: |
+            out/amd64/kwickos-desktop-amd64.iso
+            out/desktop-shot.png
+          retention-days: 14

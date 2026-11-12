@@ -932,6 +932,33 @@ static void apply_sysctls(void)
 	apply_sysctl_file("/etc/sysctl.conf");
 }
 
+/* An empty or missing /etc/machine-id (the convention for distributable
+ * images) means "first boot": generate one from the kernel's random UUID.
+ * D-Bus, elogind, journald-style tools and DHCP client IDs need it. On a
+ * read-only root it is written to /run and bind-mounted over. */
+static void ensure_machine_id(void)
+{
+	char id[64];
+	int n = read_file("/etc/machine-id", id, sizeof id);
+	if (n >= 32) return;
+	char uuid[64];
+	if (read_file("/proc/sys/kernel/random/uuid", uuid, sizeof uuid) < 36) return;
+	char out[34];
+	int o = 0;
+	for (int i = 0; uuid[i] && o < 32; i++)
+		if (isxdigit((unsigned char)uuid[i])) out[o++] = (char)tolower((unsigned char)uuid[i]);
+	out[o++] = '\n';
+	out[o] = 0;
+	if (write_file("/etc/machine-id", out) == 0) return;
+	if (write_file("/run/machine-id", out) == 0) {
+		if (access("/etc/machine-id", F_OK) != 0) {
+			int fd = open("/etc/machine-id", O_WRONLY | O_CREAT | O_CLOEXEC, 0444);
+			if (fd >= 0) close(fd);
+		}
+		mount("/run/machine-id", "/etc/machine-id", NULL, MS_BIND, NULL);
+	}
+}
+
 static void set_hostname(void)
 {
 	char h[256];
@@ -1316,6 +1343,7 @@ static int stage1(void)
 	verbose = cmdline_get("kwick.debug") != NULL;
 	setup_signals();
 	reboot(RB_DISABLE_CAD);
+	ensure_machine_id();
 	set_hostname();
 	lo_up();
 	apply_sysctls();

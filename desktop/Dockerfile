@@ -27,7 +27,7 @@ RUN set -e; \
     find /usr/lib/kwick /usr/bin/kwick-gaming -type f -exec chmod 755 {} +; \
     rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
     W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W; \
-    for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do \
+    for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do \
       f=$(ls /usr/lib/systemd/system/$u.service 2>/dev/null || true); \
       if [ -n "$f" ]; then ln -sf $f $W/$u.service; else echo "note: no unit $u"; fi; \
     done; \

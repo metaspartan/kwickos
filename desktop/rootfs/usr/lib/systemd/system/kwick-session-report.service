@@ -1,0 +1,9 @@
+[Unit]
+Description=Report desktop session readiness and boot timing on the console
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/kwick/session-report
+
+[Install]
+WantedBy=multi-user.target

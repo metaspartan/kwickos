@@ -6,3 +6,4 @@
 *.img
 *.qcow2
 src/kpkg/kpkg
+build/overlay/

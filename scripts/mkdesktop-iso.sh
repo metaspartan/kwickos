@@ -20,7 +20,7 @@ zstd -dc "$K/modules.tar.zst" | tar -C "$W/root/usr" -x
 KREL=$(cat "$K/version")
 depmod -b "$W/root" "$KREL" 2>/dev/null || depmod -b "$W/root/usr" "$KREL" || true
 
-mkfs.erofs --quiet -zlz4hc,12 -T0 --all-root "$W/live/kwick/root.erofs" "$W/root"
+mkfs.erofs --quiet -zlz4hc,12 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$W/live/kwick/root.erofs" "$W/root"
 echo "KwickOS Desktop live ($KREL)" > "$W/live/kwick/README"
 mkfs.vfat -n KWICK-ESP -C "$W/efiboot.img" $(( $(stat -c %s "$EFI") / 1024 + 512 )) >/dev/null
 mmd -i "$W/efiboot.img" ::/EFI ::/EFI/BOOT

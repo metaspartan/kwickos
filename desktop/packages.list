@@ -21,7 +21,7 @@ flatpak sudo nano htop curl wget git unzip less
 
 # --- graphics: Mesa (AMD radeonsi/RADV, Intel iris/ANV, NVIDIA nouveau/NVK,
 #     virtio/llvmpipe), video decode, Vulkan/OpenCL ---
-libgl1-mesa-dri libegl-mesa0 libglx-mesa0 mesa-vulkan-drivers mesa-va-drivers
+libxcb-cursor0 libgl1-mesa-dri libegl-mesa0 libglx-mesa0 mesa-vulkan-drivers mesa-va-drivers
 mesa-opencl-icd vulkan-tools mesa-utils intel-media-va-driver
 
 # --- firmware (GPUs, Wi-Fi, Bluetooth, audio DSPs) ---
