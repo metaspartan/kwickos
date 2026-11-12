@@ -108,6 +108,29 @@ vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by de
   and `passwd` for a password prompt. Install `openssh-server` for remote access.
 * `kwick-kernel-install --list | --rollback` manages kernels.
 
+## Alpine packages, Bun, and other ecosystems
+
+`apk add <pkg>` works next to `apt`: Alpine (musl) and Debian (glibc) packages coexist, and
+the apk bootstrap is signature-verified (an untrusted key is refused). `tests/ecosystems.sh`
+verifies on every change that `apk add nodejs` and `apt install python3` work side by side
+and that the latest Bun installs with the official installer and runs.
+
+## Desktop edition (preview)
+
+`desktop/` builds a KDE Plasma 6 (Wayland) edition on the same base: SDDM, elogind (no
+systemd PID 1), PipeWire, NetworkManager, Mesa drivers (AMD, Intel, NVIDIA-nouveau/NVK,
+virtio) with GPU firmware, Flatpak/Discover, KWin effects configuration (wobbly windows,
+etc.) and a `kwick-gaming` launcher (see `desktop/` and `.github/workflows/desktop.yml`).
+Not done yet: GNOME and other selectable desktops, proprietary NVIDIA drivers,
+Apple Silicon (Asahi) and DGX Spark (GB10) kernels, and Proton/Steam. The desktop
+edition is a separate image so the headless base stays small.
+
+## Security
+
+`.github/workflows/security.yml` runs on every push and nightly: kernel freshness against
+kernel.org, `govulncheck` for kpkg, OSV advisories and a grype scan of the built image.
+`kernel-watch` opens a PR for each new stable kernel.
+
 ## Building
 
 Requirements: Linux with Docker (and KVM for fast boot tests). For non-native arches,
@@ -148,7 +171,7 @@ KwickOS 0.1 is an early release. Known gaps:
   activation, timers, dependency ordering beyond "start everything in parallel", or D-Bus.
 * No SELinux/AppArmor policy. Lockdown, Landlock, Yama and seccomp are enabled.
 * riscv64 is tested under QEMU emulation only. The riscv64 generic flavor builds only in release CI.
-* A GUI edition is planned separately.
+* The desktop edition is a preview (see above).
 
 ## License
 
