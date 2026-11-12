@@ -1,0 +1,16 @@
+#!/bin/sh
+# KwickOS on-demand bash.
+# The base system has no GNU bash (BusyBox ash covers /bin/sh). The first
+# time something runs `bash` - e.g. `curl -fsSL https://.../install | bash` -
+# real bash is installed from Debian and takes over this path for good.
+# Set KWICK_NO_AUTOINSTALL=1 to get BusyBox ash instead.
+if [ "$(id -u)" = 0 ] && [ -z "${KWICK_NO_AUTOINSTALL:-}" ]; then
+	echo "kwick: installing GNU bash on first use (apt install bash) ..." >&2
+	apt-get install -y -q bash </dev/null >/dev/null 2>&1 ||
+		{ apt-get update -q </dev/null >/dev/null 2>&1 && apt-get install -y -q bash </dev/null >/dev/null 2>&1; }
+	if ! grep -q 'KwickOS on-demand bash' /usr/bin/bash 2>/dev/null; then
+		exec /usr/bin/bash "$@"
+	fi
+	echo "kwick: could not install bash, falling back to BusyBox ash" >&2
+fi
+exec /usr/bin/busybox ash "$@"

@@ -322,13 +322,19 @@ func externalGet(u string) (*httpResp, string, error) {
 	} else {
 		return nil, "", errors.New("https:// sources need curl or wget (apt install curl, or use http:// mirrors — packages are signature-verified either way)")
 	}
-	out, err := cmd.StdoutPipe()
+	// Download to a temp file first so HTTP errors (404 pages etc.) surface
+	// as errors instead of being parsed as content.
+	tmp, err := os.CreateTemp("", "kpkg-dl-")
 	if err != nil {
 		return nil, "", err
 	}
+	os.Remove(tmp.Name()) // unlinked; kept alive by the open fd
+	cmd.Stdout = tmp
 	cmd.Stderr = nil
-	if err := cmd.Start(); err != nil {
-		return nil, "", err
+	if err := cmd.Run(); err != nil {
+		tmp.Close()
+		return &httpResp{Body: io.NopCloser(strings.NewReader("")), Code: 404}, "", nil
 	}
-	return &httpResp{Body: &cmdBody{out, cmd}, Code: 200}, "", nil
+	tmp.Seek(0, io.SeekStart)
+	return &httpResp{Body: tmp, Code: 200}, "", nil
 }

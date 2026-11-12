@@ -100,13 +100,15 @@ func main() {
 	args := os.Args[1:]
 	if name == "kpkg" && len(args) > 0 {
 		switch args[0] {
-		case "apt", "apt-get", "apt-cache", "apt-mark", "dpkg", "dpkg-query", "dpkg-deb", "update-alternatives",
+		case "apk", "apt", "apt-get", "apt-cache", "apt-mark", "dpkg", "dpkg-query", "dpkg-deb", "update-alternatives",
 			"dpkg-trigger", "dpkg-divert", "dpkg-maintscript-helper", "dpkg-statoverride", "dpkg-architecture":
 			name, args = args[0], args[1:]
 		}
 	}
 	var rc int
 	switch name {
+	case "apk":
+		rc = mainApk(args)
 	case "dpkg":
 		rc = mainDpkg(args)
 	case "dpkg-query":

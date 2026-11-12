@@ -12,6 +12,9 @@ mkdir -p "$OUT" "$CACHE" /tmp/bb
 
 apk add --no-cache build-base linux-headers perl bzip2 sed >/dev/null
 
+# ---- Alpine signing keys (for `apk` on KwickOS) -------------------------
+rm -rf "$OUT/apk-keys"; mkdir -p "$OUT/apk-keys"; cp /etc/apk/keys/*.pub "$OUT/apk-keys/"
+
 # ---- kinit -----------------------------------------------------------
 CFLAGS="-Os -pipe -static -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-format-truncation -Wno-stringop-truncation"
 gcc $CFLAGS -Wl,--gc-sections -Wl,-z,relro,-z,now -s -o "$OUT/kinit" "$SRC/src/kinit/kinit.c"

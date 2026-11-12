@@ -157,11 +157,12 @@ func (pl *Plan) Resolve() error {
 				continue
 			}
 			fields := []string{"Pre-Depends", "Depends"}
-			if pl.opts.Recommends {
-				fields = append(fields, "Recommends")
-			}
+			fields = append(fields, "Recommends")
 			for _, fld := range fields {
 				for _, g := range p.Deps(fld) {
+					if fld == "Recommends" && !pl.opts.Recommends && !essentialRecommend(g) {
+						continue
+					}
 					if pl.groupSatisfied(g) {
 						continue
 					}

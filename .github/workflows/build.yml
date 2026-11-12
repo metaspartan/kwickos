@@ -94,6 +94,7 @@ jobs:
           make container ARCH=$ARCH
           PKGS="curl python3 nginx tzdata git" bash tests/compat.sh kwickos:$(cat VERSION)-$ARCH 5 | tee compat.md
           ! grep -q '| FAIL |' compat.md
+          bash tests/ecosystems.sh kwickos:$(cat VERSION)-$ARCH | tee -a compat.md
 
       - name: Sizes
         run: |

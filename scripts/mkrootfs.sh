@@ -44,13 +44,15 @@ for l in systemctl journalctl deb-systemd-helper deb-systemd-invoke systemd-sysu
 # --- kpkg (apt, dpkg, ...) ---------------------------------------------
 install -m 0755 "$U/kpkg" usr/bin/kpkg
 for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dpkg-divert dpkg-maintscript-helper \
-         dpkg-statoverride dpkg-architecture update-alternatives; do ln -sf kpkg usr/bin/$l; done
+         dpkg-statoverride dpkg-architecture update-alternatives apk; do ln -sf kpkg usr/bin/$l; done
 
 # --- configuration overlay ---------------------------------------------
 # --no-preserve: sources may come from a Windows/9p checkout with 0777 modes
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
 find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install
+chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/lib/kwick/bash-on-demand
+# /bin/bash: real GNU bash is installed the first time it is used
+rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
 # users/groups: Debian base-passwd defaults (www-data, nobody, ...)
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd
@@ -111,6 +113,31 @@ if [ -n "$KWICK_REPO_URL" ] && [ -f "$KWICK_REPO_KEY" ]; then
   cp "$KWICK_REPO_KEY" usr/share/keyrings/kwickos-archive-keyring.asc
   printf 'Types: deb\nURIs: %s\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' "$KWICK_REPO_URL" > etc/apt/sources.list.d/kwickos.sources
 fi
+# Alpine's apk alongside apt: keys + repositories + a seeded database in
+# which a virtual package stands in for busybox/baselayout. kpkg fetches and
+# verifies apk.static on first use.
+ALPINE_BRANCH=${ALPINE_BRANCH:-v3.24}
+case $ARCH in amd64) AARCH=x86_64;; arm64) AARCH=aarch64;; riscv64) AARCH=riscv64;; esac
+mkdir -p etc/apk/keys usr/lib/apk/db var/cache/apk
+cp "$U"/apk-keys/*.pub etc/apk/keys/ 2>/dev/null || echo "note: no Alpine keys for $ARCH"
+echo "$AARCH" > etc/apk/arch
+printf 'http://dl-cdn.alpinelinux.org/alpine/%s/main\nhttp://dl-cdn.alpinelinux.org/alpine/%s/community\n' "$ALPINE_BRANCH" "$ALPINE_BRANCH" > etc/apk/repositories
+echo kwick-base > etc/apk/world
+cat > usr/lib/apk/db/installed <<EOF
+C:Q1AAAAAAAAAAAAAAAAAAAAAAAAAAA=
+P:kwick-base
+V:$VERSION-r0
+A:$AARCH
+S:0
+I:0
+T:KwickOS base system (virtual)
+U:https://github.com/metaspartan/kwickos
+L:MIT
+o:kwick-base
+t:1700000000
+p:busybox=1.38.0-r0 busybox-binsh=1.38.0-r0 /bin/sh cmd:sh alpine-baselayout=3.7.2-r1 alpine-baselayout-data=3.7.2-r1 alpine-release=3.24.4-r0 alpine-keys=2.6-r0 apk-tools=3.0.9-r0 ssl_client=1.38.0-r0
+
+EOF
 # default enabled services
 for u in networking syslog; do ln -sf /usr/lib/systemd/system/$u.service etc/systemd/system/multi-user.target.wants/$u.service; done
 

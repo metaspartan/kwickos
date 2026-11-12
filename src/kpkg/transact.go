@@ -235,6 +235,7 @@ type Tx struct {
 	unpacked  []string // all paths unpacked (for file triggers)
 	prevVer   map[string]string
 	healed    map[string]bool
+	ldSeen    int
 }
 
 // scriptError carries the (tail of the) output of a failed maintainer script.
@@ -456,6 +457,7 @@ func (pl *Plan) Execute(purge bool) error {
 				return err
 			}
 		}
+		tx.refreshLdCache()
 		sort.SliceStable(group, func(i, j int) bool { return configRank(group[i]) < configRank(group[j]) })
 		for _, p := range group {
 			if err := tx.configure(p); err != nil {
