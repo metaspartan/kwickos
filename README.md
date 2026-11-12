@@ -11,7 +11,7 @@ same base boots as a container, a microVM, a cloud/VM disk, or a live ISO on
 **amd64, arm64 and riscv64**.
 
 ```console
-$ docker run --rm -it ghcr.io/kwickos/kwickos
+$ docker run --rm -it ghcr.io/metaspartan/kwickos
 root@kwick:/# apt update && apt install -y nginx python3
 root@kwick:/# systemctl enable --now nginx      # works in containers too
 ```
@@ -71,7 +71,7 @@ Release artifacts (built by CI for each tag) are listed below; replace `amd64` w
 | `kwickos-amd64.efi` | the kernel itself (virt flavor): a UEFI app, `-kernel` for QEMU/Firecracker |
 | `kwickos-amd64-initramfs.cpio.zst` | the whole OS as an initramfs (microVMs, CI sandboxes) |
 | `kwickos-rootfs-amd64.tar.gz` | rootfs tarball (containers, chroots, WSL) |
-| `ghcr.io/kwickos/kwickos` | multi-arch container image |
+| `ghcr.io/metaspartan/kwickos` | multi-arch container image |
 
 ```sh
 # VM with persistent disk (UEFI)

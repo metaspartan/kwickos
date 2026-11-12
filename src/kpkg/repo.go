@@ -198,10 +198,20 @@ func Update() error {
 	}
 	fmt.Println("Reading package lists... Done")
 	if len(errs) > 0 {
+		// Integrity failures are fatal; an unreachable mirror is only a
+		// warning (old indexes stay usable), unless every source failed.
+		fatal := len(errs) == len(order)
 		for _, e := range errs {
-			fmt.Fprintln(os.Stderr, "E:", e)
+			if strings.Contains(e, "not signed") || strings.Contains(e, "mismatch") || strings.Contains(e, "expired") {
+				fatal = true
+				fmt.Fprintln(os.Stderr, "E:", e)
+			} else {
+				fmt.Fprintln(os.Stderr, "W: Failed to fetch:", e)
+			}
 		}
-		return errors.New("some index files failed to download")
+		if fatal {
+			return errors.New("some index files failed to download")
+		}
 	}
 	// report upgradable count like apt
 	db, err := OpenDB()

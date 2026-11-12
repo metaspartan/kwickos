@@ -78,9 +78,9 @@ VERSION="$VERSION (trixie-compatible)"
 VERSION_CODENAME=trixie
 ID=kwickos
 ID_LIKE=debian
-HOME_URL="https://github.com/kwickos/kwickos"
-SUPPORT_URL="https://github.com/kwickos/kwickos/issues"
-BUG_REPORT_URL="https://github.com/kwickos/kwickos/issues"
+HOME_URL="https://github.com/metaspartan/kwickos"
+SUPPORT_URL="https://github.com/metaspartan/kwickos/issues"
+BUG_REPORT_URL="https://github.com/metaspartan/kwickos/issues"
 EOF
 ln -sf ../usr/lib/os-release etc/os-release
 echo "KwickOS $VERSION" > etc/kwick-release
@@ -104,7 +104,9 @@ echo root > etc/kinit/autologin
 cp /etc/apt/trusted.gpg.d/debian-archive-trixie-*.asc etc/apt/trusted.gpg.d/
 # KwickOS repository (kernels, KwickOS packages). Enabled when the build
 # provides a repo URL + archive key (CI release builds).
-if [ -n "${KWICK_REPO_URL:-}" ] && [ -f "${KWICK_REPO_KEY:-/nonexistent}" ]; then
+KWICK_REPO_URL=${KWICK_REPO_URL:-http://metaspartan.github.io/kwickos}
+KWICK_REPO_KEY=${KWICK_REPO_KEY:-$SRC/keys/kwickos-archive-keyring.asc}
+if [ -n "$KWICK_REPO_URL" ] && [ -f "$KWICK_REPO_KEY" ]; then
   mkdir -p usr/share/keyrings
   cp "$KWICK_REPO_KEY" usr/share/keyrings/kwickos-archive-keyring.asc
   printf 'Types: deb\nURIs: %s\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' "$KWICK_REPO_URL" > etc/apt/sources.list.d/kwickos.sources

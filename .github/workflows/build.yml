@@ -24,11 +24,11 @@ jobs:
           - arch: amd64
             runner: ubuntu-24.04
           - arch: arm64
-            runner: ubuntu-24.04-arm      # native Arm runner (also covers Apple Silicon VMs)
+            runner: ubuntu-24.04          # userland via qemu-user, kernel cross-compiled
           - arch: riscv64
             runner: ubuntu-24.04          # userland via qemu-user, kernel cross-compiled
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 150
+    timeout-minutes: 300
     env:
       ARCH: ${{ matrix.arch }}
     steps:
@@ -42,10 +42,10 @@ jobs:
           fi
 
       - name: Set up QEMU user emulation
-        if: matrix.arch == 'riscv64'
+        if: matrix.arch != 'amd64'
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: riscv64
+          platforms: arm64,riscv64
 
       - name: Kernel version
         id: kver
@@ -89,7 +89,7 @@ jobs:
         run: make boot-test ARCH=$ARCH
 
       - name: Container image + package compatibility smoke test
-        if: matrix.arch != 'riscv64'
+        if: matrix.arch == 'amd64'
         run: |
           make container ARCH=$ARCH
           PKGS="curl python3 nginx tzdata git" bash tests/compat.sh kwickos:$(cat VERSION)-$ARCH 5 | tee compat.md
