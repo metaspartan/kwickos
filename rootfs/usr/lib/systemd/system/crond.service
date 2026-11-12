@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic command scheduler (busybox crond)
+
+[Service]
+ExecStartPre=/bin/mkdir -p /var/spool/cron/crontabs
+ExecStart=/usr/sbin/crond -f -c /var/spool/cron/crontabs
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

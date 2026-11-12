@@ -1,0 +1,22 @@
+# /etc/profile - KwickOS
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export LANG="${LANG:-C.UTF-8}"
+export PAGER="${PAGER:-less}"
+export EDITOR="${EDITOR:-vi}"
+umask 022
+
+if [ "$(id -u)" -eq 0 ]; then
+	PS1='\[\e[1;31m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]# '
+else
+	PS1='\[\e[1;32m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]$ '
+fi
+export PS1
+
+alias ls='ls --color=auto'
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+alias grep='grep --color=auto'
+
+for f in /etc/profile.d/*.sh; do [ -r "$f" ] && . "$f"; done
+unset f

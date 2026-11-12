@@ -1,0 +1,9 @@
+[Unit]
+Description=NTP time synchronisation (busybox ntpd)
+
+[Service]
+ExecStart=/usr/sbin/ntpd -n -p pool.ntp.org
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

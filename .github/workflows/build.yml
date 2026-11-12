@@ -1,0 +1,114 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm      # native Arm runner (also covers Apple Silicon VMs)
+          - arch: riscv64
+            runner: ubuntu-24.04          # userland via qemu-user, kernel cross-compiled
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    env:
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+
+      - name: Set up QEMU user emulation
+        if: matrix.arch == 'riscv64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: riscv64
+
+      - name: Kernel version
+        id: kver
+        run: echo "kver=$(cat KERNEL_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache downloads (kernel tarball, busybox, Go modules)
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: dl-${{ matrix.arch }}-${{ steps.kver.outputs.kver }}-${{ hashFiles('src/kpkg/go.sum') }}
+          restore-keys: dl-${{ matrix.arch }}-
+
+      - name: Builder image
+        run: docker build -t kwick-builder -f docker/Dockerfile.builder docker
+
+      - name: Prime docker volumes from cache
+        run: |
+          mkdir -p cache
+          docker volume create kwick-cache
+          docker run --rm -v "$PWD/cache:/from" -v kwick-cache:/cache alpine sh -c 'cp -a /from/. /cache/ 2>/dev/null || true'
+
+      - name: Userland (busybox + kinit)
+        run: make userland ARCH=$ARCH
+      - name: kpkg
+        run: make kpkg ARCH=$ARCH
+      - name: Kernel (virt)
+        run: make kernel ARCH=$ARCH KVER=${{ steps.kver.outputs.kver }}
+      - name: Kernel (generic)
+        if: matrix.arch != 'riscv64' || inputs.release
+        run: make kernel-generic ARCH=$ARCH KVER=${{ steps.kver.outputs.kver }}
+      - name: Root filesystem
+        run: make rootfs ARCH=$ARCH
+      - name: Images (efi, img, qcow2, iso, initramfs)
+        run: make images ARCH=$ARCH
+
+      - name: Save download cache
+        if: always()
+        run: docker run --rm -v "$PWD/cache:/to" -v kwick-cache:/cache alpine sh -c 'cp -a /cache/linux-*.tar.xz /cache/busybox-* /to/ 2>/dev/null || true'
+
+      - name: Boot tests
+        run: make boot-test ARCH=$ARCH
+
+      - name: Container image + package compatibility smoke test
+        if: matrix.arch != 'riscv64'
+        run: |
+          make container ARCH=$ARCH
+          PKGS="curl python3 nginx tzdata git" bash tests/compat.sh kwickos:$(cat VERSION)-$ARCH 5 | tee compat.md
+          ! grep -q '| FAIL |' compat.md
+
+      - name: Sizes
+        run: |
+          ls -l out/$ARCH/ | tee sizes.txt
+          echo "## $ARCH artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; cat sizes.txt >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+          [ -f compat.md ] && cat compat.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwickos-${{ matrix.arch }}
+          path: |
+            out/${{ matrix.arch }}/kwickos-*
+            out/${{ matrix.arch }}/kernel-*/version
+            out/${{ matrix.arch }}/kernel-*/config
+            out/${{ matrix.arch }}/kernel-*/vmlinuz*
+            out/${{ matrix.arch }}/kernel-*/modules.tar.zst
+          retention-days: 14

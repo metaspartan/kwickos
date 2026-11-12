@@ -1,0 +1,76 @@
+#!/bin/sh
+# kwick-kernel-install - make a KwickOS kernel the UEFI boot target.
+#
+# KwickOS has no bootloader: every kernel is a self-contained UEFI
+# application (EFI stub + embedded kinit initramfs) that finds its root
+# filesystem by partition label. Installing a kernel = copying one file to
+# the EFI System Partition's removable-media path. The previous kernel is
+# kept as EFI/kwick/previous.efi for instant rollback.
+#
+#   kwick-kernel-install <kernel-release>   install /usr/lib/kwick/kernels/<rel>
+#   kwick-kernel-install --rollback         boot the previous kernel again
+#   kwick-kernel-install --list             show installed kernels
+set -eu
+ESP=${KWICK_ESP:-/boot/efi}
+KDIR=/usr/lib/kwick/kernels
+
+case "$(uname -m)" in
+	x86_64) NAME=BOOTX64.EFI ;;
+	aarch64) NAME=BOOTAA64.EFI ;;
+	riscv64) NAME=BOOTRISCV64.EFI ;;
+	*) echo "kwick-kernel-install: unsupported arch $(uname -m)" >&2; exit 1 ;;
+esac
+
+find_esp() {
+	for u in /sys/class/block/*/uevent; do
+		if grep -q '^PARTNAME=EFI System$' "$u" 2>/dev/null; then
+			echo "/dev/$(sed -n 's/^DEVNAME=//p' "$u")"
+			return 0
+		fi
+	done
+	return 1
+}
+
+mount_esp() {
+	grep -q " $ESP " /proc/mounts 2>/dev/null && return 0
+	dev=$(find_esp) || return 1
+	mkdir -p "$ESP"
+	mount -t vfat "$dev" "$ESP"
+}
+
+case "${1:-}" in
+	--list)
+		ls -1 "$KDIR" 2>/dev/null
+		echo "running: $(uname -r)"
+		exit 0 ;;
+	--rollback)
+		mount_esp || { echo "no EFI System Partition found" >&2; exit 1; }
+		[ -f "$ESP/EFI/kwick/previous.efi" ] || { echo "no previous kernel" >&2; exit 1; }
+		cp "$ESP/EFI/BOOT/$NAME" "$ESP/EFI/kwick/rollback-from.efi"
+		cp "$ESP/EFI/kwick/previous.efi" "$ESP/EFI/BOOT/$NAME.new"
+		mv "$ESP/EFI/BOOT/$NAME.new" "$ESP/EFI/BOOT/$NAME"
+		sync
+		echo "Rolled back. Reboot to use the previous kernel."
+		exit 0 ;;
+	""|-h|--help)
+		sed -n '2,15p' "$0"; exit 0 ;;
+esac
+
+REL=$1
+SRC="$KDIR/$REL"
+IMG="$SRC/vmlinuz.efi"; [ -f "$IMG" ] || IMG="$SRC/vmlinuz"
+[ -f "$IMG" ] || { echo "kwick-kernel-install: $IMG not found" >&2; exit 1; }
+if ! mount_esp; then
+	echo "kwick-kernel-install: no EFI System Partition (direct-kernel boot / container?)."
+	echo "  Kernel stored in $SRC; point your hypervisor at it."
+	exit 0
+fi
+mkdir -p "$ESP/EFI/BOOT" "$ESP/EFI/kwick"
+if [ -f "$ESP/EFI/BOOT/$NAME" ] && ! cmp -s "$ESP/EFI/BOOT/$NAME" "$IMG"; then
+	cp "$ESP/EFI/BOOT/$NAME" "$ESP/EFI/kwick/previous.efi"
+fi
+cp "$IMG" "$ESP/EFI/BOOT/$NAME.new"
+mv "$ESP/EFI/BOOT/$NAME.new" "$ESP/EFI/BOOT/$NAME"
+echo "$REL" > "$ESP/EFI/kwick/current"
+sync
+echo "kwick-kernel-install: $REL is now the boot kernel (previous kept for --rollback)."

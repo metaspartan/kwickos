@@ -1,0 +1,41 @@
+name: kernel-watch
+
+# Track the newest stable kernel from kernel.org. When a new release (and
+# therefore new CVE fixes) appears, open a PR bumping KERNEL_VERSION; the PR
+# runs the full build + boot test matrix, merging it ships the kernel to the
+# apt repo so `apt upgrade` delivers it to every KwickOS system.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Latest stable
+        id: k
+        run: |
+          latest=$(curl -fsSL https://www.kernel.org/releases.json | jq -r '[.releases[]|select(.moniker=="stable" and .iseol==false)][0].version')
+          current=$(cat KERNEL_VERSION)
+          echo "latest=$latest current=$current"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          [ "$latest" != "$current" ] && echo "$latest" > KERNEL_VERSION || true
+      - name: Open PR
+        if: steps.k.outputs.latest != steps.k.outputs.current
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: kernel/${{ steps.k.outputs.latest }}
+          title: "kernel: ${{ steps.k.outputs.current }} -> ${{ steps.k.outputs.latest }}"
+          commit-message: "kernel: bump to ${{ steps.k.outputs.latest }}"
+          body: |
+            New upstream stable kernel **${{ steps.k.outputs.latest }}** (was ${{ steps.k.outputs.current }}).
+            Changelog: https://cdn.kernel.org/pub/linux/kernel/ (ChangeLog-${{ steps.k.outputs.latest }})
+            The build workflow verifies the tarball checksum, enforces required config options and boot-tests every arch.
+          labels: kernel, security

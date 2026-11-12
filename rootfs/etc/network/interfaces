@@ -1,0 +1,9 @@
+# Debian-style network configuration (ifupdown syntax, handled by busybox ifup).
+# See interfaces(5). KwickOS brings up the first ethernet interface via DHCP;
+# IPv6 is autoconfigured by the kernel (SLAAC).
+
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp

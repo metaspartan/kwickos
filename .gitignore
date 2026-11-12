@@ -1,0 +1,8 @@
+/out/
+/build/
+/cache/
+*.o
+*.iso
+*.img
+*.qcow2
+src/kpkg/kpkg

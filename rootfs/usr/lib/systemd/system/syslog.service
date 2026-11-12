@@ -1,0 +1,9 @@
+[Unit]
+Description=System logger (busybox syslogd, 256 KiB in-memory ring; read with logread/journalctl)
+
+[Service]
+ExecStart=/sbin/syslogd -n -C256
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

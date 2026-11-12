@@ -1,0 +1,11 @@
+[Unit]
+Description=Raise network interfaces (ifupdown)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/ifup -a
+ExecStop=/sbin/ifdown -a
+
+[Install]
+WantedBy=multi-user.target

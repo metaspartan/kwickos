@@ -1,0 +1,84 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      release: true
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+
+      - name: Collect release files
+        run: |
+          mkdir -p release
+          for a in amd64 arm64 riscv64; do
+            cp dl/kwickos-$a/kwickos-* release/ 2>/dev/null || true
+          done
+          # disk images are sparse 1 GiB; ship them compressed
+          for f in release/*.img; do [ -f "$f" ] && zstd -19 -T0 --rm -q "$f"; done
+          (cd release && sha256sum * > SHA256SUMS)
+          ls -l release
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+
+      - name: Container image (multi-arch) -> ghcr.io
+        env:
+          REPO: ghcr.io/${{ github.repository_owner }}/kwickos
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          V=${GITHUB_REF_NAME#v}
+          refs=""
+          for a in amd64 arm64 riscv64; do
+            t=dl/kwickos-$a/kwickos-rootfs-$a.tar.gz
+            [ -f "$t" ] || continue
+            docker import --platform linux/$a --change 'CMD ["/bin/sh"]' \
+              --change 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' "$t" "$REPO:$V-$a"
+            docker push "$REPO:$V-$a"
+            refs="$refs $REPO:$V-$a"
+          done
+          docker buildx imagetools create -t "$REPO:$V" -t "$REPO:latest" $refs
+
+      - name: Kernel packages + signed apt repository
+        env:
+          KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
+        run: |
+          docker build -t kwick-builder -f docker/Dockerfile.builder docker
+          mkdir -p out
+          for a in amd64 arm64 riscv64; do
+            for f in virt generic; do
+              d=dl/kwickos-$a/kernel-$f
+              [ -f "$d/version" ] || continue
+              mkdir -p out/$a/kernel-$f && cp -r $d/. out/$a/kernel-$f/
+              docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkkernelpkg.sh $a $f
+            done
+          done
+          docker run --rm -e KWICK_SIGNING_KEY -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkrepo.sh stable
+          cp -r out/repo site && touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
