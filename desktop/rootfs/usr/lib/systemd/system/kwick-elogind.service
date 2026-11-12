@@ -1,0 +1,10 @@
+[Unit]
+Description=Login, seat and session manager (elogind)
+
+[Service]
+ExecStartPre=/usr/lib/kwick/wait-for dbus
+ExecStart=/usr/libexec/elogind
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Gaming Setup
+GenericName=Install Steam, Proton and game launchers
+Comment=Steam with Proton, ProtonUp-Qt, Heroic and Lutris from Flathub
+Icon=steam
+Exec=konsole --hold -e pkexec env DISPLAY=$DISPLAY /usr/bin/kwick-gaming
+Categories=Game;
+Keywords=steam;proton;wine;games;

@@ -6,7 +6,7 @@
 set -uo pipefail
 IMG=${1:-kwickos:dev}
 PAR=${2:-6}
-LOGDIR=${LOGDIR:-out/compat}
+LOGDIR=${LOGDIR:-$(mktemp -d /tmp/kwick-compat.XXXX)}
 mkdir -p "$LOGDIR"
 
 # package | smoke test

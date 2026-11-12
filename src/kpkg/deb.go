@@ -229,6 +229,9 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				continue
 			}
 			res.Files = append(res.Files, p)
+			if h.Typeflag != tar.TypeDir && kwickOwned(p) {
+				continue
+			}
 			if protectedPaths[p] && h.Typeflag != tar.TypeDir {
 				warn("not overwriting protected KwickOS file %s", p)
 				continue
@@ -372,4 +375,17 @@ func writeStreamAtomic(host string, r io.Reader, mode os.FileMode, h *tar.Header
 		return fmt.Errorf("cannot replace directory %s with a file", host)
 	}
 	return os.Rename(tmp, host)
+}
+
+// kwickOwned reports whether p is a KwickOS link to kinit or kpkg (e.g.
+// /usr/bin/systemctl, /usr/sbin/poweroff, /usr/bin/dpkg). Packages such as
+// systemd or dpkg must never replace them.
+func kwickOwned(p string) bool {
+	host := filepath.Join(cfg.Root, p)
+	t, err := os.Readlink(host)
+	if err != nil {
+		return false
+	}
+	b := path.Base(t)
+	return b == "kinit" || b == "kpkg"
 }

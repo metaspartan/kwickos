@@ -1,0 +1,14 @@
+#!/bin/sh
+# kwick-gaming: one-click gaming setup for KwickOS Desktop.
+# Steam (with Proton, Valve's Wine-based compatibility layer) comes from
+# Flathub, which bundles the 32-bit runtime and Mesa/NVIDIA GL extensions -
+# no multiarch needed on the host. Also offers ProtonUp-Qt (Proton-GE),
+# Heroic (Epic/GOG) and Lutris.
+set -e
+APPS="${*:-com.valvesoftware.Steam net.davidotek.pupgui2 com.heroicgameslauncher.hgl net.lutris.Lutris}"
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+echo "Installing: $APPS"
+flatpak install -y --noninteractive flathub $APPS
+echo
+echo "Done. GameMode (gamemoderun %command%) and MangoHud (mangohud %command%) are"
+echo "preinstalled; in Steam enable Proton under Settings > Compatibility."

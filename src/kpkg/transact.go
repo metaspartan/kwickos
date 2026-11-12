@@ -687,6 +687,9 @@ func removeInfo(infoName string) {
 }
 
 func removePath(p string) {
+	if kwickOwned(p) {
+		return
+	}
 	host, err := resolveInRoot(cfg.Root, p, false)
 	if err != nil {
 		return

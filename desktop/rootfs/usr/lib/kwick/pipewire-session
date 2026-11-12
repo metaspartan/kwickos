@@ -1,0 +1,8 @@
+#!/bin/sh
+# Start the PipeWire audio/video graph for a Plasma session (no systemd --user).
+pgrep -u "$(id -u)" -x pipewire >/dev/null 2>&1 && exit 0
+pipewire &
+sleep 0.3
+wireplumber &
+pipewire-pulse &
+wait

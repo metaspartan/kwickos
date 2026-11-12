@@ -880,7 +880,10 @@ static void mount_api(void)
 	symlink("/run", "/var/run");
 	/* Debian maintainer scripts check for this to decide between
 	 * deb-systemd-invoke (us) and sysv init scripts. */
-	mkdir_p("/run/systemd/system", 0755);
+	/* Desktop images run elogind, which (like libsystemd's sd_booted())
+	 * treats this directory as "systemd is PID 1"; they opt out. */
+	if (access("/etc/kinit/no-systemd-marker", F_OK) != 0)
+		mkdir_p("/run/systemd/system", 0755);
 }
 
 static void remount_root(void)
@@ -1031,6 +1034,15 @@ static void find_consoles(void)
 	if (read_file("/sys/class/tty/console/active", b, sizeof b) <= 0) return;
 	for (char *t = strtok(b, " \n"); t && nconsoles < 8; t = strtok(NULL, " \n")) {
 		if (!strcmp(t, "tty0")) t = "tty1";
+		/* /etc/kinit/no-getty lists consoles left to a display manager */
+		char skip[256] = "", pat[40];
+		snprintf(pat, sizeof pat, " %s ", t);
+		if (read_file("/etc/kinit/no-getty", skip + 1, sizeof skip - 2) > 0) {
+			skip[0] = ' ';
+			for (char *c = skip; *c; c++) if (*c == '\n' || *c == '\t') *c = ' ';
+			strcat(skip, " ");
+			if (strstr(skip, pat)) continue;
+		}
 		snprintf(consoles[nconsoles++], 32, "%s", t);
 	}
 }

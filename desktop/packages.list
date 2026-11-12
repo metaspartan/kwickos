@@ -1,0 +1,37 @@
+# KwickOS Desktop package set (Debian 13 "trixie" names).
+# Lines starting with # are comments. Installed without Recommends.
+
+# --- session infrastructure (no systemd PID 1: elogind + standalone udev) ---
+elogind libpam-elogind dbus udev polkitd
+network-manager wpasupplicant iw bluez
+pipewire pipewire-pulse pipewire-alsa wireplumber libspa-0.2-bluetooth
+udisks2 upower power-profiles-daemon rtkit
+xdg-user-dirs xdg-utils
+
+# --- KDE Plasma 6 (Wayland) ---
+sddm sddm-theme-breeze plasma-desktop plasma-workspace kwin-wayland xwayland
+plasma-nm plasma-pa powerdevil bluedevil kscreen systemsettings kinfocenter
+plasma-discover plasma-discover-backend-flatpak xdg-desktop-portal-kde
+polkit-kde-agent-1 breeze breeze-gtk-theme kde-config-gtk-style kde-config-sddm
+plasma-widgets-addons kdeplasma-addons-data ksshaskpass libpam-kwallet5
+
+# --- applications ---
+konsole dolphin kate ark gwenview okular kde-spectacle kcalc firefox-esr
+flatpak sudo nano htop curl wget git unzip less
+
+# --- graphics: Mesa (AMD radeonsi/RADV, Intel iris/ANV, NVIDIA nouveau/NVK,
+#     virtio/llvmpipe), video decode, Vulkan/OpenCL ---
+libgl1-mesa-dri libegl-mesa0 libglx-mesa0 mesa-vulkan-drivers mesa-va-drivers
+mesa-opencl-icd vulkan-tools mesa-utils intel-media-va-driver
+
+# --- firmware (GPUs, Wi-Fi, Bluetooth, audio DSPs) ---
+firmware-amd-graphics firmware-intel-graphics firmware-nvidia-graphics
+firmware-iwlwifi firmware-realtek firmware-mediatek firmware-atheros
+firmware-brcm80211 firmware-sof-signed firmware-misc-nonfree
+
+# --- gaming & compute ---
+gamemode mangohud python3 python3-venv
+
+# --- fonts & look ---
+fonts-noto-core fonts-noto-color-emoji fonts-inter fonts-jetbrains-mono
+papirus-icon-theme

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -122,6 +123,10 @@ func (pl *Plan) choose(d Dep) *Pkg {
 		return nil
 	}
 	sort.SliceStable(cands, func(i, j int) bool {
+		bi, bj := pl.disfavored(cands[i]), pl.disfavored(cands[j])
+		if bi != bj {
+			return !bi
+		}
 		ri, rj := prioRank[cands[i].Field("Priority")], prioRank[cands[j].Field("Priority")]
 		if ri != rj {
 			return ri < rj
@@ -166,11 +171,25 @@ func (pl *Plan) Resolve() error {
 					if pl.groupSatisfied(g) {
 						continue
 					}
-					var pick *Pkg
+					var pick, fallback *Pkg
 					for _, d := range g {
-						if pick = pl.choose(d); pick != nil {
+						c := pl.choose(d)
+						if c == nil {
+							continue
+						}
+						if !pl.disfavored(c) {
+							pick = c
 							break
 						}
+						if fallback == nil {
+							fallback = c
+						}
+					}
+					if pick == nil {
+						pick = fallback
+					}
+					if pick != nil && os.Getenv("KPKG_DEBUG") != "" {
+						fmt.Fprintf(os.Stderr, "debug: %s %s -> %s\n", p.Name, fld, pick.Name)
 					}
 					if pick == nil {
 						if fld == "Recommends" {

@@ -1,0 +1,8 @@
+{
+    "KPlugin": {
+        "Authors": [ { "Name": "KwickOS" } ],
+        "Id": "KwickOS",
+        "License": "CC-BY-SA-4.0",
+        "Name": "KwickOS"
+    }
+}

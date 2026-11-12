@@ -1,0 +1,20 @@
+[KDE]
+LookAndFeelPackage=org.kwickos.desktop
+widgetStyle=Breeze
+SingleClick=false
+AnimationDurationFactor=0.85
+
+[General]
+ColorScheme=BreezeDark
+font=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+menuFont=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+smallestReadableFont=Inter,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+toolBarFont=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+fixed=JetBrains Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+AccentColor=94,129,244
+
+[Icons]
+Theme=Papirus-Dark
+
+[WM]
+activeFont=Inter,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1

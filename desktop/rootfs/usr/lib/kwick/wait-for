@@ -1,0 +1,18 @@
+#!/bin/sh
+# wait-for <udev|dbus|logind|udev-settled>... : kinit starts services in
+# parallel; units with real ordering needs wait (max 20 s) for what they use.
+for what in "$@"; do
+	i=0
+	while [ $i -lt 200 ]; do
+		case $what in
+			udev) [ -S /run/udev/control ] && break ;;
+			dbus) [ -S /run/dbus/system_bus_socket ] && break ;;
+			logind) dbus-send --system --print-reply --dest=org.freedesktop.login1 /org/freedesktop/login1 \
+				org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 && break ;;
+			udev-settled) [ -e /run/kwick/udev-settled ] && break ;;
+		esac
+		i=$((i + 1))
+		sleep 0.1
+	done
+done
+exit 0

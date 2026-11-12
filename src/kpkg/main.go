@@ -28,7 +28,13 @@ type Config struct {
 	KeepDebs, DownloadOnly    bool
 	Purge, AutoRemove         bool
 	Quiet                     int
+	// Avoid: packages never chosen to satisfy an "a | b" dependency or a
+	// virtual package while another option exists. KwickOS runs kinit as
+	// PID 1, so systemd-as-init packages are only taken when unavoidable.
+	Avoid map[string]bool
 }
+
+var defaultAvoid = []string{"systemd", "systemd-sysv", "libpam-systemd", "dbus-user-session", "systemd-timesyncd"}
 
 var cfg = Config{Root: "/"}
 
@@ -66,6 +72,10 @@ func setupPaths() {
 	cfg.Lists = filepath.Join(cfg.Root, "var/lib/apt/lists")
 	cfg.Cache = filepath.Join(cfg.Root, "var/cache/apt/archives")
 	cfg.Arch = debArch()
+	cfg.Avoid = map[string]bool{}
+	for _, n := range defaultAvoid {
+		cfg.Avoid[n] = true
+	}
 	// Config file: /etc/kpkg.conf  (key = value)
 	if data, err := os.ReadFile(filepath.Join(cfg.Root, "etc/kpkg.conf")); err == nil {
 		for _, l := range strings.Split(string(data), "\n") {
@@ -82,6 +92,11 @@ func setupPaths() {
 				cfg.KeepDebs = on
 			case "assume-yes":
 				cfg.Yes = on
+			case "avoid":
+				cfg.Avoid = map[string]bool{}
+				for _, n := range strings.Fields(v) {
+					cfg.Avoid[n] = true
+				}
 			}
 		}
 	}
@@ -120,8 +135,10 @@ func main() {
 		rc = mainAlternatives(args)
 	case "dpkg-trigger":
 		rc = mainDpkgTrigger(args)
-	case "dpkg-divert", "dpkg-statoverride":
-		rc = 0 // diversions/statoverrides are accepted and ignored
+	case "dpkg-divert":
+		rc = 0 // diversions are accepted and ignored
+	case "dpkg-statoverride":
+		rc = mainStatoverride(args)
 	case "dpkg-maintscript-helper":
 		rc = mainMaintscriptHelper(args)
 	case "dpkg-architecture":

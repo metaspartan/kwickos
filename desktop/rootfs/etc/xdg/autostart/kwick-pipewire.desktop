@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PipeWire
+Comment=Audio and screen sharing
+Exec=/usr/lib/kwick/pipewire-session
+NoDisplay=true
+X-KDE-autostart-phase=0
+OnlyShowIn=KDE;

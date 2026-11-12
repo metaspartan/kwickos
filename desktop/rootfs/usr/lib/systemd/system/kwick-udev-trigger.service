@@ -1,0 +1,11 @@
+[Unit]
+Description=Coldplug all devices through udev (GPU, input, sound permissions and rules)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/lib/kwick/wait-for udev
+ExecStart=/bin/sh -c 'udevadm trigger --type=subsystems --action=add; udevadm trigger --type=devices --action=add; udevadm settle -t 15'
+
+[Install]
+WantedBy=multi-user.target
