@@ -57,8 +57,35 @@ jobs:
     needs: plan
     uses: ./.github/workflows/desktop.yml
 
+  hyprland:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: c
+        uses: actions/cache@v4
+        with:
+          path: hyprland-out
+          key: kwick-hyprland-${{ matrix.arch }}-${{ hashFiles('scripts/mkhyprlandpkg.sh', 'VERSION') }}
+      - name: Build kwick-hyprland from pinned upstream tags
+        if: steps.c.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p hyprland-out
+          docker run --rm -v "$PWD:/src:ro" -v "$PWD/hyprland-out:/out" debian:trixie bash /src/scripts/mkhyprlandpkg.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwick-hyprland-${{ matrix.arch }}
+          path: hyprland-out/repo/pool/main/kwick-hyprland_*.deb
+
   publish:
-    needs: [plan, build, desktop]
+    needs: [plan, build, desktop, hyprland]
     # headless must be green; desktop images are published for whichever archs built
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -142,6 +169,7 @@ jobs:
           done
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkgpupkg.sh
           for a in amd64 arm64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
+          cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
           docker run --rm -e KWICK_SIGNING_KEY -e KWICK_SIGNING_PASSPHRASE -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkrepo.sh stable
           cp -r out/repo site && touch site/.nojekyll
           bash scripts/mksite.sh site
