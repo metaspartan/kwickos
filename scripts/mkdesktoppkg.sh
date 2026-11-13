@@ -44,6 +44,11 @@ if ! id kwick >/dev/null 2>&1; then
   for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done
   echo "kwick: set a password with 'passwd kwick' (no password = no login except autologin)"
 fi
+if command -v locale-gen >/dev/null; then
+  grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen 2>/dev/null || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
+  locale-gen >/dev/null 2>&1 || true
+  [ -f /etc/default/locale ] || update-locale LANG=en_US.UTF-8 >/dev/null 2>&1 || true
+fi
 rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 mkdir -p /etc/sddm.conf.d
 [ -f /etc/sddm.conf.d/20-autologin.conf ] || printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf

@@ -67,7 +67,7 @@ QtObject {
     }
 
     function terminal(cmd) {
-        run("konsole --hold -e sh -c '" + cmd.replace(/'/g, "'\\''") + "'")
+        run("kwick-terminal -e sh -c '" + (cmd + "; echo; printf \"Press Enter to close\"; read -r _").replace(/'/g, "'\\''") + "'")
     }
 
     function sections(text) {

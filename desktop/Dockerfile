@@ -14,6 +14,7 @@ RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firm
  && apt clean && rm -rf /var/lib/apt/lists/* /tmp/packages*.list
 
 COPY rootfs/ /
+RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen; locale-gen && update-locale LANG=en_US.UTF-8
 RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all
 RUN set -e; \
     find /usr/lib/kwick /usr/bin/kwick-* /usr/bin/steam -type f -exec chmod 755 {} +; \

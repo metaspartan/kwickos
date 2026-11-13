@@ -15,3 +15,4 @@ sudo less nano vim-tiny bash-completion
 kwin-x11 qml-qt6 kpackagetool6 qml6-module-org-kde-plasma-plasma5support
 fuzzel swaylock swayidle brightnessctl pavucontrol fonts-font-awesome gnome-themes-extra gnome-shell-extension-user-theme
 kwin-addons systemsettings
+locales
