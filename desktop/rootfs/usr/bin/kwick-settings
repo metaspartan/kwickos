@@ -1,0 +1,32 @@
+#!/bin/sh
+# kwick-settings: one window for the layout, theme and window effects.
+# zenity works under both X11 and Wayland, unlike the KDE-only dialogs.
+set -u
+command -v zenity >/dev/null || { echo "kwick-settings needs zenity" >&2; exit 1; }
+cur_layout=$(kwick-layout 2>/dev/null || echo macos)
+cur_effects=$(kwick-effects 2>/dev/null || echo subtle)
+gpu=$(qdbus6 org.kde.KWin /Compositor compositingType 2>/dev/null || echo "not running")
+case "$gpu" in
+  *gl*|*OpenGL*|*vulkan*) gpu_ok="GPU compositor active ($gpu): effects will animate." ;;
+  *) gpu_ok="No GPU compositor ($gpu). Install kwick-gpu and log in again before effects will animate." ;;
+esac
+
+layout=$(zenity --list --title "KwickOS Settings" --width 460 --height 320 \
+  --text "Desktop layout\n\n$gpu_ok" --hide-header --column Layout \
+  "macos — menu bar and floating dock" \
+  "windows — centered taskbar" \
+  "linux — top bar and bottom panel" 2>/dev/null) || exit 0
+layout=${layout%% *}
+[ "$layout" != "$cur_layout" ] && kwick-layout "$layout"
+
+effects=$(zenity --list --title "KwickOS Settings" --width 460 --height 320 \
+  --text "Window effects\n\n$gpu_ok" --hide-header --column Effects \
+  "off — no animations" \
+  "subtle — fades and blur" \
+  "wobbly — windows wobble when dragged" \
+  "compiz — wobbly, glide and flame open/close" 2>/dev/null) || exit 0
+effects=${effects%% *}
+[ "$effects" != "$cur_effects" ] && kwick-effects "$effects"
+
+zenity --info --title "KwickOS Settings" --width 420 \
+  --text "Layout: $layout\nEffects: $effects\n\n$gpu_ok" 2>/dev/null || true

@@ -15,11 +15,11 @@ var launchers = [
     "applications:systemsettings.desktop"
 ].join(",");
 
-// ── Liquid-glass floating menu bar ──────────────────────────────────────────
+// ── Menu bar: flush to the top and both edges, translucent ──────────────────
 var top = new Panel;
 top.location = "top";
-top.height = Math.round(gridUnit * 1.5);
-top.floating = true;               // macOS 27 style: floating pill, not edge-to-edge
+top.height = Math.round(gridUnit * 1.6);
+top.floating = false;              // no gap above or at the sides
 top.hiding = "none";
 top.opacity = "translucent";
 top.alignment = "left";
@@ -54,8 +54,10 @@ clk.writeConfig("fontFamily", "Inter");
 clk.writeConfig("fontWeight", "500");
 clk.writeConfig("fontSize", "10");
 
-// Margin separator after clock
+// Margin separator after clock so the time is not flush against the edge
 var sep2 = top.addWidget("org.kde.plasma.marginsseparator");
+sep2.currentConfigGroup = ["General"];
+sep2.writeConfig("margin", "8");
 
 // ── Floating glass dock ─────────────────────────────────────────────────────
 var dock = new Panel;

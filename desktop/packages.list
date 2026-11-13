@@ -1,6 +1,6 @@
 # KwickOS Desktop package set (KDE Plasma 6 default, GNOME selectable, Hyprland/sway tiling selectable)
 plasma-desktop plasma-workspace kwin-wayland plasma-nm plasma-pa plasma-systemmonitor kscreen powerdevil breeze-gtk-theme
-sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview okular kde-spectacle kcalc kde-config-gtk-style
+sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview okular kde-spectacle kcalc kde-config-gtk-style zenity
 gnome-shell gnome-session gnome-control-center gnome-tweaks nautilus gnome-terminal gnome-text-editor xdg-desktop-portal-gnome
 gnome-shell-extension-dash-to-panel gnome-shell-extension-dashtodock gnome-shell-extension-blur-my-shell gnome-shell-extension-appindicator
 sway swaybg waybar wofi foot mako-notifier grim slurp wl-clipboard xdg-desktop-portal-wlr

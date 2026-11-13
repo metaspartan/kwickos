@@ -58,5 +58,10 @@ c.writeConfig("use24hFormat", 0);
 c.writeConfig("showSeconds", "false");
 c.writeConfig("fontFamily", "Inter");
 c.writeConfig("fontWeight", "400");
+c.writeConfig("fontSize", "8");           // Windows 11 clock is small
+c.writeConfig("autoFontAndSize", "false");
 
+var edge = p.addWidget("org.kde.plasma.marginsseparator");
+edge.currentConfigGroup = ["General"];
+edge.writeConfig("margin", "8");
 p.addWidget("org.kde.plasma.showdesktop");

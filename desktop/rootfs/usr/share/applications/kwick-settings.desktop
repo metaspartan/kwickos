@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KwickOS Settings
+Comment=Layout, theme and window effects
+Exec=kwick-settings
+Icon=preferences-desktop-theme
+Categories=Settings;DesktopSettings;
+Terminal=false

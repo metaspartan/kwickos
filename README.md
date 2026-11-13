@@ -160,7 +160,8 @@ Upgrade a headless install in place: `apt update && apt install kwick-desktop`, 
 | tool | what it does |
 |---|---|
 | `kwick-layout linux\|windows\|macos` | window buttons, panel/dock position and UI fonts in the Linux, Windows or macOS style; works on KDE and GNOME, tiling gaps/bar on Hyprland/sway |
-| `kwick-effects off\|subtle\|wobbly\|compiz` | Compiz-style effects: wobbly windows, magic lamp, glide, fall-apart close, blur, burn-away (GNOME extensions / KWin effects / Hyprland animations) |
+| `kwick-effects off\|subtle\|wobbly\|compiz` | Compiz-style effects: wobbly windows, magic lamp, glide, fall-apart close, blur, burn-away (GNOME extensions / KWin effects / Hyprland animations). Needs a GPU compositor, so install `kwick-gpu` first; on a software compositor it writes the config and says so |
+| `kwick-settings` | one window to pick the layout and the effects preset, and it tells you when no GPU compositor is running |
 | `kwick-fonts windows\|macos\|msfonts` | Segoe-like (Open Sans), Calibri/Cambria metrics (Carlito/Caladea), Helvetica/SF-like (Inter); `msfonts` fetches the real Microsoft core fonts after you accept the EULA. Windows/macOS font names are aliased by fontconfig |
 | `kwick-desktop list\|install\|switch` | install and select another desktop (kde, gnome, hyprland, xfce, cinnamon, mate, lxqt) |
 | `steam`, `kwick-gaming` | Steam (Flathub build with Proton and the 32-bit runtime, installed on first launch), Proton-GE, Heroic, Lutris, GameMode, MangoHud; gaming sysctls preset |
@@ -176,8 +177,12 @@ Verified in the desktop image, rendered with Xvfb (no GPU):
 
 * the KDE session and `kwick-layout` in all three styles (screenshots above)
 * `kwick-fonts windows` and `macos`: `fc-match` resolves Segoe UI to Open Sans, Calibri to Carlito and Helvetica Neue to Inter
-* `kwick-effects compiz` writes the preset (wobbly windows, magic lamp, glide, fire, blur) into `kwinrc`
+* `kwick-effects compiz` writes the preset (wobbly windows, magic lamp, glide, fire, blur) into `kwinrc`, and now warns when the compositor is `qpainter`
+* `kwick-settings` opens a window to pick the layout and the effects preset (screenshot below)
+* the menu bar is flush to the top and side edges in the macOS layout, and the Windows clock is small with padding before it
 * `kwick-desktop list`, `kwick-gpu`, and the font and window-tiling screenshots below
+
+![KwickOS Settings](docs/img/settings.png)
 
 ![Font aliases from kwick-fonts](docs/img/fonts.png)
 ![Windows snapped into a tiling layout](docs/img/tiling.png)

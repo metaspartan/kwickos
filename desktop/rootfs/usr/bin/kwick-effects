@@ -17,7 +17,16 @@ case $p in
   wobbly) blur=1 slide=1 wob=1 lamp=1 glide=0 fire=0 anim=1 factor=0.8 ;;
   compiz) blur=1 slide=1 wob=1 lamp=1 glide=1 fire=1 anim=1 factor=1 ;;
 esac
+# Effects need a GPU compositor. qpainter (software) silently refuses them.
+compositor() {
+  t=$(qdbus6 org.kde.KWin /Compositor compositingType 2>/dev/null || true)
+  case "$t" in *gl*|*OpenGL*|*vulkan*) return 0 ;; esac
+  echo "note: KWin compositor is '${t:-not running}', which cannot animate effects." >&2
+  echo "      install GPU drivers first: sudo apt install kwick-gpu, then log in again." >&2
+  return 1
+}
 kde() {
+  compositor || true
   k() { kwriteconfig6 --file kwinrc --group Plugins --key "$1" "$2"; }
   for e in blur contrast translucency; do k ${e}Enabled $(b $blur); done
   k slidingpopupsEnabled $(b $slide); k fadingpopupsEnabled $(b $anim); k wobblywindowsEnabled $(b $wob)
