@@ -1,0 +1,42 @@
+name: attach-assets
+
+# Attach desktop ISOs (and refresh SHA256SUMS) on an existing release from the
+# artifacts of a finished release run, without rebuilding anything.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: release workflow run id holding the artifacts
+        required: true
+      tag:
+        description: release tag
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kwickos-desktop-*
+          path: dl
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Upload and refresh checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p up
+          find dl -name '*-desktop.iso' -exec cp {} up/ \;
+          ls -lh up
+          gh release upload "$TAG" up/* --clobber --repo "$GITHUB_REPOSITORY"
+          mkdir -p all && cd all
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*' --skip-existing --dir . --clobber 2>/dev/null || true
+          rm -f SHA256SUMS; sha256sum * > SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+          cat SHA256SUMS
