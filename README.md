@@ -1,7 +1,7 @@
 # KwickOS
 
 <p align="center">
-  <img src="docs/img/kwickos-logo.png" width="128" alt="KwickOS logo">
+  <img src="docs/img/kwickos-logo.svg" width="128" alt="KwickOS logo">
 </p>
 
 **A Linux distribution smaller and faster than Alpine that installs software
@@ -26,7 +26,7 @@ root@kwick:/# systemctl enable --now nginx      # works in containers too
 |---|---|
 | ![headless](docs/img/headless.png) | ![desktop](docs/img/desktop.png) |
 
-Every layout is fully dark. `kwick-layout macos` (default) is a liquid-glass look: translucent blurred menu bar and floating dock, traffic-light buttons. `windows` is Windows 11: centered taskbar, Fluent caption buttons on the right. `linux` is a top panel with a left dock. Screenshots are real Plasma sessions (software-rendered):
+Every layout is fully dark. `kwick-layout macos` (default) is a liquid-glass look: translucent blurred menu bar and floating dock, traffic-light buttons. `windows` is Windows 11: centered taskbar, Fluent caption buttons on the right. `linux` is a top panel with a left dock. Every start button uses the transparent vector trace of the Flux-generated KwickOS K/lightning mark. Screenshots are real Plasma sessions (software-rendered):
 
 | macOS style | Windows style | Linux style |
 |---|---|---|

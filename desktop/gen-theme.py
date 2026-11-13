@@ -8,7 +8,7 @@
   - start-menu icons
 usage: gen-theme.py <repo-root> <BreezeDark.colors>
 """
-import json, math, os, random, re, sys
+import json, math, os, random, re, shutil, sys
 
 ROOT = sys.argv[1]
 BREEZE = open(sys.argv[2]).read()
@@ -261,8 +261,11 @@ w("usr/share/konsole/KwickOS.profile", "[Appearance]\nColorScheme=KwickGlass\nFo
 w("etc/xdg/konsolerc", "[Desktop Entry]\nDefaultProfile=KwickOS.profile\n\n[KonsoleWindow]\nShowMenuBarByDefault=false\n")
 
 # ------------------------------------------------------------------------ icons
-w("usr/share/icons/hicolor/scalable/apps/kwick-start.svg", """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7aa2ff"/><stop offset="1" stop-color="#9b5de5"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="url(#g)"/><path d="M22 16v32h6V36l11 12h8L33 31l13-15h-8L28 28V16z" fill="#fff"/></svg>
-""")
-w("usr/share/icons/hicolor/scalable/apps/kwick-start-fluent.svg", """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g fill="#4cc2ff"><rect x="10" y="10" width="21" height="21" rx="2"/><rect x="33" y="10" width="21" height="21" rx="2"/><rect x="10" y="33" width="21" height="21" rx="2"/><rect x="33" y="33" width="21" height="21" rx="2"/></g></svg>
-""")
+# Reuse the traced Flux K/lightning mark everywhere; never regenerate a
+# substitute logo or a platform vendor's trademark here.
+logo = os.path.join(ROOT, "docs/img/kwickos-logo.svg")
+for name in ("kwickos-logo", "kwick-start", "kwick-start-fluent"):
+    target = os.path.join(R, f"usr/share/icons/hicolor/scalable/apps/{name}.svg")
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    shutil.copyfile(logo, target)
 print("theme assets written")

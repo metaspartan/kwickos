@@ -48,7 +48,7 @@ clk.writeConfig("showDate", "true");
 clk.writeConfig("dateFormat", "custom");
 clk.writeConfig("customDateFormat", "ddd d MMM");
 clk.writeConfig("dateDisplayFormat", "BesideTime");
-clk.writeConfig("use24hFormat", "false");
+clk.writeConfig("use24hFormat", 0);
 clk.writeConfig("showSeconds", "false");
 clk.writeConfig("fontFamily", "Inter");
 clk.writeConfig("fontWeight", "500");

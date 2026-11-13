@@ -54,7 +54,7 @@ c.writeConfig("showDate", "true");
 c.writeConfig("dateFormat", "custom");
 c.writeConfig("customDateFormat", "M/d/yyyy");
 c.writeConfig("dateDisplayFormat", "BelowTime");
-c.writeConfig("use24hFormat", "false");
+c.writeConfig("use24hFormat", 0);
 c.writeConfig("showSeconds", "false");
 c.writeConfig("fontFamily", "Inter");
 c.writeConfig("fontWeight", "400");
