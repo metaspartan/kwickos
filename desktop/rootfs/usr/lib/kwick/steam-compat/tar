@@ -1,0 +1,9 @@
+#!/bin/sh
+for a in "$@"; do
+  shift
+  case $a in
+    --blocking-factor=*|--checkpoint=*|--checkpoint-action=*) ;;
+    *) set -- "$@" "$a" ;;
+  esac
+done
+exec /usr/bin/busybox tar "$@"

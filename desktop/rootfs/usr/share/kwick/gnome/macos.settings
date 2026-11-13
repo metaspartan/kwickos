@@ -4,7 +4,7 @@ org.gnome.desktop.background picture-uri 'file:///usr/share/wallpapers/KwickGlas
 org.gnome.desktop.background picture-uri-dark 'file:///usr/share/wallpapers/KwickGlass/contents/images/2560x1440.png'
 org.gnome.desktop.screensaver picture-uri 'file:///usr/share/wallpapers/KwickGlass/contents/images/2560x1440.png'
 org.gnome.shell enabled-extensions ['dash-to-dock@micxgx.gmail.com','blur-my-shell@aunetx','ubuntu-appindicators@ubuntu.com']
-org.gnome.shell favorite-apps ['org.gnome.Nautilus.desktop','firefox-esr.desktop','kwick-terminal.desktop','kwick-editor.desktop','org.gnome.Settings.desktop']
+org.gnome.shell favorite-apps ['org.gnome.Nautilus.desktop','firefox-esr.desktop','kwick-terminal.desktop','org.gnome.TextEditor.desktop','org.gnome.Settings.desktop']
 org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM'
 org.gnome.shell.extensions.dash-to-dock extend-height false
 org.gnome.shell.extensions.dash-to-dock dock-fixed false

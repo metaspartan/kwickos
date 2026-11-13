@@ -16,6 +16,8 @@ if [ -d "$XDG_RUNTIME_DIR/hypr" ]; then
 fi
 S=$(ls "$XDG_RUNTIME_DIR"/sway-ipc.* 2>/dev/null | head -1)
 [ -n "$S" ] && export SWAYSOCK=$S
+[ -z "$DISPLAY" ] && [ -S /tmp/.X11-unix/X0 ] && export DISPLAY=:0
+XA=$(ls /run/user/1000/xauth_* 2>/dev/null | head -1); [ -n "$XA" ] && export XAUTHORITY=$XA
 export XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-KDE}
 export HOME=/home/kwick
 cd "$HOME"

@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libvirglrenderer1 libegl1 libgl1 libgbm1 libgl1-mesa-dri libegl-mesa0 mesa-utils-bin mesa-utils xvfb x11-utils xdotool libsdl2-2.0-0 \
       python3 socat netcat-openbsd imagemagick ffmpeg gifsicle xz-utils zstd curl ca-certificates \
       openssh-client sshpass unzip git fontconfig fdisk e2fsprogs dpkg-dev gnupg apt-utils nginx-light procps iproute2 \
+      xorriso isolinux syslinux-common mtools dosfstools erofs-utils kmod \
     && rm -rf /var/lib/apt/lists/*
 COPY qmp.py /usr/local/bin/qmp
 COPY vm.sh /usr/local/bin/vm
@@ -22,6 +23,8 @@ COPY fx-lamp.sh /usr/local/bin/fx-lamp
 COPY fx-flame.sh /usr/local/bin/fx-flame
 COPY shots-layouts.sh /usr/local/bin/shots-layouts
 COPY shots-tiling.sh /usr/local/bin/shots-tiling
+COPY fx-cube.sh /usr/local/bin/fx-cube
+COPY mkiso.sh /usr/local/bin/mkiso
 RUN chmod +x /usr/local/bin/*
 ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib
 ENV GALLIUM_DRIVER=d3d12

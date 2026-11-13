@@ -4,7 +4,7 @@ org.gnome.desktop.background picture-uri 'file:///usr/share/wallpapers/KwickFlue
 org.gnome.desktop.background picture-uri-dark 'file:///usr/share/wallpapers/KwickFluent/contents/images/2560x1440.png'
 org.gnome.desktop.screensaver picture-uri 'file:///usr/share/wallpapers/KwickFluent/contents/images/2560x1440.png'
 org.gnome.shell enabled-extensions ['dash-to-panel@jderose9.github.com','ubuntu-appindicators@ubuntu.com']
-org.gnome.shell favorite-apps ['firefox-esr.desktop','org.gnome.Nautilus.desktop','kwick-terminal.desktop','kwick-editor.desktop','org.gnome.Settings.desktop']
+org.gnome.shell favorite-apps ['firefox-esr.desktop','org.gnome.Nautilus.desktop','kwick-terminal.desktop','org.gnome.TextEditor.desktop','org.gnome.Settings.desktop']
 org.gnome.shell.extensions.dash-to-panel panel-positions '{"0":"BOTTOM"}'
 org.gnome.shell.extensions.dash-to-panel panel-sizes '{"0":48}'
 org.gnome.shell.extensions.dash-to-panel panel-element-positions '{"0":[{"element":"showAppsButton","visible":true,"position":"centered"},{"element":"activitiesButton","visible":false,"position":"stackedTL"},{"element":"leftBox","visible":false,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"centered"},{"element":"centerBox","visible":false,"position":"stackedBR"},{"element":"rightBox","visible":true,"position":"stackedBR"},{"element":"systemMenu","visible":true,"position":"stackedBR"},{"element":"dateMenu","visible":true,"position":"stackedBR"},{"element":"desktopButton","visible":false,"position":"stackedBR"}]}'

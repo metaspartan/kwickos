@@ -88,7 +88,6 @@ window#waybar {
 #clock {
   padding: 0 14px 0 8px;
   font-size: 12px;
-  text-align: right;
 }
 
 #battery.warning {

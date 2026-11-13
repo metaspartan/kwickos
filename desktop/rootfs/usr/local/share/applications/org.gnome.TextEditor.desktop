@@ -7,4 +7,3 @@ Exec=gnome-text-editor %U
 Categories=System;Utility;TextEditor;
 StartupNotify=true
 Terminal=false
-NoDisplay=true

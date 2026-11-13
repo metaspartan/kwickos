@@ -10,7 +10,7 @@ chmod 755 "$P/usr/lib/kwick/fetch-fonts"
 "$SRC/scripts/mkroundedpkg.sh" "$P"
 chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 "$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
-rm -f "$P/etc/kinit/no-getty"
+mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
 deps="linux-image-kwick-generic, kwick-gpu, $deps"
 cat > "$P/DEBIAN/control" <<EOF
@@ -52,7 +52,16 @@ fi
 rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 mkdir -p /etc/sddm.conf.d
 [ -f /etc/sddm.conf.d/20-autologin.conf ] || printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf
-rm -f /etc/kinit/autologin
+printf 'tty1\n' > /etc/kinit/no-getty
+if [ -d /etc/sudoers.d ]; then
+  printf 'kwick ALL=(root) NOPASSWD: /usr/sbin/kwick-gpu steam\n' > /etc/sudoers.d/kwick-steam
+  chmod 440 /etc/sudoers.d/kwick-steam
+fi
+if awk -F: '$1=="root" && $2 ~ /^(\*|!.*|)$/ {f=1} END{exit !f}' /etc/shadow 2>/dev/null; then
+  echo "KwickOS Desktop: root has no password, so the serial console keeps its root autologin. Set one with 'passwd root' and remove /etc/kinit/autologin to require a login."
+else
+  rm -f /etc/kinit/autologin
+fi
 echo "KwickOS Desktop $(cut -d' ' -f2 /etc/kwick-release)" > /etc/kwick-edition
 command -v flatpak >/dev/null && flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
 nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1' >/dev/null 2>&1 &

@@ -10,4 +10,4 @@ MimeType=text/plain;text/markdown;text/x-shellscript;text/x-python;text/x-csrc;a
 StartupNotify=true
 StartupWMClass=org.kde.kate
 Terminal=false
-NotShowIn=KDE;
+NotShowIn=KDE;GNOME;

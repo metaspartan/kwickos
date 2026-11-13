@@ -1,8 +1,8 @@
 #!/bin/bash
 # Build the KwickOS Desktop live ISO from an exported rootfs tarball.
 #   mkdesktop-iso.sh <arch> <rootfs.tar>      (run as root in kwick-builder)
-# Output: /out/<arch>/kwickos-<arch>-desktop.iso  (UEFI, generic kernel,
-# erofs root under a tmpfs overlay; boots straight into Plasma).
+# Output: /out/<arch>/kwickos-<arch>-desktop.iso  (UEFI, plus BIOS via isolinux
+# on amd64; generic kernel, erofs root under a tmpfs overlay; boots straight into Plasma).
 set -euo pipefail
 ARCH=${1:?arch}; TAR=${2:?rootfs tar}
 OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
@@ -25,10 +25,20 @@ echo "KwickOS Desktop live ($KREL)" > "$W/live/kwick/README"
 mkfs.vfat -n KWICK-ESP -C "$W/efiboot.img" $(( $(stat -c %s "$EFI") / 1024 + 512 )) >/dev/null
 mmd -i "$W/efiboot.img" ::/EFI ::/EFI/BOOT
 mcopy -i "$W/efiboot.img" "$EFI" "::/EFI/BOOT/$EFINAME"
-xorriso -as mkisofs -quiet -V KWICKOS -J -joliet-long -r \
+BIOSARGS=()
+if [ "$ARCH" = amd64 ] && [ -f /usr/lib/ISOLINUX/isolinux.bin ] && [ -f /usr/lib/syslinux/modules/bios/ldlinux.c32 ]; then
+  mkdir -p "$W/live/isolinux"
+  cp /usr/lib/ISOLINUX/isolinux.bin /usr/lib/syslinux/modules/bios/ldlinux.c32 "$W/live/isolinux/"
+  cp "$K/vmlinuz" "$W/live/isolinux/vmlinuz"
+  printf 'DEFAULT kwick\nPROMPT 0\nTIMEOUT 1\nLABEL kwick\n  KERNEL vmlinuz\n' > "$W/live/isolinux/isolinux.cfg"
+  BIOSARGS=(-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot)
+else
+  echo "note: no isolinux in this builder, the ISO is UEFI only"
+fi
+xorriso -as mkisofs -quiet -V KWICKOS -J -joliet-long -r "${BIOSARGS[@]}" \
   -append_partition 2 0xef "$W/efiboot.img" -appended_part_as_gpt \
-  -e --interval:appended_partition_2:all:: -no-emul-boot \
-  -o "$D/kwickos-$ARCH-desktop.iso" "$W/live" 2>/dev/null
+  -e --interval:appended_partition_2:all:: -no-emul-boot -isohybrid-gpt-basdat \
+  -o "$D/kwickos-$ARCH-desktop.iso" "$W/live"
 echo ">> rootfs $(du -sh "$W/root" | cut -f1), erofs $(du -h "$W/live/kwick/root.erofs" | cut -f1)"
 rm -rf "$W"
 ls -l "$D/kwickos-$ARCH-desktop.iso"
