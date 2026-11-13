@@ -81,8 +81,8 @@ jobs:
           done
           # disk images are sparse 1 GiB; ship them compressed
           for f in release/*.img; do [ -f "$f" ] && zstd -19 -T0 --rm -q "$f"; done
-          # GitHub release assets are limited to 2 GiB each
-          find release -size +1900M -print -delete
+          # GitHub release assets are limited to 2 GiB each: split oversized files (cat parts > file)
+          for f in $(find release -size +1900M); do split -b 1900M -d "$f" "$f.part" && rm "$f"; done
           (cd release && sha256sum * > SHA256SUMS)
           ls -lh release
 

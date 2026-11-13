@@ -48,3 +48,9 @@ RUN for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-p
       mkdir -p /etc/systemd/system/$u.service.d; \
       printf '[Service]\nExecStartPre=/usr/lib/kwick/wait-for dbus\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf; \
     done
+
+# Trim: docs, man pages and non-English translations (keeps the live ISO under
+# the 2 GiB GitHub release-asset limit; `apt install` can bring them back).
+RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/share/lintian \
+ && find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' ! -name 'locale.alias' -exec rm -rf {} + \
+ && rm -rf /var/cache/apt /var/lib/apt/lists/*
