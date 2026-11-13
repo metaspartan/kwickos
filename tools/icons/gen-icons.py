@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
-"""Generate the KwickOS icon theme (SVG only) into desktop/rootfs/usr/share/icons/KwickOS.
-usage: gen-icons.py <repo-root>
+"""Generate the KwickOS icon themes (SVG only): KwickOS (macOS), KwickOS-Linux and KwickOS-Fluent (Windows).
+usage: gen-icons.py <repo-root> [macos|linux|windows ...]
 Every icon shares one geometry: a 24-unit glyph grid, a continuous-corner squircle for apps and
 settings pages, a folder body for places and bare strokes for actions.
 """
-import math, os, shutil, sys
+import math, os, re, shutil, sys
 
 ROOT = sys.argv[1]
-OUT = os.path.join(ROOT, "desktop/rootfs/usr/share/icons/KwickOS")
 SQ = None
 
 
-def squircle(cx=64, cy=64, r=59.5, n=5.0, steps=160):
+def squircle(cx=64, cy=64, r=59.5, n=5.0, steps=160, prec=2):
     pts = []
     for i in range(steps):
         t = 2 * math.pi * i / steps
         c, s = math.cos(t), math.sin(t)
         x = cx + r * math.copysign(abs(c) ** (2 / n), c)
         y = cy + r * math.copysign(abs(s) ** (2 / n), s)
-        pts.append(f"{x:.2f},{y:.2f}")
+        pts.append(f"{x:.{prec}f},{y:.{prec}f}")
     return "M" + " L".join(pts) + "Z"
 
 
@@ -204,7 +203,10 @@ G["pkg"] = P("M12 3l8.4 4.2v9.6L12 21l-8.4-4.2V7.2z") + P("M3.8 7.4L12 11.6l8.2-
 G["pencil"] = G["edit"]
 G["monitor2"] = R(3.4, 3.4, 11, 8, 2) + R(9.6, 12.6, 11, 8, 2)
 G["drive"] = G["harddisk"]
-G["trashfull"] = G["trash"]
+G["trashfull"] = G["trash"] + P("M8.4 4.4l1-1.8h5.2l1 1.8")
+FOLDER_TALL = "M3 6.2a2.4 2.4 0 0 1 2.4-2.4h3.9l2.1 2.4h7.2A2.4 2.4 0 0 1 21 8.6v9a2.4 2.4 0 0 1-2.4 2.4H5.4A2.4 2.4 0 0 1 3 17.6z"
+G["folderfill"] = P(FOLDER_TALL, 'fill="@" fill-opacity="0.95" stroke-width="1.2"') + P("M3.4 10.2h17.2", 'stroke="#2c8cf0" stroke-opacity="0.45" stroke-width="1.2"')
+G["start"] = P("M12 2.8l8.2 4.7v9L12 21.2l-8.2-4.7v-9z") + fill("M13.4 7.2l-4.2 6h3l-.8 4.2 4.2-6h-3z")
 G["history"] = P("M4 12a8 8 0 1 0 2.5-5.8") + P("M4.2 3.6v4.2h4.2M12 8v4.4l3 1.8")
 G["lockscreen"] = R(4.8, 10.4, 14.4, 10.2, 2.8) + P("M8 10.4V8a4 4 0 0 1 8 0v2.4")
 G["gift"] = R(3.6, 8.6, 16.8, 4.2, 1.4) + P("M5 12.8v6.2a1.6 1.6 0 0 0 1.6 1.6h10.8a1.6 1.6 0 0 0 1.6-1.6v-6.2M12 8.6v12M12 8.6C9.8 8.6 8 7.6 8 6a2 2 0 0 1 2-2c1.2 0 2 1.8 2 4.6zM12 8.6c2.2 0 4-1 4-2.6a2 2 0 0 0-2-2c-1.2 0-2 1.8-2 4.6z")
@@ -227,20 +229,60 @@ PAL = {
     "slate": ("#3b3e4f", "#1a1c27"),
 }
 
+TOKYO = {
+    "gray": ("#8a96c4", "#474d6e"),
+    "graphite": ("#5f688f", "#2b2f47"),
+    "blue": ("#8db4ff", "#3d59a1"),
+    "sky": ("#9ad8ff", "#2e8fc4"),
+    "teal": ("#7fe0cf", "#1a9c8c"),
+    "violet": ("#c8a8ff", "#7a4fd0"),
+    "green": ("#a9d97a", "#4e8c2a"),
+    "lime": ("#c9eb97", "#6aa832"),
+    "orange": ("#ffaa72", "#e0642a"),
+    "red": ("#ff8aa0", "#c73a5a"),
+    "pink": ("#ff9bd0", "#c2459a"),
+    "indigo": ("#8f9cff", "#3f48c2"),
+    "yellow": ("#ecbf78", "#c0801e"),
+    "night": ("#2a2f48", "#14151f"),
+    "slate": ("#343955", "#1a1b26"),
+}
+
 BRAND = ("#2ff0dc", "#8d44d4")
+BRAND_TOKYO = ("#7dcfff", "#bb9af7")
+SQM = squircle(512, 512, 412, 5.0, 220, 1)
+SQM_IN = squircle(512, 512, 407, 5.0, 220, 1)
+DEFAULT_TEXT = "#e4e7f0"
+MONO_RE = re.compile(r"^(network-|audio-|battery|bluetooth|redshift|night-light|input-|media-|drive-|printer|phone$|smartphone|avatar-|user-identity|system-users|system-log-out|system-run|video-display|help-|software-update|system-software-update|dialog-|wifi$|xorg$|emblem-)")
+PLAIN_PLACES = {"user-trash", "user-trash-symbolic", "user-trash-full", "network-workgroup", "network-server"}
 
 
-def glyph_markup(name, color, scale):
-    s = G[name].replace("@", color)
-    return s
+def glyph_markup(name, color, scale=1):
+    return G[name].replace("@", color)
 
 
-def app_icon(glyph, pal, dark=False):
-    c1, c2 = PAL[pal]
+def plain_svg(glyph, sw, default, color=None, cls="ColorScheme-Text"):
+    c = color or "currentColor"
+    g = glyph_markup(glyph, c)
+    st = f'<style id="current-color-scheme" type="text/css">.{cls}{{color:{default}}}</style>' if not color else ""
+    ca = f' class="{cls}"' if not color else ""
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">{st}<g{ca} fill="none" stroke="{c}" stroke-width="{sw}" stroke-linecap="round" stroke-linejoin="round">{g}</g></svg>
+'''
+
+
+def inner_svg(outer, inner, cy, scale, sw, osw, default, cls="ColorScheme-Text"):
+    og = outer.replace("@", "currentColor")
+    ig = glyph_markup(inner, "currentColor") if inner else ""
+    ib = f'<g transform="translate(12 {cy}) scale({scale}) translate(-12 -12)" stroke-width="{sw}">{ig}</g>' if inner else ""
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><style id="current-color-scheme" type="text/css">.{cls}{{color:{default}}}</style><g class="{cls}" fill="none" stroke="currentColor" stroke-width="{osw}" stroke-linecap="round" stroke-linejoin="round">{og}{ib}</g></svg>
+'''
+
+
+def old_app(glyph, pal, dark, colors, brand):
+    c1, c2 = colors[pal]
     gcol = "url(#k)" if dark else "#ffffff"
-    g = glyph_markup(glyph, gcol, 1)
-    gs = glyph_markup(glyph, "#000000", 1)
-    kdef = f'<linearGradient id="k" gradientUnits="userSpaceOnUse" x1="3" y1="3" x2="21" y2="21"><stop offset="0" stop-color="{BRAND[0]}"/><stop offset="1" stop-color="{BRAND[1]}"/></linearGradient>' if dark else ""
+    g = glyph_markup(glyph, gcol)
+    gs = glyph_markup(glyph, "#000000")
+    kdef = f'<linearGradient id="k" gradientUnits="userSpaceOnUse" x1="3" y1="3" x2="21" y2="21"><stop offset="0" stop-color="{brand[0]}"/><stop offset="1" stop-color="{brand[1]}"/></linearGradient>' if dark else ""
     tr = 'transform="translate(64 64) scale(3.45) translate(-12 -12)"'
     tr2 = 'transform="translate(64 66.2) scale(3.45) translate(-12 -12)"'
     gattr = 'fill="none" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"'
@@ -261,11 +303,11 @@ def app_icon(glyph, pal, dark=False):
 '''
 
 
-def folder_icon(glyph=None, pal="blue"):
-    c1, c2 = PAL[pal]
+def old_folder(glyph, pal, colors):
+    c1, c2 = colors[pal]
     gl = ""
     if glyph:
-        g = glyph_markup(glyph, "#ffffff", 1)
+        g = glyph_markup(glyph, "#ffffff")
         gl = f'<g transform="translate(64 78) scale(2.35) translate(-12 -12)" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" opacity="0.9">{g}</g>'
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
 <defs>
@@ -285,9 +327,9 @@ def folder_icon(glyph=None, pal="blue"):
 '''
 
 
-def page_icon(glyph, pal):
-    c1, c2 = PAL[pal]
-    g = glyph_markup(glyph, c2, 1)
+def old_page(glyph, pal, colors):
+    c1, c2 = colors[pal]
+    g = glyph_markup(glyph, c2)
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
 <defs>
 <linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfcff"/><stop offset="1" stop-color="#c9d0e2"/></linearGradient>
@@ -305,16 +347,255 @@ def page_icon(glyph, pal):
 '''
 
 
-def plain_icon(glyph, color="#e4e7f0"):
-    g = glyph_markup(glyph, color, 1)
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-<g fill="none" stroke="{color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">{g}</g>
+def mac_app(glyph, pal, dark=False):
+    c1, c2 = PAL[pal]
+    gfill = "url(#gk)" if dark else "url(#gw)"
+    g = glyph_markup(glyph, gfill)
+    gb = glyph_markup(glyph, "#000")
+    gdef = f'<linearGradient id="gk" gradientUnits="userSpaceOnUse" x1="3" y1="3" x2="21" y2="21"><stop offset="0" stop-color="{BRAND[0]}"/><stop offset="1" stop-color="{BRAND[1]}"/></linearGradient>' if dark else '<linearGradient id="gw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6eeff" stop-opacity="0.93"/></linearGradient>'
+    shadows = "".join(
+        f'<use xlink:href="#sq" transform="translate(512 {512 + dy}) scale({s}) translate(-512 -512)" fill="#000" fill-opacity="{o}"/>'
+        for s, dy, o in ((1.035, 30, 0.04), (1.02, 24, 0.05), (1.008, 18, 0.07), (1.0, 12, 0.1), (0.992, 6, 0.14)))
+    ga = 'fill="none" stroke-linecap="round" stroke-linejoin="round"'
+    gt = 'transform="translate(512 512) scale(17.6) translate(-12 -12)"'
+    gt1 = 'transform="translate(512 528) scale(17.6) translate(-12 -12)"'
+    gt2 = 'transform="translate(512 542) scale(17.6) translate(-12 -12)"'
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+<path id="sq" d="{SQM}"/>
+<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
+<linearGradient id="d" x1="0" y1="0" x2="0" y2="1"><stop offset="0.5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.24"/></linearGradient>
+<radialGradient id="r" cx="0.28" cy="0.06" r="0.9"><stop offset="0" stop-color="#fff" stop-opacity="0.42"/><stop offset="0.6" stop-color="#fff" stop-opacity="0.06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="0.42" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.85"/><stop offset="0.3" stop-color="#fff" stop-opacity="0.12"/><stop offset="0.75" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0.3"/></linearGradient>
+{gdef}
+</defs>
+{shadows}
+<use xlink:href="#sq" fill="url(#b)"/>
+<use xlink:href="#sq" fill="url(#d)"/>
+<use xlink:href="#sq" fill="url(#r)"/>
+<use xlink:href="#sq" fill="url(#h)"/>
+<path d="{SQM_IN}" fill="none" stroke="url(#e)" stroke-width="7"/>
+<use xlink:href="#sq" fill="none" stroke="#000" stroke-opacity="0.28" stroke-width="3"/>
+<g {gt2} {ga} stroke="#000" stroke-opacity="0.1" stroke-width="2.4">{gb}</g>
+<g {gt1} {ga} stroke="#000" stroke-opacity="0.2" stroke-width="2">{gb}</g>
+<g {gt} {ga} stroke="{gfill}" stroke-width="1.9">{g}</g>
 </svg>
 '''
 
 
-def mono_status(glyph, color):
-    return plain_icon(glyph, color)
+def mac_folder(glyph=None, name=""):
+    gl = ""
+    if glyph:
+        g = glyph_markup(glyph, "#2c78cc")
+        gh = glyph_markup(glyph, "#ffffff")
+        ga = 'fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9"'
+        gl = f'<g transform="translate(64 76.4) scale(2.3) translate(-12 -12)" {ga} stroke="#fff" stroke-opacity="0.7">{gh}</g><g transform="translate(64 75) scale(2.3) translate(-12 -12)" {ga} stroke="#2c78cc" stroke-opacity="0.92">{g}</g>'
+    shadows = "".join(
+        f'<rect x="{10 - e}" y="{26 - e + dy}" width="{108 + 2 * e}" height="{80 + 2 * e}" rx="{12 + e}" fill="#000" fill-opacity="{o}"/>'
+        for e, dy, o in ((5, 8, 0.04), (3, 6, 0.06), (1.5, 4, 0.1), (0, 2, 0.14)))
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4aa0ec"/><stop offset="1" stop-color="#2c74c6"/></linearGradient>
+<linearGradient id="pp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9e3f1"/></linearGradient>
+<linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a6e0ff"/><stop offset="0.55" stop-color="#63c0fb"/><stop offset="1" stop-color="#46a6f2"/></linearGradient>
+<linearGradient id="hl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.45"/><stop offset="0.3" stop-color="#fff" stop-opacity="0"/></linearGradient>
+</defs>
+{shadows}
+<path d="M10 34a10 10 0 0 1 10-10h24a10 10 0 0 1 7.6 3.5l4.6 5.5H108a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#bk)"/>
+<rect x="17" y="31" width="94" height="40" rx="4" fill="url(#pp)"/>
+<path d="M10 52a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#fr)"/>
+<path d="M10 52a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#hl)"/>
+<path d="M19 42.7h90" stroke="#fff" stroke-opacity="0.75" stroke-width="1.4" stroke-linecap="round"/>
+<path d="M20 105.4h88" stroke="#1f5fae" stroke-opacity="0.3" stroke-width="1.2" stroke-linecap="round"/>
+{gl}
+</svg>
+'''
+
+
+def fluent_tile(glyph, pal, dark=False):
+    c1, c2 = PAL[pal]
+    if dark:
+        c1, c2 = "#4a4a52", "#26262c"
+    g = glyph_markup(glyph, "#ffffff")
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
+<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.38"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient>
+</defs>
+<rect x="9" y="12" width="110" height="110" rx="28" fill="#000" fill-opacity="0.12"/>
+<rect x="9" y="10" width="110" height="110" rx="28" fill="#000" fill-opacity="0.16"/>
+<rect x="8" y="8" width="112" height="112" rx="28" fill="url(#b)"/>
+<rect x="8.5" y="8.5" width="111" height="111" rx="27.5" fill="none" stroke="url(#e)" stroke-width="1"/>
+<g transform="translate(64 64) scale(3.3) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{g}</g>
+</svg>
+'''
+
+
+def fluent_explorer():
+    return '''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9a521"/><stop offset="1" stop-color="#c98a10"/></linearGradient>
+<linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe38a"/><stop offset="1" stop-color="#ffc83d"/></linearGradient>
+<linearGradient id="bl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb4ff"/><stop offset="1" stop-color="#1f74e0"/></linearGradient>
+</defs>
+<path d="M12 34a10 10 0 0 1 10-10h24a10 10 0 0 1 7.6 3.5l5 5.5H106a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H22a10 10 0 0 1-10-10z" fill="url(#bk)"/>
+<rect x="12" y="44" width="104" height="62" rx="9" fill="url(#fr)"/>
+<path d="M12 90h104v7a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#bl)"/>
+<path d="M20 45.6h88" stroke="#fff" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round"/>
+</svg>
+'''
+
+
+class Style:
+    suffix = ""
+
+    def write_sym(self, sub, n, svg):
+        write(sub, n, svg)
+        if not n.endswith("-symbolic"):
+            write(sub, n + "-symbolic", svg)
+
+    def app(self, names, glyph, pal, sub, dark):
+        svg = self.tile(glyph, pal, dark)
+        for n in names.split():
+            write(sub, n, svg)
+
+    def folder(self, names, glyph, pal):
+        svg = self.folder_svg(glyph, pal)
+        for n in names.split():
+            write("places", n, svg)
+
+    def page(self, names, glyph, pal):
+        svg = self.page_svg(glyph, pal)
+        for n in names.split():
+            write("mimetypes", n, svg)
+
+    def act(self, names, glyph, color):
+        svg = self.plain(glyph, None if color == DEFAULT_TEXT else color)
+        for n in names.split():
+            self.write_sym("actions", n, svg)
+
+    def stat(self, names, glyph, color):
+        svg = self.plain(glyph, None if color == DEFAULT_TEXT else color)
+        for n in names.split():
+            self.write_sym("status", n, svg)
+
+    def side(self, names, glyph):
+        svg = self.side_svg(glyph)
+        for n in names.split():
+            write("places", n, svg)
+
+
+class Mac(Style):
+    name = "KwickOS"
+    comment = "KwickOS macOS-style icon set: squircle apps, light-blue folders, accent-blue sidebar glyphs"
+    inherits = "Papirus-Dark,breeze-dark,hicolor"
+    sw = 1.75
+
+    def tile(self, glyph, pal, dark):
+        if dark and glyph == "folder":
+            return mac_app("folderfill", "sky", False)
+        return mac_app(glyph, pal, dark)
+
+    def folder_svg(self, glyph, pal):
+        return mac_folder(glyph)
+
+    def folder(self, names, glyph, pal):
+        for n in names.split():
+            if n.startswith("user-trash"):
+                write("places", n, mac_app("trash", "red" if n.endswith("full") else "gray"))
+            else:
+                write("places", n, mac_folder(glyph))
+
+    def page_svg(self, glyph, pal):
+        return old_page(glyph, pal, PAL)
+
+    def plain(self, glyph, color):
+        return plain_svg(glyph, self.sw, "#e8ebf4", color)
+
+    def side_svg(self, glyph):
+        return plain_svg(glyph, 1.8, "#0a84ff", None, "ColorScheme-Highlight")
+
+
+class Linux(Style):
+    name = "KwickOS-Linux"
+    comment = "KwickOS Linux variant: Tokyo Night squircles and folders"
+    inherits = "KwickOS,Papirus-Dark,breeze-dark,hicolor"
+    sw = 1.75
+
+    def tile(self, glyph, pal, dark):
+        return old_app(glyph, pal, dark, TOKYO, BRAND_TOKYO)
+
+    def folder_svg(self, glyph, pal):
+        return old_folder(glyph, pal, TOKYO)
+
+    def page_svg(self, glyph, pal):
+        return old_page(glyph, pal, TOKYO)
+
+    def plain(self, glyph, color):
+        return plain_svg(glyph, self.sw, "#c0caf5", color)
+
+    def side_svg(self, glyph):
+        return plain_svg(glyph, 1.8, "#7aa2f7", None, "ColorScheme-Highlight")
+
+
+class Fluent(Style):
+    name = "KwickOS-Fluent"
+    comment = "KwickOS Windows layout icons: white line glyphs, flat Fluent app tiles"
+    inherits = "KwickOS,breeze-dark,hicolor"
+    sw = 1.6
+
+    def tile(self, glyph, pal, dark):
+        if dark and glyph == "folder":
+            return fluent_explorer()
+        return fluent_tile(glyph, pal, dark)
+
+    def plain(self, glyph, color):
+        return plain_svg(glyph, self.sw, "#ffffff", color)
+
+    def side_svg(self, glyph):
+        return plain_svg(glyph, self.sw, "#ffffff")
+
+    def mono(self, names, glyph, sub):
+        svg = self.plain(glyph, None)
+        for n in names:
+            self.write_sym(sub, n, svg)
+
+    def app(self, names, glyph, pal, sub, dark):
+        ns = names.split()
+        if sub in ("devices", "categories"):
+            self.mono(ns, glyph, sub)
+            return
+        if "kwick-start" in ns:
+            svg = self.plain("start", None)
+            for n in ("kwick-start", "kwick-start-fluent"):
+                write("apps", n, svg)
+            return
+        if sub == "preferences":
+            mono = [n for n in ns if MONO_RE.match(n)]
+            self.mono(mono, glyph, "status")
+            ns = [n for n in ns if n not in mono]
+        svg = self.tile(glyph, pal, dark)
+        for n in ns:
+            write(sub, n, svg)
+
+    def folder(self, names, glyph, pal):
+        for n in names.split():
+            if n in PLAIN_PLACES:
+                self.write_sym("places", n, self.plain("trashfull" if n == "user-trash-full" else glyph or "folder", None))
+            else:
+                write("places", n, inner_svg(P(FOLDER_TALL), glyph, 13.7, 0.44, 3.4, self.sw, "#ffffff"))
+
+    def page(self, names, glyph, pal):
+        direct = glyph in ("page", "text", "file")
+        svg = self.plain(glyph, None) if direct else inner_svg(G["page"], glyph, 14.2, 0.44, 3.4, self.sw, "#ffffff")
+        for n in names.split():
+            write("mimetypes", n, svg)
+
+
+STYLES = {"macos": Mac, "linux": Linux, "windows": Fluent}
+STYLE = None
+OUT = None
 
 
 def write(sub, name, text):
@@ -324,53 +605,32 @@ def write(sub, name, text):
         f.write(text)
 
 
-APPS = []
-PLACES = []
-ACTIONS = []
-PAGES = []
-STATUS = []
-
-
 def app(names, glyph, pal, sub="apps", dark=False):
-    svg = app_icon(glyph, pal, dark)
-    for n in names.split():
-        write(sub, n, svg)
-        APPS.append(n)
+    STYLE.app(names, glyph, pal, sub, dark)
 
 
 def pref(names, glyph, pal):
-    app(names, glyph, pal, "preferences")
+    STYLE.app(names, glyph, pal, "preferences", False)
 
 
 def folder(names, glyph=None, pal="blue"):
-    svg = folder_icon(glyph, pal)
-    for n in names.split():
-        write("places", n, svg)
-        PLACES.append(n)
+    STYLE.folder(names, glyph, pal)
 
 
-def act(names, glyph, color="#e4e7f0"):
-    svg = plain_icon(glyph, color)
-    for n in names.split():
-        write("actions", n, svg)
-        write("actions", n + "-symbolic", svg) if not n.endswith("-symbolic") else None
-        ACTIONS.append(n)
+def side(names, glyph):
+    STYLE.side(names, glyph)
 
 
-def stat(names, glyph, color="#e4e7f0"):
-    svg = plain_icon(glyph, color)
-    for n in names.split():
-        write("status", n, svg)
-        if not n.endswith("-symbolic"):
-            write("status", n + "-symbolic", svg)
-        STATUS.append(n)
+def act(names, glyph, color=DEFAULT_TEXT):
+    STYLE.act(names, glyph, color)
+
+
+def stat(names, glyph, color=DEFAULT_TEXT):
+    STYLE.stat(names, glyph, color)
 
 
 def page(names, glyph, pal):
-    svg = page_icon(glyph, pal)
-    for n in names.split():
-        write("mimetypes", n, svg)
-        PAGES.append(n)
+    STYLE.page(names, glyph, pal)
 
 
 def build():
@@ -432,7 +692,7 @@ def build():
     pref("preferences-desktop-notification-bell-symbolic", "bell", "red")
     pref("xorg preferences-system-xorg preferences-system-xwayland", "display", "slate")
     pref("preferences-desktop-user-account preferences-desktop-online-user", "user", "gray")
-    pref("preferences-system-storage preferences-system-disk drive-harddisk-symbolic", "harddisk", "gray")
+    pref("preferences-system-storage preferences-system-disk", "harddisk", "gray")
     pref("preferences-web-browser-cookies preferences-web-browser-shortcuts preferences-desktop-privacy", "shield", "gray")
     pref("preferences-system-gpu kwick-gpu", "chip", "slate")
     pref("preferences-desktop-kwick-layout kwick-layout", "layout", "indigo")
@@ -650,6 +910,20 @@ def build():
     stat("emblem-shared", "share")
     stat("starred-symbolic", "star")
 
+    side("user-home-symbolic folder-home-symbolic", "home")
+    side("user-desktop-symbolic folder-desktop-symbolic", "desktop")
+    side("folder-documents-symbolic", "text")
+    side("folder-download-symbolic folder-downloads-symbolic", "download")
+    side("folder-pictures-symbolic", "image")
+    side("folder-music-symbolic", "music")
+    side("folder-video-symbolic folder-videos-symbolic", "video")
+    side("folder-network-symbolic network-workgroup-symbolic folder-remote-symbolic", "globe")
+    side("folder-recent-symbolic", "recent")
+    side("drive-harddisk-symbolic", "harddisk")
+    side("folder-symbolic", "folder")
+    side("folder-publicshare-symbolic", "share")
+    act("kwick-taskview", "tabbox")
+
     names = {}
     for sub in ("apps", "preferences", "categories", "places", "devices", "actions", "status", "mimetypes"):
         d = os.path.join(OUT, "scalable", sub)
@@ -657,8 +931,8 @@ def build():
     dirs = ["scalable/%s" % s for s in names if names[s]]
     ctx = {"apps": "Applications", "preferences": "Applications", "categories": "Categories", "places": "Places",
            "devices": "Devices", "actions": "Actions", "status": "Status", "mimetypes": "MimeTypes"}
-    idx = ["[Icon Theme]", "Name=KwickOS", "Comment=KwickOS squircle and monochrome icon set",
-           "Inherits=Papirus-Dark,breeze-dark,hicolor", "Example=folder",
+    idx = ["[Icon Theme]", f"Name={STYLE.name}", f"Comment={STYLE.comment}",
+           f"Inherits={STYLE.inherits}", "Example=folder",
            "DesktopDefault=48", "DesktopSizes=16,22,32,48,64,128,256", "ToolbarDefault=22", "ToolbarSizes=16,22,24,32",
            "MainToolbarDefault=22", "MainToolbarSizes=16,22,24,32", "SmallDefault=16", "SmallSizes=16,22",
            "PanelDefault=48", "PanelSizes=16,22,32,48,64", "DialogDefault=32", "DialogSizes=32,48,64,128",
@@ -668,7 +942,10 @@ def build():
         idx += [f"[{dpath}]", "Size=64", "MinSize=8", "MaxSize=1024", "Type=Scalable", f"Context={ctx[sub]}", ""]
     with open(os.path.join(OUT, "index.theme"), "w", newline="\n") as f:
         f.write("\n".join(idx))
-    print(names)
+    print(STYLE.name, names)
 
 
-build()
+for key in (sys.argv[2:] or list(STYLES)):
+    STYLE = STYLES[key]()
+    OUT = os.path.join(ROOT, "desktop/rootfs/usr/share/icons", STYLE.name)
+    build()

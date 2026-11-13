@@ -1,6 +1,6 @@
 [Icon Theme]
 Name=KwickOS
-Comment=KwickOS squircle and monochrome icon set
+Comment=KwickOS macOS-style icon set: squircle apps, light-blue folders, accent-blue sidebar glyphs
 Inherits=Papirus-Dark,breeze-dark,hicolor
 Example=folder
 DesktopDefault=48

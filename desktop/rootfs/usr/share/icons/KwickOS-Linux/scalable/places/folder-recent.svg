@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a9c8c"/><stop offset="1" stop-color="#1a9c8c" stop-opacity="0.85"/></linearGradient>
+<linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fe0cf"/><stop offset="1" stop-color="#1a9c8c"/></linearGradient>
+<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="s" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity="0.4"/></filter>
+</defs>
+<g filter="url(#s)">
+<path d="M10 30a10 10 0 0 1 10-10h27a10 10 0 0 1 7.4 3.3l5.2 5.7H108a10 10 0 0 1 10 10v54a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#bk)"/>
+<path d="M10 44a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#fr)"/>
+<path d="M10 44a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#h)"/>
+<path d="M20 34.6h88" stroke="#fff" stroke-opacity="0.55" stroke-width="1" stroke-linecap="round" transform="translate(0 0.5)"/>
+</g>
+<g transform="translate(64 78) scale(2.35) translate(-12 -12)" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" opacity="0.9"><path d="M4 12a8 8 0 1 0 2.5-5.8" /><path d="M4.2 3.6v4.2h4.2M12 8v4.4l3 1.8" /></g>
+</svg>

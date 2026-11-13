@@ -50,6 +50,7 @@ if command -v locale-gen >/dev/null; then
   [ -f /etc/default/locale ] || update-locale LANG=en_US.UTF-8 >/dev/null 2>&1 || true
 fi
 rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
+for t in KwickOS KwickOS-Fluent KwickOS-Linux; do command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t /usr/share/icons/$t >/dev/null 2>&1 || true; done
 mkdir -p /etc/sddm.conf.d
 [ -f /etc/sddm.conf.d/20-autologin.conf ] || printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf
 printf 'tty1\n' > /etc/kinit/no-getty

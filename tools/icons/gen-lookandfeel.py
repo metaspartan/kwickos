@@ -8,13 +8,13 @@ LNF = os.path.join(ROOT, "desktop/rootfs/usr/share/plasma/look-and-feel")
 THEMES = {
     "macos": dict(name="KwickOS macOS", desc="Liquid glass: floating menu bar and dock, traffic lights, Inter",
                   scheme="KwickGlass", accent="10,132,255", lib="org.kde.kwin.aurorae", deco="__aurorae__svg__KwickGlass",
-                  left="XIA", right="", wall="KwickGlass", ui="Inter", mono="JetBrains Mono"),
+                  left="XIA", right="", wall="KwickGlass", ui="Inter", mono="JetBrains Mono", icons="KwickOS"),
     "windows": dict(name="KwickOS Windows", desc="Windows 11 style: centered taskbar, Fluent caption buttons, Selawik",
                     scheme="KwickFluent", accent="0,120,212", lib="org.kde.kwin.aurorae", deco="__aurorae__svg__KwickFluent",
-                    left="M", right="IAX", wall="KwickFluent", ui="Selawik", mono="Cascadia Code"),
+                    left="M", right="IAX", wall="KwickFluent", ui="Selawik", mono="Cascadia Code", icons="KwickOS-Fluent"),
     "linux": dict(name="KwickOS Linux", desc="Classic Linux desktop: top panel, Breeze buttons, Ubuntu Sans",
                   scheme="KwickDark", accent="94,129,244", lib="org.kde.breeze", deco="Breeze",
-                  left="M", right="IAX", wall="KwickOS", ui="Ubuntu Sans", mono="Ubuntu Sans Mono"),
+                  left="M", right="IAX", wall="KwickOS", ui="Ubuntu Sans", mono="Ubuntu Sans Mono", icons="KwickOS-Linux"),
 }
 
 for old in ("org.kwickos.desktop",):
@@ -58,7 +58,7 @@ fixed={font(t['mono'])}
 activeFont={font(t['ui'], 600)}
 
 [kdeglobals][Icons]
-Theme=KwickOS
+Theme={t['icons']}
 
 [plasmarc][Theme]
 name=default

@@ -14,7 +14,7 @@ fixed=Cascadia Code,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 activeFont=Selawik,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1
 
 [kdeglobals][Icons]
-Theme=KwickOS
+Theme=KwickOS-Fluent
 
 [plasmarc][Theme]
 name=default

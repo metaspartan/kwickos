@@ -7,14 +7,14 @@
   "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "wlr/taskbar"],
   "modules-right": ["tray", "network", "pulseaudio", "battery", "clock"],
   "custom/start": { "format": " ", "tooltip-format": "Start", "on-click": "fuzzel" },
-  "custom/search": { "format": "", "tooltip-format": "Search", "on-click": "fuzzel" },
+  "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "fuzzel" },
   "custom/files": { "format": "\u00a0", "tooltip-format": "Files", "on-click": "xdg-open ~" },
   "custom/web": { "format": "\u00a0", "tooltip-format": "Firefox", "on-click": "firefox-esr" },
   "custom/term": { "format": "\u00a0", "tooltip-format": "Terminal", "on-click": "kwick-terminal" },
   "wlr/taskbar": {
     "format": "{icon}",
     "icon-size": 26,
-    "icon-theme": "KwickOS",
+    "icon-theme": "KwickOS-Fluent",
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close"

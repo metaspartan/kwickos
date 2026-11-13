@@ -20,3 +20,4 @@ org.gnome.shell.extensions.dash-to-dock custom-theme-shrink false
 org.gnome.shell.extensions.dash-to-dock running-indicator-style 'DOTS'
 org.gnome.shell.extensions.dash-to-dock show-apps-at-top true
 org.gnome.shell.extensions.dash-to-dock click-action 'focus-or-previews'
+org.gnome.desktop.interface icon-theme 'KwickOS-Linux'

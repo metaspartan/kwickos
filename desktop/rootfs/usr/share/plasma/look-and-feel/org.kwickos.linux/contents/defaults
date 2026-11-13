@@ -14,7 +14,7 @@ fixed=Ubuntu Sans Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 activeFont=Ubuntu Sans,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1
 
 [kdeglobals][Icons]
-Theme=KwickOS
+Theme=KwickOS-Linux
 
 [plasmarc][Theme]
 name=default

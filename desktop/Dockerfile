@@ -42,7 +42,7 @@ RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/sh
 
 RUN rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 
-RUN (gtk-update-icon-cache -f -t /usr/share/icons/KwickOS || true) \
+RUN (for t in KwickOS KwickOS-Fluent KwickOS-Linux; do gtk-update-icon-cache -f -t /usr/share/icons/$t || true; done) \
  && rm -rf /usr/share/plasma/look-and-feel/org.kde.breeze.desktop /usr/share/plasma/look-and-feel/org.kde.breezedark.desktop /usr/share/plasma/look-and-feel/org.kde.breezetwilight.desktop /usr/share/plasma/look-and-feel/org.debian.desktop \
  && for l in macos windows linux; do cp /usr/share/kwick/plasma/$l.js /usr/share/plasma/look-and-feel/org.kwickos.$l/contents/layouts/org.kde.plasma.desktop-layout.js; done
 

@@ -15,6 +15,14 @@ echo "$want" > "$cfg/layout"
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
+icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
+
+refresh_icons() {
+  for g in 0 1 2 3 4 5; do
+    dbus-send --session --type=signal /KIconLoader org.kde.KIconLoader.iconChanged int32:$g >/dev/null 2>&1 || true
+  done
+}
+
 fontset() { UI=$(kwick-fonts names "$want" | sed -n 1p),10; MONO=$(kwick-fonts names "$want" | sed -n 2p),10; }
 
 kde() {
@@ -24,9 +32,10 @@ kde() {
     windows) SCHEME=KwickFluent; ACC="0,120,212";  LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickFluent; L=M;   R=IAX ;;
     linux)   SCHEME=KwickDark;   ACC="94,129,244"; LIB=org.kde.breeze;       DECO=Breeze;                      L=M;   R=IAX ;;
   esac
+  ICO=$(icontheme)
   plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
   kw kdeglobals General AccentColor "$ACC"
-  kw kdeglobals Icons Theme KwickOS
+  kw kdeglobals Icons Theme "$ICO"
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
   kw kdeglobals KDE DefaultDarkLookAndFeel "org.kwickos.$want"
   kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
@@ -41,6 +50,8 @@ kde() {
   corners
   files
   gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
+  refresh_icons
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   js=/usr/share/kwick/plasma/$want.js
   qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$( [ "$want" = macos ] && kwick-dock preamble 2>/dev/null; cat "$js")" >/dev/null 2>&1 \
@@ -94,6 +105,12 @@ tiling() {
   ui=$(kwick-fonts names "$want" | sed -n 1p); mono=$(kwick-fonts names "$want" | sed -n 2p)
   sub() { sed -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" "$2"; }
   case $want in macos) wp=KwickGlass ;; windows) wp=KwickFluent ;; *) wp=KwickOS ;; esac
+  ICO=$(icontheme)
+  for v in gtk-3.0 gtk-4.0; do
+    mkdir -p "$C/$v"
+    sed "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
+  done
+  gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
   mkdir -p "$C/hypr" "$C/sway" "$C/waybar" "$C/mako" "$C/fuzzel" "$C/foot" "$C/swaylock"
   ln -sf "/usr/share/wallpapers/$wp/contents/images/2560x1440.png" "$cfg/wallpaper"
   sub hyprland "$T/common/hyprland.conf" > "$C/hypr/hyprland.conf"

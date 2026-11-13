@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Task View
-Icon=view-grid
+Icon=kwick-taskview
 Exec=qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut Overview
 NoDisplay=true
 Categories=Utility;

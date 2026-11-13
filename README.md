@@ -190,8 +190,10 @@ Gaming. It tells you when no GPU compositor is running and offers to install `kw
 
 ### Icons
 
-The KwickOS icon theme covers apps, System Settings categories, places, file types and actions in one consistent style
-(`tools/icons/gen-icons.py`).
+Each layout has its own icon theme, all generated as SVG by `tools/icons/gen-icons.py` and set by `kwick-layout` for Plasma, GNOME and
+Hyprland: `KwickOS` (macOS layout: squircle apps with layered gradients, light-blue folders with embossed glyphs, accent-blue sidebar glyphs),
+`KwickOS-Fluent` (Windows layout: white line icons for places, folders, actions, status and file types, flat Fluent app tiles) and
+`KwickOS-Linux` (Linux layout: Tokyo Night squircles). Left to right below: macOS, Windows, Linux.
 
 ![icons](docs/img/icons.png)
 

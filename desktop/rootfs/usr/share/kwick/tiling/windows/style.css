@@ -12,21 +12,8 @@ window#waybar {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-#custom-search {
-  min-width: 40px;
-  min-height: 36px;
-  margin: 5px 2px;
-  border-radius: 6px;
-  font-size: 18px;
-  color: #60cdff;
-}
-
-#custom-search {
-  color: #e6e6e6;
-  font-size: 15px;
-}
-
 #custom-start,
+#custom-search,
 #custom-files,
 #custom-web,
 #custom-term {
@@ -39,12 +26,17 @@ window#waybar {
   background-size: 28px 28px;
 }
 
+#custom-search {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/edit-find.svg");
+  background-size: 20px 20px;
+}
+
 #custom-start {
-  background-image: url("/usr/share/icons/hicolor/scalable/apps/kwick-start-fluent.svg");
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-start-fluent.svg");
 }
 
 #custom-files {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/system-file-manager.svg");
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/system-file-manager.svg");
 }
 
 #custom-web {
@@ -52,7 +44,7 @@ window#waybar {
 }
 
 #custom-term {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/utilities-terminal.svg");
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/utilities-terminal.svg");
 }
 
 #custom-start:hover,

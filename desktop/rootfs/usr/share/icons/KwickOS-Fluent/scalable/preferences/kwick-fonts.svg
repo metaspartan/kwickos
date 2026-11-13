@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232049"/><stop offset="1" stop-color="#0a0720"/></linearGradient>
+<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.38"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient>
+</defs>
+<rect x="9" y="12" width="110" height="110" rx="28" fill="#000" fill-opacity="0.12"/>
+<rect x="9" y="10" width="110" height="110" rx="28" fill="#000" fill-opacity="0.16"/>
+<rect x="8" y="8" width="112" height="112" rx="28" fill="url(#b)"/>
+<rect x="8.5" y="8.5" width="111" height="111" rx="27.5" fill="none" stroke="url(#e)" stroke-width="1"/>
+<g transform="translate(64 64) scale(3.3) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 19L9.4 5h1.2l5.8 14" /><path d="M5.8 14.4h8.2" /><path d="M17.8 19.2v-6.4" /><path d="M17.8 14.4c0-1 1-1.8 2.2-1.8" /></g>
+</svg>
