@@ -1,0 +1,57 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 0,
+  "modules-left": ["custom/logo", "@WM@/workspaces"],
+  "modules-center": ["clock"],
+  "modules-right": ["tray", "cpu", "memory", "bluetooth", "network", "pulseaudio", "battery"],
+  "custom/logo": {
+    "format": "\u00a0",
+    "tooltip": false,
+    "on-click": "fuzzel",
+    "on-click-right": "kwick-keys"
+  },
+  "@WM@/workspaces": {
+    "disable-scroll": false,
+    "all-outputs": true,
+    "format": "{name}",
+    "persistent-workspaces": { "*": [1, 2, 3, 4, 5] }
+  },
+  "clock": {
+    "format": "{:%A %d %B  %H:%M}",
+    "format-alt": "{:%Y-%m-%d}",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  },
+  "cpu": { "format": " {usage}%", "interval": 3, "tooltip": false },
+  "memory": { "format": " {percentage}%", "interval": 5 },
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "",
+    "format-off": "",
+    "format-connected": " {num_connections}",
+    "tooltip-format": "{status}",
+    "on-click": "foot bluetoothctl"
+  },
+  "network": {
+    "format-wifi": " {signalStrength}%",
+    "format-ethernet": "",
+    "format-disconnected": "",
+    "tooltip-format": "{ifname} {ipaddr}",
+    "on-click": "foot nmtui"
+  },
+  "pulseaudio": {
+    "format": "{icon} {volume}%",
+    "format-muted": "",
+    "format-icons": { "default": ["", ""] },
+    "on-click": "pavucontrol",
+    "scroll-step": 5
+  },
+  "battery": {
+    "format": "{icon} {capacity}%",
+    "format-charging": " {capacity}%",
+    "format-icons": ["", "", "", "", ""],
+    "states": { "warning": 25, "critical": 12 }
+  },
+  "tray": { "icon-size": 16, "spacing": 10 }
+}

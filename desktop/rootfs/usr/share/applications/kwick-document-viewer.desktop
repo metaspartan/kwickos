@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Document Viewer
+Comment=Read PDFs and e-books
+Icon=kwick-document-viewer
+Exec=kwick-app document-viewer %U
+Categories=Office;Viewer;
+Keywords=pdf;document;epub;reader;
+MimeType=application/pdf;application/epub+zip;image/vnd.djvu;application/postscript;
+StartupNotify=true
+StartupWMClass=org.kde.okular
+Terminal=false

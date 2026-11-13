@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="276" height="34" viewBox="0 0 276 34">
-<g id="active-center"><g transform="translate(0,0)"><path d="" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
-<g id="inactive-center"><g transform="translate(46,0)"><path d="" stroke="#7a7a7a" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
-<g id="hover-center"><g transform="translate(92,0)"><rect width="46" height="34" fill="#ffffff" fill-opacity="0.09"/><path d="" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
-<g id="pressed-center"><g transform="translate(138,0)"><rect width="46" height="34" fill="#ffffff" fill-opacity="0.05"/><path d="" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
-<g id="deactivated-center"><g transform="translate(184,0)"><path d="" stroke="#7a7a7a" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
+<svg xmlns="http://www.w3.org/2000/svg" width="276" height="32" viewBox="0 0 276 32">
+<g id="active-center"><g transform="translate(0,0)"><path d="" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
+<g id="inactive-center"><g transform="translate(46,0)"><path d="" stroke="#7a7a7a" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
+<g id="hover-center"><g transform="translate(92,0)"><rect width="46" height="32" fill="#ffffff" fill-opacity="0.09"/><path d="" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
+<g id="pressed-center"><g transform="translate(138,0)"><rect width="46" height="32" fill="#ffffff" fill-opacity="0.05"/><path d="" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
+<g id="deactivated-center"><g transform="translate(184,0)"><path d="" stroke="#7a7a7a" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
 </svg>

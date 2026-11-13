@@ -4,7 +4,7 @@
 #   kwick-desktop install <name>       install a desktop (apt, no recommends)
 #   kwick-desktop switch <name>        make it the default SDDM session (log out to apply)
 # Names: kde (default), gnome, hyprland, xfce, cinnamon, mate, lxqt.
-# hyprland is not packaged in Debian 13: until it is, "hyprland" installs the sway tiling compositor (same waybar/wofi setup).
+# hyprland installs the kwick-hyprland package (Hyprland built from pinned upstream source); without it the sway tiling compositor is installed with the same bars and launcher.
 # Sessions other than KDE are best-effort: KwickOS uses elogind instead of systemd-logind.
 set -e
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
@@ -13,7 +13,7 @@ pkgs() { case "$1" in
   gnome) echo "gnome-session gnome-shell gnome-control-center nautilus gnome-terminal gnome-text-editor" ;;
   xfce) echo "xfce4 xfce4-terminal thunar" ;;
   cinnamon) echo "cinnamon cinnamon-session nemo gnome-terminal" ;;
-  hyprland) if apt-cache policy hyprland 2>/dev/null | grep -q "Candidate: [0-9]"; then echo "hyprland waybar wofi foot mako-notifier hyprpaper grim slurp wl-clipboard"; else echo "sway swaybg waybar wofi foot mako-notifier grim slurp wl-clipboard"; fi ;;
+  hyprland) if apt-cache policy kwick-hyprland 2>/dev/null | grep -q "Candidate: [0-9]"; then echo "kwick-hyprland waybar fuzzel foot mako-notifier swaybg swaylock swayidle grim slurp wl-clipboard xdg-desktop-portal-wlr"; else echo "sway swaybg waybar fuzzel foot mako-notifier swaylock swayidle grim slurp wl-clipboard xdg-desktop-portal-wlr"; fi ;;
   mate) echo "mate-desktop-environment-core" ;;
   lxqt) echo "lxqt-core" ;;
   *) return 1 ;; esac; }

@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+GenericName=Terminal Emulator
+Comment=Run commands and shell sessions
+Icon=kwick-terminal
+Exec=kwick-terminal
+Categories=Qt;KDE;System;TerminalEmulator;
+Keywords=terminal;shell;console;command;prompt;bash;
+StartupNotify=true
+StartupWMClass=org.kde.konsole
+Terminal=false
+Actions=new-window;
+
+[Desktop Action new-window]
+Name=New Window
+Icon=window-new
+Exec=kwick-terminal

@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "",
+        "Description": "Windows 11 style: centered taskbar, Fluent caption buttons, Selawik",
+        "Id": "org.kwickos.windows",
+        "License": "MIT",
+        "Name": "KwickOS Windows",
+        "Version": "1.0",
+        "Website": "https://github.com/metaspartan/kwickos"
+    },
+    "X-Plasma-APIVersion": "2"
+}

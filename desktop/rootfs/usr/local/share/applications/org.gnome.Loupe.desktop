@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Image Viewer
+Comment=View pictures and photos
+Icon=kwick-image-viewer
+Exec=loupe %U
+Categories=Graphics;Viewer;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

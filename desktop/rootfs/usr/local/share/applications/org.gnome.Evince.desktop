@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Document Viewer
+Comment=Read PDFs and e-books
+Icon=kwick-document-viewer
+Exec=evince %U
+Categories=Office;Viewer;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

@@ -1,0 +1,51 @@
+[General]
+BrowseThroughArchives=true
+ConfirmClosingMultipleTabs=false
+FilterBar=false
+GlobalViewProps=true
+RememberOpenedTabs=false
+ShowFullPath=false
+ShowFullPathInTitlebar=false
+ShowStatusBar=false
+ShowToolTips=true
+SplitView=false
+ShowSpaceInfo=false
+ShowZoomSlider=false
+ViewPropsTimestamp=2026,1,1,0,0,0
+
+[IconsMode]
+IconSize=64
+PreviewSize=96
+TextWidthIndex=2
+MaximumTextLines=2
+
+[DetailsMode]
+IconSize=16
+PreviewSize=32
+ExpandableFolders=true
+
+[CompactMode]
+IconSize=16
+PreviewSize=32
+
+[PlacesPanel]
+IconSize=16
+
+[MainWindow]
+MenuBar=Disabled
+StatusBar=Disabled
+ToolBarsMovable=Disabled
+
+[MainWindow][Toolbar mainToolBar]
+IconSize=16
+ToolButtonStyle=IconOnly
+
+[PreviewSettings]
+Plugins=imagethumbnail,jpegthumbnail,ffmpegthumbs
+
+[Search]
+Location=Everywhere
+
+[KFileDialog Settings]
+Places Icons Auto-resize=false
+Places Icons Static Size=16

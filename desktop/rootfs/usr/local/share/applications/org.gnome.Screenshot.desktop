@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Comment=Capture the screen
+Icon=kwick-screenshot
+Exec=gnome-screenshot --interactive
+Categories=Utility;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

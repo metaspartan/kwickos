@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=System Monitor
+Comment=Processes, memory and CPU usage
+Icon=kwick-system-monitor
+Exec=kwick-app system-monitor
+Categories=System;Monitor;
+Keywords=monitor;processes;cpu;memory;task;
+StartupNotify=true
+StartupWMClass=org.kde.plasma-systemmonitor
+Terminal=false

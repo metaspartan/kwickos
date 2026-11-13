@@ -14,7 +14,7 @@ RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firm
  && apt clean && rm -rf /var/lib/apt/lists/* /tmp/packages*.list
 
 COPY rootfs/ /
-RUN chmod 755 /usr/lib/kwick/fetch-fonts && /usr/lib/kwick/fetch-fonts / all && fc-cache -f
+RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all
 RUN set -e; \
     find /usr/lib/kwick /usr/bin/kwick-* /usr/bin/steam -type f -exec chmod 755 {} +; \
     rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
@@ -49,4 +49,7 @@ RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/sh
 
 # Discover: KwickOS has no PackageKit (kpkg is the package manager); keep only the Flatpak backend
 RUN rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
+
+RUN (gtk-update-icon-cache -f -t /usr/share/icons/KwickOS || true) \
+ && rm -rf /usr/share/plasma/look-and-feel/org.kde.breeze.desktop /usr/share/plasma/look-and-feel/org.kde.breezedark.desktop /usr/share/plasma/look-and-feel/org.kde.breezetwilight.desktop
 

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Software
+Comment=Find and install applications
+Icon=kwick-software
+Exec=kwick-app software
+Categories=System;PackageManager;
+Keywords=software;apps;store;install;flatpak;
+StartupNotify=true
+StartupWMClass=org.kde.discover
+Terminal=false

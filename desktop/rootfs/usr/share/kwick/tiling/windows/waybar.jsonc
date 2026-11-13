@@ -1,0 +1,48 @@
+{
+  "layer": "top",
+  "position": "bottom",
+  "height": 46,
+  "spacing": 2,
+  "modules-left": [],
+  "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "wlr/taskbar"],
+  "modules-right": ["tray", "network", "pulseaudio", "battery", "clock"],
+  "custom/start": { "format": "", "tooltip-format": "Start", "on-click": "fuzzel" },
+  "custom/search": { "format": "", "tooltip-format": "Search", "on-click": "fuzzel" },
+  "custom/files": { "format": "\u00a0", "tooltip-format": "Files", "on-click": "xdg-open ~" },
+  "custom/web": { "format": "\u00a0", "tooltip-format": "Firefox", "on-click": "firefox-esr" },
+  "custom/term": { "format": "\u00a0", "tooltip-format": "Terminal", "on-click": "kwick-terminal" },
+  "wlr/taskbar": {
+    "format": "{icon}",
+    "icon-size": 26,
+    "icon-theme": "KwickOS",
+    "tooltip-format": "{title}",
+    "on-click": "activate",
+    "on-click-middle": "close"
+  },
+  "clock": {
+    "format": "{:%H:%M\n%d/%m/%Y}",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  },
+  "network": {
+    "format-wifi": "",
+    "format-ethernet": "",
+    "format-disconnected": "",
+    "tooltip-format": "{ifname} {ipaddr} {essid}",
+    "on-click": "foot nmtui"
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "format-muted": "",
+    "format-icons": { "default": ["", ""] },
+    "on-click": "pavucontrol",
+    "scroll-step": 5
+  },
+  "battery": {
+    "format": "{icon}",
+    "format-charging": "",
+    "format-icons": ["", "", "", "", ""],
+    "tooltip-format": "{capacity}%",
+    "states": { "warning": 25, "critical": 12 }
+  },
+  "tray": { "icon-size": 18, "spacing": 10 }
+}

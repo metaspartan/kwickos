@@ -8,10 +8,10 @@ for (var j = 0; j < desktopsArray.length; j++) {
 }
 panels().forEach(function (p) { p.remove(); });
 var launchers = [
-    "applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop",
-    "applications:org.kde.konsole.desktop", "applications:org.kde.kate.desktop",
-    "applications:org.kde.discover.desktop", "applications:steam.desktop",
-    "applications:systemsettings.desktop"
+    "applications:kwick-files.desktop", "applications:firefox-esr.desktop",
+    "applications:kwick-terminal.desktop", "applications:kwick-editor.desktop",
+    "applications:kwick-software.desktop", "applications:steam.desktop",
+    "applications:kwick-settings.desktop"
 ].join(",");
 
 var p = new Panel;
@@ -33,7 +33,17 @@ k.currentConfigGroup = ["General"];
 k.writeConfig("icon", "kwick-start-fluent");
 var gapK = p.addWidget("org.kde.plasma.marginsseparator");
 gapK.currentConfigGroup = ["General"];
-gapK.writeConfig("margin", "6");
+gapK.writeConfig("margin", "4");
+
+var search = p.addWidget("org.kde.plasma.icon");
+search.currentConfigGroup = ["General"];
+search.writeConfig("url", "file:///usr/share/applications/kwick-search.desktop");
+var view = p.addWidget("org.kde.plasma.icon");
+view.currentConfigGroup = ["General"];
+view.writeConfig("url", "file:///usr/share/applications/kwick-taskview.desktop");
+var gapV = p.addWidget("org.kde.plasma.marginsseparator");
+gapV.currentConfigGroup = ["General"];
+gapV.writeConfig("margin", "4");
 
 var t = p.addWidget("org.kde.plasma.icontasks");
 t.currentConfigGroup = ["General"];

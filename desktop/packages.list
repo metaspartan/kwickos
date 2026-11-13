@@ -1,6 +1,6 @@
 # KwickOS Desktop package set (KDE Plasma 6 default, GNOME selectable, Hyprland/sway tiling selectable)
 plasma-desktop plasma-workspace kwin-wayland plasma-nm plasma-pa plasma-systemmonitor kscreen powerdevil breeze-gtk-theme
-sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview okular kde-spectacle kcalc kde-config-gtk-style zenity
+sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview okular kde-spectacle kcalc kde-config-gtk-style zenity xdg-desktop-portal-kde
 gnome-shell gnome-session gnome-control-center gnome-tweaks nautilus gnome-terminal gnome-text-editor xdg-desktop-portal-gnome
 gnome-shell-extension-dash-to-panel gnome-shell-extension-dashtodock gnome-shell-extension-blur-my-shell gnome-shell-extension-appindicator
 sway swaybg waybar wofi foot mako-notifier grim slurp wl-clipboard xdg-desktop-portal-wlr
@@ -10,5 +10,8 @@ mesa-vulkan-drivers libgl1-mesa-dri mesa-va-drivers mesa-vdpau-drivers libegl1 l
 firmware-linux-free firmware-misc-nonfree firmware-amd-graphics firmware-intel-graphics firmware-nvidia-graphics firmware-realtek firmware-iwlwifi firmware-atheros firmware-brcm80211 firmware-mediatek
 pciutils usbutils flatpak plasma-discover-backend-flatpak gamemode mangohud vkbasalt
 firefox-esr
-fonts-inter fonts-open-sans fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-color-emoji fonts-jetbrains-mono fonts-noto-core papirus-icon-theme
+fonts-inter fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-color-emoji fonts-jetbrains-mono fonts-cascadia-code fonts-noto-core fonts-noto-mono papirus-icon-theme
 sudo less nano vim-tiny bash-completion
+kwin-x11 qml-qt6 kpackagetool6 qml6-module-org-kde-plasma-plasma5support
+fuzzel swaylock swayidle brightnessctl pavucontrol fonts-font-awesome gnome-themes-extra gnome-shell-extension-user-theme
+kwin-addons

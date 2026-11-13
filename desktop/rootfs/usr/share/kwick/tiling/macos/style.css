@@ -1,0 +1,54 @@
+* {
+  font-family: "@UI@", "FontAwesome", sans-serif;
+  font-size: 13px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+
+window#waybar {
+  background: rgba(28, 28, 36, 0.72);
+  color: #f2f2f7;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#custom-logo {
+  min-width: 16px;
+  margin: 5px 6px 5px 14px;
+  background-image: url("/usr/share/icons/hicolor/scalable/apps/kwickos-logo.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+#window {
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+#clock,
+#battery,
+#network,
+#pulseaudio,
+#bluetooth,
+#tray {
+  padding: 0 9px;
+}
+
+#clock {
+  padding-right: 14px;
+}
+
+#battery.warning {
+  color: #ff9f0a;
+}
+
+#battery.critical {
+  color: #ff453a;
+}
+
+tooltip {
+  background: rgba(28, 28, 36, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}

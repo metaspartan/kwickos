@@ -1,0 +1,30 @@
+#!/bin/sh
+role=${1:?usage: kwick-app <role> [args]}; shift
+de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+[ -n "${SWAYSOCK:-}${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && de=tiling
+case $role in
+  editor)          kde="kate"; gnome="gnome-text-editor"; any="mousepad kate gnome-text-editor" ;;
+  software)        kde="plasma-discover"; gnome="gnome-software"; any="plasma-discover gnome-software" ;;
+  image-viewer)    kde="gwenview"; gnome="loupe eog"; any="imv loupe eog gwenview" ;;
+  document-viewer) kde="okular"; gnome="papers evince"; any="zathura papers evince okular" ;;
+  archive-manager) kde="ark"; gnome="file-roller"; any="file-roller ark" ;;
+  screenshot)      kde="spectacle"; gnome="gnome-screenshot"; any="spectacle gnome-screenshot" ;;
+  calculator)      kde="kcalc"; gnome="gnome-calculator"; any="gnome-calculator kcalc" ;;
+  system-monitor)  kde="plasma-systemmonitor"; gnome="gnome-system-monitor"; any="gnome-system-monitor plasma-systemmonitor" ;;
+  files)           kde="dolphin"; gnome="nautilus"; any="nautilus thunar pcmanfm dolphin" ;;
+  *) echo "kwick-app: unknown role $role" >&2; exit 2 ;;
+esac
+case $de in
+  *kde*) order="$kde $gnome $any" ;;
+  *gnome*|*cinnamon*|*unity*) order="$gnome $kde $any" ;;
+  *) order="$any $kde $gnome" ;;
+esac
+for c in $order; do
+  if command -v "$c" >/dev/null 2>&1; then
+    [ "$c" = gnome-screenshot ] && [ "$#" -eq 0 ] && exec "$c" --interactive
+    case $c in kate) exec kate --desktopfile kwick-editor "$@" ;; plasma-discover) exec plasma-discover --desktopfile kwick-software "$@" ;; esac
+    exec "$c" "$@"
+  fi
+done
+echo "kwick-app: no $role application installed" >&2
+exit 1

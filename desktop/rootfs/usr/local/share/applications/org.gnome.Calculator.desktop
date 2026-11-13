@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Comment=Perform calculations
+Icon=kwick-calculator
+Exec=gnome-calculator
+Categories=Utility;Calculator;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

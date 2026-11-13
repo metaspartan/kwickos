@@ -1,0 +1,83 @@
+set $mod Mod4
+
+exec /usr/lib/kwick/pipewire-session
+exec sh -c "kwick-layout $(kwick-layout)"
+exec swayidle -w timeout 600 'swaylock -f' timeout 900 'swaymsg "output * power off"' resume 'swaymsg "output * power on"' before-sleep 'swaylock -f'
+
+include ~/.config/sway/kwick-layout.conf
+
+input type:keyboard {
+  xkb_layout us
+  repeat_rate 40
+  repeat_delay 250
+}
+input type:touchpad {
+  natural_scroll enabled
+  tap enabled
+}
+
+floating_modifier $mod normal
+focus_follows_mouse yes
+workspace_layout default
+default_orientation auto
+
+for_window [app_id="pavucontrol"] floating enable
+
+bindsym $mod+Return exec kwick-terminal
+bindsym $mod+space exec fuzzel
+bindsym $mod+d exec fuzzel
+bindsym $mod+b exec firefox-esr
+bindsym $mod+e exec xdg-open ~
+bindsym $mod+w kill
+bindsym $mod+q kill
+bindsym $mod+f fullscreen toggle
+bindsym $mod+v floating toggle
+bindsym $mod+j layout toggle split
+bindsym $mod+k exec kwick-keys
+bindsym $mod+slash exec kwick-keys
+bindsym $mod+l exec swaylock -f
+bindsym $mod+Shift+e exit
+bindsym $mod+Shift+c reload
+
+bindsym $mod+left focus left
+bindsym $mod+right focus right
+bindsym $mod+up focus up
+bindsym $mod+down focus down
+bindsym $mod+Shift+left move left
+bindsym $mod+Shift+right move right
+bindsym $mod+Shift+up move up
+bindsym $mod+Shift+down move down
+bindsym $mod+minus resize shrink width 100px
+bindsym $mod+equal resize grow width 100px
+
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Tab workspace next
+bindsym $mod+Shift+Tab workspace prev
+
+bindsym Print exec grim -g "$(slurp)" - | wl-copy
+bindsym Shift+Print exec grim - | wl-copy
+
+bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+
+bindsym --locked XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+bindsym --locked XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym --locked XF86MonBrightnessUp exec brightnessctl set 5%+
+bindsym --locked XF86MonBrightnessDown exec brightnessctl set 5%-
+
+bar swaybar_command true

@@ -22,7 +22,6 @@ def w(path, text, mode="w"):
         f.write(text)
 
 
-# ----------------------------------------------------------------- color schemes
 def scheme(name, win, win_alt, view, view_alt, btn, btn_alt, accent, focus, header):
     out, grp = [], None
     for line in BREEZE.splitlines():
@@ -63,7 +62,6 @@ scheme("KwickDark", "22,23,31", "29,30,41", "17,18,26", "24,25,34", "35,37,50", 
        "94,129,244", "94,129,244", "26,27,37")
 
 
-# ------------------------------------------------------------- aurorae decorations
 def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
     d = f"M{x},{y + rtl} " + (f"A{rtl},{rtl} 0 0 1 {x + rtl},{y} " if rtl else f"L{x},{y} ")
     d += f"L{x + wd - rtr},{y} " + (f"A{rtr},{rtr} 0 0 1 {x + wd},{y + rtr} " if rtr else f"L{x + wd},{y} ")
@@ -73,7 +71,6 @@ def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
 
 def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, btn_h, spacing, margin_top,
             align, text_a, text_i):
-    """buttons: callable(kind, state) -> svg fragment drawn in a (btn_w x btn_h) box at 0,0."""
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">']
     for prefix, y, bar in (("decoration", 0, bar_a), ("decoration-inactive", 60, bar_i)):
         col, op = bar
@@ -155,26 +152,25 @@ def win_buttons(kind, st):
     fg = "#7a7a7a" if inactive else "#ffffff"
     bg = ""
     if st == "hover":
-        bg = '<rect width="46" height="34" fill="%s"/>' % ("#c42b1c" if kind == "close" else "#ffffff")
+        bg = '<rect width="46" height="32" fill="%s"/>' % ("#c42b1c" if kind == "close" else "#ffffff")
         bg = bg.replace("/>", ' fill-opacity="%s"/>' % ("1" if kind == "close" else "0.09"))
     if st == "pressed":
-        bg = '<rect width="46" height="34" fill="%s" fill-opacity="%s"/>' % ("#b32b1c" if kind == "close" else "#ffffff", "1" if kind == "close" else "0.05")
-    g = {"close": "M18.5,12.5 L27.5,21.5 M27.5,12.5 L18.5,21.5", "minimize": "M18,17.5 L28,17.5",
-         "maximize": "M18.5,12.5 H27.5 V21.5 H18.5 Z", "restore": "M20.5,14.5 H27.5 V21.5 H20.5 Z M22.5,12.5 H29.5 V19.5"}.get(kind, "")
+        bg = '<rect width="46" height="32" fill="%s" fill-opacity="%s"/>' % ("#b32b1c" if kind == "close" else "#ffffff", "1" if kind == "close" else "0.05")
+    g = {"close": "M18.5,11.5 L27.5,20.5 M27.5,11.5 L18.5,20.5", "minimize": "M18,16.5 L28,16.5",
+         "maximize": "M18.5,11.5 H27.5 V20.5 H18.5 Z", "restore": "M20.5,13.5 H27.5 V20.5 H20.5 Z M22.5,11.5 H29.5 V18.5"}.get(kind, "")
     return f'{bg}<path d="{g}" stroke="{fg}" stroke-width="1" fill="none" stroke-linecap="square"/>'
 
 
 aurorae("KwickGlass", 34, 1, 12, ("#262730", 0.80), ("#202129", 0.70), ("#ffffff", 0.10),
         mac_buttons, 14, 14, 8, 10, "Center", "235,235,245", "130,130,145")
-aurorae("KwickFluent", 34, 1, 8, ("#202020", 0.96), ("#2b2b2b", 0.96), ("#ffffff", 0.08),
-        win_buttons, 46, 34, 0, 0, "Left", "255,255,255", "140,140,140")
+aurorae("KwickFluent", 32, 1, 8, ("#202020", 0.98), ("#202020", 0.98), ("#ffffff", 0.08),
+        win_buttons, 46, 32, 0, 0, "Left", "255,255,255", "140,140,140")
 
 
-# ------------------------------------------------------------------- wallpapers
 def wallpaper(name, painter, size=(2560, 1440)):
     from PIL import Image, ImageFilter
     img = painter(size)
-    rnd = Image.effect_noise(size, 12).convert("RGB")  # break up banding
+    rnd = Image.effect_noise(size, 12).convert("RGB")
     img = Image.blend(img, Image.merge("RGB", [rnd.split()[0]] * 3), 0.025)
     d = f"usr/share/wallpapers/{name}/contents/images"
     os.makedirs(os.path.join(R, d), exist_ok=True)
@@ -187,14 +183,14 @@ def wallpaper(name, painter, size=(2560, 1440)):
 def glass_wall(size):
     from PIL import Image, ImageDraw, ImageFilter, ImageChops
     W, H = size
-    s = 4  # draw small, blur, upscale (soft, fast)
+    s = 4
     base = Image.new("RGB", (W // s, H // s), (9, 10, 22))
     blobs = [(0.18, 0.25, 0.42, (40, 60, 190)), (0.72, 0.20, 0.38, (120, 60, 200)), (0.55, 0.78, 0.46, (20, 120, 200)),
              (0.10, 0.85, 0.30, (70, 40, 150)), (0.92, 0.75, 0.28, (30, 90, 170))]
     for cx, cy, r, col in blobs:
         layer = Image.new("RGB", base.size, (0, 0, 0))
         ld = ImageDraw.Draw(layer)
-        for k in range(24, 0, -1):  # big -> small, each ellipse overwrites: smooth radial falloff
+        for k in range(24, 0, -1):
             f = k / 24
             rr = int(r * W / s * f)
             a_ = tuple(int(c * (1 - f) ** 1.6 * 0.42) for c in col)
@@ -232,7 +228,6 @@ def fluent_wall(size):
 wallpaper("KwickGlass", glass_wall)
 wallpaper("KwickFluent", fluent_wall)
 
-# ---------------------------------------------------------------------- konsole
 cs = """[Background]
 Color=16,17,24
 
@@ -260,9 +255,6 @@ w("usr/share/konsole/KwickGlass.colorscheme", cs)
 w("usr/share/konsole/KwickOS.profile", "[Appearance]\nColorScheme=KwickGlass\nFont=JetBrains Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1\nTerminalMargin=14\nTerminalCenter=false\n\n[General]\nName=KwickOS\nParent=FALLBACK/\n\n[Scrolling]\nScrollBarPosition=2\n\n[Terminal Features]\nBlinkingCursorEnabled=true\n")
 w("etc/xdg/konsolerc", "[Desktop Entry]\nDefaultProfile=KwickOS.profile\n\n[KonsoleWindow]\nShowMenuBarByDefault=false\n")
 
-# ------------------------------------------------------------------------ icons
-# Reuse the traced Flux K/lightning mark everywhere; never regenerate a
-# substitute logo or a platform vendor's trademark here.
 logo = os.path.join(ROOT, "docs/img/kwickos-logo.svg")
 for name in ("kwickos-logo", "kwick-start", "kwick-start-fluent"):
     target = os.path.join(R, f"usr/share/icons/hicolor/scalable/apps/{name}.svg")

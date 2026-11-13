@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=System Settings
+GenericName=System Settings
+Comment=Display, network, sound, accounts and more
+Icon=preferences-system
+Exec=systemsettings %u
+Categories=Qt;KDE;Settings;
+Keywords=settings;preferences;system;configuration;
+StartupNotify=true
+Terminal=false

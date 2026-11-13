@@ -96,7 +96,7 @@ ColumnLayout {
                     height: 22
                     radius: 7
                     color: ["#6e6e78", "#0a84ff", "#af52de", "#ff375f"][["off", "subtle", "fluid", "full"].indexOf(pc.modelData.id)]
-                    Image { anchors.centerIn: parent; width: 14; height: 14; source: "icons/effects.svg"; sourceSize.width: 28; sourceSize.height: 28 }
+                    Image { anchors.centerIn: parent; width: 14; height: 14; source: "icons/effects.svg"; sourceSize.width: 56; sourceSize.height: 56 }
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Sys.setPreset(pc.modelData.id) }
             }

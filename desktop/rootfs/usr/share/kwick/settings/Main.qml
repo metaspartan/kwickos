@@ -124,8 +124,8 @@ ApplicationWindow {
                             anchors.leftMargin: 8
                             spacing: 11
                             Rectangle {
-                                Layout.preferredWidth: 26
-                                Layout.preferredHeight: 26
+                                Layout.preferredWidth: 28
+                                Layout.preferredHeight: 28
                                 radius: 7
                                 gradient: Gradient {
                                     GradientStop { position: 0; color: Qt.lighter(item.modelData.color, 1.18) }
@@ -133,11 +133,11 @@ ApplicationWindow {
                                 }
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 16
-                                    height: 16
+                                    width: 18
+                                    height: 18
                                     source: "icons/" + item.modelData.icon + ".svg"
-                                    sourceSize.width: 32
-                                    sourceSize.height: 32
+                                    sourceSize.width: 72
+                                    sourceSize.height: 72
                                 }
                             }
                             Text {
@@ -145,7 +145,7 @@ ApplicationWindow {
                                 text: item.modelData.name
                                 color: item.on ? "#ffffff" : Theme.text
                                 font.family: Theme.sans
-                                font.pixelSize: 14
+                                font.pixelSize: 13
                                 font.weight: item.on ? Font.Medium : Font.Normal
                             }
                         }

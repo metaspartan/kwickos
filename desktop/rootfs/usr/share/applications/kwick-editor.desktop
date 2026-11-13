@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Text Editor
+Comment=Plain text and code editor
+Icon=kwick-editor
+Exec=kwick-app editor %F
+Categories=System;Utility;TextEditor;
+Keywords=text;code;edit;notes;markdown;
+MimeType=text/plain;text/markdown;text/x-shellscript;text/x-python;text/x-csrc;application/json;application/xml;
+StartupNotify=true
+StartupWMClass=org.kde.kate
+Terminal=false

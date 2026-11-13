@@ -1,0 +1,27 @@
+{
+  "name": "dock",
+  "layer": "top",
+  "position": "bottom",
+  "height": 76,
+  "margin-bottom": 4,
+  "modules-left": [],
+  "modules-center": ["group/dock"],
+  "modules-right": [],
+  "group/dock": {
+    "orientation": "horizontal",
+    "modules": ["custom/files", "custom/web", "custom/term", "custom/settings", "custom/sep", "wlr/taskbar"]
+  },
+  "custom/files": { "format": " ", "tooltip-format": "Files", "on-click": "xdg-open ~" },
+  "custom/web": { "format": " ", "tooltip-format": "Firefox", "on-click": "firefox-esr" },
+  "custom/term": { "format": " ", "tooltip-format": "Terminal", "on-click": "kwick-terminal" },
+  "custom/settings": { "format": " ", "tooltip-format": "Launcher", "on-click": "fuzzel" },
+  "custom/sep": { "format": " ", "tooltip": false },
+  "wlr/taskbar": {
+    "format": "{icon}",
+    "icon-size": 44,
+    "icon-theme": "KwickOS",
+    "tooltip-format": "{title}",
+    "on-click": "activate",
+    "on-click-middle": "close"
+  }
+}

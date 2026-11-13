@@ -1,7 +1,4 @@
 #!/bin/bash
-# Build the `kwick-desktop` metapackage: `apt install kwick-desktop` turns a headless
-# KwickOS into the KDE Plasma desktop edition (same payload as the desktop ISO).
-#   mkdesktoppkg.sh <arch>      -> /out/repo/pool/main/kwick-desktop_<ver>_<arch>.deb
 set -euo pipefail
 ARCH=${1:?arch}; SRC=${SRC:-/src}; OUT=${OUT:-/out}
 VER=$(tr -d '\r\n' < "$SRC/VERSION")
@@ -10,9 +7,11 @@ cp -r --no-preserve=ownership "$SRC/desktop/rootfs/." "$P/"
 find "$P" -type f \( -path '*/usr/lib/kwick/*' -o -path '*/usr/bin/kwick-*' \) -exec chmod 755 {} +
 chmod 755 "$P/usr/lib/kwick/fetch-fonts"
 "$P/usr/lib/kwick/fetch-fonts" "$P" all
-rm -f "$P/etc/kinit/no-getty"   # keep the serial/VT getty on upgraded servers
+"$SRC/scripts/mkroundedpkg.sh" "$P"
+chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
+"$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
+rm -f "$P/etc/kinit/no-getty"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
-# non-free firmware/microcode/VA drivers are installed by kwick-gpu (enables non-free-firmware itself)
 deps="linux-image-kwick-generic, kwick-gpu, $deps"
 cat > "$P/DEBIAN/control" <<EOF
 Package: kwick-desktop
@@ -31,7 +30,6 @@ cat > "$P/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
-# firmware/non-free components are enabled and installed by kwick-gpu (below)
 rm -f /etc/systemd/system/multi-user.target.wants/networking.service
 W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W
 for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do
@@ -46,7 +44,7 @@ if ! id kwick >/dev/null 2>&1; then
   for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done
   echo "kwick: set a password with 'passwd kwick' (no password = no login except autologin)"
 fi
-rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so   # no PackageKit on KwickOS
+rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 mkdir -p /etc/sddm.conf.d
 [ -f /etc/sddm.conf.d/20-autologin.conf ] || printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf
 rm -f /etc/kinit/autologin

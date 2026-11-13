@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "",
+        "Description": "Classic Linux desktop: top panel, Breeze buttons, Ubuntu Sans",
+        "Id": "org.kwickos.linux",
+        "License": "MIT",
+        "Name": "KwickOS Linux",
+        "Version": "1.0",
+        "Website": "https://github.com/metaspartan/kwickos"
+    },
+    "X-Plasma-APIVersion": "2"
+}

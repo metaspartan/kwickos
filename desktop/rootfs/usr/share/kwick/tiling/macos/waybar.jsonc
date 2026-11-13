@@ -1,0 +1,52 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 28,
+  "spacing": 0,
+  "modules-left": ["custom/logo", "@WM@/window"],
+  "modules-center": [],
+  "modules-right": ["tray", "bluetooth", "network", "pulseaudio", "battery", "clock"],
+  "custom/logo": {
+    "format": "\u00a0",
+    "tooltip": false,
+    "on-click": "fuzzel",
+    "on-click-right": "kwick-keys"
+  },
+  "@WM@/window": {
+    "format": "{app_id}",
+    "max-length": 40,
+    "separate-outputs": true,
+    "rewrite": { "": "Finder" }
+  },
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  },
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "",
+    "format-off": "",
+    "tooltip-format": "{status}"
+  },
+  "network": {
+    "format-wifi": "",
+    "format-ethernet": "",
+    "format-disconnected": "",
+    "tooltip-format": "{ifname} {ipaddr} {essid}",
+    "on-click": "foot nmtui"
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "format-muted": "",
+    "format-icons": { "default": ["", ""] },
+    "on-click": "pavucontrol",
+    "scroll-step": 5
+  },
+  "battery": {
+    "format": "{capacity}% {icon}",
+    "format-charging": "{capacity}% ",
+    "format-icons": ["", "", "", "", ""],
+    "states": { "warning": 25, "critical": 12 }
+  },
+  "tray": { "icon-size": 16, "spacing": 10 }
+}

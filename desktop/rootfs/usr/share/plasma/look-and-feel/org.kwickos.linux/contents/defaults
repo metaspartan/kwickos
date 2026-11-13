@@ -1,0 +1,35 @@
+[kdeglobals][KDE]
+widgetStyle=Breeze
+
+[kdeglobals][General]
+ColorScheme=KwickDark
+AccentColor=94,129,244
+font=Ubuntu Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+menuFont=Ubuntu Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+toolBarFont=Ubuntu Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+smallestReadableFont=Ubuntu Sans,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+fixed=Ubuntu Sans Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+
+[kdeglobals][WM]
+activeFont=Ubuntu Sans,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1
+
+[kdeglobals][Icons]
+Theme=KwickOS
+
+[plasmarc][Theme]
+name=default
+
+[kcminputrc][Mouse]
+cursorTheme=breeze_cursors
+
+[kwinrc][WindowSwitcher]
+LayoutName=thumbnail_grid
+
+[kwinrc][org.kde.kdecoration2]
+library=org.kde.breeze
+theme=Breeze
+ButtonsOnLeft=M
+ButtonsOnRight=IAX
+
+[Wallpaper]
+Image=KwickOS

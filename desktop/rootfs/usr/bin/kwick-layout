@@ -1,28 +1,33 @@
 #!/bin/sh
-# kwick-layout: switch the desktop between "macos" (liquid glass), "windows" (Windows 11) and "linux" styles.
-#   kwick-layout macos|windows|linux     apply to the running session (and remember for new logins)
-#   kwick-layout                         show the current style
-# Every style is fully dark. Works on KDE Plasma, GNOME and Hyprland/sway. Effects are independent: see kwick-effects.
+usage() {
+  cat <<'USAGE'
+usage: kwick-layout [macos|windows|linux]
+  with a name: apply that layout to the running session and remember it for new logins
+  without:     print the current layout
+USAGE
+}
 set -u
 cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
 want=${1:-}
 if [ -z "$want" ]; then cat "$cfg/layout" 2>/dev/null || echo macos; exit 0; fi
-case "$want" in linux|windows|macos) ;; *) echo "usage: kwick-layout macos|windows|linux"; exit 1;; esac
+case "$want" in linux|windows|macos) ;; *) usage >&2; exit 1;; esac
 echo "$want" > "$cfg/layout"
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
-fontset() { case $want in macos) UI="Inter,10"; MONO="JetBrains Mono,10";; windows) UI="Open Sans,10"; MONO="Liberation Mono,10";; linux) UI="Noto Sans,10"; MONO="Noto Sans Mono,10";; esac; }
+fontset() { UI=$(kwick-fonts names "$want" | sed -n 1p),10; MONO=$(kwick-fonts names "$want" | sed -n 2p),10; }
 
 kde() {
   fontset
   case $want in
     macos)   SCHEME=KwickGlass;  ACC="10,132,255"; LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickGlass;  L=XIA; R="" ;;
-    windows) SCHEME=KwickFluent; ACC="0,120,212";  LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickFluent; L="";  R=IAX ;;
+    windows) SCHEME=KwickFluent; ACC="0,120,212";  LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickFluent; L=M;   R=IAX ;;
     linux)   SCHEME=KwickDark;   ACC="94,129,244"; LIB=org.kde.breeze;       DECO=Breeze;                      L=M;   R=IAX ;;
   esac
   plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
   kw kdeglobals General AccentColor "$ACC"
+  kw kdeglobals Icons Theme KwickOS
+  kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
   kw kdeglobals General fixed "$MONO,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
   kw kdeglobals WM activeFont "$UI,-1,5,600,0,0,0,0,0,0,0,0,0,0,1"
@@ -31,49 +36,92 @@ kde() {
   kw kwinrc org.kde.kdecoration2 ButtonsOnLeft "$L"
   kw kwinrc org.kde.kdecoration2 ButtonsOnRight "$R"
   kw plasmarc Theme name default
+  corners
+  files
   gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null || true
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   js=/usr/share/kwick/plasma/$want.js
-  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(cat "$js")" >/dev/null 2>&1 \
+  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$( [ "$want" = macos ] && kwick-dock preamble 2>/dev/null; cat "$js")" >/dev/null 2>&1 \
     || echo "plasmashell not running: panels and wallpaper apply at next login"
 }
 
+corners() {
+  case $want in macos) rad=12 ;; *) rad=8 ;; esac
+  kw kwinrc Plugins kwin4_effect_shapecornersEnabled true
+  kw kwinrc Effect-kwin4_effect_shapecorners Size "$rad"
+  kw kwinrc Effect-kwin4_effect_shapecorners InactiveCornerRadius "$rad"
+  kw kwinrc Effect-kwin4_effect_shapecorners OutlineThickness 1
+  kw kwinrc Effect-kwin4_effect_shapecorners ActiveOutlineAlpha 40
+  kw kwinrc Effect-kwin4_effect_shapecorners InactiveOutlineAlpha 25
+  kw kwinrc Effect-kwin4_effect_shapecorners SecondOutlineThickness 0
+}
+
+files() {
+  F=/usr/share/kwick/files; D=${XDG_DATA_HOME:-$HOME/.local/share}
+  mkdir -p "$D/kxmlgui5/dolphin" "$D/locale/en_KW/LC_MESSAGES"
+  cp "$F/$want/dolphinrc" "${XDG_CONFIG_HOME:-$HOME/.config}/dolphinrc"
+  cp "$F/$want/dolphinui.rc" "$D/kxmlgui5/dolphin/dolphinui.rc"
+  sed "s|@HOME@|$HOME|g" "$F/common/user-places.xbel" > "$D/user-places.xbel"
+  cp "$F/$want/kio6.mo" "$D/locale/en_KW/LC_MESSAGES/kio6.mo" 2>/dev/null || rm -f "$D/locale/en_KW/LC_MESSAGES/kio6.mo"
+  mkdir -p "$D/dolphin/view_properties/global"
+  cp "$F/$want/view" "$D/dolphin/view_properties/global/.directory"
+  kw kdeglobals General TerminalApplication kwick-terminal
+  kw kdeglobals General TerminalService kwick-terminal.desktop
+  gsettings set org.gnome.desktop.default-applications.terminal exec kwick-terminal 2>/dev/null || true
+}
+
 gnome() {
-  fontset; gsettings set org.gnome.desktop.interface font-name "$UI"; gsettings set org.gnome.desktop.interface monospace-font-name "$MONO"
-  gsettings set org.gnome.desktop.interface color-scheme prefer-dark
-  s=org.gnome.desktop.wm.preferences
-  case $want in
-    macos)   gsettings set $s button-layout 'close,minimize,maximize:'
-             gsettings set org.gnome.shell.extensions.dash-to-dock dock-position BOTTOM 2>/dev/null
-             gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false 2>/dev/null
-             gsettings set org.gnome.shell.extensions.dash-to-dock transparency-mode FIXED 2>/dev/null
-             gsettings set org.gnome.shell.extensions.dash-to-dock custom-background-color false 2>/dev/null
-             gnome-extensions disable dash-to-panel@jderose9.github.com 2>/dev/null
-             gnome-extensions enable dash-to-dock@micxgx.gmail.com 2>/dev/null
-             gnome-extensions enable blur-my-shell@aunetx 2>/dev/null ;;
-    windows) gsettings set $s button-layout ':minimize,maximize,close'
-             gnome-extensions disable dash-to-dock@micxgx.gmail.com 2>/dev/null
-             gnome-extensions enable dash-to-panel@jderose9.github.com 2>/dev/null
-             gsettings set org.gnome.shell.extensions.dash-to-panel panel-positions '{"0":"BOTTOM"}' 2>/dev/null ;;
-    linux)   gsettings set $s button-layout 'appmenu:minimize,maximize,close'
-             gsettings set org.gnome.shell.extensions.dash-to-dock dock-position LEFT 2>/dev/null
-             gsettings set org.gnome.shell.extensions.dash-to-dock extend-height true 2>/dev/null
-             gnome-extensions disable dash-to-panel@jderose9.github.com 2>/dev/null
-             gnome-extensions enable dash-to-dock@micxgx.gmail.com 2>/dev/null ;;
-  esac
+  fontset
+  G=/usr/share/kwick/gnome
+  GSETTINGS_SCHEMA_DIR=$(ls -d /usr/share/gnome-shell/extensions/*/schemas 2>/dev/null | tr "
+" ":"); export GSETTINGS_SCHEMA_DIR
+  for f in "$G/common.settings" "$G/$want.settings"; do
+    while read -r schema key val; do
+      [ -n "$schema" ] && gsettings set "$schema" "$key" "$val" 2>/dev/null
+    done < "$f"
+  done
+  gsettings set org.gnome.desktop.interface font-name "$(printf '%s' "$UI" | sed 's/,/ /')"
+  gsettings set org.gnome.desktop.interface document-font-name "$(printf '%s' "$UI" | sed 's/,/ /')"
+  gsettings set org.gnome.desktop.interface monospace-font-name "$(printf '%s' "$MONO" | sed 's/,/ /')"
+  gsettings set org.gnome.desktop.wm.preferences titlebar-font "$(printf '%s' "$UI" | sed 's/,.*//') Bold 10"
+  true
 }
 
-hypr() {
-  mkdir -p "$HOME/.config/hypr" "$HOME/.config/waybar"
-  cp "/usr/share/kwick/hypr/layout-$want.conf" "$HOME/.config/hypr/kwick-layout.conf"
-  cp "/usr/share/kwick/hypr/waybar-$want.jsonc" "$HOME/.config/waybar/config.jsonc"
-  cp /usr/share/kwick/hypr/waybar.css "$HOME/.config/waybar/style.css"
-  hyprctl reload >/dev/null 2>&1 || true
-  pkill -x waybar 2>/dev/null; (waybar >/dev/null 2>&1 &)
+tiling() {
+  T=/usr/share/kwick/tiling; C=${XDG_CONFIG_HOME:-$HOME/.config}
+  ui=$(kwick-fonts names "$want" | sed -n 1p); mono=$(kwick-fonts names "$want" | sed -n 2p)
+  sub() { sed -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" "$2"; }
+  case $want in macos) wp=KwickGlass ;; windows) wp=KwickFluent ;; *) wp=KwickOS ;; esac
+  mkdir -p "$C/hypr" "$C/sway" "$C/waybar" "$C/mako" "$C/fuzzel" "$C/foot" "$C/swaylock"
+  ln -sf "/usr/share/wallpapers/$wp/contents/images/2560x1440.png" "$cfg/wallpaper"
+  sub hyprland "$T/common/hyprland.conf" > "$C/hypr/hyprland.conf"
+  cp "$T/$want/hyprland.conf" "$C/hypr/kwick-layout.conf"
+  [ -f "$C/hypr/kwick-effects.conf" ] || : > "$C/hypr/kwick-effects.conf"
+  sub sway "$T/common/sway.conf" > "$C/sway/config"
+  sub sway "$T/$want/sway.conf" > "$C/sway/kwick-layout.conf"
+  for wm in hyprland sway; do sub $wm "$T/$want/waybar.jsonc" > "$C/waybar/$wm.jsonc"; done
+  sub x "$T/$want/style.css" > "$C/waybar/style.css"
+  rm -f "$C/waybar/dock.jsonc" "$C/waybar/dock.css"
+  if [ -f "$T/$want/dock.jsonc" ]; then sub x "$T/$want/dock.jsonc" > "$C/waybar/dock.jsonc"; sub x "$T/$want/dock.css" > "$C/waybar/dock.css"; fi
+  sub x "$T/$want/mako.conf" > "$C/mako/config"
+  sub x "$T/$want/fuzzel.ini" > "$C/fuzzel/fuzzel.ini"
+  sub x "$T/common/foot.ini" > "$C/foot/foot.ini"
+  sub x "$T/common/swaylock.conf" > "$C/swaylock/config"
+  if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then wm=hyprland; hyprctl reload >/dev/null 2>&1
+  elif [ -n "${SWAYSOCK:-}" ] && command -v swaymsg >/dev/null 2>&1; then wm=sway; swaymsg reload >/dev/null 2>&1
+  else echo "tiling session not running: layout applies at next login"; return 0; fi
+  pkill -x waybar 2>/dev/null; pkill -x mako 2>/dev/null; pkill -x swaybg 2>/dev/null
+  sleep 0.3
+  (swaybg -m fill -i "$cfg/wallpaper" >/dev/null 2>&1 &)
+  (waybar -c "$C/waybar/$wm.jsonc" -s "$C/waybar/style.css" >/dev/null 2>&1 &)
+  [ -f "$C/waybar/dock.jsonc" ] && (waybar -c "$C/waybar/dock.jsonc" -s "$C/waybar/dock.css" >/dev/null 2>&1 &)
+  (mako >/dev/null 2>&1 &)
+  true
 }
 
+[ -n "${SWAYSOCK:-}${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && de=sway
 case $de in
-  *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) hypr ;;
+  *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) tiling ;;
   *) echo "Layout '$want' saved; it is applied at your next desktop login." ;;
 esac
 echo "layout: $want"

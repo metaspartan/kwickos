@@ -1,0 +1,87 @@
+#!/bin/sh
+set -u
+usage() {
+  cat <<'USAGE'
+usage: kwick-dock position [bottom|left|right]
+       kwick-dock size [PIXELS]
+       kwick-dock autohide [on|off]
+       kwick-dock pin DESKTOP-ID
+       kwick-dock unpin DESKTOP-ID
+       kwick-dock list
+       kwick-dock apply
+USAGE
+}
+cfgdir=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
+conf=$cfgdir/dock.conf
+mkdir -p "$cfgdir"
+default_pinned="kwick-files.desktop,firefox-esr.desktop,org.kde.konsole.desktop,kwick-editor.desktop,kwick-software.desktop,kwick-settings.desktop"
+
+get() { [ -f "$conf" ] && sed -n "s/^$1=//p" "$conf" | tail -n 1; }
+val() { v=$(get "$1"); [ -n "$v" ] && printf '%s' "$v" || printf '%s' "$2"; }
+set_key() {
+  touch "$conf"
+  if grep -q "^$1=" "$conf"; then
+    sed -i "s|^$1=.*|$1=$2|" "$conf"
+  else
+    printf '%s=%s\n' "$1" "$2" >> "$conf"
+  fi
+}
+
+ensure() {
+  [ -f "$conf" ] && return 0
+  printf 'position=bottom\niconSize=48\nautohide=off\nfloating=on\npinned=%s\n' "$default_pinned" > "$conf"
+}
+
+preamble() {
+  printf 'var KWICK_DOCK = {position: "%s", iconSize: %s, autohide: "%s", floating: "%s", pinned: "%s"};\n' \
+    "$(val position bottom)" "$(val iconSize 48)" "$(val autohide off)" "$(val floating on)" "$(val pinned "$default_pinned")"
+}
+
+apply() {
+  layout=$(cat "$cfgdir/layout" 2>/dev/null || echo macos)
+  [ "$layout" = macos ] || { echo "dock settings saved; they apply in the macos layout (current: $layout)"; return 0; }
+  js=/usr/share/kwick/plasma/macos.js
+  q=$(command -v qdbus6 || command -v qdbus || true)
+  [ -n "$q" ] || { echo "dock settings saved; qdbus not found, they apply at next login"; return 0; }
+  script=$(preamble; cat "$js")
+  "$q" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$script" >/dev/null 2>&1 \
+    || echo "plasmashell not running: dock settings apply at next login"
+}
+
+ensure
+cmd=${1:-list}
+case "$cmd" in
+  position)
+    if [ $# -lt 2 ]; then val position bottom; echo; exit 0; fi
+    case "$2" in bottom|left|right) ;; *) echo "position must be bottom, left or right" >&2; exit 1;; esac
+    set_key position "$2"; apply ;;
+  size)
+    if [ $# -lt 2 ]; then val iconSize 48; echo; exit 0; fi
+    case "$2" in ''|*[!0-9]*) echo "size must be a number of pixels" >&2; exit 1;; esac
+    [ "$2" -ge 32 ] && [ "$2" -le 96 ] || { echo "size must be between 32 and 96" >&2; exit 1; }
+    set_key iconSize "$2"; apply ;;
+  autohide)
+    if [ $# -lt 2 ]; then val autohide off; echo; exit 0; fi
+    case "$2" in on|off) ;; *) echo "usage: kwick-dock autohide on|off" >&2; exit 1;; esac
+    set_key autohide "$2"; apply ;;
+  pin)
+    [ $# -ge 2 ] || { echo "usage: kwick-dock pin DESKTOP-ID" >&2; exit 1; }
+    id=$2
+    cur=$(val pinned "$default_pinned")
+    case ",$cur," in *",$id,"*) echo "$id is already pinned"; exit 0;; esac
+    if [ -z "$cur" ]; then new=$id; else new=$cur,$id; fi
+    set_key pinned "$new"; apply ;;
+  unpin)
+    [ $# -ge 2 ] || { echo "usage: kwick-dock unpin DESKTOP-ID" >&2; exit 1; }
+    id=$2
+    cur=$(val pinned "$default_pinned")
+    new=$(printf '%s' ",$cur," | sed "s|,$id,|,|g; s|^,||; s|,\$||")
+    set_key pinned "$new"; apply ;;
+  list)
+    printf 'position=%s\niconSize=%s\nautohide=%s\nfloating=%s\n' "$(val position bottom)" "$(val iconSize 48)" "$(val autohide off)" "$(val floating on)"
+    printf '%s\n' "$(val pinned "$default_pinned")" | tr ',' '\n' | sed 's/^/pinned=/' ;;
+  apply) apply ;;
+  preamble) preamble ;;
+  -h|--help|help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac

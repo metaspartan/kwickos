@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+GenericName=Terminal Emulator
+Icon=kwick-terminal
+Exec=foot
+Categories=System;TerminalEmulator;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

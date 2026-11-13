@@ -1,0 +1,101 @@
+* {
+  font-family: "@UI@", "FontAwesome", sans-serif;
+  font-size: 13px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+
+window#waybar {
+  background: rgba(26, 27, 38, 0.92);
+  color: #c0caf5;
+}
+
+#workspaces {
+  margin-left: 4px;
+}
+
+#workspaces button {
+  padding: 0 9px;
+  margin: 4px 2px;
+  color: #565f89;
+  background: transparent;
+  border-radius: 6px;
+}
+
+#workspaces button.visible,
+#workspaces button.active,
+#workspaces button.focused {
+  color: #1a1b26;
+  background: #7aa2f7;
+  font-weight: bold;
+}
+
+#workspaces button.empty {
+  color: #414868;
+}
+
+#workspaces button.active.empty,
+#workspaces button.focused.empty {
+  color: #1a1b26;
+}
+
+#workspaces button:hover {
+  background: #24283b;
+  color: #c0caf5;
+}
+
+#custom-logo {
+  min-width: 18px;
+  margin: 5px 6px 5px 10px;
+  background-image: url("/usr/share/icons/hicolor/scalable/apps/kwickos-logo.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+#clock {
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+#cpu,
+#memory,
+#bluetooth,
+#network,
+#pulseaudio,
+#battery,
+#tray {
+  padding: 0 10px;
+  color: #a9b1d6;
+}
+
+#cpu {
+  color: #7dcfff;
+}
+
+#memory {
+  color: #bb9af7;
+}
+
+#network {
+  color: #9ece6a;
+}
+
+#pulseaudio {
+  color: #e0af68;
+}
+
+#battery.warning {
+  color: #e0af68;
+}
+
+#battery.critical {
+  color: #f7768e;
+}
+
+tooltip {
+  background: #1a1b26;
+  border: 1px solid #414868;
+  border-radius: 8px;
+}

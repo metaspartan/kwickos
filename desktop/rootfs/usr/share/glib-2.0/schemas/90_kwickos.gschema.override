@@ -1,6 +1,6 @@
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
-icon-theme='Papirus-Dark'
+icon-theme='KwickOS'
 font-name='Inter 10'
 monospace-font-name='JetBrains Mono 10'
 enable-hot-corners=false

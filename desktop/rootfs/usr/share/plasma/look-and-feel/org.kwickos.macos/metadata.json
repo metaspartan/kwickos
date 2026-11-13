@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "",
+        "Description": "Liquid glass: floating menu bar and dock, traffic lights, Inter",
+        "Id": "org.kwickos.macos",
+        "License": "MIT",
+        "Name": "KwickOS macOS",
+        "Version": "1.0",
+        "Website": "https://github.com/metaspartan/kwickos"
+    },
+    "X-Plasma-APIVersion": "2"
+}

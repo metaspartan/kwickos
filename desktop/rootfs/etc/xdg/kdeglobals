@@ -1,5 +1,5 @@
 [KDE]
-LookAndFeelPackage=org.kwickos.desktop
+LookAndFeelPackage=org.kwickos.macos
 widgetStyle=Breeze
 SingleClick=false
 AnimationDurationFactor=0.7
@@ -14,7 +14,7 @@ toolBarFont=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 fixed=JetBrains Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 
 [Icons]
-Theme=Papirus-Dark
+Theme=KwickOS
 
 [WM]
 activeFont=Inter,10,-1,5,600,0,0,0,0,0,0,0,0,0,0,1

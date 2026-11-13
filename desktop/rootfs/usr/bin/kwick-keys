@@ -1,0 +1,2 @@
+#!/bin/sh
+exec fuzzel --dmenu --width 56 --lines 20 --prompt "keys  " < /usr/share/kwick/tiling/common/keys.txt >/dev/null

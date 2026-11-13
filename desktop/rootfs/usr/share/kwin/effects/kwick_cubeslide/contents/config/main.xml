@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <kcfgfile name=""/>
+    <group name="">
+        <entry name="Duration" type="Int">
+            <default>520</default>
+        </entry>
+        <entry name="WindowLift" type="Double">
+            <default>46</default>
+        </entry>
+        <entry name="PullBack" type="Double">
+            <default>0.32</default>
+        </entry>
+        <entry name="BackgroundColor" type="Color">
+            <default>#0b0b12</default>
+        </entry>
+    </group>
+</kcfg>

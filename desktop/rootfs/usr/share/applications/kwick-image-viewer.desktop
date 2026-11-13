@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Image Viewer
+Comment=View pictures and photos
+Icon=kwick-image-viewer
+Exec=kwick-app image-viewer %U
+Categories=Graphics;Viewer;
+Keywords=image;photo;picture;viewer;
+MimeType=image/png;image/jpeg;image/gif;image/webp;image/svg+xml;image/bmp;image/tiff;
+StartupNotify=true
+StartupWMClass=org.kde.gwenview
+Terminal=false

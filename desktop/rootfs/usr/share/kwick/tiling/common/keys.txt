@@ -1,0 +1,19 @@
+SUPER + Return            Terminal (foot)
+SUPER + Space / D         Launcher
+SUPER + B                 Web browser
+SUPER + E                 File manager
+SUPER + W / Q             Close window
+SUPER + F                 Fullscreen
+SUPER + V                 Toggle floating
+SUPER + J                 Toggle split direction
+SUPER + Arrows            Move focus
+SUPER + Shift + Arrows    Move window
+SUPER + - / =             Shrink / grow window
+SUPER + 1..9              Switch workspace
+SUPER + Shift + 1..9      Send window to workspace
+SUPER + Tab               Next workspace
+SUPER + Mouse drag        Move (left) / resize (right) window
+SUPER + L                 Lock screen
+SUPER + K or /            This cheat sheet
+Print / Shift + Print     Screenshot region / screen to clipboard
+SUPER + Shift + E         Exit session

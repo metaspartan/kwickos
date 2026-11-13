@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+GenericName=File Manager
+Icon=kwick-files
+Exec=dolphin %u
+Categories=Qt;KDE;System;FileTools;FileManager;
+MimeType=inode/directory;
+StartupNotify=true
+Terminal=false
+NoDisplay=true
+X-DBUS-StartupType=Unique
+X-DBUS-ServiceName=org.freedesktop.FileManager1

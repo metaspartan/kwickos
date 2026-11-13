@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Archive Manager
+Comment=Create and extract archives
+Icon=kwick-archive-manager
+Exec=kwick-app archive-manager %U
+Categories=Utility;Archiving;
+Keywords=archive;zip;tar;extract;compress;
+MimeType=application/zip;application/x-tar;application/gzip;application/x-xz;application/x-bzip2;application/x-7z-compressed;application/vnd.rar;application/zstd;
+StartupNotify=true
+StartupWMClass=org.kde.ark
+Terminal=false

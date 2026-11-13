@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+GenericName=Terminal Emulator
+Icon=kwick-terminal
+Exec=ptyxis
+Categories=GNOME;GTK;System;TerminalEmulator;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

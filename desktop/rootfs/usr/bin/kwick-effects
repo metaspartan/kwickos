@@ -100,18 +100,17 @@ desktops() {
 
 kde_switch_set() {
   case "$1" in
-    slide) pl slide 1; pl fadedesktop 0; cube_ok && pl cube 0 ;;
-    fade) pl slide 0; pl fadedesktop 1; cube_ok && pl cube 0 ;;
-    none) pl slide 0; pl fadedesktop 0; cube_ok && pl cube 0 ;;
-    cube) cube_ok || { echo "cube effect not installed (apt install kwin-addons)" >&2; return 1; }
-          desktops 4; pl slide 1; pl fadedesktop 0; pl cube 1
-          kw kwinrc Effect-cube CubeFaceDisplacement 120 ;;
+    slide) pl slide 1; pl fadedesktop 0; pl kwick_cubeslide 0 ;;
+    fade) pl slide 0; pl fadedesktop 1; pl kwick_cubeslide 0 ;;
+    none) pl slide 0; pl fadedesktop 0; pl kwick_cubeslide 0 ;;
+    cube) [ -e /usr/share/kwin/effects/kwick_cubeslide/metadata.json ] || { echo "cube transition not installed" >&2; return 1; }
+          desktops 4; pl slide 0; pl fadedesktop 0; pl kwick_cubeslide 1 ;;
     *) return 1 ;;
   esac
   return 0
 }
 kde_switch_get() {
-  if cube_ok && isplug cube false; then echo cube
+  if isplug kwick_cubeslide false; then echo cube
   elif isplug fadedesktop false; then echo fade
   elif isplug slide true; then echo slide
   else echo none; fi
@@ -144,6 +143,7 @@ preset_kde() {
     fluid)  oc scale; lamp 1; pl wobblywindows 1; blurfx 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
     full)   oc flame; lamp 1; pl wobblywindows 1; blurfx 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
             kde_switch_set cube || kde_switch_set slide
+            cube_ok && { desktops 4; pl cube 1; kw kwinrc Effect-cube CubeFaceDisplacement 120; }
             kde_tabbox_set cover || kde_tabbox_set windows
             kw kwinrc Effect-wobblywindows Stiffness 8
             kw kwinrc Effect-wobblywindows Drag 85

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gui SYSTEM "kpartgui.dtd">
+<gui name="dolphin" version="100000">
+ <ToolBar name="mainToolBar" noMerge="1" iconText="IconOnly" iconSize="16">
+  <text context="@title:menu">Main Toolbar</text>
+  <Action name="go_back"/>
+  <Action name="go_forward"/>
+  <Separator/>
+  <Action name="icons"/>
+  <Action name="details"/>
+  <Action name="compact"/>
+  <Separator/>
+  <Action name="sort"/>
+  <Separator/>
+  <Action name="url_navigators"/>
+  <Action name="toggle_search"/>
+  <Action name="hamburger_menu"/>
+ </ToolBar>
+</gui>

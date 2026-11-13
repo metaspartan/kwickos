@@ -1,0 +1,16 @@
+{
+  "KPackageStructure": "KWin/Effect",
+  "KPlugin": {
+    "Name": "Cube slide",
+    "Description": "Rotate a 3D cube with floating windows when switching desktops",
+    "Icon": "kwick-effects",
+    "Category": "Virtual Desktop Switching Animation",
+    "Authors": [ { "Name": "KwickOS", "Email": "dev@kwickos.org" } ],
+    "Id": "kwick_cubeslide",
+    "License": "GPL",
+    "EnabledByDefault": false
+  },
+  "X-KDE-Ordering": 60,
+  "X-KWin-Exclusive-Category": "desktop-animations",
+  "X-Plasma-API": "declarativescript"
+}

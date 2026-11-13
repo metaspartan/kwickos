@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Comment=Capture the screen
+Icon=kwick-screenshot
+Exec=kwick-app screenshot
+Categories=Utility;
+Keywords=screenshot;capture;screen;
+StartupNotify=true
+StartupWMClass=org.kde.spectacle
+Terminal=false

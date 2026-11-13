@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b1840"/><stop offset="1" stop-color="#0a0720"/></linearGradient>
+    <linearGradient id="back" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#19f0c8"/><stop offset="0.6" stop-color="#5f8cf0"/><stop offset="1" stop-color="#7a45e8"/></linearGradient>
+    <linearGradient id="front" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#6ff7dc"/><stop offset="0.5" stop-color="#7fa2ff"/><stop offset="1" stop-color="#b45cf7"/></linearGradient>
+    <linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/><stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+    <filter id="ds" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.45"/></filter>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="url(#sh)" stroke="#ffffff" stroke-opacity="0.1"/>
+  <path d="M25 40 a7 7 0 0 1 7-7 h20.5 a7 7 0 0 1 5.2 2.3 l4.6 5.2 a7 7 0 0 0 5.2 2.3 H96 a7 7 0 0 1 7 7 V86 a7 7 0 0 1-7 7 H32 a7 7 0 0 1-7-7 Z" fill="url(#back)" opacity="0.8"/>
+  <g filter="url(#ds)">
+    <path d="M21 56 a7 7 0 0 1 7-7 H100 a7 7 0 0 1 7 7 V92 a7 7 0 0 1-7 7 H28 a7 7 0 0 1-7-7 Z" fill="url(#front)"/>
+    <path d="M21 56 a7 7 0 0 1 7-7 H100 a7 7 0 0 1 7 7 V92 a7 7 0 0 1-7 7 H28 a7 7 0 0 1-7-7 Z" fill="url(#gl)"/>
+  </g>
+  <path d="M28.5 49.5 H99.5" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1" stroke-linecap="round"/>
+</svg>

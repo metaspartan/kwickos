@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Text Editor
+Comment=Plain text and code editor
+Icon=kwick-editor
+Exec=kwrite %U
+Categories=System;Utility;TextEditor;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

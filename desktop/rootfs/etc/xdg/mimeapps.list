@@ -1,0 +1,22 @@
+[Default Applications]
+inode/directory=kwick-files.desktop
+text/plain=kwick-editor.desktop
+text/markdown=kwick-editor.desktop
+text/x-shellscript=kwick-editor.desktop
+application/json=kwick-editor.desktop
+image/png=kwick-image-viewer.desktop
+image/jpeg=kwick-image-viewer.desktop
+image/gif=kwick-image-viewer.desktop
+image/webp=kwick-image-viewer.desktop
+image/svg+xml=kwick-image-viewer.desktop
+image/bmp=kwick-image-viewer.desktop
+application/pdf=kwick-document-viewer.desktop
+application/epub+zip=kwick-document-viewer.desktop
+image/vnd.djvu=kwick-document-viewer.desktop
+application/zip=kwick-archive-manager.desktop
+application/x-tar=kwick-archive-manager.desktop
+application/gzip=kwick-archive-manager.desktop
+application/x-xz=kwick-archive-manager.desktop
+application/x-bzip2=kwick-archive-manager.desktop
+application/x-7z-compressed=kwick-archive-manager.desktop
+application/vnd.rar=kwick-archive-manager.desktop

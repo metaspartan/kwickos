@@ -1,0 +1,23 @@
+#!/bin/sh
+de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+[ -n "${SWAYSOCK:-}${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && de=tiling
+have() { command -v "$1" >/dev/null 2>&1; }
+run() {
+  t=$1; shift
+  if [ "${1:-}" = "-e" ]; then
+    shift
+    case $t in
+      ptyxis) exec ptyxis -x "$*" ;;
+      kgx|gnome-terminal) exec "$t" -- "$@" ;;
+    esac
+  fi
+  exec "$t" "$@"
+}
+case $de in
+  *kde*) have konsole && run konsole --desktopfile kwick-terminal "$@" ;;
+  *gnome*|*cinnamon*|*unity*) for t in ptyxis kgx gnome-terminal; do have $t && run $t "$@"; done ;;
+  *xfce*) have xfce4-terminal && run xfce4-terminal "$@" ;;
+esac
+for t in foot kitty alacritty konsole ptyxis kgx gnome-terminal xfce4-terminal xterm; do have $t && run $t "$@"; done
+echo "kwick-terminal: no terminal emulator installed" >&2
+exit 1

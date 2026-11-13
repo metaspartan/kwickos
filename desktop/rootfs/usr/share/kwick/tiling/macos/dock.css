@@ -1,0 +1,75 @@
+* {
+  font-family: "@UI@", sans-serif;
+  font-size: 13px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+
+window#waybar {
+  background: transparent;
+}
+
+#dock {
+  background: rgba(28, 28, 36, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 22px;
+  padding: 6px 12px;
+}
+
+#custom-files,
+#custom-web,
+#custom-term,
+#custom-settings {
+  min-width: 52px;
+  min-height: 52px;
+  margin: 0 3px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 48px 48px;
+}
+
+#custom-files {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/system-file-manager.svg");
+}
+
+#custom-web {
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/firefox.svg");
+}
+
+#custom-term {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/utilities-terminal.svg");
+}
+
+#custom-settings {
+  background-image: url("/usr/share/icons/KwickOS/scalable/preferences/preferences-system.svg");
+}
+
+#custom-sep {
+  min-width: 1px;
+  margin: 8px 6px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+#taskbar button {
+  padding: 0 4px;
+  margin: 0 3px;
+  background: transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 10px;
+}
+
+#taskbar button.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.85);
+}
+
+#taskbar button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+tooltip {
+  background: rgba(28, 28, 36, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}

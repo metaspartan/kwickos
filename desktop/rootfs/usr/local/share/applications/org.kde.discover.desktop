@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Software
+Comment=Find and install applications
+Icon=kwick-software
+Exec=plasma-discover %F
+Categories=System;PackageManager;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

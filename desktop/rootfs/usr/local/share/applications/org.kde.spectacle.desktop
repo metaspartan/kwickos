@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Comment=Capture the screen
+Icon=kwick-screenshot
+Exec=spectacle
+Categories=Utility;
+StartupNotify=true
+Terminal=false
+NoDisplay=true

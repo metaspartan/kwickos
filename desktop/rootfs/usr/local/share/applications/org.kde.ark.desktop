@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Archive Manager
+Comment=Create and extract archives
+Icon=kwick-archive-manager
+Exec=ark %U
+Categories=Utility;Archiving;
+StartupNotify=true
+Terminal=false
+NoDisplay=true
