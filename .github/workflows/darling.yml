@@ -1,0 +1,80 @@
+name: darling
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - config/darling.env
+      - scripts/mkdarlingpkg.sh
+
+permissions:
+  contents: write
+
+concurrency:
+  group: darling
+  cancel-in-progress: false
+
+jobs:
+  darling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release tag for the pinned version
+        id: v
+        run: |
+          . config/darling.env
+          echo "tag=darling-${DARLING_TAG#v}-${DARLING_PKG_REVISION}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip when the release already has the package
+        id: have
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = push ] && gh release view "${{ steps.v.outputs.tag }}" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '^kwick-darling_.*_amd64\.deb$'; then
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "done=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore ccache
+        if: steps.have.outputs.done != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: work/ccache
+          key: darling-ccache-${{ steps.v.outputs.tag }}-${{ github.run_id }}
+          restore-keys: |
+            darling-ccache-${{ steps.v.outputs.tag }}-
+            darling-ccache-
+
+      - name: Free disk space
+        if: steps.have.outputs.done != 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker system prune -af >/dev/null
+          df -h /
+
+      - name: Build kwick-darling
+        if: steps.have.outputs.done != 'true'
+        run: |
+          mkdir -p out work/ccache
+          timeout 325m docker run --rm -e JOBS="$(nproc)" -v "$PWD:/src:ro" -v "$PWD/out:/out" -v "$PWD/work:/work" debian:trixie bash /src/scripts/mkdarlingpkg.sh
+          ls -lh out/repo/pool/main
+
+      - name: Save ccache
+        if: always() && steps.have.outputs.done != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: work/ccache
+          key: darling-ccache-${{ steps.v.outputs.tag }}-${{ github.run_id }}
+
+      - name: Publish to the darling release
+        if: steps.have.outputs.done != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "Darling built for KwickOS (x86_64). Pulled into the signed apt repo by the release workflow."
+          gh release upload "$TAG" out/repo/pool/main/kwick-darling_*_amd64.deb --clobber
