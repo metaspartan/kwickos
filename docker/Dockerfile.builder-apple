@@ -1,0 +1,9 @@
+ARG BASE=kwick-builder
+FROM ${BASE}
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      rustc cargo rust-src rustfmt bindgen clang lld libclang-dev llvm \
+      pkg-config libasound2-dev libudev-dev swig python3-dev python3-setuptools \
+      device-tree-compiler libgnutls28-dev uuid-dev libncurses-dev \
+      gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross make patch \
+    && rm -rf /var/lib/apt/lists/*

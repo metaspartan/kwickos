@@ -1,0 +1,113 @@
+#!/bin/sh
+set -eu
+ESP=${KWICK_ESP:-/boot/efi}
+KDIR=/usr/lib/kwick/kernels
+SOURCE=${KWICK_ASAHI_BOOT:-/usr/lib/asahi-boot}
+CONF=/etc/m1n1.conf
+
+usage() {
+  cat >&2 <<EOF
+usage: kwick-apple-boot <command>
+  install <kernel-release>   install the kernel as the UEFI boot target and refresh m1n1/boot.bin
+  boot [kernel-release]      rebuild m1n1/boot.bin (m1n1 + device trees + U-Boot) on the ESP
+  firmware                   extract Apple vendor firmware staged by the Asahi installer into /lib/firmware
+  status                     show the boot chain state
+EOF
+  exit 2
+}
+
+find_esp_dev() {
+  uuid=$(tr -d '\0' < /proc/device-tree/chosen/asahi,efi-system-partition 2>/dev/null || true)
+  [ -n "$uuid" ] || return 1
+  if [ -e "/dev/disk/by-partuuid/$uuid" ]; then echo "/dev/disk/by-partuuid/$uuid"; return 0; fi
+  if command -v findfs >/dev/null 2>&1; then findfs "PARTUUID=$uuid" 2>/dev/null && return 0; fi
+  return 1
+}
+
+mount_esp() {
+  grep -q " $ESP " /proc/mounts 2>/dev/null && return 0
+  dev=$(find_esp_dev) || { echo "kwick-apple-boot: cannot locate the EFI System Partition (no asahi,efi-system-partition in the device tree)" >&2; return 1; }
+  mkdir -p "$ESP"
+  mount -t vfat "$dev" "$ESP"
+}
+
+latest_release() {
+  ls -1 "$KDIR" 2>/dev/null | sort -V | tail -n1
+}
+
+build_boot() {
+  rel=${1:-}
+  [ -n "$rel" ] || rel=$(uname -r)
+  [ -d "$KDIR/$rel/dtbs/apple" ] || rel=$(latest_release)
+  dtbdir="$KDIR/$rel/dtbs/apple"
+  [ -n "$rel" ] && [ -d "$dtbdir" ] || { echo "kwick-apple-boot: no device trees found under $KDIR" >&2; return 1; }
+  [ -f "$SOURCE/m1n1.bin" ] && [ -f "$SOURCE/u-boot-nodtb.bin" ] || { echo "kwick-apple-boot: m1n1/U-Boot payloads missing in $SOURCE (install kwick-apple-boot package)" >&2; return 1; }
+  mount_esp
+  mkdir -p "$ESP/m1n1"
+  target="$ESP/m1n1/boot.bin"
+  cfg=$(mktemp)
+  if [ -e "$CONF" ]; then
+    while IFS= read -r line; do
+      case "$line" in
+        chosen.*=*|display=*|mitigations=*) echo "$line" >> "$cfg" ;;
+        ""|\#*) ;;
+        *) echo "kwick-apple-boot: ignoring unknown option in $CONF: $line" >&2 ;;
+      esac
+    done < "$CONF"
+  fi
+  dtbs=$(ls "$dtbdir"/t6*.dtb "$dtbdir"/t81*.dtb 2>/dev/null || true)
+  [ -n "$dtbs" ] || { echo "kwick-apple-boot: no Apple Silicon device trees in $dtbdir" >&2; rm -f "$cfg"; return 1; }
+  cat "$SOURCE/m1n1.bin" $dtbs > "$target.new"
+  gzip -c "$SOURCE/u-boot-nodtb.bin" >> "$target.new"
+  cat "$cfg" >> "$target.new"
+  rm -f "$cfg"
+  if [ -e "$target" ] && ! cmp -s "$target" "$target.new"; then cp -f "$target" "$target.old"; fi
+  mv -f "$target.new" "$target"
+  sync
+  echo "kwick-apple-boot: m1n1/boot.bin updated for $rel"
+}
+
+firmware() {
+  mount_esp
+  src="$ESP/asahi"
+  [ -e "$src/all_firmware.tar.gz" ] || { echo "kwick-apple-boot: no $src/all_firmware.tar.gz; run the Asahi installer so it stages the macOS firmware" >&2; return 1; }
+  command -v asahi-fwextract >/dev/null 2>&1 || { echo "kwick-apple-boot: asahi-fwextract is not installed" >&2; return 1; }
+  tmp=$(mktemp -d)
+  asahi-fwextract "$src" "$tmp"
+  if [ -e "$tmp/firmware.tar" ]; then
+    tar -xf "$tmp/firmware.tar" -C /lib/firmware
+  elif [ -e "$tmp/firmware.cpio" ]; then
+    ( cd /lib/firmware && cpio -idmu --quiet < "$tmp/firmware.cpio" )
+  else
+    echo "kwick-apple-boot: asahi-fwextract produced no firmware archive in $tmp" >&2; return 1
+  fi
+  mkdir -p "$ESP/vendorfw"
+  cp -f "$tmp"/* "$ESP/vendorfw/" 2>/dev/null || true
+  rm -rf "$tmp"
+  echo "kwick-apple-boot: vendor firmware installed into /lib/firmware"
+}
+
+status() {
+  echo "kernel: $(uname -r), page size $(getconf PAGESIZE)"
+  [ -r /proc/device-tree/model ] && echo "machine: $(tr -d '\0' < /proc/device-tree/model)"
+  if mount_esp 2>/dev/null; then
+    [ -e "$ESP/m1n1/boot.bin" ] && echo "m1n1/boot.bin: $(stat -c %s "$ESP/m1n1/boot.bin") bytes" || echo "m1n1/boot.bin: missing"
+    [ -e "$ESP/EFI/BOOT/BOOTAA64.EFI" ] && echo "EFI/BOOT/BOOTAA64.EFI: present" || echo "EFI/BOOT/BOOTAA64.EFI: missing"
+    [ -e "$ESP/asahi/all_firmware.tar.gz" ] && echo "staged macOS firmware: present" || echo "staged macOS firmware: missing"
+  else
+    echo "ESP: not found"
+  fi
+  [ -d /lib/firmware/apple ] && echo "vendor firmware: installed" || echo "vendor firmware: not installed"
+}
+
+case "${1:-}" in
+  install)
+    [ -n "${2:-}" ] || usage
+    mount_esp
+    KWICK_ESP="$ESP" /usr/sbin/kwick-kernel-install "$2"
+    build_boot "$2" ;;
+  boot) build_boot "${2:-}" ;;
+  firmware) firmware ;;
+  status) status ;;
+  *) usage ;;
+esac

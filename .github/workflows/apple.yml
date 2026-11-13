@@ -1,0 +1,110 @@
+name: apple
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - 'apple/**'
+      - 'config/apple.env'
+      - 'config/kernel/apple.config'
+      - 'config/kernel/common.config'
+      - 'scripts/build-kernel-asahi.sh'
+      - 'scripts/build-apple-boot.sh'
+      - 'scripts/fetch-pinned.sh'
+      - 'scripts/mkapplepkg.sh'
+      - 'scripts/mkappleimage.sh'
+      - 'scripts/mkkernelhdrpkg.sh'
+      - 'docker/Dockerfile.builder-apple'
+      - '.github/workflows/apple.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  apple:
+    name: arm64-apple
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    env:
+      ARCH: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker system prune -af >/dev/null
+          df -h /
+
+      - name: Builder images
+        run: |
+          docker build -t kwick-builder -f docker/Dockerfile.builder docker
+          docker build -t kwick-builder-apple -f docker/Dockerfile.builder-apple docker
+          docker volume create kwick-cache
+          docker volume create kwick-build
+          mkdir -p out
+
+      - name: Userland, kpkg and base root filesystem
+        run: make userland kpkg rootfs ARCH=arm64
+
+      - name: Asahi kernel (16K pages, Rust enabled)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache \
+            kwick-builder-apple bash /src/scripts/build-kernel-asahi.sh
+
+      - name: m1n1, U-Boot and speakersafetyd
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache \
+            kwick-builder-apple bash /src/scripts/build-apple-boot.sh
+
+      - name: Packages (kernel, headers, kwick-apple)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build kwick-builder-apple bash -c '
+            bash /src/scripts/mkapplepkg.sh &&
+            bash /src/scripts/mkkernelhdrpkg.sh arm64 apple &&
+            ls -l /out/repo/pool/main'
+
+      - name: Package sanity checks
+        run: |
+          docker run --rm -v "$PWD/out:/out" kwick-builder-apple bash -c '
+            set -e
+            cd /out/repo/pool/main
+            for d in kwick-kernel-asahi_*.deb kwick-kernel-asahi-headers_*.deb kwick-apple_*.deb kwick-apple-boot_*.deb speakersafetyd_*.deb; do
+              dpkg-deb -I "$d" | grep -E "Package|Version|Architecture"
+            done
+            T=$(mktemp -d); dpkg-deb -x kwick-kernel-asahi_*.deb "$T"
+            KREL=$(cat /out/arm64/kernel-apple/version)
+            test -f "$T/usr/lib/kwick/kernels/$KREL/vmlinuz"
+            ls "$T/usr/lib/kwick/kernels/$KREL/dtbs/apple/" | grep -q "^t8103-"
+            ls "$T/usr/lib/kwick/kernels/$KREL/dtbs/apple/" | grep -q "^t8112-"
+            find "$T/usr/lib/modules/$KREL" -name "asahi.ko*" | grep -q .
+            grep -q "^CONFIG_ARM64_16K_PAGES=y" "$T/usr/lib/kwick/kernels/$KREL/config"
+            grep -q "^CONFIG_NVME_APPLE=y" "$T/usr/lib/kwick/kernels/$KREL/config"
+            head -c2 "$T/usr/lib/kwick/kernels/$KREL/vmlinuz" | grep -q MZ'
+
+      - name: Disk image and Asahi installer package
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build kwick-builder-apple \
+            bash /src/scripts/mkappleimage.sh
+
+      - name: Installer metadata sanity
+        run: |
+          jq -e '.os_list[0] | .boot_object == "m1n1.bin" and .next_object == "m1n1/boot.bin" and (.partitions | length) == 2' out/arm64/installer_data.json
+          python3 -m zipfile -l out/arm64/kwickos-*-apple.zip | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwickos-arm64-apple
+          path: |
+            out/arm64/kwickos-*-apple.zip
+            out/arm64/installer_data.json
+            out/arm64/kwickos-apple-bootstrap.sh
+            out/arm64/kwickos-arm64-apple.img.zst
+            out/arm64/kernel-apple/version
+            out/arm64/kernel-apple/config
+            out/arm64/kernel-apple/vmlinuz
+            out/repo/pool/main/kwick-kernel-asahi*.deb
+            out/repo/pool/main/kwick-apple*.deb
+            out/repo/pool/main/speakersafetyd*.deb
+          retention-days: 14

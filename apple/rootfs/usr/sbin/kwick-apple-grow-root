@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+MARK=/var/lib/kwick/root-grown
+[ -e "$MARK" ] && exit 0
+dev=$(awk '$2 == "/" && $1 ~ /^\/dev\// {print $1; exit}' /proc/mounts)
+if [ -z "$dev" ]; then
+  dev=$(findfs LABEL=kwick-root 2>/dev/null || true)
+fi
+[ -n "$dev" ] || { echo "kwick-apple-grow-root: root device not found" >&2; exit 1; }
+command -v resize2fs >/dev/null 2>&1 || { echo "kwick-apple-grow-root: resize2fs missing (apt install e2fsprogs)" >&2; exit 1; }
+resize2fs "$dev"
+mkdir -p "$(dirname "$MARK")"
+touch "$MARK"
+echo "kwick-apple-grow-root: root filesystem grown to fill its partition"

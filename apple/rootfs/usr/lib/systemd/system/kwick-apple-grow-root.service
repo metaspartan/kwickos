@@ -1,0 +1,11 @@
+[Unit]
+Description=Grow the KwickOS root filesystem into its partition on first boot
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/kwick-apple-grow-root
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

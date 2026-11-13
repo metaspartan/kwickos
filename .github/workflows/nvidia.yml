@@ -1,0 +1,107 @@
+name: nvidia
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - 'nvidia/**'
+      - 'config/nvidia.env'
+      - 'config/kernel/gb10.config'
+      - 'scripts/build-kernel-variant.sh'
+      - 'scripts/mknvidiapkg.sh'
+      - 'scripts/mkgpunvidiapkg.sh'
+      - 'scripts/mkkernelhdrpkg.sh'
+      - 'scripts/fetch-pinned.sh'
+      - '.github/workflows/nvidia.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  nvidia:
+    name: nvidia-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            flavor: generic
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            flavor: gb10
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    env:
+      ARCH: ${{ matrix.arch }}
+      FLAVOR: ${{ matrix.flavor }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker system prune -af >/dev/null
+
+      - name: Builder image
+        run: |
+          docker build -t kwick-builder -f docker/Dockerfile.builder docker
+          docker volume create kwick-cache
+          docker volume create kwick-build
+          mkdir -p out
+
+      - name: Userland (kinit) and kernel
+        run: |
+          KVER=$(cat KERNEL_VERSION)
+          make userland ARCH="$ARCH"
+          if [ "$FLAVOR" = generic ]; then
+            make kernel-generic ARCH="$ARCH" KVER="$KVER"
+          else
+            docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache \
+              kwick-builder bash /src/scripts/build-kernel-variant.sh "$ARCH" "$FLAVOR" "$KVER"
+          fi
+
+      - name: Kernel headers, NVIDIA open modules, helper packages
+        run: |
+          docker run --rm -e ARCH -e FLAVOR -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache kwick-builder bash -c '
+            bash /src/scripts/mkkernelpkg.sh "$ARCH" "$FLAVOR" &&
+            bash /src/scripts/mkkernelhdrpkg.sh "$ARCH" "$FLAVOR" &&
+            bash /src/scripts/mknvidiapkg.sh "$ARCH" "$FLAVOR" &&
+            bash /src/scripts/mkgpunvidiapkg.sh &&
+            ls -l /out/repo/pool/main'
+
+      - name: Module sanity checks
+        run: |
+          docker run --rm -e ARCH -e FLAVOR -v "$PWD/out:/out" kwick-builder bash -c '
+            set -e
+            cd /out/repo/pool/main
+            KREL=$(cat "/out/$ARCH/kernel-$FLAVOR/version")
+            T=$(mktemp -d); dpkg-deb -x kwick-nvidia-kmod-"$KREL"_*.deb "$T"
+            ls "$T/lib/modules/$KREL/updates/nvidia/"
+            for m in nvidia nvidia-modeset nvidia-drm nvidia-uvm; do
+              xz -dc "$T/lib/modules/$KREL/updates/nvidia/$m.ko.xz" > /tmp/$m.ko
+              test "$(modinfo -F vermagic /tmp/$m.ko | cut -d" " -f1)" = "$KREL"
+              modinfo -F version /tmp/$m.ko
+            done
+            dpkg-deb -I kwick-nvidia-kmod-"$KREL"_*.deb | grep -E "Package|Version|Provides|Depends"
+            dpkg-deb -I kwick-gpu-nvidia_*.deb | grep -E "Package|Version"'
+
+      - name: GB10 kernel option check
+        if: matrix.arch == 'arm64'
+        run: |
+          for o in ARM_SMMU_V3 ACPI PCI_DOE MLX5_CORE MLX5_INFINIBAND BLK_DEV_NVME R8169 MT7925E; do
+            grep -E "^CONFIG_$o=[ym]" out/arm64/kernel-gb10/config
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwickos-nvidia-${{ matrix.arch }}
+          path: |
+            out/${{ matrix.arch }}/kernel-${{ matrix.flavor }}/version
+            out/${{ matrix.arch }}/kernel-${{ matrix.flavor }}/config
+            out/repo/pool/main/kwick-nvidia-kmod-*.deb
+            out/repo/pool/main/kwick-gpu-nvidia_*.deb
+            out/repo/pool/main/linux-headers-kwick-*.deb
+            out/repo/pool/main/linux-image-kwick-${{ matrix.flavor }}_*.deb
+          retention-days: 14

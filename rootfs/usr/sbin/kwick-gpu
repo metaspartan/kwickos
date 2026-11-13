@@ -64,7 +64,7 @@ build_pkgs() {
       intel) pkgs="$pkgs firmware-intel-graphics firmware-intel-misc mesa-va-drivers vainfo intel-gpu-tools"
              [ "$arch" = amd64 ] && pkgs="$pkgs intel-media-va-driver-non-free" ;;
       nvidia) pkgs="$pkgs firmware-nvidia-graphics libdrm-nouveau2 mesa-va-drivers mesa-vdpau-drivers mesa-opencl-icd nvtop" ;;
-      apple) pkgs="$pkgs mesa-libgallium"; [ -x /usr/lib/kwick/gpu-apple ] && apple_helper=1 ;;
+      apple) pkgs="$pkgs mesa-libgallium"; ;;
       vm) ;;
     esac
   done
@@ -156,7 +156,8 @@ case $cmd in
     apt update >/dev/null 2>&1
     install_set $pkgs
     rc=$?
-    [ -n "${apple_helper:-}" ] && /usr/lib/kwick/gpu-apple install || true
+    case " $vendors " in *" nvidia "*) [ -x /usr/lib/kwick/gpu-nvidia ] && /usr/lib/kwick/gpu-nvidia install ;; esac
+    case " $vendors " in *" apple "*) [ -x /usr/lib/kwick/gpu-apple ] && /usr/lib/kwick/gpu-apple install ;; esac
     is_desktop && [ "$arch" = amd64 ] && prepare_steam_host
     exit $rc ;;
   rocm)
@@ -197,8 +198,8 @@ case $cmd in
     done
     for v in $vendors; do
       case $v in
-        nvidia) echo "  NVIDIA: nouveau + NVK (Mesa Vulkan) with GSP firmware. The proprietary driver is not available: its trixie version (550.163.01) does not build against the KwickOS kernel and the kernel package ships no headers." ;;
-        apple) echo "  Apple Silicon: needs an Apple-enabled kernel; trixie Mesa 25.0 has no Honeykrisp Vulkan driver." ;;
+        nvidia) if [ -x /usr/lib/kwick/gpu-nvidia ]; then /usr/lib/kwick/gpu-nvidia status; else echo "  NVIDIA: nouveau + NVK (Mesa Vulkan). Install kwick-gpu-nvidia for the NVIDIA open kernel modules and driver."; fi ;;
+        apple) if [ -x /usr/lib/kwick/gpu-apple ]; then /usr/lib/kwick/gpu-apple status; else echo "  Apple Silicon: install the kwick-apple variant (Asahi kernel) for GPU, audio and display support."; fi ;;
         amd) echo "  AMD: amdgpu + RADV/radeonsi; 'kwick-gpu rocm' adds the compute stack." ;;
         intel) echo "  Intel: i915/xe + ANV/iris; media-va-driver-non-free for hardware video." ;;
         vm) echo "  Virtual GPU: virtio-gpu/vmware/qxl via Mesa llvmpipe/virgl." ;;

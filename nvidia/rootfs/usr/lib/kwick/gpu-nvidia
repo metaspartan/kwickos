@@ -1,0 +1,133 @@
+#!/bin/sh
+set -u
+BASE=${KWICK_NVIDIA_REPO_BASE:-https://developer.download.nvidia.com/compute/cuda/repos/debian13}
+VERSION=${KWICK_NVIDIA_DRIVER_VERSION:-595.112.07}
+REVISION=${KWICK_NVIDIA_PKG_REVISION:-1}
+FPR=${KWICK_NVIDIA_KEY_FPR:-02182E60104FCDC26EAE1B8597A5D4CB8793F200}
+KEYRING=/usr/share/keyrings/kwick-nvidia-cuda.gpg
+SRCFILE=/etc/apt/sources.list.d/kwick-nvidia-cuda.sources
+PREFS=/etc/apt/preferences.d/kwick-nvidia.pref
+
+arch=$(dpkg --print-architecture)
+case $arch in
+  amd64) repoarch=x86_64 ;;
+  arm64) repoarch=sbsa ;;
+  *) repoarch= ;;
+esac
+
+nvidia_devices() {
+  for d in /sys/bus/pci/devices/*; do
+    [ -r "$d/vendor" ] && [ -r "$d/class" ] || continue
+    [ "$(cat "$d/vendor")" = 0x10de ] || continue
+    case $(cat "$d/class") in 0x03*) printf '%s\n' "$(cat "$d/device")" ;; esac
+  done
+}
+
+open_supported() {
+  for id in $(nvidia_devices); do
+    [ $((id)) -ge $((0x1e00)) ] && return 0
+  done
+  return 1
+}
+
+kernel_image_pkg() {
+  rel=$(uname -r)
+  dpkg -S "/usr/lib/kwick/kernels/$rel/config" 2>/dev/null | head -n1 | cut -d: -f1
+}
+
+headers_pkg() {
+  ip=$(kernel_image_pkg)
+  case $ip in
+    linux-image-*) echo "linux-headers-${ip#linux-image-}" ;;
+    kwick-kernel-*) echo "$ip-headers" ;;
+  esac
+}
+
+userspace_pkgs() {
+  p="nvidia-driver-cuda libcuda1 libnvidia-ml1 firmware-nvidia-gsp"
+  if [ "${KWICK_NVIDIA_HEADLESS:-}" != 1 ]; then
+    p="$p nvidia-driver-libs nvidia-vulkan-icd nvidia-egl-icd"
+    if dpkg --print-foreign-architectures | grep -qx i386; then p="$p nvidia-driver-libs:i386 libcuda1:i386"; fi
+  fi
+  echo "$p"
+}
+
+kmod_pkg() {
+  echo "kwick-nvidia-kmod-$(uname -r)"
+}
+
+prepare() {
+  [ -n "$repoarch" ] || { echo "kwick-gpu-nvidia: NVIDIA's driver repository has no $arch build" >&2; return 1; }
+  need=""
+  command -v curl >/dev/null || need="$need curl"
+  command -v gpg >/dev/null || need="$need gnupg"
+  [ -e /etc/ssl/certs/ca-certificates.crt ] || need="$need ca-certificates"
+  if [ -n "$need" ]; then apt-get update >/dev/null 2>&1; apt-get install -y --no-install-recommends $need || return 1; fi
+  tmp=$(mktemp -d)
+  kdeb="$tmp/cuda-keyring.deb"
+  curl -fsSL -o "$kdeb" "$BASE/$repoarch/cuda-keyring_1.1-1_all.deb" || { rm -rf "$tmp"; return 1; }
+  dpkg-deb -x "$kdeb" "$tmp/x" || { rm -rf "$tmp"; return 1; }
+  got=$(gpg --show-keys --with-colons "$tmp/x/usr/share/keyrings/cuda-archive-keyring.gpg" 2>/dev/null | awk -F: '/^fpr/{print $10}' | head -n1)
+  if [ "$got" != "$FPR" ]; then
+    echo "kwick-gpu-nvidia: repository key fingerprint mismatch (got ${got:-none}, expected $FPR); refusing to trust it" >&2
+    rm -rf "$tmp"; return 1
+  fi
+  install -m 644 "$tmp/x/usr/share/keyrings/cuda-archive-keyring.gpg" "$KEYRING"
+  rm -rf "$tmp"
+  cat > "$SRCFILE" <<EOF
+Types: deb
+URIs: $BASE/$repoarch/
+Suites: /
+Signed-By: $KEYRING
+EOF
+  cat > "$PREFS" <<EOF
+Package: nvidia-* libnvidia-* libcuda* libnvcuvid* libnvoptix* libgl*-nvidia* libegl-nvidia* libglx-nvidia* libgles-nvidia* xserver-xorg-video-nvidia* firmware-nvidia-gsp cuda-drivers*
+Pin: version $VERSION-$REVISION
+Pin-Priority: 1001
+EOF
+}
+
+case "${1:-}" in
+  detect)
+    [ -n "$(nvidia_devices)" ] ;;
+  pkgs)
+    echo "$(kmod_pkg) $(userspace_pkgs)" ;;
+  prepare)
+    prepare ;;
+  install)
+    [ -n "$(nvidia_devices)" ] || { echo "kwick-gpu-nvidia: no NVIDIA GPU found" >&2; exit 1; }
+    [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+    if ! open_supported; then
+      echo "kwick-gpu-nvidia: this GPU generation predates Turing and is not supported by NVIDIA's open kernel modules; keeping nouveau/NVK (Mesa)" >&2
+      exit 0
+    fi
+    prepare || exit 1
+    apt-get update >/dev/null 2>&1
+    km=$(kmod_pkg)
+    if apt-cache show "$km" >/dev/null 2>&1; then
+      apt-get install -y "$km" || exit 1
+    else
+      hp=$(headers_pkg)
+      if [ -z "$hp" ]; then
+        echo "kwick-gpu-nvidia: no prebuilt module package for $(uname -r) and no matching kernel headers package; install a KwickOS kernel first" >&2
+        exit 1
+      fi
+      echo "kwick-gpu-nvidia: no prebuilt module for $(uname -r); falling back to DKMS with $hp"
+      apt-get install -y "$hp" dkms || exit 1
+      apt-get install -y "nvidia-kernel-open-dkms=$VERSION-$REVISION" || exit 1
+    fi
+    pk=$(userspace_pkgs)
+    apt-get install -y $pk || exit 1
+    echo "kwick-gpu-nvidia: NVIDIA $VERSION installed. Reboot (or modprobe nvidia) to load the driver." ;;
+  status)
+    if [ -z "$(nvidia_devices)" ]; then echo "  NVIDIA: no GPU"; exit 0; fi
+    echo "  NVIDIA: $(nvidia_devices | tr '\n' ' ')(PCI device ids), repo arch ${repoarch:-unsupported}"
+    if open_supported; then echo "  open kernel modules supported (Turing or newer)"; else echo "  pre-Turing GPU: nouveau/NVK only"; fi
+    if lsmod 2>/dev/null | grep -q '^nvidia '; then
+      echo "  nvidia module loaded: $(cat /sys/module/nvidia/version 2>/dev/null)"
+    else
+      echo "  nvidia module not loaded (expected package: $(kmod_pkg))"
+    fi ;;
+  *)
+    echo "usage: gpu-nvidia detect|pkgs|prepare|install|status" >&2; exit 2 ;;
+esac

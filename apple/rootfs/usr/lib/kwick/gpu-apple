@@ -1,0 +1,58 @@
+#!/bin/sh
+set -u
+BPSRC=/etc/apt/sources.list.d/kwick-backports.sources
+BPPREF=/etc/apt/preferences.d/kwick-backports.pref
+MESA="mesa-vulkan-drivers mesa-libgallium libgl1-mesa-dri libegl-mesa0 libgbm1 libglx-mesa0 mesa-va-drivers"
+AUDIO="asahi-audio alsa-ucm-conf-asahi speakersafetyd pipewire pipewire-pulse wireplumber"
+
+is_apple() {
+  [ -r /proc/device-tree/compatible ] && tr '\0' ' ' < /proc/device-tree/compatible | grep -q 'apple,'
+}
+
+page_size() {
+  getconf PAGESIZE 2>/dev/null || echo 0
+}
+
+prepare() {
+  [ -e "$BPSRC" ] || cat > "$BPSRC" <<EOF
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie-backports
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+  [ -e "$BPPREF" ] || cat > "$BPPREF" <<EOF
+Package: *
+Pin: release a=trixie-backports
+Pin-Priority: 100
+EOF
+  for k in /etc/apt/trusted.gpg.d/debian-archive-trixie-*.asc /usr/share/keyrings/debian-archive-keyring.gpg; do
+    [ -e "$k" ] && { sed -i "s|^Signed-By:.*|Signed-By: $k|" "$BPSRC"; break; }
+  done
+}
+
+case "${1:-}" in
+  pkgs)
+    echo $MESA $AUDIO ;;
+  prepare)
+    prepare ;;
+  install)
+    is_apple || { echo "kwick-gpu-apple: not an Apple Silicon machine" >&2; exit 1; }
+    [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+    prepare
+    apt-get update >/dev/null 2>&1
+    apt-get install -y -t trixie-backports $MESA asahi-audio alsa-ucm-conf-asahi
+    apt-get install -y pipewire pipewire-pulse wireplumber
+    apt-get install -y speakersafetyd || echo "kwick-gpu-apple: speakersafetyd is not in the configured repositories; speakers stay at a safe, quiet level until it is installed" >&2
+    if [ -x /usr/sbin/kwick-apple-boot ]; then /usr/sbin/kwick-apple-boot firmware || true; fi ;;
+  status)
+    if ! is_apple; then echo "  Apple Silicon: not detected"; exit 0; fi
+    ps=$(page_size)
+    echo "  Apple Silicon: kernel $(uname -r), page size $ps"
+    [ "$ps" = 16384 ] || echo "  warning: not running the Asahi 16K-page kernel; GPU, audio, display and NVMe need the kwick-kernel-asahi kernel"
+    [ -d /lib/firmware/vendor ] || [ -d /lib/firmware/apple ] || echo "  warning: no vendor firmware extracted yet (run: kwick-apple-boot firmware)"
+    ls /dev/dri/renderD* >/dev/null 2>&1 && echo "  GPU render node present (honeykrisp/asahi)" || echo "  no GPU render node (asahi DRM driver not loaded)"
+    command -v speakersafetyd >/dev/null || echo "  warning: speakersafetyd missing; internal speakers are unsafe to enable" ;;
+  *)
+    echo "usage: gpu-apple pkgs|prepare|install|status" >&2; exit 2 ;;
+esac
