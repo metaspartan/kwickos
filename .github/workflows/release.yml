@@ -10,16 +10,45 @@ permissions:
   packages: write
   pages: write
   id-token: write
+  actions: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+      version: ${{ steps.t.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: t
+        run: |
+          v=$(cat VERSION); k=$(cat KERNEL_VERSION)
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then tag=$GITHUB_REF_NAME; else tag="v$v-k$k"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "version=$v" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: plan
     uses: ./.github/workflows/build.yml
+    secrets: inherit
     with:
       release: true
 
+  desktop:
+    needs: plan
+    uses: ./.github/workflows/desktop.yml
+
   publish:
-    needs: build
+    needs: [plan, build, desktop]
+    # headless must be green; desktop images are published for whichever archs built
+    if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+      VERSION: ${{ needs.plan.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,34 +61,53 @@ jobs:
           mkdir -p release
           for a in amd64 arm64 riscv64; do
             cp dl/kwickos-$a/kwickos-* release/ 2>/dev/null || true
+            cp dl/kwickos-desktop-$a/kwickos-$a-desktop.iso release/ 2>/dev/null || true
           done
           # disk images are sparse 1 GiB; ship them compressed
           for f in release/*.img; do [ -f "$f" ] && zstd -19 -T0 --rm -q "$f"; done
+          # GitHub release assets are limited to 2 GiB each
+          find release -size +1900M -print -delete
           (cd release && sha256sum * > SHA256SUMS)
-          ls -l release
+          ls -lh release
+
+      - name: Notes
+        run: |
+          k=$(cat KERNEL_VERSION)
+          {
+            echo "KwickOS $VERSION on Linux $k. Built, boot-tested and CVE-scanned by CI."
+            echo
+            echo "Headless: \`kwickos-<arch>.iso | .qcow2 | .img.zst | .efi | -initramfs.cpio.zst | -rootfs.tar.gz\`"
+            echo "Desktop (KDE Plasma 6): \`kwickos-<arch>-desktop.iso\`"
+            echo "Container: \`docker run -it ghcr.io/metaspartan/kwickos:$VERSION\`"
+            echo "Kernel updates: \`apt update && apt upgrade\` (signed repo at https://metaspartan.github.io/kwickos)."
+            echo; echo '```'; (cd release && cat SHA256SUMS); echo '```'
+          } > notes.md
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: KwickOS ${{ env.TAG }}
+          body_path: notes.md
           files: release/*
-          generate_release_notes: true
+          fail_on_unmatched_files: true
 
       - name: Container image (multi-arch) -> ghcr.io
         env:
-          REPO: ghcr.io/${{ github.repository_owner }}/kwickos
+          REPO: ghcr.io/metaspartan/kwickos
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          V=${GITHUB_REF_NAME#v}
           refs=""
           for a in amd64 arm64 riscv64; do
             t=dl/kwickos-$a/kwickos-rootfs-$a.tar.gz
             [ -f "$t" ] || continue
             docker import --platform linux/$a --change 'CMD ["/bin/sh"]' \
-              --change 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' "$t" "$REPO:$V-$a"
-            docker push "$REPO:$V-$a"
-            refs="$refs $REPO:$V-$a"
+              --change 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' "$t" "$REPO:$VERSION-$a"
+            docker push "$REPO:$VERSION-$a"
+            refs="$refs $REPO:$VERSION-$a"
           done
-          docker buildx imagetools create -t "$REPO:$V" -t "$REPO:latest" $refs
+          docker buildx imagetools create -t "$REPO:$VERSION" -t "$REPO:$TAG" -t "$REPO:latest" $refs
 
       - name: Kernel packages + signed apt repository
         env:
@@ -81,4 +129,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - uses: actions/deploy-pages@v4
+
+  pages:
+    needs: publish
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4

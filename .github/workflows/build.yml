@@ -76,7 +76,20 @@ jobs:
       - name: Kernel (generic)
         if: matrix.arch != 'riscv64' || inputs.release
         run: make kernel-generic ARCH=$ARCH KVER=${{ steps.kver.outputs.kver }}
+      - name: Archive public key (release builds)
+        if: inputs.release
+        env:
+          KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
+        run: |
+          mkdir -p out
+          export GNUPGHOME=$(mktemp -d)
+          echo "$KWICK_SIGNING_KEY" | gpg --batch --import 2>/dev/null
+          gpg --batch --armor --export > out/archive-key.asc
+          test -s out/archive-key.asc
       - name: Root filesystem
+        env:
+          KWICK_REPO_URL: ${{ inputs.release && 'https://metaspartan.github.io/kwickos' || '' }}
+          KWICK_REPO_KEY: ${{ inputs.release && '/out/archive-key.asc' || '' }}
         run: make rootfs ARCH=$ARCH
       - name: Images (efi, img, qcow2, iso, initramfs)
         run: make images ARCH=$ARCH

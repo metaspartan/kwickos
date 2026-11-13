@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build the KwickOS Desktop live ISO from an exported rootfs tarball.
 #   mkdesktop-iso.sh <arch> <rootfs.tar>      (run as root in kwick-builder)
-# Output: /out/<arch>/kwickos-desktop-<arch>.iso  (UEFI, generic kernel,
+# Output: /out/<arch>/kwickos-<arch>-desktop.iso  (UEFI, generic kernel,
 # erofs root under a tmpfs overlay; boots straight into Plasma).
 set -euo pipefail
 ARCH=${1:?arch}; TAR=${2:?rootfs tar}
@@ -28,7 +28,7 @@ mcopy -i "$W/efiboot.img" "$EFI" "::/EFI/BOOT/$EFINAME"
 xorriso -as mkisofs -quiet -V KWICKOS -J -joliet-long -r \
   -append_partition 2 0xef "$W/efiboot.img" -appended_part_as_gpt \
   -e --interval:appended_partition_2:all:: -no-emul-boot \
-  -o "$D/kwickos-desktop-$ARCH.iso" "$W/live" 2>/dev/null
+  -o "$D/kwickos-$ARCH-desktop.iso" "$W/live" 2>/dev/null
 echo ">> rootfs $(du -sh "$W/root" | cut -f1), erofs $(du -h "$W/live/kwick/root.erofs" | cut -f1)"
 rm -rf "$W"
-ls -l "$D/kwickos-desktop-$ARCH.iso"
+ls -l "$D/kwickos-$ARCH-desktop.iso"

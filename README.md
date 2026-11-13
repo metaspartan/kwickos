@@ -117,14 +117,27 @@ and that the latest Bun installs with the official installer and runs.
 
 ## Desktop edition (preview)
 
-`desktop/` builds a KDE Plasma 6 (Wayland) edition on the same base: SDDM, elogind (no
-systemd PID 1), PipeWire, NetworkManager, Mesa drivers (AMD, Intel, NVIDIA-nouveau/NVK,
-virtio) with GPU firmware, Flatpak/Discover, KWin effects configuration (wobbly windows,
-etc.) and a `kwick-gaming` launcher (see `desktop/` and `.github/workflows/desktop.yml`).
-Not done yet: GNOME and other selectable desktops, proprietary NVIDIA drivers,
-Apple Silicon (Asahi) and DGX Spark (GB10) kernels, and Proton/Steam. The desktop
-edition is a separate image so the headless base stays small.
+Releases include `kwickos-<arch>-desktop.iso` for amd64 and arm64: a KDE Plasma 6 (Wayland) live
+session on the same base (SDDM, elogind instead of systemd PID 1, PipeWire, NetworkManager,
+Mesa drivers for AMD, Intel, NVIDIA-nouveau/NVK and virtio, GPU/Wi-Fi firmware, Flatpak/Discover,
+Burn-My-Windows effects plus KWin wobbly windows). Tools in the live image:
 
+* `kwick-desktop list|install|switch gnome|xfce|cinnamon|mate|lxqt|kde`: install another desktop from
+  Debian and make it the default SDDM session. Only KDE is tested; the others are best-effort.
+* `kwick-gaming`: Steam (Proton), Proton-GE manager, Heroic and Lutris via Flathub (amd64).
+* `kwick-gpu`: shows detected GPUs and their drivers.
+
+Not done yet: proprietary NVIDIA drivers, Apple Silicon (needs Asahi's kernel and m1n1 boot chain),
+DGX Spark (GB10) kernel support, and an arm64 desktop boot test (amd64's boot test runs in CI).
+The desktop is a separate image so the headless base stays small.
+
+## Releases
+
+Every push to `main` that changes the product, and every kernel bump found by `kernel-watch`
+(kernel.org is polled every 6 hours), triggers the `release` workflow. It builds and boot-tests
+all architectures, then publishes `v<version>-k<kernel>` with ISOs, disk images, the multi-arch
+container on ghcr.io and the signed apt repo for kernel updates. Bump `VERSION` for a new release
+at the same kernel.
 ## Security
 
 `.github/workflows/security.yml` runs on every push and nightly: kernel freshness against

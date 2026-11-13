@@ -7,11 +7,11 @@ FROM ${BASE}
 SHELL ["/bin/sh", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY packages.list /tmp/packages.list
+COPY packages.list packages.amd64.list /tmp/
 RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
  && apt update \
- && apt install -y $(grep -v '^#' /tmp/packages.list | tr '\n' ' ') \
- && apt clean && rm -rf /var/lib/apt/lists/* /tmp/packages.list
+ && PK="$(grep -hv '^#' /tmp/packages.list | tr '\n' ' ')"; [ "$(dpkg --print-architecture)" = amd64 ] && PK="$PK $(grep -hv '^#' /tmp/packages.amd64.list | tr '\n' ' ')"; apt install -y $PK \
+ && apt clean && rm -rf /var/lib/apt/lists/* /tmp/packages*.list
 
 # Burn-My-Windows: compiz-style open/close effects for KWin 6 (fire, TV,
 # hexagon, pixelate, wisps, doom, energize, ...). Wobbly windows and magic
@@ -24,7 +24,7 @@ RUN mkdir -p /usr/share/kwin/effects /tmp/bmw && cd /tmp/bmw \
 
 COPY rootfs/ /
 RUN set -e; \
-    find /usr/lib/kwick /usr/bin/kwick-gaming -type f -exec chmod 755 {} +; \
+    find /usr/lib/kwick /usr/bin/kwick-gaming /usr/bin/kwick-desktop /usr/bin/kwick-gpu -type f -exec chmod 755 {} +; chmod 755 /usr/bin/kwick-desktop /usr/bin/kwick-gpu; \
     rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
     W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W; \
     for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do \

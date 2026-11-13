@@ -1,0 +1,38 @@
+#!/bin/sh
+# kwick-desktop: choose and switch desktop environments on KwickOS Desktop.
+#   kwick-desktop list                 show editions and which are installed
+#   kwick-desktop install <name>       install a desktop (apt, no recommends)
+#   kwick-desktop switch <name>        make it the default SDDM session (log out to apply)
+# Names: kde (default), gnome, xfce, cinnamon, mate, lxqt.
+# Sessions other than KDE are best-effort: KwickOS uses elogind instead of systemd-logind.
+set -e
+[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+pkgs() { case "$1" in
+  kde) echo "plasma-desktop plasma-workspace kwin-wayland" ;;
+  gnome) echo "gnome-session gnome-shell gnome-control-center nautilus gnome-terminal gnome-text-editor" ;;
+  xfce) echo "xfce4 xfce4-terminal thunar" ;;
+  cinnamon) echo "cinnamon cinnamon-session nemo gnome-terminal" ;;
+  mate) echo "mate-desktop-environment-core" ;;
+  lxqt) echo "lxqt-core" ;;
+  *) return 1 ;; esac; }
+session() { case "$1" in
+  kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;;
+  mate) echo mate ;; lxqt) echo lxqt ;; esac; }
+have() { for d in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$d/$(session "$1").desktop" ] && return 0; done; return 1; }
+cmd=${1:-list}; de=${2:-}
+case "$cmd" in
+  list) for d in kde gnome xfce cinnamon mate lxqt; do
+          if have $d; then s=installed; else s=available; fi
+          cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null)
+          [ "$cur" = "$(session $d)" ] && s="$s, default"
+          printf '%-10s %s\n' $d "$s"; done ;;
+  install) pkgs "$de" >/dev/null || { echo "unknown desktop: $de"; exit 1; }
+           apt update; apt install -y $(pkgs "$de") ;;
+  switch) pkgs "$de" >/dev/null || { echo "unknown desktop: $de"; exit 1; }
+          have "$de" || { echo "$de is not installed; run: kwick-desktop install $de"; exit 1; }
+          mkdir -p /etc/sddm.conf.d
+          printf '[Autologin]\nSession=%s\n' "$(session "$de")" > /etc/sddm.conf.d/30-kwick-session.conf
+          for f in /etc/sddm.conf.d/20-autologin.conf; do [ -f $f ] && sed -i "s/^Session=.*/Session=$(session "$de")/" $f; done
+          echo "Default session is now $de. Log out to apply." ;;
+  *) sed -n '2,6p' "$0"; exit 1 ;;
+esac

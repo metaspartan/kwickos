@@ -1,0 +1,30 @@
+name: autorelease
+
+# Every push to main that changes what ships (or a kernel bump) gets a release,
+# tagged v<VERSION>-k<KERNEL>. The release workflow does the building/testing.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'bench/**', '.github/workflows/security.yml']
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch release if this version+kernel has none yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(cat VERSION)-k$(cat KERNEL_VERSION)"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "$tag already released - bump VERSION for a new release"
+          else
+            gh workflow run release.yml --ref main
+            echo "dispatched release $tag"
+          fi
