@@ -1,6 +1,4 @@
 #!/bin/sh
-# wait-for <udev|dbus|logind|udev-settled>... : kinit starts services in
-# parallel; units with real ordering needs wait (max 20 s) for what they use.
 for what in "$@"; do
 	i=0
 	while [ $i -lt 200 ]; do

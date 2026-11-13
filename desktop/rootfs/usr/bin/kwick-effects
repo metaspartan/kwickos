@@ -339,13 +339,12 @@ status() {
 
 p=${1:-}
 case "$p" in
-  compiz) p=full ;;
   wobbly) p=fluid ;;
 esac
 
 if [ -z "$p" ]; then
   cur=$(cat "$cfg/effects" 2>/dev/null || echo subtle)
-  case $cur in compiz) cur=full ;; wobbly) cur=fluid ;; esac
+  case $cur in wobbly) cur=fluid ;; esac
   echo "$cur"
   exit 0
 fi

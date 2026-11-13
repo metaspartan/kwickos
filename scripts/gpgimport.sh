@@ -1,7 +1,4 @@
 #!/bin/bash
-# Import the archive signing key from $KWICK_SIGNING_KEY into the current GNUPGHOME.
-# Accepts ASCII-armored text (CRLF ok) or the same base64-encoded. Optional
-# $KWICK_SIGNING_PASSPHRASE is used to make a passphrase-protected key usable.
 set -u
 k=${KWICK_SIGNING_KEY:-}
 if [ -z "$k" ]; then echo "gpgimport: KWICK_SIGNING_KEY is empty (secret not available to this job?)" >&2; exit 1; fi

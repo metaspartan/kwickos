@@ -1,7 +1,4 @@
 #!/bin/bash
-# Assemble the KwickOS base root filesystem for one arch.
-#   mkrootfs.sh <arch>      (run as root inside kwick-builder)
-# Produces /build/rootfs-<arch>/ and /out/<arch>/kwickos-rootfs-<arch>.tar.gz
 set -euo pipefail
 ARCH=${1:?arch}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
@@ -11,7 +8,6 @@ R="$BUILD/rootfs-$ARCH"
 for b in busybox kinit kpkg busybox.links; do [ -e "$U/$b" ] || { echo "missing $U/$b"; exit 1; }; done
 rm -rf "$R"; mkdir -p "$R"; cd "$R"
 
-# --- skeleton (merged /usr like Debian) ---------------------------------
 mkdir -p usr/bin usr/sbin usr/lib usr/share/kwick usr/share/keyrings usr/local/bin usr/local/sbin usr/local/lib usr/local/share \
   etc/apt/apt.conf.d etc/apt/preferences.d etc/apt/trusted.gpg.d etc/apt/sources.list.d etc/ld.so.conf.d \
   etc/profile.d etc/kinit etc/systemd/system/multi-user.target.wants etc/network/if-up.d etc/network/if-down.d \
@@ -24,7 +20,6 @@ if [ "$ARCH" = amd64 ]; then mkdir -p usr/lib64; ln -s usr/lib64 lib64; fi
 ln -s /run var/run; ln -s /run/lock var/lock
 chmod 1777 tmp var/tmp; chmod 700 root
 
-# --- busybox ------------------------------------------------------------
 install -m 0755 "$U/busybox" usr/bin/busybox
 : > usr/share/kwick/busybox.links
 while IFS= read -r p; do
@@ -35,29 +30,22 @@ while IFS= read -r p; do
   echo "/$p" >> usr/share/kwick/busybox.links
 done < <(sed 's/\r$//' "$U/busybox.links")
 
-# --- kinit (init, systemctl, service, journalctl, ...) --------------------
 install -m 0755 "$U/kinit" usr/sbin/kinit
 ln -s kinit usr/sbin/init
 for l in poweroff reboot halt service invoke-rc.d update-rc.d; do ln -sf kinit usr/sbin/$l; done
 for l in systemctl journalctl deb-systemd-helper deb-systemd-invoke systemd-sysusers systemd-tmpfiles; do ln -sf ../sbin/kinit usr/bin/$l; done
 
-# --- kpkg (apt, dpkg, ...) ---------------------------------------------
 install -m 0755 "$U/kpkg" usr/bin/kpkg
 for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dpkg-divert dpkg-maintscript-helper \
          dpkg-statoverride dpkg-architecture update-alternatives apk; do ln -sf kpkg usr/bin/$l; done
 
-# --- configuration overlay ---------------------------------------------
-# --no-preserve: sources may come from a Windows/9p checkout with 0777 modes
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
 find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" -type f -exec sed -i 's/\r$//' {} +
 chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand
-# /bin/bash: real GNU bash is installed the first time it is used
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
-# users/groups: Debian base-passwd defaults (www-data, nobody, ...)
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd
 sed 's/\r$//' /usr/share/base-passwd/group.master > etc/group
-# root shell: BusyBox ash (bash is installed on first use by the kwick wrapper when wanted)
 sed -i 's|^root:\(.*\):/bin/bash$|root:\1:/bin/sh|' etc/passwd
 DAYS=$(( $(date +%s) / 86400 ))
 awk -F: -v d="$DAYS" '{print $1":*:"d":0:99999:7:::"}' etc/passwd > etc/shadow
@@ -96,10 +84,7 @@ printf 'include /etc/ld.so.conf.d/*.conf\n' > etc/ld.so.conf
 : > etc/resolv.conf
 ln -sf /proc/self/mounts etc/mtab
 echo root > etc/kinit/autologin
-# Debian archive keys for trixie (RSA + Ed25519)
 cp /etc/apt/trusted.gpg.d/debian-archive-trixie-*.asc etc/apt/trusted.gpg.d/
-# KwickOS repository (kernels, KwickOS packages). Enabled when the build
-# provides a repo URL + archive key (CI release builds).
 KWICK_REPO_URL=${KWICK_REPO_URL:-http://metaspartan.github.io/kwickos}
 KWICK_REPO_KEY=${KWICK_REPO_KEY:-$SRC/keys/kwickos-archive-keyring.asc}
 if [ -n "$KWICK_REPO_URL" ] && [ -f "$KWICK_REPO_KEY" ]; then
@@ -107,9 +92,6 @@ if [ -n "$KWICK_REPO_URL" ] && [ -f "$KWICK_REPO_KEY" ]; then
   cp "$KWICK_REPO_KEY" usr/share/keyrings/kwickos-archive-keyring.asc
   printf 'Types: deb\nURIs: %s\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' "$KWICK_REPO_URL" > etc/apt/sources.list.d/kwickos.sources
 fi
-# Alpine's apk alongside apt: keys + repositories + a seeded database in
-# which a virtual package stands in for busybox/baselayout. kpkg fetches and
-# verifies apk.static on first use.
 ALPINE_BRANCH=${ALPINE_BRANCH:-v3.24}
 case $ARCH in amd64) AARCH=x86_64;; arm64) AARCH=aarch64;; riscv64) AARCH=riscv64;; esac
 mkdir -p etc/apk/keys usr/lib/apk/db var/cache/apk
@@ -132,10 +114,8 @@ t:1700000000
 p:busybox=1.38.0-r0 busybox-binsh=1.38.0-r0 /bin/sh cmd:sh alpine-baselayout=3.7.2-r1 alpine-baselayout-data=3.7.2-r1 alpine-release=3.24.4-r0 alpine-keys=2.6-r0 apk-tools=3.0.9-r0 ssl_client=1.38.0-r0
 
 EOF
-# default enabled services
 for u in networking syslog; do ln -sf /usr/lib/systemd/system/$u.service etc/systemd/system/multi-user.target.wants/$u.service; done
 
-# --- dpkg database: the base virtually provides Debian's Essential set ---
 PROVIDES="base-files (= 13.8), base-passwd (= 3.6.7), bash (= 5.2.37-2), bsdutils (= 1:2.41-5), coreutils (= 9.7-3), \
 dash (= 0.5.12-12), debianutils (= 5.23.2), diffutils (= 1:3.10-4), dpkg (= $(grep -o 'dpkgCompatVersion = "[^"]*' $SRC/src/kpkg/main.go | cut -d'"' -f2)), \
 findutils (= 4.10.0-3), grep (= 3.11-4), gzip (= 1.13-1), hostname (= 3.25), init-system-helpers (= 1.69~deb13u1), \
@@ -167,13 +147,11 @@ find . -mindepth 1 \( -path ./var/lib/dpkg -o -path ./proc -o -path ./sys -o -pa
   | sed 's|^\.||' | sort > var/lib/dpkg/info/kwick-base.list
 touch var/lib/dpkg/available var/lib/apt/extended_states
 
-# --- security audit: nothing world-writable except sticky tmp dirs -------
 bad=$(find "$R" -xdev -perm -0002 ! -type l ! \( -type d -perm -1000 \) | sed "s|^$R||")
 [ -z "$bad" ] || { echo "!! world-writable paths in rootfs:"; echo "$bad"; exit 1; }
 bad=$(find "$R" -xdev \( -perm -4000 -o -perm -2000 \) -type f | sed "s|^$R||")
 [ -z "$bad" ] || echo "note: setuid/setgid files: $bad"
 
-# --- outputs -------------------------------------------------------------
 mkdir -p "$OUT/$ARCH"
 tar --numeric-owner --sort=name --mtime=@0 -C "$R" -cf - . | gzip -9n > "$OUT/$ARCH/kwickos-rootfs-$ARCH.tar.gz"
 echo ">> rootfs $ARCH: $(du -sk "$R" | awk '{print $1}') KiB on disk, $(du -s --apparent-size -B1 "$R" | awk '{print $1}') bytes apparent, tar.gz $(stat -c %s "$OUT/$ARCH/kwickos-rootfs-$ARCH.tar.gz") bytes"

@@ -1,6 +1,4 @@
 #!/bin/bash
-# Package a built kernel as a Debian package for the KwickOS apt repository.
-#   mkkernelpkg.sh <arch> <flavor>     -> /out/repo/pool/main/linux-image-kwick-<flavor>_<ver>_<arch>.deb
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}
 OUT=${OUT:-/out}; K="$OUT/$ARCH/kernel-$FLAVOR"

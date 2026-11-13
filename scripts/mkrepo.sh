@@ -1,9 +1,4 @@
 #!/bin/bash
-# Generate a signed apt repository from /out/repo/pool (Debian layout).
-#   mkrepo.sh [suite=stable]
-# Signing: if KWICK_SIGNING_KEY (ASCII-armored secret key) is set it is
-# imported and used; otherwise an ephemeral dev key is generated and its
-# public part exported next to the repo (never use that for releases).
 set -euo pipefail
 SUITE=${1:-stable}; OUT=${OUT:-/out}; R="$OUT/repo"
 cd "$R"

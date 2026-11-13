@@ -1,5 +1,4 @@
 #!/bin/bash
-# Landing page for https://metaspartan.github.io/kwickos/ (the apt repo root).
 set -euo pipefail
 S=${1:?site dir}
 cat > "$S/index.html" <<EOF

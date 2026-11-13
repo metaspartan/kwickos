@@ -1,8 +1,4 @@
 #!/bin/bash
-# Build the KwickOS Desktop live ISO from an exported rootfs tarball.
-#   mkdesktop-iso.sh <arch> <rootfs.tar>      (run as root in kwick-builder)
-# Output: /out/<arch>/kwickos-<arch>-desktop.iso  (UEFI, plus BIOS via isolinux
-# on amd64; generic kernel, erofs root under a tmpfs overlay; boots straight into Plasma).
 set -euo pipefail
 ARCH=${1:?arch}; TAR=${2:?rootfs tar}
 OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
@@ -13,7 +9,6 @@ case $ARCH in amd64) EFINAME=BOOTX64.EFI;; arm64) EFINAME=BOOTAA64.EFI;; riscv64
 EFI="$K/vmlinuz"; [ -f "$K/vmlinuz.efi" ] && EFI="$K/vmlinuz.efi"
 
 tar -C "$W/root" --numeric-owner -xpf "$TAR"
-# docker export leaves these as files/empty; reset runtime dirs
 rm -f "$W/root/.dockerenv"; : > "$W/root/etc/resolv.conf"; : > "$W/root/etc/machine-id"
 echo kwick-desktop > "$W/root/etc/hostname"
 zstd -dc "$K/modules.tar.zst" | tar -C "$W/root/usr" -x

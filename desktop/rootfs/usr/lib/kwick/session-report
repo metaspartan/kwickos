@@ -1,7 +1,4 @@
 #!/bin/sh
-# Wait (max 5 min) for the graphical session and print a one-line report to
-# the kernel log / serial console: used by tests and handy on real hardware
-# (`dmesg | grep KWICK`).
 say() { echo "$*" > /dev/kmsg 2>/dev/null; echo "$*" > /dev/console 2>/dev/null; }
 i=0
 while [ $i -lt 600 ]; do

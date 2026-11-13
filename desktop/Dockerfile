@@ -1,7 +1,3 @@
-# KwickOS Desktop root filesystem, built on top of the KwickOS base image.
-#   docker build --build-arg BASE=kwickos:<ver>-amd64 -t kwickos-desktop desktop/
-# The result is exported (docker export) and turned into a live ISO by
-# scripts/mkdesktop-iso.sh.
 ARG BASE=kwickos:dev
 FROM ${BASE}
 SHELL ["/bin/sh", "-c"]
@@ -24,7 +20,6 @@ RUN set -e; \
       f=$(ls /usr/lib/systemd/system/$u.service 2>/dev/null || true); \
       if [ -n "$f" ]; then ln -sf $f $W/$u.service; else echo "note: no unit $u"; fi; \
     done; \
-    # live user with passwordless sudo, autologin into Plasma (Wayland)
     adduser --disabled-password --gecos "KwickOS Live" kwick 2>/dev/null || adduser -D -g "KwickOS Live" kwick; \
     for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done; \
     passwd -d kwick >/dev/null 2>&1 || true; \
@@ -36,20 +31,15 @@ RUN set -e; \
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true; \
     ls -l /usr/libexec/elogind /usr/lib/systemd/systemd-udevd /usr/bin/startplasma-wayland
 
-# wait-for-dbus drop-ins: kinit starts services in parallel, these register
-# D-Bus names and must not race dbus-daemon.
 RUN for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do \
       mkdir -p /etc/systemd/system/$u.service.d; \
       printf '[Service]\nExecStartPre=/usr/lib/kwick/wait-for dbus\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf; \
     done
 
-# Trim: docs, man pages and non-English translations (keeps the live ISO under
-# the 2 GiB GitHub release-asset limit; `apt install` can bring them back).
 RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/share/lintian \
  && find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' ! -name 'locale.alias' -exec rm -rf {} + \
  && rm -rf /var/cache/apt /var/lib/apt/lists/*
 
-# Discover: KwickOS has no PackageKit (kpkg is the package manager); keep only the Flatpak backend
 RUN rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 
 RUN (gtk-update-icon-cache -f -t /usr/share/icons/KwickOS || true) \

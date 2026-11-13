@@ -1,7 +1,4 @@
 #!/bin/sh
-# Build static BusyBox + kinit inside an Alpine (musl) container of the
-# target architecture.  Usage (inside container):  build-userland.sh <arch>
-# Outputs: /out/<arch>/userland/{busybox,kinit}
 set -eu
 ARCH=${1:?arch}
 BB_VER=${BB_VER:-1.38.0}
@@ -12,16 +9,13 @@ mkdir -p "$OUT" "$CACHE" /tmp/bb
 
 apk add --no-cache build-base linux-headers perl bzip2 sed >/dev/null
 
-# ---- Alpine signing keys (for `apk` on KwickOS) -------------------------
 rm -rf "$OUT/apk-keys"; mkdir -p "$OUT/apk-keys"; cp /etc/apk/keys/*.pub "$OUT/apk-keys/"
 
-# ---- kinit -----------------------------------------------------------
 CFLAGS="-Os -pipe -static -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-format-truncation -Wno-stringop-truncation"
 gcc $CFLAGS -Wl,--gc-sections -Wl,-z,relro,-z,now -s -o "$OUT/kinit" "$SRC/src/kinit/kinit.c"
 rm -rf /tmp/bb/busybox-*
 echo "kinit: $(stat -c %s "$OUT/kinit") bytes"
 
-# ---- busybox ---------------------------------------------------------
 TB="$CACHE/busybox-$BB_VER.tar.bz2"
 [ -f "$TB" ] || wget -q -O "$TB" "https://busybox.net/downloads/busybox-$BB_VER.tar.bz2"
 cd /tmp/bb

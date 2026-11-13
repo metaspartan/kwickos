@@ -1,5 +1,5 @@
 #!/bin/sh
-for d in /usr/share/applications "${XDG_DATA_HOME:-$HOME/.local/share}/applications"; do
+{ for d in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" /usr/local/share/applications /usr/share/applications; do
   for f in "$d"/*.desktop; do
     [ -e "$f" ] || continue
     awk -F= -v id="$(basename "$f")" '
@@ -11,4 +11,4 @@ for d in /usr/share/applications "${XDG_DATA_HOME:-$HOME/.local/share}/applicati
       s && $1 == "Type" { t = $2 }
       END { if (!h && t == "Application" && n) print id "|" n "|" i }' "$f"
   done
-done | sort -t'|' -k2 -f
+done; } | awk -F'|' '!s[$1]++' | sort -t'|' -k2 -f

@@ -1,11 +1,4 @@
 #!/bin/bash
-# Build bootable artifacts from /build/rootfs-<arch> (run as root in kwick-builder).
-#   mkimage.sh <arch>
-# Outputs in /out/<arch>/:
-#   kwickos-<arch>.efi                 virt kernel = UEFI app (embedded kinit; no bootloader)
-#   kwickos-<arch>.img / .qcow2        GPT disk: ESP (kernel as EFI/BOOT/BOOT*.EFI) + ext4 "kwick-root"
-#   kwickos-<arch>-initramfs.cpio.zst  whole OS as an initramfs (RAM boot: microVMs, sandboxes)
-#   kwickos-<arch>.iso                 UEFI live ISO with the *generic* kernel (broad hardware)
 set -euo pipefail
 ARCH=${1:?arch}
 OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
@@ -22,10 +15,8 @@ efibin() { if [ -f "$1/vmlinuz.efi" ]; then echo "$1/vmlinuz.efi"; else echo "$1
 EFIV=$(efibin "$KV")
 cp "$EFIV" "$D/kwickos-$ARCH.efi"
 
-# --- 1. whole OS as initramfs -------------------------------------------
 ( cd "$R0" && find . -mindepth 1 | LC_ALL=C sort | cpio --quiet -o -H newc -R 0:0 ) | zstd -19 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" -q > "$D/kwickos-$ARCH-initramfs.cpio.zst"
 
-# --- 2. GPT disk image (virt kernel) --------------------------------------
 ROOTMB=${ROOTMB:-1024}; ESPMB=48
 mke2fs -q -t ext4 -L kwick-root -E root_owner=0:0 -d "$R0" "$W/root.ext4" "${ROOTMB}M"
 mkfs.vfat -n KWICK-ESP -C "$W/esp.vfat" $((ESPMB * 1024)) >/dev/null
@@ -43,7 +34,6 @@ dd if="$W/root.ext4" of="$W/disk.img" bs=1M seek=$((1 + ESPMB)) conv=notrunc,spa
 mv "$W/disk.img" "$D/kwickos-$ARCH.img"
 qemu-img convert -c -O qcow2 "$D/kwickos-$ARCH.img" "$D/kwickos-$ARCH.qcow2"
 
-# --- 3. live ISO (generic kernel + modules if available) -----------------
 KI=$KV; [ -f "$KG/vmlinuz" ] && KI=$KG
 RI="$R0"
 if [ -f "$KI/modules.tar.zst" ]; then

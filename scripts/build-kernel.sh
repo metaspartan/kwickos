@@ -1,9 +1,4 @@
 #!/bin/bash
-# Build a KwickOS kernel inside the kwick-builder container.
-#   build-kernel.sh <arch: amd64|arm64|riscv64> <flavor: virt|generic> [version]
-# The version defaults to the newest "stable" from kernel.org/releases.json,
-# so CI picks up new upstream releases (and their CVE fixes) automatically.
-# Outputs /out/<arch>/kernel-<flavor>/{vmlinuz,vmlinuz.efi?,config,version,modules.tar.zst?}
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}; KVER=${3:-${KVER:-}}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
@@ -18,7 +13,6 @@ echo ">> kernel $KVER ($ARCH/$FLAVOR)"
 TARBALL="$CACHE/linux-$KVER.tar.xz"
 if [ ! -f "$TARBALL" ]; then
   curl -fL --retry 3 -o "$TARBALL.part" "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/linux-$KVER.tar.xz"
-  # integrity: compare against kernel.org's published sha256sums
   curl -fsSL "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/sha256sums.asc" -o "$CACHE/sha256sums-v$MAJOR.asc"
   want=$(grep " linux-$KVER.tar.xz\$" "$CACHE/sha256sums-v$MAJOR.asc" | awk '{print $1}')
   got=$(sha256sum "$TARBALL.part" | awk '{print $1}')
@@ -40,12 +34,10 @@ O="$BUILD/kernel-$ARCH-$FLAVOR"
 mkdir -p "$O"
 M=(make -C "$KSRC" O="$O" ARCH="$KARCH" CROSS_COMPILE="$CROSS" -j"$(nproc)" KBUILD_BUILD_USER=kwick KBUILD_BUILD_HOST=kwickos)
 
-# Fragments (normalize CRLF in case of a Windows checkout).
 FR="$O/fragments"; mkdir -p "$FR"
 XF=""; [ -f "$SRC/config/kernel/$FLAVOR-$FRAG.config" ] && XF="$FLAVOR-$FRAG"
 for f in common "$FRAG" "$FLAVOR" $XF; do sed 's/\r$//' "$SRC/config/kernel/$f.config" > "$FR/$f.config"; done
 
-# Embedded initramfs: just kinit as /init (stage 0 root finder).
 KINIT="$OUT/$ARCH/userland/kinit"
 [ -n "${CONFIG_ONLY:-}" ] || [ -x "$KINIT" ] || { echo "missing $KINIT - build userland first"; exit 1; }
 cat > "$O/initramfs.list" <<EOF
@@ -64,12 +56,10 @@ if [ "$FLAVOR" = virt ]; then BASE=tinyconfig; else BASE=defconfig; fi
 "$KSRC/scripts/kconfig/merge_config.sh" -m -O "$O" "$O/.config" "$FR"/common.config "$FR/$FRAG.config" "$FR/$FLAVOR.config" ${XF:+"$FR/$XF.config"} "$FR/initramfs.config" >/dev/null
 "${M[@]}" olddefconfig >/dev/null
 
-# Hard requirements: fail loudly if kconfig silently dropped something.
 REQ="DEVTMPFS BLK_DEV_INITRD VIRTIO_PCI VIRTIO_BLK VIRTIO_NET VIRTIO_CONSOLE EXT4_FS EROFS_FS OVERLAY_FS
      TMPFS UNIX INET IPV6 CGROUPS MEMCG NAMESPACES USER_NS SECCOMP_FILTER NF_TABLES BLK_DEV_LOOP
      ISO9660_FS EFI_STUB SQUASHFS FUSE_FS VIRTIO_FS NET_9P_VIRTIO PRINTK BINFMT_ELF BINFMT_SCRIPT FUTEX EPOLL"
 case $ARCH in amd64) REQ="$REQ SERIAL_8250_CONSOLE BLK_DEV_SR PVH KVM_GUEST";; arm64) REQ="$REQ SERIAL_AMBA_PL011_CONSOLE";; riscv64) REQ="$REQ SERIAL_8250_CONSOLE SERIAL_OF_PLATFORM";; esac
-# Report (non-fatal) every fragment option kconfig dropped.
 dropped=""
 for f in "$FR"/common.config "$FR/$FRAG.config" "$FR/$FLAVOR.config" ${XF:+"$FR/$XF.config"}; do
   while IFS= read -r l; do

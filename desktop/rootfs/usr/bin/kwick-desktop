@@ -1,11 +1,4 @@
 #!/bin/sh
-# kwick-desktop: choose and switch desktop environments on KwickOS Desktop.
-#   kwick-desktop list                 show editions and which are installed
-#   kwick-desktop install <name>       install a desktop (apt, no recommends)
-#   kwick-desktop switch <name>        make it the default SDDM session (log out to apply)
-# Names: kde (default), gnome, hyprland, xfce, cinnamon, mate, lxqt.
-# hyprland installs the kwick-hyprland package (Hyprland built from pinned upstream source); without it the sway tiling compositor is installed with the same bars and launcher.
-# Sessions other than KDE are best-effort: KwickOS uses elogind instead of systemd-logind.
 set -e
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
 pkgs() { case "$1" in

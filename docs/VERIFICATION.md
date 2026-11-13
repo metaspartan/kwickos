@@ -83,7 +83,7 @@ Windows checkout are stripped in a copy first (`buildrepo`). The kernel .debs ar
 | Wobbly windows | visible: the window shears while dragged | `effects-wobbly.gif`, `effects-wobbly-frames.png` |
 | Magic lamp | visible: genie shape while the window flies into the dock | `effects-magiclamp.gif`, `effects-magiclamp-frames.png` |
 | Flame close | visible: fire burns the window away from the top edge | `effects-flame.gif`, `effects-flame-frames.png` |
-| Blur / glass | menu bar and dock render translucent; static shot | `glass-blur.png` |
+| Blur / glass | glass theme on menu bar and dock; the static shot does not show the blur itself | `glass-blur.png` |
 | Cube | loads; no rotation was driven or captured | `isEffectLoaded cube` true only |
 | GNOME, macOS / Windows / Linux layouts | runs, each layout visibly different | `vm-gnome-macos.png`, `vm-gnome-windows.png`, `vm-gnome-linux.png` |
 | Hyprland 0.49.0 (`kwick-hyprland`), 3 layouts | runs, tiles three foot windows, bar and dock per layout; Windows layout has no bar (bug 3) | `vm-tiling-macos.png`, `vm-tiling-linux.png`, `vm-tiling-windows-nobar.png`, `vm-tiling-windows.png` |

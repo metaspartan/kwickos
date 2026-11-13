@@ -12,7 +12,6 @@ window#waybar {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-#custom-start,
 #custom-search {
   min-width: 40px;
   min-height: 36px;
@@ -27,6 +26,7 @@ window#waybar {
   font-size: 15px;
 }
 
+#custom-start,
 #custom-files,
 #custom-web,
 #custom-term {
@@ -37,6 +37,10 @@ window#waybar {
   background-repeat: no-repeat;
   background-position: center;
   background-size: 28px 28px;
+}
+
+#custom-start {
+  background-image: url("/usr/share/icons/hicolor/scalable/apps/kwick-start-fluent.svg");
 }
 
 #custom-files {

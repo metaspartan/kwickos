@@ -20,8 +20,6 @@ Description: KwickOS GPU driver selector
 EOF
 cat > "$P/DEBIAN/postinst" <<'PI'
 #!/bin/sh
-# apt holds the dpkg lock while this runs, so the vendor-specific install is deferred:
-# a detached job waits for the lock to be released, then runs `kwick-gpu install`.
 [ "$1" = configure ] || exit 0
 [ -n "${KWICK_GPU_NO_AUTO:-}" ] && exit 0
 nohup setsid sh -c '

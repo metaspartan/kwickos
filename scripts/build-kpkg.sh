@@ -1,9 +1,6 @@
 #!/bin/bash
-# Build static kpkg for every arch (pure Go, no cgo).
 set -euo pipefail
 SRC=${SRC:-/src}; OUT=${OUT:-/out}
-# Always build with the newest patched Go (security fixes in the stdlib
-# end up statically linked into kpkg). go.mod pins the minimum toolchain.
 export GOTOOLCHAIN=${GOTOOLCHAIN:-auto}
 export GOPATH=${GOPATH:-/cache/go} GOCACHE=${GOCACHE:-/cache/go-build} GOFLAGS=-mod=mod CGO_ENABLED=0
 cd "$SRC/src/kpkg"

@@ -1,8 +1,4 @@
 #!/bin/bash
-# Take real Plasma screenshots inside the KwickOS desktop image with no VM:
-# KWin's virtual backend (software rendering) + plasmashell + Spectacle.
-#   desktop-container-shots.sh /out
-# Used when KVM is unavailable; the live-ISO boot itself is covered by tests/desktop-boot.sh.
 set -u
 OUT=${1:-/out}; mkdir -p "$OUT"
 export XDG_RUNTIME_DIR=/tmp/xdg-run; mkdir -p $XDG_RUNTIME_DIR; chmod 700 $XDG_RUNTIME_DIR
@@ -24,6 +20,6 @@ sleep 12; shot 03-system-settings
 for L in macos windows linux; do
   kwick-layout $L >/tmp/layout.log 2>&1; sleep 10; shot 10-layout-$L
 done
-kwick-layout macos >/dev/null 2>&1; kwick-effects compiz >/dev/null 2>&1; sleep 6; shot 20-effects-compiz-macos
+kwick-layout macos >/dev/null 2>&1; kwick-effects full >/dev/null 2>&1; sleep 6; shot 20-effects-full-macos
 tail -5 /tmp/kwin.log /tmp/plasma.log /tmp/layout.log
 '

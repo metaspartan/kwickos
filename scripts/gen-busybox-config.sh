@@ -1,6 +1,4 @@
 #!/bin/sh
-# Regenerate config/busybox/busybox.config from upstream defconfig plus the
-# KwickOS policy below.  Run inside an Alpine container with /src mounted.
 set -eu
 BB_VER=${BB_VER:-1.38.0}
 apk add --no-cache build-base linux-headers perl bzip2 >/dev/null
@@ -13,19 +11,14 @@ unset_opt() { sed -i "/^CONFIG_$1=/d;/^# CONFIG_$1 is not set/d" .config; echo "
 set_opt STATIC y
 unset_opt PIE
 set_opt EXTRA_CFLAGS '"-Os -fno-asynchronous-unwind-tables"'
-# kinit owns PID 1 and power management.
 for o in INIT LINUXRC HALT FEATURE_INIT_SCTTY FEATURE_KILL_REMOVED RUNLEVEL; do unset_opt $o; done
-# kpkg provides dpkg/apt; drop busybox's limited versions and rpm.
 for o in DPKG DPKG_DEB RPM RPM2CPIO; do unset_opt $o; done
-# tc does not build against modern kernel headers (CBQ removal).
 unset_opt TC
-# Old/unsafe or pointless on a server.
 for o in TELNETD FTPD FTPGET FTPPUT TFTP TFTPD INETD RX LPD LPR LPQ SENDMAIL POPMAILDIR REFORMIME MAKEMIME \
          FBSET FBSPLASH CONSPY CHAT MICROCOM RUNSV RUNSVDIR SV SVC SVLOGD SVOK CHPST SETUIDGID ENVUIDGID ENVDIR SOFTLIMIT \
          LOADFONT SETFONT LOADKMAP DUMPKMAP KBD_MODE SHOWKEY SETKEYCODES OPENVT DEALLOCVT CHVT SETCONSOLE \
          NANDWRITE NANDDUMP UBIATTACH UBIDETACH UBIMKVOL UBIRMVOL UBIRSVOL UBIUPDATEVOL UBIRENAME FLASHCP FLASH_LOCK FLASH_UNLOCK FLASH_ERASEALL \
          HDPARM RAIDAUTORUN BOOTCHARTD MAKEDEVS DEVFSD SULOGIN ADD_SHELL REMOVE_SHELL; do unset_opt $o; done
-# bash compatibility: /bin/bash -> ash for scripts that only need basic bashisms.
 unset_opt BASH_IS_NONE
 set_opt BASH_IS_ASH y
 set_opt FEATURE_SH_IS_ASH y
