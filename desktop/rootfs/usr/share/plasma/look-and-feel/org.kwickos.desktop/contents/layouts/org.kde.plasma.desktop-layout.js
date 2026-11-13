@@ -1,53 +1,42 @@
-// KwickOS default desktop: slim top bar (launcher, global menu, tray, clock)
-// and a floating, centered dock - familiar to macOS and Zorin users.
+// KwickOS macOS (liquid glass) layout. Applied by kwick-layout and (macOS flavour) as the first-login default.
 var desktopsArray = desktopsForActivity(currentActivity());
 for (var j = 0; j < desktopsArray.length; j++) {
     var d = desktopsArray[j];
     d.wallpaperPlugin = "org.kde.image";
     d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-    d.writeConfig("Image", "file:///usr/share/wallpapers/KwickOS/contents/images/1920x1080.png");
+    d.writeConfig("Image", "file:///usr/share/wallpapers/KwickGlass/contents/images/2560x1440.png");
     d.writeConfig("FillMode", "2");
 }
-
-// --- top bar ---
+panels().forEach(function (p) { p.remove(); });
+var launchers = [
+    "applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop",
+    "applications:org.kde.konsole.desktop", "applications:org.kde.kate.desktop",
+    "applications:org.kde.discover.desktop", "applications:steam.desktop",
+    "applications:systemsettings.desktop"
+].join(",");
+function clockCfg(c, fmt, below) {
+    c.currentConfigGroup = ["Appearance"];
+    c.writeConfig("showDate", "true");
+    c.writeConfig("dateFormat", "custom");
+    c.writeConfig("customDateFormat", fmt);
+    c.writeConfig("dateDisplayFormat", below ? "BelowTime" : "BesideTime");
+}
+// translucent menu bar: launcher, global menu, tray, clock
 var top = new Panel;
-top.location = "top";
-top.height = Math.round(gridUnit * 1.6);
-top.floating = false;
-top.hiding = "none";
-var launcher = top.addWidget("org.kde.plasma.kickoff");
-launcher.currentConfigGroup = ["General"];
-launcher.writeConfig("icon", "start-here-kde-symbolic");
+top.location = "top"; top.height = Math.round(gridUnit * 1.5); top.floating = false; top.hiding = "none"; top.opacity = "translucent";
+var k = top.addWidget("org.kde.plasma.kickoff");
+k.currentConfigGroup = ["General"]; k.writeConfig("icon", "kwick-start");
 top.addWidget("org.kde.plasma.appmenu");
 top.addWidget("org.kde.plasma.panelspacer");
 top.addWidget("org.kde.plasma.systemtray");
-var clock = top.addWidget("org.kde.plasma.digitalclock");
-clock.currentConfigGroup = ["Appearance"];
-clock.writeConfig("showDate", "true");
-clock.writeConfig("dateFormat", "custom");
-clock.writeConfig("customDateFormat", "ddd d MMM");
-clock.writeConfig("dateDisplayFormat", "BesideTime");
+clockCfg(top.addWidget("org.kde.plasma.digitalclock"), "ddd d MMM", false);
 
-// --- floating dock ---
+// floating glass dock
 var dock = new Panel;
-dock.location = "bottom";
-dock.height = Math.round(gridUnit * 3.4);
-dock.alignment = "center";
-dock.lengthMode = "fit";
-dock.floating = true;
-dock.hiding = "dodgewindows";
-var tasks = dock.addWidget("org.kde.plasma.icontasks");
-tasks.currentConfigGroup = ["General"];
-tasks.writeConfig("launchers", [
-    "applications:org.kde.dolphin.desktop",
-    "applications:firefox-esr.desktop",
-    "applications:org.kde.konsole.desktop",
-    "applications:org.kde.kate.desktop",
-    "applications:org.kde.discover.desktop",
-    "applications:kwick-gaming.desktop",
-    "applications:systemsettings.desktop"
-].join(","));
-tasks.writeConfig("showOnlyCurrentDesktop", "false");
-tasks.writeConfig("iconSpacing", "2");
+dock.location = "bottom"; dock.height = Math.round(gridUnit * 3.6); dock.alignment = "center"; dock.lengthMode = "fit";
+dock.floating = true; dock.hiding = "dodgewindows"; dock.opacity = "translucent";
+var t = dock.addWidget("org.kde.plasma.icontasks");
+t.currentConfigGroup = ["General"]; t.writeConfig("launchers", launchers); t.writeConfig("showOnlyCurrentDesktop", "false");
+t.writeConfig("iconSpacing", "3"); t.writeConfig("indicateAudioStreams", "true");
 dock.addWidget("org.kde.plasma.marginsseparator");
 dock.addWidget("org.kde.plasma.trash");

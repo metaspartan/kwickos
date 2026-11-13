@@ -1,0 +1,13 @@
+{
+  "KPlugin": {
+    "Id": "KwickGlass",
+    "Name": "KwickGlass",
+    "Description": "KwickOS window decoration",
+    "Authors": [
+      {
+        "Name": "KwickOS"
+      }
+    ],
+    "License": "MIT"
+  }
+}

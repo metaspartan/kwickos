@@ -1,0 +1,12 @@
+[org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+icon-theme='Papirus-Dark'
+font-name='Inter 10'
+monospace-font-name='JetBrains Mono 10'
+enable-hot-corners=false
+
+[org.gnome.desktop.wm.preferences]
+button-layout='close,minimize,maximize:'
+
+[org.gnome.shell]
+enabled-extensions=['dash-to-dock@micxgx.gmail.com','blur-my-shell@aunetx','appindicatorsupport@rgcjonas.gmail.com']

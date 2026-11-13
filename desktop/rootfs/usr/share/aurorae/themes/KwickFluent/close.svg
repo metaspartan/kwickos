@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="276" height="34" viewBox="0 0 276 34">
+<g id="active-center"><g transform="translate(0,0)"><path d="M18.5,12.5 L27.5,21.5 M27.5,12.5 L18.5,21.5" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
+<g id="inactive-center"><g transform="translate(46,0)"><path d="M18.5,12.5 L27.5,21.5 M27.5,12.5 L18.5,21.5" stroke="#7a7a7a" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
+<g id="hover-center"><g transform="translate(92,0)"><rect width="46" height="34" fill="#c42b1c" fill-opacity="1"/><path d="M18.5,12.5 L27.5,21.5 M27.5,12.5 L18.5,21.5" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
+<g id="pressed-center"><g transform="translate(138,0)"><rect width="46" height="34" fill="#b32b1c" fill-opacity="1"/><path d="M18.5,12.5 L27.5,21.5 M27.5,12.5 L18.5,21.5" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
+<g id="deactivated-center"><g transform="translate(184,0)"><path d="M18.5,12.5 L27.5,21.5 M27.5,12.5 L18.5,21.5" stroke="#7a7a7a" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="34" fill="#000" fill-opacity="0"/></g></g>
+</svg>

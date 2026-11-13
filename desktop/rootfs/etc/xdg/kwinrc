@@ -1,19 +1,30 @@
-# KwickOS defaults - change them in System Settings > Desktop Effects
+# KwickOS defaults (dark, glassy, smooth). Change them with kwick-effects or System Settings > Desktop Effects.
 [Plugins]
-wobblywindowsEnabled=true
-magiclampEnabled=true
-squashEnabled=false
-kwin6_effect_fireEnabled=true
-scaleEnabled=false
 blurEnabled=true
 contrastEnabled=true
 translucencyEnabled=true
+fadeEnabled=true
+fadingpopupsEnabled=true
+slidingpopupsEnabled=true
+maximizeEnabled=true
+loginEnabled=true
+logoutEnabled=true
+sessionquitEnabled=true
+dialogparentEnabled=true
+magiclampEnabled=true
+wobblywindowsEnabled=false
+scaleEnabled=false
+squashEnabled=false
 dimscreenEnabled=true
 shakecursorEnabled=true
 
+[Effect-blur]
+BlurStrength=8
+NoiseStrength=3
+
 [Effect-wobblywindows]
 Drag=85
-Stiffness=10
+Stiffness=8
 WobblynessLevel=1
 
 [Effect-overview]
@@ -23,13 +34,13 @@ BorderActivate=9
 BorderlessMaximizedWindows=false
 
 [org.kde.kdecoration2]
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__KwickGlass
 ButtonsOnLeft=XIA
 ButtonsOnRight=
-library=org.kde.breeze
-theme=Breeze
 
 [Compositing]
-LatencyPolicy=Low
+LatencyPolicy=Medium
 
 [Wayland]
 InputMethod[$e]=

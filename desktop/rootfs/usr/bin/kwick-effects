@@ -1,9 +1,9 @@
 #!/bin/sh
 # kwick-effects: window-effect presets (Compiz-style) for KDE, GNOME and Hyprland.
 #   kwick-effects off | subtle | wobbly | compiz        (no argument: show current)
-#   off     no animations           subtle  fades, blur, sliding popups
-#   wobbly  + wobbly windows, magic lamp minimize
-#   compiz  + everything: wobbly, magic lamp, glide, squash, fall-apart close, burn-away, strong blur/shadows
+#   off     no animations           subtle  fades, blur, sliding popups, magic lamp (default)
+#   wobbly  + wobbly windows
+#   compiz  + wobbly, glide, burn-away open/close (Burn-My-Windows), strong blur
 set -u
 cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
 p=${1:-}; if [ -z "$p" ]; then cat "$cfg/effects" 2>/dev/null || echo subtle; exit 0; fi
@@ -12,18 +12,26 @@ echo "$p" > "$cfg/effects"
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 b() { [ "$1" = 1 ] && echo true || echo false; }
 case $p in
-  off)    blur=0 slide=0 wob=0 lamp=0 glide=0 squash=0 fall=0 anim=0 ;;
-  subtle) blur=1 slide=1 wob=0 lamp=0 glide=0 squash=0 fall=0 anim=1 ;;
-  wobbly) blur=1 slide=1 wob=1 lamp=1 glide=0 squash=0 fall=0 anim=1 ;;
-  compiz) blur=1 slide=1 wob=1 lamp=1 glide=1 squash=0 fall=1 anim=1 ;;
+  off)    blur=0 slide=0 wob=0 lamp=0 glide=0 fire=0 anim=0 factor=0 ;;
+  subtle) blur=1 slide=1 wob=0 lamp=1 glide=0 fire=0 anim=1 factor=0.7 ;;
+  wobbly) blur=1 slide=1 wob=1 lamp=1 glide=0 fire=0 anim=1 factor=0.8 ;;
+  compiz) blur=1 slide=1 wob=1 lamp=1 glide=1 fire=1 anim=1 factor=1 ;;
 esac
 kde() {
   k() { kwriteconfig6 --file kwinrc --group Plugins --key "$1" "$2"; }
-  k blurEnabled $(b $blur); k slidingpopupsEnabled $(b $slide); k wobblywindowsEnabled $(b $wob)
-  k magiclampEnabled $(b $lamp); k glideEnabled $(b $glide); k squashEnabled $(b $squash); k fallapartEnabled $(b $fall)
-  k kwin4_effect_fadeEnabled $(b $anim); k kwin4_effect_scaleEnabled $(b $anim)
-  [ $p = compiz ] && kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key Stiffness 8 --key Drag 85 --key MoveFactor 20
-  kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor $([ $anim = 1 ] && echo 0.7 || echo 0)
+  for e in blur contrast translucency; do k ${e}Enabled $(b $blur); done
+  k slidingpopupsEnabled $(b $slide); k fadingpopupsEnabled $(b $anim); k wobblywindowsEnabled $(b $wob)
+  k magiclampEnabled $(b $lamp); k glideEnabled $(b $glide); k fadeEnabled $(b $([ $fire = 1 ] && echo 0 || echo $anim))
+  k kwin4_effect_fadeEnabled $(b $anim)
+  for e in maximize login logout sessionquit dialogparent; do k ${e}Enabled $(b $anim); done
+  k kwin6_effect_fireEnabled $(b $fire)
+  if [ $p = compiz ]; then
+    kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key Stiffness 8
+    kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key Drag 85
+    kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key WobblynessLevel 3
+    kwriteconfig6 --file kwinrc --group Effect-blur --key BlurStrength 12
+  fi
+  kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor "$factor"
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
 }
 gnome() {
@@ -40,5 +48,5 @@ hypr() {
   cp "/usr/share/kwick/hypr/effects-$p.conf" "$HOME/.config/hypr/kwick-effects.conf"
   hyprctl reload >/dev/null 2>&1 || true
 }
-case $de in *kde*) kde ;; *gnome*) gnome ;; *hyprland*) hypr ;; *) echo "saved; applied at next login" ;; esac
+case $de in *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) hypr ;; *) echo "saved; applied at next login" ;; esac
 echo "effects: $p"

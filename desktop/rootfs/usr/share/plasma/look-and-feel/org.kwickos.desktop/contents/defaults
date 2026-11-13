@@ -2,13 +2,14 @@
 widgetStyle=Breeze
 
 [kdeglobals][General]
-ColorScheme=BreezeDark
+ColorScheme=KwickGlass
+AccentColor=10,132,255
 
 [kdeglobals][Icons]
 Theme=Papirus-Dark
 
 [plasmarc][Theme]
-name=breeze-dark
+name=default
 
 [kcminputrc][Mouse]
 cursorTheme=breeze_cursors
@@ -17,10 +18,10 @@ cursorTheme=breeze_cursors
 LayoutName=thumbnail_grid
 
 [kwinrc][org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__KwickGlass
 ButtonsOnLeft=XIA
 ButtonsOnRight=
 
 [Wallpaper]
-Image=KwickOS
+Image=KwickGlass
