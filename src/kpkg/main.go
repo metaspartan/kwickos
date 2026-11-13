@@ -111,6 +111,7 @@ func main() {
 	// Index parsing allocates a lot of short-lived memory: a lower GC target
 	// keeps peak RSS small on tiny VMs and embedded boards.
 	debug.SetGCPercent(50)
+	debug.SetMemoryLimit(96 << 20) // soft cap: keeps `apt install` usable on 512 MiB microVMs
 	name := filepath.Base(os.Args[0])
 	args := os.Args[1:]
 	if name == "kpkg" && len(args) > 0 {

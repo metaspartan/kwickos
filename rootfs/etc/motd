@@ -1,0 +1,11 @@
+
+  _  __          _      _     ___  ____
+ | |/ /_      _ (_) ___| | __/ _ \/ ___|
+ | ' /\ \ /\ / /| |/ __| |/ / | | \___ \
+ | . \ \ V  V / | | (__|   <| |_| |___) |
+ |_|\_\ \_/\_/  |_|\___|_|\_\\___/|____/
+
+  tiny, fast, Debian-compatible.
+
+  apt install <pkg>          Debian 13 packages (glibc)      apk add <pkg>   Alpine packages (musl)
+  systemctl|journalctl       services and logs (kinit)       apt install kwick-desktop   KDE Plasma desktop

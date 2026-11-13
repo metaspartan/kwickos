@@ -57,6 +57,8 @@ rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755
 # users/groups: Debian base-passwd defaults (www-data, nobody, ...)
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd
 sed 's/\r$//' /usr/share/base-passwd/group.master > etc/group
+# root shell: BusyBox ash (bash is installed on first use by the kwick wrapper when wanted)
+sed -i 's|^root:\(.*\):/bin/bash$|root:\1:/bin/sh|' etc/passwd
 DAYS=$(( $(date +%s) / 86400 ))
 awk -F: -v d="$DAYS" '{print $1":*:"d":0:99999:7:::"}' etc/passwd > etc/shadow
 awk -F: '{print $1":*::"}' etc/group > etc/gshadow
@@ -88,14 +90,6 @@ ln -sf ../usr/lib/os-release etc/os-release
 echo "KwickOS $VERSION" > etc/kwick-release
 echo "13.0" > etc/debian_version
 printf 'KwickOS %s \\n \\l\n\n' "$VERSION" > etc/issue
-cat > etc/motd <<'EOF'
-
-Welcome to KwickOS - tiny, fast, Debian-compatible.
-  apt update && apt install <pkg>   install from the Debian 13 archive
-  systemctl status|start|enable     manage services (kinit)
-  journalctl -u <unit>              service logs
-
-EOF
 printf '/bin/sh\n/usr/bin/sh\n/bin/ash\n/bin/bash\n/usr/bin/bash\n' > etc/shells
 printf '# <file system> <mount point> <type> <options> <dump> <pass>\n' > etc/fstab
 printf 'include /etc/ld.so.conf.d/*.conf\n' > etc/ld.so.conf

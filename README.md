@@ -16,6 +16,12 @@ root@kwick:/# apt update && apt install -y nginx python3
 root@kwick:/# systemctl enable --now nginx      # works in containers too
 ```
 
+## Screenshots
+
+| Headless (serial console, real boot) | Desktop (KDE Plasma 6 live ISO, UEFI boot under QEMU) |
+|---|---|
+| ![headless](docs/img/headless.png) | ![desktop](docs/img/desktop.png) |
+
 ## Results (measured, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md))
 
 | | Alpine 3.24.4 | **KwickOS 0.1** |
@@ -123,6 +129,7 @@ session on the same base (SDDM, elogind instead of systemd PID 1, PipeWire, Netw
 Mesa drivers for AMD, Intel, NVIDIA-nouveau/NVK and virtio, GPU/Wi-Fi firmware, Flatpak/Discover,
 Burn-My-Windows effects plus KWin wobbly windows). Tools in the live image:
 
+* `apt install kwick-desktop` upgrades a headless install to this desktop (metapackage from the KwickOS apt repo; reboot afterwards).
 * `kwick-desktop list|install|switch gnome|xfce|cinnamon|mate|lxqt|kde`: install another desktop from
   Debian and make it the default SDDM session. Only KDE is tested; the others are best-effort.
 * `kwick-gaming`: Steam (Proton), Proton-GE manager, Heroic and Lutris via Flathub (amd64).
