@@ -26,11 +26,13 @@ for v in $vendors; do case $v in
   nvidia) pkgs="$pkgs firmware-nvidia-graphics libdrm-nouveau2 nvtop" ;;
   apple) pkgs="$pkgs mesa-libgallium" ;;
 esac; done
+[ -e /etc/kwick-edition ] && pkgs="$pkgs firmware-iwlwifi firmware-realtek firmware-mediatek firmware-atheros firmware-brcm80211 firmware-sof-signed firmware-misc-nonfree"
+[ "$arch" = amd64 ] && [ -e /etc/kwick-edition ] && pkgs="$pkgs intel-microcode amd64-microcode"
 case "${1:-}" in
   install)
     [ "${2:-}" = --list ] && { echo $pkgs; exit 0; }
     [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
-    sed -i 's/^Components: main$/Components: main non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null
+    sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null
     apt update >/dev/null 2>&1; apt install -y $pkgs ;;
   *)
     echo "Detected: ${vendors:-none (headless VM or no GPU)}"

@@ -139,7 +139,7 @@ and that the latest Bun installs with the official installer and runs.
 packaged, otherwise sway with the same waybar/wofi setup (Debian 13 does not ship Hyprland). Plus SDDM, elogind,
 PipeWire, NetworkManager, Bluetooth, Flatpak, Firefox, Mesa for AMD/Intel/NVIDIA(nouveau, NVK)/virtio and vendor firmware.
 
-Upgrade a headless install in place: `apt update && apt install kwick-desktop`, then reboot.
+Upgrade a headless install in place: `apt update && apt install kwick-desktop`, then reboot. Tested against a local signed repo: it resolves to 1,330 packages (about 0.9 GB download, 3.6 GB installed), and the non-free firmware and GPU drivers are installed right after apt finishes by `kwick-gpu`. The full reboot into the upgraded desktop has not been tested.
 
 | tool | what it does |
 |---|---|

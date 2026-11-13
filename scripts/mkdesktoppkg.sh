@@ -13,8 +13,8 @@ mkdir -p "$P/usr/share/kwin/effects" /tmp/bmw && cd /tmp/bmw
 curl -fsSL -o bmw.tgz "https://github.com/Schneegans/Burn-My-Windows/releases/download/${BMW_VERSION:-v49}/burn_my_windows_kwin6.tar.gz" \
   && tar xzf bmw.tgz && cp -r $(find . -mindepth 1 -maxdepth 2 -type d \( -name 'kwin6_effect_*' -o -name 'burn_my_windows_*' \)) "$P/usr/share/kwin/effects/" || echo "note: Burn-My-Windows unavailable, skipping"
 cd /; rm -rf /tmp/bmw
-deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
-if [ "$ARCH" = amd64 ]; then deps="$deps, $(grep -hv '^#' "$SRC/desktop/packages.amd64.list" | tr -s ' \n' ',' | sed 's/,$//; s/^,//; s/,/, /g')"; fi
+deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
+# non-free firmware/microcode/VA drivers are installed by kwick-gpu (enables non-free-firmware itself)
 deps="linux-image-kwick-generic, kwick-gpu, $deps"
 cat > "$P/DEBIAN/control" <<EOF
 Package: kwick-desktop
@@ -33,7 +33,7 @@ cat > "$P/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
-sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
+# firmware/non-free components are enabled and installed by kwick-gpu (below)
 rm -f /etc/systemd/system/multi-user.target.wants/networking.service
 W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W
 for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do
@@ -53,6 +53,7 @@ mkdir -p /etc/sddm.conf.d
 rm -f /etc/kinit/autologin
 echo "KwickOS Desktop $(cut -d' ' -f2 /etc/kwick-release)" > /etc/kwick-edition
 command -v flatpak >/dev/null && flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1' >/dev/null 2>&1 &
 echo "KwickOS Desktop installed. Reboot to start the desktop (kernel: generic flavor via kwick-kernel-install)."
 EOF
 chmod 755 "$P/DEBIAN/postinst"
