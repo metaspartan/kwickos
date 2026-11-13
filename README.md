@@ -124,21 +124,30 @@ and that the latest Bun installs with the official installer and runs.
 
 ## Desktop edition (preview)
 
-Releases include `kwickos-<arch>-desktop.iso` for amd64 and arm64: a KDE Plasma 6 (Wayland) live
-session on the same base (SDDM, elogind instead of systemd PID 1, PipeWire, NetworkManager,
-Mesa drivers for AMD, Intel, NVIDIA-nouveau/NVK and virtio, GPU/Wi-Fi firmware, Flatpak/Discover,
-Burn-My-Windows effects plus KWin wobbly windows). Tools in the live image:
+`kwickos-<arch>-desktop.iso` (amd64, arm64; the desktop is allowed to be big, the headless base is not) is a live session with
+**KDE Plasma 6** (default), **GNOME** and a **tiling session** selectable at the login screen: Hyprland where
+packaged, otherwise sway with the same waybar/wofi setup (Debian 13 does not ship Hyprland). Plus SDDM, elogind,
+PipeWire, NetworkManager, Bluetooth, Flatpak, Firefox, Mesa for AMD/Intel/NVIDIA(nouveau, NVK)/virtio and vendor firmware.
 
-* `apt install kwick-desktop` upgrades a headless install to this desktop (metapackage from the KwickOS apt repo; reboot afterwards).
-* `kwick-desktop list|install|switch gnome|xfce|cinnamon|mate|lxqt|kde`: install another desktop from
-  Debian and make it the default SDDM session. Only KDE is tested; the others are best-effort.
-* `kwick-gaming`: Steam (Proton), Proton-GE manager, Heroic and Lutris via Flathub (amd64).
-* `kwick-gpu`: shows detected GPUs and their drivers.
+Upgrade a headless install in place: `apt update && apt install kwick-desktop`, then reboot.
 
-Not done yet: proprietary NVIDIA drivers, Apple Silicon (needs Asahi's kernel and m1n1 boot chain),
-DGX Spark (GB10) kernel support, and an arm64 desktop boot test (amd64's boot test runs in CI).
-The desktop is a separate image so the headless base stays small.
+| tool | what it does |
+|---|---|
+| `kwick-layout linux\|windows\|macos` | window buttons, panel/dock position and UI fonts in the Linux, Windows or macOS style; works on KDE and GNOME, tiling gaps/bar on Hyprland/sway |
+| `kwick-effects off\|subtle\|wobbly\|compiz` | Compiz-style effects: wobbly windows, magic lamp, glide, fall-apart close, blur, burn-away (GNOME extensions / KWin effects / Hyprland animations) |
+| `kwick-fonts windows\|macos\|msfonts` | Segoe-like (Open Sans), Calibri/Cambria metrics (Carlito/Caladea), Helvetica/SF-like (Inter); `msfonts` fetches the real Microsoft core fonts after you accept the EULA. Windows/macOS font names are aliased by fontconfig |
+| `kwick-desktop list\|install\|switch` | install and select another desktop (kde, gnome, hyprland, xfce, cinnamon, mate, lxqt) |
+| `steam`, `kwick-gaming` | Steam (Flathub build with Proton and the 32-bit runtime, installed on first launch), Proton-GE, Heroic, Lutris, GameMode, MangoHud; gaming sysctls preset |
 
+### GPU drivers (headless too)
+
+`apt install kwick-gpu` (or `kwick-gpu install`) detects NVIDIA, AMD, Intel, Apple Silicon and virtio GPUs and installs the
+matching Mesa/Vulkan drivers and firmware. `kwick-gpu` alone shows what it found. Status by vendor: AMD and Intel use the in-kernel
+amdgpu/i915/xe drivers with Mesa; NVIDIA uses nouveau with the NVK Vulkan driver (the proprietary driver is not packaged yet);
+Apple Silicon needs Asahi's kernel, which the stock KwickOS kernel does not include yet; DGX Spark (GB10) is untested.
+
+Only the default KDE session and the layout/effects tools are exercised by CI (amd64 boot test); GNOME, the tiling session and the effects
+presets are written but untested.
 ## Releases
 
 Every push to `main` that changes the product, and every kernel bump found by `kernel-watch`

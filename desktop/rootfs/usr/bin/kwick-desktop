@@ -3,7 +3,8 @@
 #   kwick-desktop list                 show editions and which are installed
 #   kwick-desktop install <name>       install a desktop (apt, no recommends)
 #   kwick-desktop switch <name>        make it the default SDDM session (log out to apply)
-# Names: kde (default), gnome, xfce, cinnamon, mate, lxqt.
+# Names: kde (default), gnome, hyprland, xfce, cinnamon, mate, lxqt.
+# hyprland is not packaged in Debian 13: until it is, "hyprland" installs the sway tiling compositor (same waybar/wofi setup).
 # Sessions other than KDE are best-effort: KwickOS uses elogind instead of systemd-logind.
 set -e
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
@@ -12,16 +13,17 @@ pkgs() { case "$1" in
   gnome) echo "gnome-session gnome-shell gnome-control-center nautilus gnome-terminal gnome-text-editor" ;;
   xfce) echo "xfce4 xfce4-terminal thunar" ;;
   cinnamon) echo "cinnamon cinnamon-session nemo gnome-terminal" ;;
+  hyprland) if apt-cache policy hyprland 2>/dev/null | grep -q "Candidate: [0-9]"; then echo "hyprland waybar wofi foot mako-notifier hyprpaper grim slurp wl-clipboard"; else echo "sway swaybg waybar wofi foot mako-notifier grim slurp wl-clipboard"; fi ;;
   mate) echo "mate-desktop-environment-core" ;;
   lxqt) echo "lxqt-core" ;;
   *) return 1 ;; esac; }
 session() { case "$1" in
-  kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;;
+  kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;; hyprland) if [ -e /usr/share/wayland-sessions/hyprland.desktop ]; then echo hyprland; else echo sway; fi ;;
   mate) echo mate ;; lxqt) echo lxqt ;; esac; }
 have() { for d in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$d/$(session "$1").desktop" ] && return 0; done; return 1; }
 cmd=${1:-list}; de=${2:-}
 case "$cmd" in
-  list) for d in kde gnome xfce cinnamon mate lxqt; do
+  list) for d in kde gnome hyprland xfce cinnamon mate lxqt; do
           if have $d; then s=installed; else s=available; fi
           cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null)
           [ "$cur" = "$(session $d)" ] && s="$s, default"

@@ -24,7 +24,7 @@ RUN mkdir -p /usr/share/kwin/effects /tmp/bmw && cd /tmp/bmw \
 
 COPY rootfs/ /
 RUN set -e; \
-    find /usr/lib/kwick /usr/bin/kwick-gaming /usr/bin/kwick-desktop /usr/bin/kwick-gpu -type f -exec chmod 755 {} +; chmod 755 /usr/bin/kwick-desktop /usr/bin/kwick-gpu; \
+    find /usr/lib/kwick /usr/bin/kwick-gaming /usr/bin/kwick-desktop /usr/bin/kwick-fonts /usr/bin/kwick-layout /usr/bin/kwick-effects /usr/bin/steam -type f -exec chmod 755 {} +; \
     rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
     W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W; \
     for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do \

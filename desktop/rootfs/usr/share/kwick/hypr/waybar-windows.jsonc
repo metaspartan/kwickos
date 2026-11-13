@@ -1,0 +1,5 @@
+{ "layer": "top", "position": "bottom", "height": 32,
+  "modules-left": ["custom/start","wlr/taskbar"], "modules-right": ["tray","pulseaudio","network","battery","clock"], "modules-center": [],
+  "custom/apple": { "format": "", "on-click": "wofi --show drun" },
+  "custom/start": { "format": "Start", "on-click": "wofi --show drun" },
+  "wlr/taskbar": { "on-click": "activate" } }

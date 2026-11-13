@@ -1,2 +1,1 @@
-# x86-only packages (installed on amd64 only)
-intel-media-va-driver intel-microcode amd64-microcode
+intel-media-va-driver-non-free intel-microcode amd64-microcode

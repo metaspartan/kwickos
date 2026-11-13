@@ -140,6 +140,7 @@ jobs:
               docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkkernelpkg.sh $a $f
             done
           done
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkgpupkg.sh
           for a in amd64 arm64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           docker run --rm -e KWICK_SIGNING_KEY -e KWICK_SIGNING_PASSPHRASE -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkrepo.sh stable
           cp -r out/repo site && touch site/.nojekyll

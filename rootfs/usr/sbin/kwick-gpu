@@ -1,0 +1,44 @@
+#!/bin/sh
+# kwick-gpu: detect GPUs and install the right graphics stack.
+#   kwick-gpu                 show detected GPUs and what is installed
+#   kwick-gpu install         install drivers for the detected hardware (also: apt install kwick-gpu)
+#   kwick-gpu install --list  only print the packages that would be installed
+# Mesa (open drivers) covers AMD (radeonsi/RADV), Intel (iris/ANV), NVIDIA (nouveau/NVK) and
+# Apple Silicon (Asahi), plus virtio for VMs. Firmware for each vendor comes from Debian non-free-firmware.
+set -u
+vendors=""
+for c in /sys/class/drm/card[0-9]*; do
+  [ -e "$c/device/vendor" ] || continue
+  case $(cat "$c/device/vendor") in 0x1002) vendors="$vendors amd";; 0x10de) vendors="$vendors nvidia";; 0x8086) vendors="$vendors intel";; 0x1af4) vendors="$vendors virtio";; esac
+done
+if [ -r /proc/device-tree/compatible ] && tr '\0' ' ' < /proc/device-tree/compatible | grep -q 'apple,'; then vendors="$vendors apple"; fi
+if [ -z "$vendors" ] && command -v lspci >/dev/null; then
+  lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display' | grep -q '1002:' && vendors="$vendors amd"
+  lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display' | grep -q '10de:' && vendors="$vendors nvidia"
+  lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display' | grep -q '8086:' && vendors="$vendors intel"
+fi
+vendors=$(printf '%s\n' $vendors | sort -u | tr '\n' ' ')
+pkgs="mesa-vulkan-drivers libgl1-mesa-dri libegl1 libgbm1 vulkan-tools"
+arch=$(dpkg --print-architecture)
+for v in $vendors; do case $v in
+  amd) pkgs="$pkgs firmware-amd-graphics libdrm-amdgpu1 mesa-va-drivers mesa-vdpau-drivers radeontop" ;;
+  intel) pkgs="$pkgs firmware-intel-graphics mesa-va-drivers"; [ "$arch" = amd64 ] && pkgs="$pkgs intel-media-va-driver-non-free" ;;
+  nvidia) pkgs="$pkgs firmware-nvidia-graphics libdrm-nouveau2 nvtop" ;;
+  apple) pkgs="$pkgs mesa-libgallium" ;;
+esac; done
+case "${1:-}" in
+  install)
+    [ "${2:-}" = --list ] && { echo $pkgs; exit 0; }
+    [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+    sed -i 's/^Components: main$/Components: main non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null
+    apt update >/dev/null 2>&1; apt install -y $pkgs ;;
+  *)
+    echo "Detected: ${vendors:-none (headless VM or no GPU)}"
+    for c in /sys/class/drm/card[0-9]*; do [ -e "$c/device/vendor" ] || continue
+      drv=$(basename "$(readlink $c/device/driver 2>/dev/null)" 2>/dev/null); echo "  $(basename $c): vendor $(cat $c/device/vendor), kernel driver: ${drv:-none}"; done
+    for v in $vendors; do case $v in
+      nvidia) echo "  NVIDIA: open drivers (nouveau + NVK Vulkan) are installed by 'kwick-gpu install'. The proprietary driver needs kernel headers for the KwickOS kernel and is not packaged yet." ;;
+      apple) echo "  Apple Silicon: needs the Asahi kernel (not in the stock KwickOS kernel yet); Mesa's Asahi driver is installed by 'kwick-gpu install'." ;; esac; done
+    echo "Would install: $pkgs"
+    command -v vulkaninfo >/dev/null && vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName' ;;
+esac

@@ -15,7 +15,7 @@ curl -fsSL -o bmw.tgz "https://github.com/Schneegans/Burn-My-Windows/releases/do
 cd /; rm -rf /tmp/bmw
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
 if [ "$ARCH" = amd64 ]; then deps="$deps, $(grep -hv '^#' "$SRC/desktop/packages.amd64.list" | tr -s ' \n' ',' | sed 's/,$//; s/^,//; s/,/, /g')"; fi
-deps="linux-image-kwick-generic, $deps"
+deps="linux-image-kwick-generic, kwick-gpu, $deps"
 cat > "$P/DEBIAN/control" <<EOF
 Package: kwick-desktop
 Version: $VER

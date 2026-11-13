@@ -50,7 +50,7 @@ for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dp
 # --no-preserve: sources may come from a Windows/9p checkout with 0777 modes
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
 find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/lib/kwick/bash-on-demand
+chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand
 # /bin/bash: real GNU bash is installed the first time it is used
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 

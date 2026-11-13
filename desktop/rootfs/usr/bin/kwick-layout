@@ -1,0 +1,79 @@
+#!/bin/sh
+# kwick-layout: switch the desktop between "linux", "windows" and "macos" styles.
+#   kwick-layout linux|windows|macos     apply to the running session (and remember for new logins)
+#   kwick-layout                         show the current style
+# Works on KDE Plasma, GNOME and Hyprland. Effects are independent: see kwick-effects.
+set -u
+cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
+want=${1:-}
+if [ -z "$want" ]; then cat "$cfg/layout" 2>/dev/null || echo linux; exit 0; fi
+case "$want" in linux|windows|macos) ;; *) echo "usage: kwick-layout linux|windows|macos"; exit 1;; esac
+echo "$want" > "$cfg/layout"
+de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+
+fontset() { case $want in macos) UI="Inter,10"; MONO="JetBrains Mono,10";; windows) UI="Open Sans,10"; MONO="Liberation Mono,10";; linux) UI="Noto Sans,10"; MONO="Noto Sans Mono,10";; esac; }
+kde() {
+  fontset; kwriteconfig6 --file kdeglobals --group General --key font "$UI,-1,5,50,0,0,0,0,0"; kwriteconfig6 --file kdeglobals --group General --key fixed "$MONO,-1,5,50,0,0,0,0,0"
+  case $want in macos) L=XIA; R="" ;; windows) L=""; R=IAX ;; linux) L=M; R=IAX ;; esac
+  kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnLeft "$L"
+  kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnRight "$R"
+  case $want in
+    macos) js='
+      panels().forEach(function(p){p.remove()});
+      var t=new Panel; t.location="top"; t.height=26; t.floating=false;
+      t.addWidget("org.kde.plasma.kickoff"); t.addWidget("org.kde.plasma.appmenu"); t.addWidget("org.kde.plasma.panelspacer");
+      t.addWidget("org.kde.plasma.systemtray"); t.addWidget("org.kde.plasma.digitalclock");
+      var d=new Panel; d.location="bottom"; d.height=56; d.floating=true; d.alignment="center"; try{d.lengthMode="fit"}catch(e){}
+      d.addWidget("org.kde.plasma.icontasks");' ;;
+    windows) js='
+      panels().forEach(function(p){p.remove()});
+      var p=new Panel; p.location="bottom"; p.height=44; p.floating=false;
+      p.addWidget("org.kde.plasma.kickoff"); p.addWidget("org.kde.plasma.icontasks"); p.addWidget("org.kde.plasma.panelspacer");
+      p.addWidget("org.kde.plasma.systemtray"); p.addWidget("org.kde.plasma.digitalclock"); p.addWidget("org.kde.plasma.showdesktop");' ;;
+    linux) js='
+      panels().forEach(function(p){p.remove()});
+      var t=new Panel; t.location="top"; t.height=30; t.floating=false;
+      t.addWidget("org.kde.plasma.kickoff"); t.addWidget("org.kde.plasma.pager"); t.addWidget("org.kde.plasma.panelspacer");
+      t.addWidget("org.kde.plasma.digitalclock"); t.addWidget("org.kde.plasma.panelspacer"); t.addWidget("org.kde.plasma.systemtray");
+      var d=new Panel; d.location="left"; d.height=56; d.floating=true; d.alignment="center"; try{d.lengthMode="fit"}catch(e){}
+      d.addWidget("org.kde.plasma.icontasks");' ;;
+  esac
+  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$js" >/dev/null 2>&1 || echo "plasmashell not running: layout applies at next login"
+  qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+}
+
+gnome() {
+  fontset; gsettings set org.gnome.desktop.interface font-name "$UI"; gsettings set org.gnome.desktop.interface monospace-font-name "$MONO"
+  s=org.gnome.desktop.wm.preferences
+  case $want in
+    macos)   gsettings set $s button-layout 'close,minimize,maximize:'
+             gsettings set org.gnome.shell.extensions.dash-to-dock dock-position BOTTOM 2>/dev/null
+             gsettings set org.gnome.shell.extensions.dash-to-dock extend-height false 2>/dev/null
+             gnome-extensions disable dash-to-panel@jderose9.github.com 2>/dev/null
+             gnome-extensions enable dash-to-dock@micxgx.gmail.com 2>/dev/null ;;
+    windows) gsettings set $s button-layout ':minimize,maximize,close'
+             gnome-extensions disable dash-to-dock@micxgx.gmail.com 2>/dev/null
+             gnome-extensions enable dash-to-panel@jderose9.github.com 2>/dev/null
+             gsettings set org.gnome.shell.extensions.dash-to-panel panel-positions '{"0":"BOTTOM"}' 2>/dev/null ;;
+    linux)   gsettings set $s button-layout 'appmenu:minimize,maximize,close'
+             gsettings set org.gnome.shell.extensions.dash-to-dock dock-position LEFT 2>/dev/null
+             gsettings set org.gnome.shell.extensions.dash-to-dock extend-height true 2>/dev/null
+             gnome-extensions disable dash-to-panel@jderose9.github.com 2>/dev/null
+             gnome-extensions enable dash-to-dock@micxgx.gmail.com 2>/dev/null ;;
+  esac
+}
+
+hypr() {
+  mkdir -p "$HOME/.config/hypr" "$HOME/.config/waybar"
+  cp "/usr/share/kwick/hypr/layout-$want.conf" "$HOME/.config/hypr/kwick-layout.conf"
+  cp "/usr/share/kwick/hypr/waybar-$want.jsonc" "$HOME/.config/waybar/config.jsonc"
+  cp /usr/share/kwick/hypr/waybar.css "$HOME/.config/waybar/style.css"
+  hyprctl reload >/dev/null 2>&1 || true
+  pkill -x waybar 2>/dev/null; (waybar >/dev/null 2>&1 &)
+}
+
+case $de in
+  *kde*) kde ;; *gnome*) gnome ;; *hyprland*) hypr ;;
+  *) echo "Layout '$want' saved; it is applied at your next desktop login." ;;
+esac
+echo "layout: $want"

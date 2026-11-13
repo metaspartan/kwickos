@@ -1,0 +1,15 @@
+#!/bin/sh
+# kwick-fonts: font sets that match the desktop layouts.
+#   kwick-fonts windows   Segoe-like UI (Open Sans/Selawik-style), Carlito/Caladea (Calibri/Cambria metrics), Liberation (Arial/Times/Courier metrics)
+#   kwick-fonts macos     Inter (SF Pro look), Helvetica/Arial metric-compatible Liberation, JetBrains Mono
+#   kwick-fonts msfonts   download the real Microsoft core fonts (you accept Microsoft's EULA)
+[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+case "${1:-}" in
+  windows) apt install -y fonts-open-sans fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-color-emoji ;;
+  macos) apt install -y fonts-inter fonts-liberation2 fonts-jetbrains-mono fonts-noto-color-emoji ;;
+  msfonts) sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources
+           apt update >/dev/null 2>&1; echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
+           apt install -y ttf-mscorefonts-installer ;;
+  *) sed -n '2,6p' "$0" ;;
+esac
+fc-cache -f >/dev/null 2>&1 || true

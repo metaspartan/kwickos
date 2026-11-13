@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Steam
+Comment=Steam with Proton (installs on first launch)
+Exec=/usr/bin/steam %U
+Icon=steam
+Categories=Game;

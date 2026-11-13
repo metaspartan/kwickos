@@ -1,37 +1,14 @@
-# KwickOS Desktop package set (Debian 13 "trixie" names).
-# Lines starting with # are comments. Installed without Recommends.
-
-# --- session infrastructure (no systemd PID 1: elogind + standalone udev) ---
-elogind libpam-elogind dbus udev polkitd
-network-manager wpasupplicant iw bluez
-pipewire pipewire-pulse pipewire-alsa wireplumber libspa-0.2-bluetooth
-udisks2 upower power-profiles-daemon rtkit
-xdg-user-dirs xdg-utils
-
-# --- KDE Plasma 6 (Wayland) ---
-sddm sddm-theme-breeze plasma-desktop plasma-workspace kwin-wayland xwayland
-plasma-nm plasma-pa powerdevil bluedevil kscreen systemsettings kinfocenter
-plasma-discover plasma-discover-backend-flatpak xdg-desktop-portal-kde
-polkit-kde-agent-1 breeze breeze-gtk-theme kde-config-gtk-style kde-config-sddm
-plasma-widgets-addons kdeplasma-addons-data ksshaskpass libpam-kwallet5
-
-# --- applications ---
-konsole dolphin kate ark gwenview okular kde-spectacle kcalc firefox-esr
-flatpak sudo nano htop curl wget git unzip less
-
-# --- graphics: Mesa (AMD radeonsi/RADV, Intel iris/ANV, NVIDIA nouveau/NVK,
-#     virtio/llvmpipe), video decode, Vulkan/OpenCL ---
-libxcb-cursor0 libgl1-mesa-dri libegl-mesa0 libglx-mesa0 mesa-vulkan-drivers mesa-va-drivers
-mesa-opencl-icd vulkan-tools mesa-utils
-
-# --- firmware (GPUs, Wi-Fi, Bluetooth, audio DSPs) ---
-firmware-amd-graphics firmware-intel-graphics firmware-nvidia-graphics
-firmware-iwlwifi firmware-realtek firmware-mediatek firmware-atheros
-firmware-brcm80211 firmware-sof-signed firmware-misc-nonfree
-
-# --- gaming & compute ---
-gamemode mangohud python3 python3-venv
-
-# --- fonts & look ---
-fonts-noto-core fonts-noto-color-emoji fonts-inter fonts-jetbrains-mono
-papirus-icon-theme
+# KwickOS Desktop package set (KDE Plasma 6 default, GNOME selectable, Hyprland/sway tiling selectable)
+plasma-desktop plasma-workspace kwin-wayland plasma-nm plasma-pa plasma-systemmonitor kscreen powerdevil breeze-gtk-theme
+sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview okular kde-spectacle kcalc kde-config-gtk-style
+gnome-shell gnome-session gnome-control-center gnome-tweaks nautilus gnome-terminal gnome-text-editor xdg-desktop-portal-gnome
+gnome-shell-extension-dash-to-panel gnome-shell-extension-dashtodock gnome-shell-extension-blur-my-shell gnome-shell-extension-appindicator
+sway swaybg waybar wofi foot mako-notifier grim slurp wl-clipboard xdg-desktop-portal-wlr
+elogind libpam-elogind dbus-user-session polkitd pkexec udisks2 upower power-profiles-daemon rtkit network-manager bluez
+pipewire pipewire-pulse pipewire-alsa wireplumber alsa-utils
+mesa-vulkan-drivers libgl1-mesa-dri mesa-va-drivers mesa-vdpau-drivers libegl1 libgbm1 mesa-opencl-icd vulkan-tools mesa-utils
+firmware-linux-free firmware-misc-nonfree firmware-amd-graphics firmware-intel-graphics firmware-nvidia-graphics firmware-realtek firmware-iwlwifi firmware-atheros firmware-brcm80211 firmware-mediatek
+pciutils usbutils flatpak plasma-discover-backend-flatpak gamemode mangohud vkbasalt
+firefox-esr
+fonts-inter fonts-open-sans fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-color-emoji fonts-jetbrains-mono fonts-noto-core papirus-icon-theme
+sudo less nano vim-tiny bash-completion

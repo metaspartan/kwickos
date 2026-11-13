@@ -1,0 +1,5 @@
+{ "layer": "top", "position": "top", "height": 32,
+  "modules-left": ["hyprland/workspaces"], "modules-center": ["clock"], "modules-right": ["tray","pulseaudio","network","battery"],
+  "custom/apple": { "format": "", "on-click": "wofi --show drun" },
+  "custom/start": { "format": "Start", "on-click": "wofi --show drun" },
+  "wlr/taskbar": { "on-click": "activate" } }
