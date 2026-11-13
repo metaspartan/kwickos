@@ -18,9 +18,19 @@ root@kwick:/# systemctl enable --now nginx      # works in containers too
 
 ## Screenshots
 
-| Headless (serial console, real boot) | Desktop (KDE Plasma 6 live ISO, UEFI boot under QEMU) |
+| Headless (real boot, serial console) | Desktop (KDE Plasma 6) |
 |---|---|
 | ![headless](docs/img/headless.png) | ![desktop](docs/img/desktop.png) |
+
+Desktop layouts from `kwick-layout` (real Plasma session, software-rendered; system settings and the KwickOS tools are shown too):
+
+| macOS style | Windows style | Linux style |
+|---|---|---|
+| ![macos](docs/img/layout-macos.png) | ![windows](docs/img/layout-windows.png) | ![linux](docs/img/layout-linux.png) |
+
+| Terminal tools (`kwick-gpu`, `kwick-layout`, `kwick-desktop list`) | System Settings |
+|---|---|
+| ![tools](docs/img/terminal-tools.png) | ![settings](docs/img/system-settings.png) |
 
 ## Results (measured, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md))
 
@@ -146,8 +156,9 @@ matching Mesa/Vulkan drivers and firmware. `kwick-gpu` alone shows what it found
 amdgpu/i915/xe drivers with Mesa; NVIDIA uses nouveau with the NVK Vulkan driver (the proprietary driver is not packaged yet);
 Apple Silicon needs Asahi's kernel, which the stock KwickOS kernel does not include yet; DGX Spark (GB10) is untested.
 
-Only the default KDE session and the layout/effects tools are exercised by CI (amd64 boot test); GNOME, the tiling session and the effects
-presets are written but untested.
+Verified: the KDE session, `kwick-layout` (all three styles, screenshots above), `kwick-desktop list`, `kwick-gpu`. Not verified: the animated
+effects (KWin needs a GPU/GL compositor; the screenshot environment is software-only), GNOME and tiling sessions, the Steam first-launch install,
+and fonts after `kwick-fonts`.
 ## Releases
 
 Every push to `main` that changes the product, and every kernel bump found by `kernel-watch`

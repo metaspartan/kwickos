@@ -20,12 +20,12 @@ pkgs() { case "$1" in
 session() { case "$1" in
   kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;; hyprland) if [ -e /usr/share/wayland-sessions/hyprland.desktop ]; then echo hyprland; else echo sway; fi ;;
   mate) echo mate ;; lxqt) echo lxqt ;; esac; }
-have() { for d in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$d/$(session "$1").desktop" ] && return 0; done; return 1; }
+have() { for _dir in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$_dir/$(session "$1").desktop" ] && return 0; done; return 1; }
 cmd=${1:-list}; de=${2:-}
 case "$cmd" in
   list) for d in kde gnome hyprland xfce cinnamon mate lxqt; do
           if have $d; then s=installed; else s=available; fi
-          cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null)
+          cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null || true)
           [ "$cur" = "$(session $d)" ] && s="$s, default"
           printf '%-10s %s\n' $d "$s"; done ;;
   install) pkgs "$de" >/dev/null || { echo "unknown desktop: $de"; exit 1; }
