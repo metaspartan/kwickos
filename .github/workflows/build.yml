@@ -80,11 +80,9 @@ jobs:
         if: inputs.release
         env:
           KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
-        run: |
+          KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}\n        run: |
           mkdir -p out
-          export GNUPGHOME=$(mktemp -d)
-          echo "$KWICK_SIGNING_KEY" | gpg --batch --import 2>/dev/null
-          gpg --batch --armor --export > out/archive-key.asc
+          export GNUPGHOME=$(mktemp -d)\n          bash scripts/gpgimport.sh\n          gpg --batch --armor --export > out/archive-key.asc
           test -s out/archive-key.asc
       - name: Root filesystem
         env:

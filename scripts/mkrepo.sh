@@ -9,7 +9,7 @@ SUITE=${1:-stable}; OUT=${OUT:-/out}; R="$OUT/repo"
 cd "$R"
 export GNUPGHOME=$(mktemp -d)
 if [ -n "${KWICK_SIGNING_KEY:-}" ]; then
-  echo "$KWICK_SIGNING_KEY" | gpg --batch --import 2>/dev/null
+  bash /src/scripts/gpgimport.sh
 else
   gpg --batch --passphrase '' --quick-gen-key "KwickOS dev archive key <dev@kwickos.org>" ed25519 sign 1y 2>/dev/null
 fi
@@ -28,7 +28,7 @@ done
   (cd "dists/$SUITE" && find main -type f | sort | while read -r f; do
      printf ' %s %16d %s\n' "$(sha256sum "$f" | cut -d' ' -f1)" "$(stat -c %s "$f")" "$f"; done)
 } > "dists/$SUITE/Release"
-gpg --batch --yes --local-user "$KEYID" --clearsign -o "dists/$SUITE/InRelease" "dists/$SUITE/Release"
-gpg --batch --yes --local-user "$KEYID" -abs -o "dists/$SUITE/Release.gpg" "dists/$SUITE/Release"
+gpg --batch --yes --local-user "$KEYID" --pinentry-mode loopback --passphrase "${KWICK_SIGNING_PASSPHRASE:-}" --clearsign -o "dists/$SUITE/InRelease" "dists/$SUITE/Release"
+gpg --batch --yes --local-user "$KEYID" --pinentry-mode loopback --passphrase "${KWICK_SIGNING_PASSPHRASE:-}" -abs -o "dists/$SUITE/Release.gpg" "dists/$SUITE/Release"
 rm -rf "$GNUPGHOME"
 echo "repo ready: $R (key $KEYID)"
