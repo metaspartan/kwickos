@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KwickOS Effects
+Comment=Window effects: wobbly windows, magic lamp, flame, 3D cube
+Icon=kwick-effects
+Exec=kwick-settings effects
+Categories=Settings;DesktopSettings;Qt;
+Keywords=wobbly;lamp;flame;cube;blur;animation;
+Terminal=false

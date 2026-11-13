@@ -1,8 +1,24 @@
 [Desktop Entry]
 Type=Application
 Name=KwickOS Settings
-Comment=Layout, theme and window effects
+GenericName=Layout, effects, dock and fonts
+Comment=Desktop layout, accent color, window effects, dock, fonts, GPU and gaming
+Icon=kwick-settings
 Exec=kwick-settings
-Icon=preferences-desktop-theme
-Categories=Settings;DesktopSettings;
+Categories=Settings;DesktopSettings;Qt;
+Keywords=layout;theme;effects;animation;wobbly;cube;dock;fonts;gpu;steam;
+StartupWMClass=qml6
 Terminal=false
+Actions=Appearance;Dock;Effects;
+
+[Desktop Action Appearance]
+Name=Appearance
+Exec=kwick-settings appearance
+
+[Desktop Action Dock]
+Name=Dock
+Exec=kwick-settings dock
+
+[Desktop Action Effects]
+Name=Effects
+Exec=kwick-settings effects

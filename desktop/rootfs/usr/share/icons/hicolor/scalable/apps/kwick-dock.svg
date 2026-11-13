@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b1840"/><stop offset="1" stop-color="#0a0720"/></linearGradient>
+    <linearGradient id="g" x1="0.15" y1="0" x2="0.85" y2="1" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#19f0c8"/><stop offset="0.55" stop-color="#6e8ff0"/><stop offset="1" stop-color="#a62cf5"/></linearGradient>
+    <linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="url(#sh)" stroke="#ffffff" stroke-opacity="0.1"/>
+  <g transform="translate(64 64) scale(0.11236) translate(-511.5 -519.5)"><g transform="translate(0.000000,1024.000000) scale(0.100000,-0.100000)" fill="url(#g)"><path d="M2650 6544 c-115 -31 -221 -118 -273 -223 -51 -105 -50 -1089 2 -1195 57 -117 169 -207 292 -235 71 -17 902 -14 965 3 124 33 250 141 296 253 32 80 37 1039 5 1130 -39 111 -133 205 -257 256 -72 29 -929 39 -1030 11z"/> <path d="M4616 6549 c-115 -27 -253 -146 -297 -256 -24 -58 -24 -62 -27 -533 -2 -332 0 -493 8 -535 31 -159 154 -288 315 -330 75 -19 899 -22 987 -4 149 32 275 146 318 288 34 110 26 1028 -8 1114 -47 114 -169 218 -297 252 -68 17 -927 21 -999 4z"/> <path d="M6596 6549 c-156 -37 -290 -182 -316 -344 -12 -73 -13 -793 -1 -926 18 -194 135 -337 316 -384 74 -19 878 -22 967 -4 114 24 235 114 290 216 46 85 50 131 46 654 l-3 485 -38 76 c-57 117 -147 189 -280 224 -61 16 -913 19 -981 3z"/> <path d="M2400 4509 c-123 -24 -272 -134 -338 -250 -157 -276 5 -631 325 -714 88 -23 5379 -23 5468 0 507 133 490 857 -23 964 -65 14 -5362 14 -5432 0z"/></g></g>
+</svg>

@@ -1,61 +1,404 @@
 #!/bin/sh
-# kwick-effects: window-effect presets (Compiz-style) for KDE, GNOME and Hyprland.
-#   kwick-effects off | subtle | wobbly | compiz        (no argument: show current)
-#   off     no animations           subtle  fades, blur, sliding popups, magic lamp (default)
-#   wobbly  + wobbly windows
-#   compiz  + wobbly, glide, burn-away open/close (Burn-My-Windows), strong blur
 set -u
 cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
-p=${1:-}; if [ -z "$p" ]; then cat "$cfg/effects" 2>/dev/null || echo subtle; exit 0; fi
-case "$p" in off|subtle|wobbly|compiz) ;; *) echo "usage: kwick-effects off|subtle|wobbly|compiz"; exit 1;; esac
-echo "$p" > "$cfg/effects"
-de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+state="$cfg/effects.state"
+touch "$state"
+
+usage() { cat <<'USAGE'
+kwick-effects: window effects for KDE Plasma, GNOME and Hyprland.
+  kwick-effects off|subtle|fluid|full     apply a preset (no argument: show the current one)
+  kwick-effects status                    one line per effect: name on|off|na
+  kwick-effects set NAME on|off           toggle one effect (preset becomes "custom")
+  kwick-effects switch [slide|fade|cube|none]    desktop switch animation
+  kwick-effects tabbox [windows|cover|flip|grid] Alt+Tab style (KDE)
+  kwick-effects check                     compositor: gpu|software|none
+  kwick-effects backend                   kde|gnome|hyprland|sway|none
+NAME: wobbly lamp flame fallapart glide fade blur transparency sheet dim overview cube
+  off      no animations
+  subtle   fades, blur, sliding popups, magic lamp
+  fluid    plus wobbly windows and sheets
+  full     plus flame open/close, translucency, dimmed inactive windows, 3D cube
+USAGE
+}
+
+backend() {
+  d=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+  if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then echo hyprland; return; fi
+  case $d in
+    *kde*) echo kde ;;
+    *gnome*|*unity*|*ubuntu*) echo gnome ;;
+    *hyprland*) echo hyprland ;;
+    *sway*) echo sway ;;
+    "") if command -v kwriteconfig6 >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then echo kde; else echo none; fi ;;
+    *) echo none ;;
+  esac
+}
+be=$(backend)
+
 b() { [ "$1" = 1 ] && echo true || echo false; }
-case $p in
-  off)    blur=0 slide=0 wob=0 lamp=0 glide=0 fire=0 anim=0 factor=0 ;;
-  subtle) blur=1 slide=1 wob=0 lamp=1 glide=0 fire=0 anim=1 factor=0.7 ;;
-  wobbly) blur=1 slide=1 wob=1 lamp=1 glide=0 fire=0 anim=1 factor=0.8 ;;
-  compiz) blur=1 slide=1 wob=1 lamp=1 glide=1 fire=1 anim=1 factor=1 ;;
-esac
-# Effects need a GPU compositor. qpainter (software) silently refuses them.
-compositor() {
-  t=$(qdbus6 org.kde.KWin /Compositor compositingType 2>/dev/null || true)
-  case "$t" in *gl*|*OpenGL*|*vulkan*) return 0 ;; esac
-  echo "note: KWin compositor is '${t:-not running}', which cannot animate effects." >&2
-  echo "      install GPU drivers first: sudo apt install kwick-gpu, then log in again." >&2
+q() { qdbus6 "$@" 2>/dev/null; }
+kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
+plug() { kwriteconfig6 --file kwinrc --group Plugins --key "$1Enabled" "$(b "$2")"; }
+isplug() { [ "$(kreadconfig6 --file kwinrc --group Plugins --key "$1Enabled" --default "$2")" = true ]; }
+touched=""
+pl() { plug "$1" "$2"; touched="$touched $1"; }
+
+reload() {
+  q org.kde.KWin /KWin reconfigure >/dev/null
+  for id in $touched; do
+    if isplug "$id" false; then
+      q org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect "$id" >/dev/null
+    else
+      q org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect "$id" >/dev/null
+    fi
+  done
+}
+
+gl() {
+  case $be in
+    kde) ;;
+    *) echo gpu; return ;;
+  esac
+  t=$(q org.kde.KWin /Compositor org.kde.kwin.Compositing.compositingType)
+  case "$t" in
+    gl*|opengl*) ;;
+    *) echo none; return ;;
+  esac
+  r=$(q org.kde.KWin /KWin org.kde.KWin.supportInformation | grep -i 'OpenGL renderer string' | head -1)
+  case "$r" in *llvmpipe*|*softpipe*|*swrast*|*"Software Rasterizer"*) echo software; return ;; esac
+  echo gpu
+}
+need_gpu() {
+  case $(gl) in
+    gpu) return 0 ;;
+    software) echo "note: KWin renders with a software OpenGL driver (llvmpipe); KWin disables animations there." >&2 ;;
+    *) echo "note: the compositor is not running with OpenGL, so effects cannot animate." >&2 ;;
+  esac
+  echo "      install GPU drivers: sudo apt install kwick-gpu (or run: kwick-gpu install), then log in again." >&2
   return 1
 }
-kde() {
-  compositor || true
-  k() { kwriteconfig6 --file kwinrc --group Plugins --key "$1" "$2"; }
-  for e in blur contrast translucency; do k ${e}Enabled $(b $blur); done
-  k slidingpopupsEnabled $(b $slide); k fadingpopupsEnabled $(b $anim); k wobblywindowsEnabled $(b $wob)
-  k magiclampEnabled $(b $lamp); k glideEnabled $(b $glide); k fadeEnabled $(b $([ $fire = 1 ] && echo 0 || echo $anim))
-  k kwin4_effect_fadeEnabled $(b $anim)
-  for e in maximize login logout sessionquit dialogparent; do k ${e}Enabled $(b $anim); done
-  k kwin6_effect_fireEnabled $(b $fire)
-  if [ $p = compiz ]; then
-    kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key Stiffness 8
-    kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key Drag 85
-    kwriteconfig6 --file kwinrc --group Effect-wobblywindows --key WobblynessLevel 3
-    kwriteconfig6 --file kwinrc --group Effect-blur --key BlurStrength 12
-  fi
-  kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor "$factor"
-  qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+
+oc() {
+  for id in kwick_flame glide fade scale fallapart; do pl $id 0; done
+  case "$1" in none) ;; flame) pl kwick_flame 1 ;; *) pl "$1" 1 ;; esac
 }
-gnome() {
-  gsettings set org.gnome.desktop.interface enable-animations $(b $anim)
-  for e in compiz-windows-effect@hermes83.github.com compiz-alike-magic-lamp-effect@hermes83.github.com; do
-    if [ $wob = 1 ]; then gnome-extensions enable $e 2>/dev/null; else gnome-extensions disable $e 2>/dev/null; fi; done
-  for e in burn-my-windows@schneegans.github.com; do
-    if [ $p = compiz ]; then gnome-extensions enable $e 2>/dev/null; else gnome-extensions disable $e 2>/dev/null; fi; done
-  for e in blur-my-shell@aunetx; do
-    if [ $blur = 1 ]; then gnome-extensions enable $e 2>/dev/null; else gnome-extensions disable $e 2>/dev/null; fi; done
+oc_now() {
+  for id in kwick_flame glide fade fallapart scale; do
+    isplug $id $([ $id = scale ] && echo true || echo false) && { echo $id; return; }
+  done
+  echo none
 }
-hypr() {
+lamp() { pl magiclamp "$1"; pl squash "$([ "$1" = 1 ] && echo 0 || echo 1)"; }
+blurfx() { pl blur "$1"; pl contrast "$1"; }
+popups() { pl slidingpopups "$1"; pl fadingpopups "$1"; }
+helpers() { for id in maximize login logout sessionquit dialogparent; do pl $id "$1"; done; }
+cube_ok() { [ -e /usr/share/kwin/effects/cube/metadata.json ]; }
+desktops() {
+  n=$(kreadconfig6 --file kwinrc --group Desktops --key Number --default 1)
+  if [ "$n" -lt "$1" ]; then kw kwinrc Desktops Number "$1"; kw kwinrc Desktops Rows 1; fi
+}
+
+kde_switch_set() {
+  case "$1" in
+    slide) pl slide 1; pl fadedesktop 0; cube_ok && pl cube 0 ;;
+    fade) pl slide 0; pl fadedesktop 1; cube_ok && pl cube 0 ;;
+    none) pl slide 0; pl fadedesktop 0; cube_ok && pl cube 0 ;;
+    cube) cube_ok || { echo "cube effect not installed (apt install kwin-addons)" >&2; return 1; }
+          desktops 4; pl slide 1; pl fadedesktop 0; pl cube 1
+          kw kwinrc Effect-cube CubeFaceDisplacement 120 ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+kde_switch_get() {
+  if cube_ok && isplug cube false; then echo cube
+  elif isplug fadedesktop false; then echo fade
+  elif isplug slide true; then echo slide
+  else echo none; fi
+}
+
+kde_tabbox_set() {
+  case "$1" in
+    windows) l=thumbnail_grid ;;
+    cover) l=coverswitch ;;
+    flip) l=flipswitch ;;
+    grid) l=big_icons ;;
+    *) return 1 ;;
+  esac
+  [ -d "/usr/share/kwin/tabbox/$l" ] || { echo "tabbox layout $l not installed (apt install kwin-addons)" >&2; return 1; }
+  kw kwinrc TabBox LayoutName "$l"
+}
+kde_tabbox_get() {
+  case $(kreadconfig6 --file kwinrc --group TabBox --key LayoutName --default thumbnail_grid) in
+    coverswitch) echo cover ;;
+    flipswitch) echo flip ;;
+    big_icons) echo grid ;;
+    *) echo windows ;;
+  esac
+}
+
+preset_kde() {
+  case $1 in
+    off)    oc none; lamp 0; pl wobblywindows 0; blurfx 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 0; helpers 0; kde_switch_set none; factor=0 ;;
+    subtle) oc scale; lamp 1; pl wobblywindows 0; blurfx 1; pl translucency 0; pl sheet 0; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.7 ;;
+    fluid)  oc scale; lamp 1; pl wobblywindows 1; blurfx 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
+    full)   oc flame; lamp 1; pl wobblywindows 1; blurfx 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
+            kde_switch_set cube || kde_switch_set slide
+            kde_tabbox_set cover || kde_tabbox_set windows
+            kw kwinrc Effect-wobblywindows Stiffness 8
+            kw kwinrc Effect-wobblywindows Drag 85
+            kw kwinrc Effect-wobblywindows WobblynessLevel 3
+            kw kwinrc Effect-blur BlurStrength 12
+            kw kwinrc Effect-blur NoiseStrength 4
+            kw kwinrc Effect-translucency Dialogs 92
+            kw kwinrc Effect-translucency Inactive 88
+            kw kwinrc Effect-translucency Menus 95
+            kw kwinrc Effect-diminactive Strength 22 ;;
+  esac
+  [ "$1" != full ] && { kw kwinrc Effect-blur BlurStrength 7; kw kwinrc Effect-blur NoiseStrength 2; }
+  kw kdeglobals KDE AnimationDurationFactor "$factor"
+  return 0
+}
+
+kde_status() {
+  oc=$(oc_now)
+  s() { if isplug "$2" "$3"; then echo "$1 on"; else echo "$1 off"; fi; }
+  s wobbly wobblywindows false
+  s lamp magiclamp false
+  [ "$oc" = kwick_flame ] && echo "flame on" || echo "flame off"
+  s fallapart fallapart false
+  s glide glide false
+  s fade fade false
+  s blur blur true
+  s transparency translucency false
+  s sheet sheet false
+  s dim diminactive false
+  s overview overview true
+  if cube_ok; then s cube cube false; else echo "cube na"; fi
+}
+
+kde_set() {
+  name=$1 v=$([ "$2" = on ] && echo 1 || echo 0)
+  case $name in
+    wobbly) pl wobblywindows $v ;;
+    lamp) lamp $v ;;
+    flame) [ $v = 1 ] && oc flame || oc scale ;;
+    fallapart) [ $v = 1 ] && oc fallapart || oc scale ;;
+    glide) [ $v = 1 ] && oc glide || oc scale ;;
+    fade) [ $v = 1 ] && oc fade || oc scale ;;
+    blur) blurfx $v ;;
+    transparency) pl translucency $v ;;
+    sheet) pl sheet $v ;;
+    dim) pl diminactive $v ;;
+    overview) pl overview $v; pl windowview $v ;;
+    cube) cube_ok || { echo "cube effect not installed (apt install kwin-addons)" >&2; return 1; }
+          [ $v = 1 ] && { desktops 4; kw kwinrc Effect-cube CubeFaceDisplacement 120; }
+          pl cube $v ;;
+    *) echo "unknown effect: $name" >&2; return 1 ;;
+  esac
+}
+
+GX_WOBBLY=compiz-windows-effect@hermes83.github.com
+GX_LAMP=compiz-alike-magic-lamp-effect@hermes83.github.com
+GX_FLAME=burn-my-windows@schneegans.github.com
+GX_CUBE=desktop-cube@schneegans.github.com
+GX_BLUR=blur-my-shell@aunetx
+
+gx_uuid() {
+  case $1 in
+    wobbly) echo $GX_WOBBLY ;; lamp) echo $GX_LAMP ;; flame) echo $GX_FLAME ;;
+    cube) echo $GX_CUBE ;; blur) echo $GX_BLUR ;; *) return 1 ;;
+  esac
+}
+gx_have() {
+  [ -d "/usr/share/gnome-shell/extensions/$1" ] || [ -d "$HOME/.local/share/gnome-shell/extensions/$1" ]
+}
+gx_set() {
+  u=$(gx_uuid "$1") || return 1
+  gx_have "$u" || { echo "$1: extension is not installed (run: sudo /usr/lib/kwick/fetch-gnome-effects / all)" >&2; return 1; }
+  if [ "$2" = on ]; then gnome-extensions enable "$u" 2>/dev/null; else gnome-extensions disable "$u" 2>/dev/null; fi
+  return 0
+}
+gx_on() { gnome-extensions list --enabled 2>/dev/null | grep -qx "$1"; }
+gnome_status() {
+  for n in wobbly lamp flame cube blur; do
+    u=$(gx_uuid $n)
+    if ! gx_have "$u"; then echo "$n na"; elif gx_on "$u"; then echo "$n on"; else echo "$n off"; fi
+  done
+  for n in fallapart glide fade transparency sheet dim; do echo "$n na"; done
+  echo "overview on"
+}
+gnome_burn() {
+  d=/usr/share/gnome-shell/extensions/$GX_FLAME/schemas
+  [ -d "$d" ] || d=$HOME/.local/share/gnome-shell/extensions/$GX_FLAME/schemas
+  [ -d "$d" ] || return 0
+  gsettings --schemadir "$d" set org.gnome.shell.extensions.burn-my-windows fire-enable-effect "$1" 2>/dev/null || true
+  gsettings --schemadir "$d" set org.gnome.shell.extensions.burn-my-windows fire-animation-time 900 2>/dev/null || true
+}
+preset_gnome() {
+  case $1 in
+    off)    anim=false; w=off l=off f=off c=off bl=off ;;
+    subtle) anim=true;  w=off l=on  f=off c=off bl=on ;;
+    fluid)  anim=true;  w=on  l=on  f=off c=off bl=on ;;
+    full)   anim=true;  w=on  l=on  f=on  c=on  bl=on ;;
+  esac
+  gsettings set org.gnome.desktop.interface enable-animations $anim 2>/dev/null || true
+  gx_set wobbly $w; gx_set lamp $l; gx_set flame $f; gx_set cube $c; gx_set blur $bl
+  gnome_burn "$([ $f = on ] && echo true || echo false)"
+  return 0
+}
+gnome_switch_set() {
+  case "$1" in
+    cube) gx_set cube on ;;
+    slide|fade|none) gx_set cube off ;;
+    *) return 1 ;;
+  esac
+}
+gnome_switch_get() { if gx_on $GX_CUBE; then echo cube; else echo slide; fi; }
+
+get_fx() { sed -n "s/^$1 //p" "$state" | head -1; }
+set_fx() { grep -v "^$1 " "$state" > "$state.n"; echo "$1 $2" >> "$state.n"; mv "$state.n" "$state"; }
+fxv() { v=$(get_fx "$1"); if [ -n "$v" ]; then echo "$v"; else echo "${2:-off}"; fi; }
+
+hypr_status() {
+  for n in wobbly blur transparency dim; do echo "$n $(fxv $n off)"; done
+  for n in sheet lamp flame fallapart glide fade overview cube; do echo "$n na"; done
+}
+hypr_write() {
+  wob=$(fxv wobbly off); blr=$(fxv blur off); trn=$(fxv transparency off); dim=$(fxv dim off); sw=$(fxv switch slide)
+  anim=$(fxv anim on)
+  out=$HOME/.config/hypr/kwick-effects.conf
   mkdir -p "$HOME/.config/hypr"
-  cp "/usr/share/kwick/hypr/effects-$p.conf" "$HOME/.config/hypr/kwick-effects.conf"
+  case $sw in slide) ws=slide ;; fade) ws=fade ;; cube) ws="slidevert 60%" ;; *) ws="" ;; esac
+  {
+    echo "animations {"
+    echo "  enabled = $([ "$anim" = on ] && echo true || echo false)"
+    echo "  bezier = ease, 0.22, 1, 0.36, 1"
+    echo "  bezier = wobble, 0.2, 1.9, 0.5, 1"
+    if [ "$wob" = on ]; then
+      echo "  animation = windows, 1, 9, wobble, popin 60%"
+      echo "  animation = windowsMove, 1, 8, wobble"
+    else
+      echo "  animation = windows, 1, 5, ease, popin 85%"
+      echo "  animation = windowsMove, 1, 5, ease"
+    fi
+    echo "  animation = fade, 1, 6, ease"
+    echo "  animation = border, 1, 10, ease"
+    if [ -n "$ws" ]; then echo "  animation = workspaces, 1, 7, ease, $ws"; else echo "  animation = workspaces, 0"; fi
+    echo "}"
+    echo "decoration {"
+    echo "  rounding = 12"
+    if [ "$trn" = on ]; then echo "  active_opacity = 0.97"; echo "  inactive_opacity = 0.88"; else echo "  active_opacity = 1.0"; echo "  inactive_opacity = 1.0"; fi
+    if [ "$dim" = on ]; then echo "  dim_inactive = true"; echo "  dim_strength = 0.12"; else echo "  dim_inactive = false"; fi
+    echo "  blur {"
+    echo "    enabled = $([ "$blr" = on ] && echo true || echo false)"
+    if [ "$wob" = on ] && [ "$blr" = on ]; then echo "    size = 10"; echo "    passes = 4"; else echo "    size = 6"; echo "    passes = 2"; fi
+    echo "    noise = 0.03"
+    echo "  }"
+    echo "  shadow {"
+    echo "    enabled = $([ "$anim" = on ] && echo true || echo false)"
+    echo "    range = 24"
+    echo "  }"
+    echo "}"
+  } > "$out"
   hyprctl reload >/dev/null 2>&1 || true
 }
-case $de in *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) hypr ;; *) echo "saved; applied at next login" ;; esac
+sway_write() {
+  [ -d "$HOME/.config/sway" ] || return 0
+  blr=$(fxv blur off); dim=$(fxv dim off)
+  {
+    echo "blur $([ "$blr" = on ] && echo enable || echo disable)"
+    echo "blur_radius 6"
+    echo "corner_radius 12"
+    echo "shadows $([ "$(fxv anim on)" = on ] && echo enable || echo disable)"
+    echo "default_dim_inactive $([ "$dim" = on ] && echo 0.12 || echo 0.0)"
+  } > "$HOME/.config/sway/kwick-effects.conf"
+  swaymsg reload >/dev/null 2>&1 || true
+}
+tiling_write() { if [ "$be" = sway ]; then sway_write; else hypr_write; fi; }
+preset_tiling() {
+  case $1 in
+    off)    set_fx anim off; set_fx wobbly off; set_fx blur off; set_fx transparency off; set_fx dim off; set_fx switch none ;;
+    subtle) set_fx anim on; set_fx wobbly off; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
+    fluid)  set_fx anim on; set_fx wobbly on; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
+    full)   set_fx anim on; set_fx wobbly on; set_fx blur on; set_fx transparency on; set_fx dim on; set_fx switch cube ;;
+  esac
+  tiling_write
+}
+
+status() {
+  case $be in
+    kde) kde_status ;;
+    gnome) gnome_status ;;
+    hyprland) hypr_status ;;
+    sway) for n in blur dim; do echo "$n $(fxv $n off)"; done
+          for n in wobbly lamp flame fallapart glide fade transparency sheet overview cube; do echo "$n na"; done ;;
+    *) for n in wobbly lamp flame fallapart glide fade blur transparency sheet dim overview cube; do echo "$n na"; done ;;
+  esac
+}
+
+p=${1:-}
+case "$p" in
+  compiz) p=full ;;
+  wobbly) p=fluid ;;
+esac
+
+if [ -z "$p" ]; then
+  cur=$(cat "$cfg/effects" 2>/dev/null || echo subtle)
+  case $cur in compiz) cur=full ;; wobbly) cur=fluid ;; esac
+  echo "$cur"
+  exit 0
+fi
+
+case "$p" in
+  check) gl; exit 0 ;;
+  backend) echo "$be"; exit 0 ;;
+  list) q org.kde.KWin /Effects org.kde.kwin.Effects.listOfEffects | sort; exit 0 ;;
+  status) status; exit 0 ;;
+  set)
+    [ $# -eq 3 ] || { usage; exit 1; }
+    case $be in
+      kde) kde_set "$2" "$3" || exit 1; reload; need_gpu || true ;;
+      gnome) gx_set "$2" "$3" || exit 1 ;;
+      hyprland|sway) case $2 in wobbly|blur|transparency|dim) set_fx "$2" "$3"; tiling_write ;; *) echo "$2 is not available in this session" >&2; exit 1 ;; esac ;;
+      *) echo "no supported session detected" >&2; exit 1 ;;
+    esac
+    echo custom > "$cfg/effects"
+    echo "effect $2: $3"
+    exit 0 ;;
+  switch)
+    if [ $# -lt 2 ]; then
+      case $be in kde) kde_switch_get ;; gnome) gnome_switch_get ;; hyprland|sway) fxv switch slide ;; *) echo none ;; esac
+      exit 0
+    fi
+    case $be in
+      kde) kde_switch_set "$2" || exit 1; reload ;;
+      gnome) gnome_switch_set "$2" || exit 1 ;;
+      hyprland|sway) set_fx switch "$2"; tiling_write ;;
+      *) exit 1 ;;
+    esac
+    echo custom > "$cfg/effects"
+    echo "desktop switch: $2"
+    exit 0 ;;
+  tabbox)
+    if [ $# -lt 2 ]; then
+      if [ "$be" = kde ]; then kde_tabbox_get; else echo windows; fi
+      exit 0
+    fi
+    [ "$be" = kde ] || { echo "Alt+Tab styles are only available on KDE Plasma" >&2; exit 1; }
+    kde_tabbox_set "$2" || exit 1
+    q org.kde.KWin /KWin reconfigure >/dev/null
+    echo "alt+tab: $2"
+    exit 0 ;;
+  off|subtle|fluid|full) ;;
+  *) usage; exit 1 ;;
+esac
+
+echo "$p" > "$cfg/effects"
+case $be in
+  kde) preset_kde "$p"; reload; need_gpu || true ;;
+  gnome) preset_gnome "$p" ;;
+  hyprland|sway) preset_tiling "$p" ;;
+  *) echo "saved; applied at next login" ;;
+esac
 echo "effects: $p"
