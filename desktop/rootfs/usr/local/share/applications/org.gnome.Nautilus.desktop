@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+GenericName=File Manager
+Icon=kwick-files
+Exec=nautilus --new-window %U
+Categories=GNOME;GTK;Utility;Core;FileManager;
+MimeType=inode/directory;
+StartupNotify=true
+Terminal=false
+NotShowIn=KDE;

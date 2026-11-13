@@ -4,6 +4,9 @@
  <info>
   <metadata owner="http://www.kde.org">
    <kde_places_version>4</kde_places_version>
+   <withBaloo>true</withBaloo>
+   <withRecentlyUsed>true</withRecentlyUsed>
+   <GroupState-Devices-IsHidden>true</GroupState-Devices-IsHidden>
    <GroupState-RecentlySaved-IsHidden>true</GroupState-RecentlySaved-IsHidden>
    <GroupState-SearchFor-IsHidden>true</GroupState-SearchFor-IsHidden>
   </metadata>

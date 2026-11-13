@@ -10,6 +10,7 @@ run() {
       ptyxis) exec ptyxis -x "$*" ;;
       kgx|gnome-terminal) exec "$t" -- "$@" ;;
     esac
+    set -- -e "$@"
   fi
   exec "$t" "$@"
 }

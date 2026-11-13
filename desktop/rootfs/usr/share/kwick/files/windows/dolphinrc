@@ -6,7 +6,7 @@ GlobalViewProps=true
 RememberOpenedTabs=false
 ShowFullPath=true
 ShowFullPathInTitlebar=false
-ShowStatusBar=true
+ShowStatusBar=FullWidth
 ShowToolTips=true
 SplitView=false
 ShowSpaceInfo=true
@@ -30,7 +30,7 @@ IconSize=16
 PreviewSize=32
 
 [PlacesPanel]
-IconSize=16
+IconSize=22
 
 [MainWindow]
 MenuBar=Disabled
