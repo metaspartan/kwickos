@@ -28,7 +28,7 @@ LayoutName=thumbnail_grid
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.kwin.aurorae
 theme=__aurorae__svg__KwickFluent
-ButtonsOnLeft=
+ButtonsOnLeft=M
 ButtonsOnRight=IAX
 
 [Wallpaper]

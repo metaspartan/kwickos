@@ -10,6 +10,7 @@ Keywords=terminal;shell;console;command;prompt;bash;
 StartupNotify=true
 StartupWMClass=org.kde.konsole
 Terminal=false
+NotShowIn=KDE;
 Actions=new-window;
 
 [Desktop Action new-window]

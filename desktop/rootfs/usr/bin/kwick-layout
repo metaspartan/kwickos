@@ -28,6 +28,8 @@ kde() {
   kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals Icons Theme KwickOS
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
+  kw kdeglobals KDE DefaultDarkLookAndFeel "org.kwickos.$want"
+  kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
   kw kdeglobals General fixed "$MONO,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
   kw kdeglobals WM activeFont "$UI,-1,5,600,0,0,0,0,0,0,0,0,0,0,1"

@@ -9,3 +9,4 @@ Keywords=software;apps;store;install;flatpak;
 StartupNotify=true
 StartupWMClass=org.kde.discover
 Terminal=false
+NotShowIn=KDE;

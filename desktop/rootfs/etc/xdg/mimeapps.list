@@ -1,9 +1,9 @@
 [Default Applications]
-inode/directory=kwick-files.desktop
-text/plain=kwick-editor.desktop
-text/markdown=kwick-editor.desktop
-text/x-shellscript=kwick-editor.desktop
-application/json=kwick-editor.desktop
+inode/directory=kwick-files.desktop;org.kde.dolphin.desktop
+text/plain=kwick-editor.desktop;org.kde.kate.desktop
+text/markdown=kwick-editor.desktop;org.kde.kate.desktop
+text/x-shellscript=kwick-editor.desktop;org.kde.kate.desktop
+application/json=kwick-editor.desktop;org.kde.kate.desktop
 image/png=kwick-image-viewer.desktop
 image/jpeg=kwick-image-viewer.desktop
 image/gif=kwick-image-viewer.desktop

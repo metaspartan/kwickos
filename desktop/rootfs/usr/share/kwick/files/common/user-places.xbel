@@ -4,6 +4,8 @@
  <info>
   <metadata owner="http://www.kde.org">
    <kde_places_version>4</kde_places_version>
+   <GroupState-RecentlySaved-IsHidden>true</GroupState-RecentlySaved-IsHidden>
+   <GroupState-SearchFor-IsHidden>true</GroupState-SearchFor-IsHidden>
   </metadata>
  </info>
  <bookmark href="file://@HOME@">
@@ -37,14 +39,6 @@
  <bookmark href="trash:/">
   <title>Trash</title>
   <info><metadata owner="http://freedesktop.org"><bookmark:icon name="user-trash"/></metadata><metadata owner="http://www.kde.org"><ID>kwick-trash</ID></metadata></info>
- </bookmark>
- <bookmark href="timeline:/today">
-  <title>Modified Today</title>
-  <info><metadata owner="http://freedesktop.org"><bookmark:icon name="go-jump-today"/></metadata><metadata owner="http://www.kde.org"><ID>kwick-recent-today</ID><IsHidden>true</IsHidden></metadata></info>
- </bookmark>
- <bookmark href="timeline:/yesterday">
-  <title>Modified Yesterday</title>
-  <info><metadata owner="http://freedesktop.org"><bookmark:icon name="view-calendar-day"/></metadata><metadata owner="http://www.kde.org"><ID>kwick-recent-yesterday</ID><IsHidden>true</IsHidden></metadata></info>
  </bookmark>
  <bookmark href="remote:/">
   <title>Network</title>

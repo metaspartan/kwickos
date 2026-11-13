@@ -8,9 +8,9 @@ for (var j = 0; j < desktopsArray.length; j++) {
 }
 panels().forEach(function (p) { p.remove(); });
 var launchers = [
-    "applications:kwick-files.desktop", "applications:firefox-esr.desktop",
-    "applications:kwick-terminal.desktop", "applications:kwick-editor.desktop",
-    "applications:kwick-software.desktop", "applications:steam.desktop",
+    "applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop",
+    "applications:org.kde.konsole.desktop", "applications:org.kde.kate.desktop",
+    "applications:org.kde.discover.desktop", "applications:steam.desktop",
     "applications:kwick-settings.desktop"
 ].join(",");
 

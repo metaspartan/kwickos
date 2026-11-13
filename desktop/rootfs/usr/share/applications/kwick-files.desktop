@@ -4,16 +4,17 @@ Name=Files
 GenericName=File Manager
 Comment=Browse and organize files and folders
 Icon=kwick-files
-Exec=dolphin --desktopfile kwick-files %u
+Exec=dolphin %u
 Categories=Qt;KDE;System;FileTools;FileManager;
 Keywords=files;folders;browse;explorer;finder;manager;
 MimeType=inode/directory;
 StartupNotify=true
-StartupWMClass=kwick-files
+StartupWMClass=org.kde.dolphin
 Terminal=false
+NotShowIn=KDE;
 Actions=new-window;
 
 [Desktop Action new-window]
 Name=New Window
 Icon=window-new
-Exec=dolphin --desktopfile kwick-files --new-window %u
+Exec=dolphin --new-window %u

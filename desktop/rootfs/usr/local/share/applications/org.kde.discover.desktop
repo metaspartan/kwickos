@@ -7,4 +7,4 @@ Exec=plasma-discover %F
 Categories=System;PackageManager;
 StartupNotify=true
 Terminal=false
-NoDisplay=true
+OnlyShowIn=KDE;

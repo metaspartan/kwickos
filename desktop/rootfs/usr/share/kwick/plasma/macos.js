@@ -3,7 +3,7 @@ var dockCfg = {
     iconSize: 48,
     autohide: "off",
     floating: "on",
-    pinned: "kwick-files.desktop,firefox-esr.desktop,kwick-terminal.desktop,kwick-editor.desktop,kwick-software.desktop,kwick-settings.desktop"
+    pinned: "org.kde.dolphin.desktop,firefox-esr.desktop,org.kde.konsole.desktop,org.kde.kate.desktop,org.kde.discover.desktop,kwick-settings.desktop"
 };
 if (typeof KWICK_DOCK !== "undefined") {
     for (var key in KWICK_DOCK) { dockCfg[key] = KWICK_DOCK[key]; }

@@ -8,6 +8,6 @@ Categories=Qt;KDE;System;FileTools;FileManager;
 MimeType=inode/directory;
 StartupNotify=true
 Terminal=false
-NoDisplay=true
+OnlyShowIn=KDE;
 X-DBUS-StartupType=Unique
 X-DBUS-ServiceName=org.freedesktop.FileManager1

@@ -14,7 +14,7 @@ run() {
   exec "$t" "$@"
 }
 case $de in
-  *kde*) have konsole && run konsole --desktopfile kwick-terminal "$@" ;;
+  *kde*) have konsole && run konsole "$@" ;;
   *gnome*|*cinnamon*|*unity*) for t in ptyxis kgx gnome-terminal; do have $t && run $t "$@"; done ;;
   *xfce*) have xfce4-terminal && run xfce4-terminal "$@" ;;
 esac

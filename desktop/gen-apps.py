@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the neutral KwickOS app entries (run once, outputs are committed):
   usr/share/applications/kwick-<id>.desktop       Exec=kwick-app <id>, picks the native app of the running session
-  usr/local/share/applications/<vendor>.desktop   NoDisplay overrides carrying the same name and icon
+  usr/local/share/applications/<vendor>.desktop   overrides (NoDisplay, or KDE-only visible for pinned apps) carrying the same name and icon
   usr/share/icons/hicolor/scalable/apps/kwick-<id>.svg
 usage: gen-apps.py <repo-root>
 """
@@ -111,7 +111,6 @@ esac
 for c in $order; do
   if command -v "$c" >/dev/null 2>&1; then
     [ "$c" = gnome-screenshot ] && [ "$#" -eq 0 ] && exec "$c" --interactive
-    case $c in kate) exec kate --desktopfile kwick-editor "$@" ;; plasma-discover) exec plasma-discover --desktopfile kwick-software "$@" ;; esac
     exec "$c" "$@"
   fi
 done
