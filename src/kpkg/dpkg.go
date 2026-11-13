@@ -39,6 +39,8 @@ func parseDpkgOpts(args []string) []string {
 		case a == "--root" && i+1 < len(args):
 			cfg.Root = args[i+1]
 			i++
+		case a == "--force-architecture" || a == "--force-all":
+			cfg.ForceArch = true
 		case strings.HasPrefix(a, "--force-") || strings.HasPrefix(a, "--no-force-") || strings.HasPrefix(a, "--refuse-") ||
 			a == "--no-triggers" || a == "--triggers" || a == "--no-debsig" || a == "--abort-after" ||
 			strings.HasPrefix(a, "--admindir") || strings.HasPrefix(a, "--instdir") || strings.HasPrefix(a, "--log") ||
@@ -66,9 +68,24 @@ func mainDpkg(args []string) int {
 	case "--print-architecture":
 		fmt.Println(cfg.Arch)
 	case "--print-foreign-architectures":
+		for _, a := range cfg.Foreign {
+			fmt.Println(a)
+		}
 	case "--add-architecture", "--remove-architecture":
-		fmt.Fprintln(os.Stderr, "dpkg: multiarch foreign architectures are not supported on KwickOS")
-		return 2
+		if len(rest) != 1 {
+			fmt.Fprintf(os.Stderr, "dpkg: error: %s takes exactly one argument\n", cmd)
+			return 2
+		}
+		var err error
+		if cmd == "--add-architecture" {
+			err = addArchitecture(rest[0])
+		} else {
+			err = removeArchitecture(rest[0])
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "dpkg: error:", err)
+			return 2
+		}
 	case "--compare-versions":
 		if len(rest) != 3 {
 			fmt.Fprintln(os.Stderr, "dpkg: --compare-versions takes three arguments")
@@ -202,8 +219,8 @@ func dpkgInstall(files []string, unpackOnly bool) int {
 	for _, p := range pl.Install {
 		for _, fld := range []string{"Pre-Depends", "Depends"} {
 			for _, g := range p.Deps(fld) {
-				if !pl.groupSatisfied(g) {
-					fmt.Fprintf(os.Stderr, "dpkg: dependency problems prevent configuration of %s:\n %s depends on %s; however it is not installed.\n", p.Name, p.Name, g[0])
+				if !pl.groupSatisfied(g, p.selfArch()) {
+					fmt.Fprintf(os.Stderr, "dpkg: dependency problems prevent configuration of %s:\n %s depends on %s; however it is not installed.\n", p.Key(), p.Key(), g[0])
 					broken = true
 				}
 			}
@@ -261,7 +278,7 @@ func dpkgList(pats []string) int {
 		if len(pats) > 0 {
 			ok := false
 			for _, p := range pats {
-				if m, _ := filepath.Match(p, in.Name); m {
+				if matchInstalledPattern(p, in) {
 					ok = true
 				}
 			}
@@ -314,8 +331,7 @@ func mainDpkgQuery(args []string) int {
 			if len(pats) > 0 {
 				ok := false
 				for _, p := range pats {
-					p = strings.TrimSuffix(p, ":"+cfg.Arch)
-					if m, _ := filepath.Match(p, in.Name); m {
+					if matchInstalledPattern(p, in) || (strings.HasSuffix(p, ":"+cfg.Arch) && matchInstalledPattern(strings.TrimSuffix(p, ":"+cfg.Arch), in) && (in.Arch == cfg.Arch || in.Arch == "all")) {
 						ok = true
 					}
 				}
@@ -512,7 +528,7 @@ func mainDpkgDeb(args []string) int {
 		saved := cfg.Root
 		cfg.Root, _ = filepath.Abs(rest[1])
 		os.MkdirAll(cfg.Root, 0755)
-		res, err := ExtractData(rest[0], nil, nil, nil)
+		res, err := ExtractData(rest[0], nil, nil, nil, nil)
 		cfg.Root = saved
 		if err != nil {
 			return fail(err)

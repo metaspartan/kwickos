@@ -35,7 +35,7 @@ func (p *Pkg) Deps(field string) [][]Dep {
 	}
 	d, ok := p.deps[field]
 	if !ok {
-		d = ParseDeps(p.P.Get(field), cfg.Arch)
+		d = ParseDeps(p.P.Get(field), p.selfArch())
 		p.deps[field] = d
 	}
 	return d
@@ -56,15 +56,11 @@ func (p *Pkg) InstalledSize() int64 { n, _ := strconv.ParseInt(p.Field("Installe
 func (p *Pkg) Essential() bool      { return p.Field("Essential") == "yes" || p.Field("Protected") == "yes" }
 func (p *Pkg) MultiArchSame() bool  { return p.Field("Multi-Arch") == "same" }
 
-// InfoName is the dpkg database name (pkg or pkg:arch for M-A: same).
-func (p *Pkg) InfoName() string {
-	if p.MultiArchSame() {
-		return p.Name + ":" + p.Arch
-	}
-	return p.Name
-}
+// InfoName is the dpkg database name (pkg, or pkg:arch for M-A: same and
+// foreign-architecture packages).
+func (p *Pkg) InfoName() string { return infoNameFor(p.Name, p.Arch, p.MultiArch()) }
 
-func (p *Pkg) archOK() bool { return p.Arch == cfg.Arch || p.Arch == "all" }
+func (p *Pkg) archOK() bool { return p.Arch == cfg.Arch || p.Arch == "all" || contains(cfg.Foreign, p.Arch) }
 
 // Installed is a package entry in /var/lib/dpkg/status.
 type Installed struct {
@@ -93,12 +89,15 @@ type DB struct {
 	Auto      map[string]bool
 }
 
+var curDB *DB
+
 func OpenDB() (*DB, error) {
 	db := &DB{Avail: map[string][]*Pkg{}, Installed: map[string]*Installed{}, Auto: map[string]bool{}}
 	if err := db.loadStatus(); err != nil {
 		return nil, err
 	}
 	db.loadAuto()
+	curDB = db
 	return db, nil
 }
 
@@ -112,27 +111,36 @@ func (db *DB) LoadAvailable() error {
 	srcs, _ := LoadSources()
 	missing := 0
 	for _, s := range srcs {
-		f, err := os.Open(s.indexPath(cfg.Arch))
-		if err != nil {
-			missing++
-			continue
-		}
-		zr, err := gzip.NewReader(bufio.NewReaderSize(f, 1<<16))
-		if err != nil {
-			f.Close()
-			continue
-		}
-		src := s
-		ParseParagraphs(zr, nil, func(p *Paragraph) error {
-			pk := newPkg(p)
-			if !pk.archOK() {
-				return nil
+		found := false
+		for _, arch := range allArches() {
+			if len(s.Arches) > 0 && !contains(s.Arches, arch) {
+				continue
 			}
-			pk.Src = src
-			db.addAvail(pk)
-			return nil
-		})
-		f.Close()
+			f, err := os.Open(s.indexPath(arch))
+			if err != nil {
+				continue
+			}
+			found = true
+			zr, err := gzip.NewReader(bufio.NewReaderSize(f, 1<<16))
+			if err != nil {
+				f.Close()
+				continue
+			}
+			src := s
+			ParseParagraphs(zr, nil, func(p *Paragraph) error {
+				pk := newPkg(p)
+				if !pk.archOK() {
+					return nil
+				}
+				pk.Src = src
+				db.addAvail(pk)
+				return nil
+			})
+			f.Close()
+		}
+		if !found {
+			missing++
+		}
 	}
 	for _, vs := range db.Avail {
 		sort.SliceStable(vs, func(i, j int) bool { return CompareVersions(vs[i].Version, vs[j].Version) > 0 })
@@ -144,12 +152,13 @@ func (db *DB) LoadAvailable() error {
 }
 
 func (db *DB) addAvail(pk *Pkg) {
-	for _, x := range db.Avail[pk.Name] {
+	key := pk.Key()
+	for _, x := range db.Avail[key] {
 		if x.Version == pk.Version && x.Arch == pk.Arch {
 			return
 		}
 	}
-	db.Avail[pk.Name] = append(db.Avail[pk.Name], pk)
+	db.Avail[key] = append(db.Avail[key], pk)
 	if strings.Contains(pk.P.Get("Provides"), "") && pk.P.Get("Provides") != "" {
 		for _, pv := range pk.Provides() {
 			db.provAvail[pv.Name] = append(db.provAvail[pv.Name], provider{pk, pv.Ver})
@@ -220,7 +229,7 @@ func (db *DB) loadAuto() {
 	defer f.Close()
 	ParseParagraphs(f, nil, func(p *Paragraph) error {
 		if p.Get("Auto-Installed") == "1" {
-			db.Auto[p.Get("Package")] = true
+			db.Auto[keyOf(p.Get("Package"), p.Get("Architecture"))] = true
 		}
 		return nil
 	})
@@ -230,8 +239,12 @@ func (db *DB) SaveAuto() error {
 	os.MkdirAll(filepath.Dir(extStatePath()), 0755)
 	var b strings.Builder
 	for _, k := range sortedKeys(db.Auto) {
-		if db.Auto[k] && db.lookupInstalled(k) != nil {
-			fmt.Fprintf(&b, "Package: %s\nArchitecture: %s\nAuto-Installed: 1\n\n", k, cfg.Arch)
+		if db.Auto[k] && db.installedByKey(k) != nil {
+			n, a := splitKey(k)
+			if a == "" {
+				a = cfg.Arch
+			}
+			fmt.Fprintf(&b, "Package: %s\nArchitecture: %s\nAuto-Installed: 1\n\n", n, a)
 		}
 	}
 	return os.WriteFile(extStatePath(), []byte(b.String()), 0644)
@@ -241,18 +254,44 @@ func (db *DB) lookupInstalled(name string) *Installed {
 	if i, ok := db.Installed[name]; ok {
 		return i
 	}
-	// "pkg:amd64", "pkg:all", "pkg:any" (as passed by py3compile, dh helpers)
-	if base, arch, ok := strings.Cut(name, ":"); ok && (arch == cfg.Arch || arch == "all" || arch == "any") {
-		if i, ok := db.Installed[base]; ok {
+	base, arch, qualified := strings.Cut(name, ":")
+	if qualified {
+		switch {
+		case arch == "any" || arch == "all" || arch == "native":
+			if arch == "native" {
+				arch = cfg.Arch
+			}
+		case knownArch(arch):
+		default:
+			return nil
+		}
+		if arch == "any" || arch == "all" {
+			if i := db.lookupInstalled(base); i != nil {
+				return i
+			}
+			for _, a := range cfg.Foreign {
+				if i := db.lookupInstalled(base + ":" + a); i != nil {
+					return i
+				}
+			}
+			return nil
+		}
+		for _, k := range []string{base + ":" + arch, base} {
+			if i, ok := db.Installed[k]; ok && (i.Arch == arch || i.Arch == "all") {
+				return i
+			}
+		}
+		return nil
+	}
+	for _, k := range []string{name + ":" + cfg.Arch, name + ":all"} {
+		if i, ok := db.Installed[k]; ok {
 			return i
 		}
-		name = base
 	}
-	if i, ok := db.Installed[name+":"+cfg.Arch]; ok {
-		return i
-	}
-	if i, ok := db.Installed[name+":all"]; ok {
-		return i
+	for _, a := range cfg.Foreign {
+		if i, ok := db.Installed[name+":"+a]; ok {
+			return i
+		}
 	}
 	return nil
 }
@@ -275,7 +314,7 @@ func (db *DB) Upgradable() []*Pkg {
 		if in.State() != "installed" {
 			continue
 		}
-		if c := db.Candidate(in.Name); c != nil && CompareVersions(c.Version, in.Version) > 0 {
+		if c := db.Candidate(in.Key()); c != nil && CompareVersions(c.Version, in.Version) > 0 {
 			out = append(out, c)
 		}
 	}

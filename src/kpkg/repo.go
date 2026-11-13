@@ -281,8 +281,16 @@ func updateSuite(ss []*Source, pr *progress) (int64, error) {
 	byHash := strings.EqualFold(rel.Get("Acquire-By-Hash"), "yes")
 	allPresent := true
 	for _, s := range ss {
-		if _, err := os.Stat(s.indexPath(cfg.Arch)); err != nil {
-			allPresent = false
+		for _, arch := range allArches() {
+			if len(s.Arches) > 0 && !contains(s.Arches, arch) {
+				continue
+			}
+			if name, _ := indexEntry(s, arch, hashes); name == "" && len(hashes) > 0 {
+				continue
+			}
+			if _, err := os.Stat(s.indexPath(arch)); err != nil {
+				allPresent = false
+			}
 		}
 	}
 	if unchanged && allPresent {
@@ -291,10 +299,12 @@ func updateSuite(ss []*Source, pr *progress) (int64, error) {
 	}
 	fmt.Printf("Get:%d %s InRelease [%s]\n", pr.next(), s0.label(), human(fetched))
 	for _, s := range ss {
-		n, err := fetchIndex(s, base, hashes, byHash, pr)
-		fetched += n
-		if err != nil {
-			return fetched, err
+		for _, arch := range allArches() {
+			n, err := fetchIndex(s, arch, base, hashes, byHash, pr)
+			fetched += n
+			if err != nil {
+				return fetched, err
+			}
 		}
 	}
 	os.WriteFile(cached+".tmp", raw, 0644)
@@ -328,20 +338,21 @@ func (h *hashingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func fetchIndex(s *Source, base string, hashes map[string]relEntry, byHash bool, pr *progress) (int64, error) {
-	arch := cfg.Arch
-	if len(s.Arches) > 0 && !contains(s.Arches, arch) {
-		return 0, nil
-	}
-	var name string
-	var ent relEntry
+func indexEntry(s *Source, arch string, hashes map[string]relEntry) (string, relEntry) {
 	for _, ext := range []string{".xz", ".gz", ""} {
 		cand := s.Comp + "/binary-" + arch + "/Packages" + ext
 		if e, ok := hashes[cand]; ok {
-			name, ent = cand, e
-			break
+			return cand, e
 		}
 	}
+	return "", relEntry{}
+}
+
+func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash bool, pr *progress) (int64, error) {
+	if len(s.Arches) > 0 && !contains(s.Arches, arch) {
+		return 0, nil
+	}
+	name, ent := indexEntry(s, arch, hashes)
 	if name == "" {
 		if len(hashes) == 0 && s.Trusted {
 			name = s.Comp + "/binary-" + arch + "/Packages.gz"

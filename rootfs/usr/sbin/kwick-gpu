@@ -119,7 +119,7 @@ install_set() {
     if [ "$arch" = amd64 ] && multiarch_i386; then
       apt update >/dev/null 2>&1
     else
-      echo "$PROG: this system's package manager has no i386 multiarch; 32-bit libraries are skipped (Steam uses the Flatpak runtime instead)"
+      echo "$PROG: could not enable the i386 architecture (dpkg --add-architecture i386 failed); 32-bit libraries are skipped"
       foreign=""
     fi
   fi
@@ -175,13 +175,16 @@ case $cmd in
     [ "$(id -u)" -eq 0 ] || exec sudo -E "$0" steam "$@"
     enable_components
     prepare_steam_host
+    have_i386=""
+    multiarch_i386 && have_i386=1
     apt update >/dev/null 2>&1
     apt_install $(steam_pkgs_native)
-    if multiarch_i386; then
-      apt update >/dev/null 2>&1
+    if [ -n "$have_i386" ]; then
       echo steam steam/question select "I AGREE" | debconf-set-selections 2>/dev/null
       echo steam steam/license note '' | debconf-set-selections 2>/dev/null
       DEBIAN_FRONTEND=noninteractive apt_install $(steam_pkgs) || true
+    else
+      echo "$PROG: could not enable the i386 architecture; native Steam needs it, the Flatpak is the fallback"
     fi
     [ -x /usr/games/steam ] && echo "native" || echo "flatpak" ;;
   status|"")
@@ -203,7 +206,7 @@ case $cmd in
     done
     build_pkgs
     echo "Would install: $pkgs"
-    [ "$arch" = amd64 ] && echo "i386 multiarch: $(dpkg --print-foreign-architectures 2>/dev/null | grep -qx i386 && echo enabled || echo 'not enabled (kpkg has none; Steam uses Flatpak)')"
+    [ "$arch" = amd64 ] && echo "i386 multiarch: $(dpkg --print-foreign-architectures 2>/dev/null | grep -qx i386 && echo enabled || echo 'not enabled (run: dpkg --add-architecture i386, or kwick-gpu steam)')"
     [ -c /dev/uinput ] && echo "uinput: present" || echo "uinput: missing"
     command -v vulkaninfo >/dev/null && vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName' ;;
   help|-h|--help) usage ;;

@@ -174,9 +174,12 @@ func resolveRequest(db *DB, req string) (*Pkg, error) {
 			return nil, err
 		}
 		p := newPkg(dc.Para)
+		if !p.archOK() && !cfg.ForceArch {
+			return nil, fmt.Errorf("%s: package architecture (%s) does not match system (%s)", req, p.Arch, cfg.Arch)
+		}
 		p.LocalDeb = abs
 		db.addAvail(p)
-		vs := db.Avail[p.Name]
+		vs := db.Avail[p.Key()]
 		sort.SliceStable(vs, func(i, j int) bool { return vs[i] == p })
 		return p, nil
 	}
@@ -185,23 +188,52 @@ func resolveRequest(db *DB, req string) (*Pkg, error) {
 	if n, s, ok := strings.Cut(name, "/"); ok {
 		name, suite = n, s
 	}
-	name = strings.TrimSuffix(strings.TrimSuffix(name, ":"+cfg.Arch), ":any")
-	for _, p := range db.Avail[name] {
-		if hasVer && p.Version != ver {
-			continue
+	base, qual, qualified := strings.Cut(name, ":")
+	foreign := ""
+	if qualified {
+		switch {
+		case qual == "any" || qual == "native" || qual == cfg.Arch || qual == "all":
+			name = base
+		case contains(cfg.Foreign, qual):
+			foreign = qual
+		default:
+			return nil, fmt.Errorf("unable to locate package %s (architecture '%s' is not enabled; see dpkg --add-architecture)", name, qual)
 		}
-		if suite != "" && p.Src != nil && p.Src.Suite != suite {
-			continue
+	}
+	pools := [][]*Pkg{db.Avail[name]}
+	if foreign != "" {
+		var allOnly []*Pkg
+		for _, p := range db.Avail[base] {
+			if p.Arch == "all" {
+				allOnly = append(allOnly, p)
+			}
 		}
-		return p, nil
+		pools = append(pools, allOnly)
+	}
+	for _, pool := range pools {
+		for _, p := range pool {
+			if hasVer && p.Version != ver {
+				continue
+			}
+			if suite != "" && p.Src != nil && p.Src.Suite != suite {
+				continue
+			}
+			return p, nil
+		}
 	}
 	if !hasVer {
 		// virtual package with a single provider
 		var provs []*Pkg
 		seen := map[string]bool{}
-		for _, pr := range db.provAvail[name] {
-			if !seen[pr.pkg.Name] && db.Candidate(pr.pkg.Name) == pr.pkg {
-				seen[pr.pkg.Name] = true
+		for _, pr := range db.provAvail[base] {
+			if foreign == "" && pr.pkg.Arch != cfg.Arch && pr.pkg.Arch != "all" {
+				continue
+			}
+			if foreign != "" && pr.pkg.Arch != foreign && pr.pkg.Arch != "all" {
+				continue
+			}
+			if !seen[pr.pkg.Key()] && db.Candidate(pr.pkg.Key()) == pr.pkg {
+				seen[pr.pkg.Key()] = true
 				provs = append(provs, pr.pkg)
 			}
 		}
@@ -244,17 +276,17 @@ func cmdInstall(args []string) error {
 		if err != nil {
 			return err
 		}
-		if in := db.lookupInstalled(p.Name); in != nil && in.Version == p.Version && in.State() == "installed" && !cfg.Reinstall {
-			fmt.Printf("%s is already the newest version (%s).\n", p.Name, p.Version)
-			if db.Auto[p.Name] {
-				delete(db.Auto, p.Name)
-				fmt.Printf("%s set to manually installed.\n", p.Name)
+		if in := db.lookupInstalled(p.Key()); in != nil && in.Key() == p.Key() && in.Version == p.Version && in.State() == "installed" && !cfg.Reinstall {
+			fmt.Printf("%s is already the newest version (%s).\n", p.Key(), p.Version)
+			if db.Auto[p.Key()] {
+				delete(db.Auto, p.Key())
+				fmt.Printf("%s set to manually installed.\n", p.Key())
 				db.SaveAuto()
 			}
 			continue
 		}
 		pl.Add(p, true)
-		explicit = append(explicit, p.Name)
+		explicit = append(explicit, p.Key())
 	}
 	fmt.Println("Reading package lists... Done\nBuilding dependency tree... Done")
 	if err := pl.Resolve(); err != nil {
@@ -270,11 +302,11 @@ func runPlan(pl *Plan, extra bool) error {
 	if cfg.DryRun {
 		for _, g := range pl.Order() {
 			for _, p := range g {
-				fmt.Printf("Inst %s (%s %s [%s])\n", p.Name, p.Version, srcLabel(p), p.Arch)
+				fmt.Printf("Inst %s (%s %s [%s])\n", p.Key(), p.Version, srcLabel(p), p.Arch)
 			}
 		}
 		for _, k := range sortedKeys(pl.Remove) {
-			fmt.Printf("Remv %s [%s]\n", pl.Remove[k].Name, pl.Remove[k].Version)
+			fmt.Printf("Remv %s [%s]\n", pl.Remove[k].Key(), pl.Remove[k].Version)
 		}
 		return nil
 	}
@@ -298,7 +330,7 @@ func cmdRemove(args []string, auto bool) error {
 	names := args
 	if auto || cfg.AutoRemove {
 		for _, in := range db.Autoremovable() {
-			names = append(names, in.Name)
+			names = append(names, in.Key())
 		}
 	}
 	if len(names) == 0 {
@@ -315,10 +347,10 @@ func cmdUpgrade(full bool) error {
 	db := mustDB(true)
 	pl := db.NewPlan(ResolveOpts{Recommends: false, Upgrade: true, NoRemove: !full})
 	for _, p := range db.Upgradable() {
-		if in := db.lookupInstalled(p.Name); in != nil && in.Field("X-Kwick-Base") == "yes" {
+		if in := db.lookupInstalled(p.Key()); in != nil && in.Field("X-Kwick-Base") == "yes" {
 			continue
 		}
-		pl.Add(p, !db.Auto[p.Name])
+		pl.Add(p, !db.Auto[p.Key()])
 	}
 	fmt.Println("Reading package lists... Done\nBuilding dependency tree... Done\nCalculating upgrade... Done")
 	if err := pl.Resolve(); err != nil {
@@ -356,8 +388,8 @@ func cmdList(args []string) error {
 	fmt.Println("Listing... Done")
 	if upgradable {
 		for _, p := range db.Upgradable() {
-			if match(p.Name) {
-				in := db.lookupInstalled(p.Name)
+			if match(p.Name) || match(p.Key()) {
+				in := db.lookupInstalled(p.Key())
 				fmt.Printf("%s/%s %s %s [upgradable from: %s]\n", p.Name, srcSuite(p), p.Version, p.Arch, in.Version)
 			}
 		}
@@ -366,11 +398,11 @@ func cmdList(args []string) error {
 	if installed {
 		for _, k := range sortedKeys(db.Installed) {
 			in := db.Installed[k]
-			if !match(in.Name) || in.State() == "not-installed" {
+			if !(match(in.Name) || match(in.Key())) || in.State() == "not-installed" {
 				continue
 			}
 			tag := "installed"
-			if db.Auto[in.Name] {
+			if db.Auto[in.Key()] {
 				tag = "installed,automatic"
 			}
 			if in.State() == "config-files" {
@@ -381,18 +413,18 @@ func cmdList(args []string) error {
 		return nil
 	}
 	for _, n := range sortedKeys(db.Avail) {
-		if !match(n) {
+		p := db.Avail[n][0]
+		if !match(n) && !match(p.Name) {
 			continue
 		}
-		p := db.Avail[n][0]
 		tag := ""
-		if in := db.lookupInstalled(n); in != nil {
+		if in := db.lookupInstalled(n); in != nil && in.Key() == n {
 			tag = " [installed]"
 			if in.Version != p.Version {
 				tag = " [installed,upgradable to: " + p.Version + "]"
 			}
 		}
-		fmt.Printf("%s/%s %s %s%s\n", n, srcSuite(p), p.Version, p.Arch, tag)
+		fmt.Printf("%s/%s %s %s%s\n", p.Name, srcSuite(p), p.Version, p.Arch, tag)
 	}
 	return nil
 }
@@ -458,7 +490,7 @@ func mainAptCache(args []string) int {
 				if db.lookupInstalled(n) != nil {
 					tag = " [installed]"
 				}
-				fmt.Printf("%s/%s %s %s%s\n  %s\n\n", n, srcSuite(p), p.Version, p.Arch, tag, strings.SplitN(p.Field("Description"), "\n", 2)[0])
+				fmt.Printf("%s/%s %s %s%s\n  %s\n\n", p.Name, srcSuite(p), p.Version, p.Arch, tag, strings.SplitN(p.Field("Description"), "\n", 2)[0])
 			}
 		}
 	case "show", "showpkg":
@@ -482,8 +514,8 @@ func mainAptCache(args []string) int {
 			if p.Src != nil {
 				fmt.Printf("APT-Sources: %s %s/%s %s Packages\n", strings.TrimRight(p.Src.URI, "/"), p.Src.Suite, p.Src.Comp, p.Arch)
 			}
-			if db.lookupInstalled(p.Name) != nil {
-				fmt.Println("APT-Manual-Installed:", map[bool]string{true: "no", false: "yes"}[db.Auto[p.Name]])
+			if db.installedByKey(p.Key()) != nil {
+				fmt.Println("APT-Manual-Installed:", map[bool]string{true: "no", false: "yes"}[db.Auto[p.Key()]])
 			}
 			fmt.Println()
 		}
@@ -575,13 +607,13 @@ func mainAptMark(args []string) int {
 	switch args[0] {
 	case "auto", "markauto":
 		for _, n := range args[1:] {
-			db.Auto[n] = true
+			db.Auto[markKey(db, n)] = true
 			fmt.Printf("%s set to automatically installed.\n", n)
 		}
 		db.SaveAuto()
 	case "manual", "unmarkauto":
 		for _, n := range args[1:] {
-			delete(db.Auto, n)
+			delete(db.Auto, markKey(db, n))
 			fmt.Printf("%s set to manually installed.\n", n)
 		}
 		db.SaveAuto()
@@ -591,8 +623,8 @@ func mainAptMark(args []string) int {
 		}
 	case "showmanual":
 		for _, k := range sortedKeys(db.Installed) {
-			if in := db.Installed[k]; !db.Auto[in.Name] && in.Field("X-Kwick-Base") != "yes" {
-				fmt.Println(in.Name)
+			if in := db.Installed[k]; !db.Auto[in.Key()] && in.Field("X-Kwick-Base") != "yes" {
+				fmt.Println(in.Key())
 			}
 		}
 	case "hold", "unhold", "showhold":

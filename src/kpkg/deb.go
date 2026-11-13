@@ -186,7 +186,7 @@ type extractResult struct {
 // ExtractData unpacks data.tar.* of a .deb into cfg.Root.
 // conffiles: set of conffile paths; oldConf: previously recorded md5s.
 // canOverwrite decides whether a path owned by another package may be taken.
-func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]string, canOverwrite func(p string) bool) (*extractResult, error) {
+func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]string, canOverwrite func(p string) bool, shared func(p string) int) (*extractResult, error) {
 	f, err := os.Open(debPath)
 	if err != nil {
 		return nil, err
@@ -243,6 +243,15 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 			host := filepath.Join(parent, path.Base(p))
 			if h.Typeflag != tar.TypeDir && canOverwrite != nil && !canOverwrite(p) {
 				continue
+			}
+			if h.Typeflag != tar.TypeDir && shared != nil && shared(p) == 1 && !conffiles[p] {
+				done, err := checkSharedIdentical(host, p, h, tr)
+				if err != nil {
+					return err
+				}
+				if done {
+					continue
+				}
 			}
 			mode := os.FileMode(h.Mode & 0777)
 			if h.Mode&04000 != 0 {
@@ -344,6 +353,48 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 		}
 	}
 	return res, nil
+}
+
+func checkSharedIdentical(host, p string, h *tar.Header, tr io.Reader) (bool, error) {
+	fi, err := os.Lstat(host)
+	if err != nil {
+		return false, nil
+	}
+	differ := fmt.Errorf("trying to overwrite shared '%s', which is different from other instances of the package", p)
+	switch h.Typeflag {
+	case tar.TypeSymlink:
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return false, differ
+		}
+		if t, err := os.Readlink(host); err != nil || t != h.Linkname {
+			return false, differ
+		}
+		return true, nil
+	case tar.TypeReg, tar.TypeRegA:
+		if !fi.Mode().IsRegular() {
+			return false, differ
+		}
+		f, err := os.Open(host)
+		if err != nil {
+			return false, nil
+		}
+		defer f.Close()
+		a, b := bufio.NewReaderSize(f, 1<<16), bufio.NewReaderSize(tr, 1<<16)
+		bufA, bufB := make([]byte, 1<<15), make([]byte, 1<<15)
+		for {
+			na, errA := io.ReadFull(a, bufA)
+			nb, errB := io.ReadFull(b, bufB)
+			if na != nb || !bytes.Equal(bufA[:na], bufB[:nb]) {
+				return false, differ
+			}
+			if errA != nil || errB != nil {
+				return true, nil
+			}
+		}
+	case tar.TypeLink:
+		return true, nil
+	}
+	return false, nil
 }
 
 func mkdev(maj, min int64) uint64 {

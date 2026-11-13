@@ -23,6 +23,8 @@ const dpkgCompatVersion = "1.22.21"
 type Config struct {
 	Root, Admin, Lists, Cache string
 	Arch                      string
+	Foreign                   []string
+	ForceArch                 bool
 	Yes, DryRun, Reinstall    bool
 	Recommends                bool
 	KeepDebs, DownloadOnly    bool
@@ -72,6 +74,7 @@ func setupPaths() {
 	cfg.Lists = filepath.Join(cfg.Root, "var/lib/apt/lists")
 	cfg.Cache = filepath.Join(cfg.Root, "var/cache/apt/archives")
 	cfg.Arch = debArch()
+	cfg.Foreign = loadForeignArches()
 	cfg.Avoid = map[string]bool{}
 	for _, n := range defaultAvoid {
 		cfg.Avoid[n] = true

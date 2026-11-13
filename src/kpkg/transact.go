@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -155,9 +156,11 @@ var triggerFile string
 func scriptEnv(name, script string) []string {
 	env := os.Environ()
 	set := func(k, v string) { env = append(env, k+"="+v) }
-	set("DPKG_MAINTSCRIPT_PACKAGE", name)
+	pkg, arch, refcount := scriptIdentity(name)
+	set("DPKG_MAINTSCRIPT_PACKAGE", pkg)
+	set("DPKG_MAINTSCRIPT_PACKAGE_REFCOUNT", strconv.Itoa(refcount))
 	set("DPKG_MAINTSCRIPT_NAME", script)
-	set("DPKG_MAINTSCRIPT_ARCH", cfg.Arch)
+	set("DPKG_MAINTSCRIPT_ARCH", arch)
 	set("DPKG_RUNNING_VERSION", dpkgCompatVersion)
 	set("DPKG_ADMINDIR", "/var/lib/dpkg")
 	set("DPKG_ROOT", "")
@@ -220,7 +223,7 @@ func (tx *Tx) withHealing(fn func() error) error {
 func runInfoScript(infoName, script string, args ...string) error {
 	rel := path.Join("/var/lib/dpkg/info", infoName+"."+script)
 	host := filepath.Join(infoDir(), infoName+"."+script)
-	return runScriptAt(host, rel, strings.SplitN(infoName, ":", 2)[0], script, args...)
+	return runScriptAt(host, rel, infoName, script, args...)
 }
 
 // ------------------------------------------------------------ transaction
@@ -296,7 +299,7 @@ func (pl *Plan) Summary() bool {
 	var dl, grow int64
 	for _, n := range sortedKeys(pl.Install) {
 		p := pl.Install[n]
-		in := pl.db.lookupInstalled(n)
+		in := pl.db.installedByKey(n)
 		if in != nil && in.Version == p.Version && in.State() == "installed" && !cfg.Reinstall {
 			delete(pl.Install, n)
 			continue
@@ -315,7 +318,7 @@ func (pl *Plan) Summary() bool {
 		}
 	}
 	for _, k := range sortedKeys(pl.Remove) {
-		rm = append(rm, pl.Remove[k].Name)
+		rm = append(rm, pl.Remove[k].Key())
 		grow -= pl.Remove[k].InstalledSize()
 	}
 	show := func(title string, xs []string) {
@@ -502,14 +505,14 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		return err
 	}
 	ctl := dc.Para
-	old := tx.db.lookupInstalled(p.Name)
+	old := tx.db.installedByKey(p.Key())
 	oldVer := ""
 	var oldConf map[string]string
 	if old != nil {
 		oldVer = old.Version
 		oldConf = parseConffiles(old.Field("Conffiles"))
 		if old.State() == "installed" {
-			tx.prevVer[p.Name] = oldVer
+			tx.prevVer[p.Key()] = oldVer
 		}
 	}
 	verb := "Unpacking"
@@ -517,7 +520,7 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		fmt.Printf("Preparing to unpack .../%s ...\n", filepath.Base(deb))
 		verb = "Unpacking"
 	} else {
-		fmt.Printf("Selecting previously unselected package %s.\n", p.Name)
+		fmt.Printf("Selecting previously unselected package %s.\n", p.Key())
 	}
 	// stage control files for preinst
 	stage := filepath.Join(cfg.Admin, "tmp.ci")
@@ -526,10 +529,7 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 	for n, b := range dc.Files {
 		os.WriteFile(filepath.Join(stage, n), b, 0755)
 	}
-	infoName := p.Name
-	if ctl.Get("Multi-Arch") == "same" {
-		infoName = p.Name + ":" + ctl.Get("Architecture")
-	}
+	infoName := infoNameFor(p.Name, ctl.Get("Architecture"), ctl.Get("Multi-Arch"))
 	if old != nil && old.State() == "installed" {
 		if err := runInfoScript(old.InfoName(), "prerm", "upgrade", p.Version); err != nil {
 			return err
@@ -541,15 +541,15 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 			args = []string{"upgrade", oldVer}
 		}
 		if err := tx.withHealing(func() error {
-			return runScriptAt(filepath.Join(stage, "preinst"), "/var/lib/dpkg/tmp.ci/preinst", p.Name, "preinst", args...)
+			return runScriptAt(filepath.Join(stage, "preinst"), "/var/lib/dpkg/tmp.ci/preinst", infoName, "preinst", args...)
 		}); err != nil {
 			return err
 		}
 	}
 	if old != nil {
-		fmt.Printf("%s %s (%s) over (%s) ...\n", verb, p.Name, p.Version, oldVer)
+		fmt.Printf("%s %s (%s) over (%s) ...\n", verb, p.Key(), p.Version, oldVer)
 	} else {
-		fmt.Printf("%s %s (%s) ...\n", verb, p.Name, p.Version)
+		fmt.Printf("%s %s (%s) ...\n", verb, p.Key(), p.Version)
 	}
 	conf := map[string]bool{}
 	for _, l := range strings.Split(string(dc.Files["conffiles"]), "\n") {
@@ -562,9 +562,32 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		replacing[k] = true
 	}
 	newPkg := &Pkg{P: ctl, Name: p.Name, Version: p.Version, Arch: ctl.Get("Architecture")}
+	sameSet := ctl.Get("Multi-Arch") == "same"
+	sibling := func(o string) *Installed {
+		oi := tx.db.Installed[o]
+		if sameSet && o != infoName && oi != nil && oi.Name == p.Name && oi.MultiArchSame() {
+			return oi
+		}
+		return nil
+	}
+	shared := func(fp string) int {
+		res := 0
+		for _, o := range tx.owners[fp] {
+			if oi := sibling(o); oi != nil {
+				if oi.Version == p.Version {
+					return 1
+				}
+				res = 2
+			}
+		}
+		return res
+	}
 	canOverwrite := func(fp string) bool {
 		for _, o := range append([]string(nil), tx.owners[fp]...) {
 			if o == infoName || o == old.infoNameOr("") || replacing[o] {
+				continue
+			}
+			if sibling(o) != nil {
 				continue
 			}
 			if isDirPath(fp) {
@@ -580,7 +603,7 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		}
 		return true
 	}
-	res, err := ExtractData(deb, conf, oldConf, canOverwrite)
+	res, err := ExtractData(deb, conf, oldConf, canOverwrite, shared)
 	if err != nil {
 		return fmt.Errorf("error processing archive %s: %v", deb, err)
 	}
@@ -706,12 +729,12 @@ func removePath(p string) {
 }
 
 func (tx *Tx) configure(p *Pkg) error {
-	in := tx.db.lookupInstalled(p.Name)
+	in := tx.db.installedByKey(p.Key())
 	if in == nil {
 		return nil
 	}
-	prev := tx.prevVer[p.Name]
-	fmt.Printf("Setting up %s (%s) ...\n", p.Name, p.Version)
+	prev := tx.prevVer[p.Key()]
+	fmt.Printf("Setting up %s (%s) ...\n", p.Key(), p.Version)
 	in.Status = "install ok half-configured"
 	in.P.Set("Status", in.Status)
 	if err := tx.withHealing(func() error { return runInfoScript(in.InfoName(), "postinst", "configure", prev) }); err != nil {
@@ -726,7 +749,7 @@ func (tx *Tx) configure(p *Pkg) error {
 
 func (tx *Tx) remove(in *Installed) error {
 	name := in.InfoName()
-	fmt.Printf("Removing %s (%s) ...\n", in.Name, in.Version)
+	fmt.Printf("Removing %s (%s) ...\n", in.Key(), in.Version)
 	if err := runInfoScript(name, "prerm", "remove"); err != nil {
 		return err
 	}
@@ -751,7 +774,7 @@ func (tx *Tx) remove(in *Installed) error {
 		warn("%v", err)
 	}
 	if tx.purge {
-		fmt.Printf("Purging configuration files for %s (%s) ...\n", in.Name, in.Version)
+		fmt.Printf("Purging configuration files for %s (%s) ...\n", in.Key(), in.Version)
 		runInfoScript(name, "postrm", "purge")
 	}
 	m, _ := filepath.Glob(filepath.Join(infoDir(), name+".*"))
@@ -773,7 +796,7 @@ func (tx *Tx) remove(in *Installed) error {
 	} else {
 		delete(tx.db.Installed, name)
 	}
-	delete(tx.db.Auto, in.Name)
+	delete(tx.db.Auto, in.Key())
 	tx.db.SaveStatus()
 	restoreBusyboxLinks()
 	return nil

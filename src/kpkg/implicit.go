@@ -48,7 +48,7 @@ func (pl *Plan) addImplicit() bool {
 func (pl *Plan) scriptNeeds(files map[*Pkg]string) []string {
 	want := map[string]bool{}
 	for p, f := range files {
-		if pl.Install[p.Name] != p {
+		if pl.Install[p.Key()] != p {
 			continue
 		}
 		dc, err := ReadDebControl(f)
@@ -64,14 +64,14 @@ func (pl *Plan) scriptNeeds(files map[*Pkg]string) []string {
 			switch {
 			case strings.Contains(line, "perl"):
 				want["perl-base"] = true
-				pl.addEdge(p.Name, "perl-base")
+				pl.addEdge(p.Key(), "perl-base")
 			case strings.Contains(line, "bash"):
 				want["bash"] = true
-				pl.addEdge(p.Name, "bash")
+				pl.addEdge(p.Key(), "bash")
 			}
 			if bytes.Contains(b, []byte("/usr/share/debconf/confmodule")) && p.Name != "debconf" {
 				if _, planned := pl.Install["debconf"]; planned {
-					pl.addEdge(p.Name, "debconf")
+					pl.addEdge(p.Key(), "debconf")
 				}
 			}
 		}

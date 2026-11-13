@@ -1,5 +1,7 @@
 #!/bin/sh
 APP=com.valvesoftware.Steam
+STATE=${XDG_STATE_HOME:-$HOME/.local/state}/kwick
+MARK=$STATE/steam-native-failed
 note() { command -v notify-send >/dev/null 2>&1 && notify-send -i steam "Steam" "$1"; echo "steam: $1"; }
 
 case $(uname -m) in
@@ -11,14 +13,24 @@ case $(uname -m) in
     exit 3 ;;
 esac
 
+native_blocked() { [ -n "$(find "$MARK" -mmin -1440 2>/dev/null)" ]; }
+
+native_setup() {
+  command -v kwick-gpu >/dev/null 2>&1 || return 1
+  note "Setting up native Steam (first launch only)..."
+  if [ "$(id -u)" -eq 0 ]; then kwick-gpu steam; else sudo -n kwick-gpu steam || pkexec /usr/sbin/kwick-gpu steam; fi >/dev/null 2>&1
+  [ -x /usr/games/steam ]
+}
+
 if [ -x /usr/games/steam ]; then exec /usr/games/steam "$@"; fi
 
+if ! native_blocked; then
+  if native_setup; then exec /usr/games/steam "$@"; fi
+  mkdir -p "$STATE" 2>/dev/null && : > "$MARK"
+  note "Native Steam could not be installed (run: sudo kwick-gpu steam); falling back to Flathub"
+fi
+
 if ! flatpak info "$APP" >/dev/null 2>&1; then
-  note "Setting up Steam (first launch only)..."
-  if command -v kwick-gpu >/dev/null 2>&1; then
-    if [ "$(id -u)" -eq 0 ]; then kwick-gpu steam; else sudo -n kwick-gpu steam || pkexec /usr/sbin/kwick-gpu steam; fi >/dev/null 2>&1
-  fi
-  if [ -x /usr/games/steam ]; then exec /usr/games/steam "$@"; fi
   note "Installing Steam from Flathub (about 1 GB)..."
   flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null \
     || flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
