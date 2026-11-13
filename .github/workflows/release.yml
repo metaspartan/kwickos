@@ -30,8 +30,24 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = tag ]; then tag=$GITHUB_REF_NAME; else tag="v$v-k$k"; fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "version=$v" >> "$GITHUB_OUTPUT"
 
-  build:
+  preflight:
     needs: plan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Signing key must import and sign (fail in seconds, not hours)
+        env:
+          KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
+          KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}
+        run: |
+          export GNUPGHOME=$(mktemp -d)
+          bash scripts/gpgimport.sh
+          echo test > t.txt
+          gpg --batch --yes --pinentry-mode loopback --passphrase "${KWICK_SIGNING_PASSPHRASE:-}" --clearsign t.txt
+          gpg --batch --list-secret-keys --keyid-format long | grep -E '^(sec|uid)' | sed 's/^\(sec *\)\([^ ]*\)/\1[key]/'
+
+  build:
+    needs: [plan, preflight]
     uses: ./.github/workflows/build.yml
     secrets: inherit
     with:
@@ -112,7 +128,8 @@ jobs:
       - name: Kernel packages + signed apt repository
         env:
           KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
-          KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}\n        run: |
+          KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}
+        run: |
           docker build -t kwick-builder -f docker/Dockerfile.builder docker
           mkdir -p out
           for a in amd64 arm64 riscv64; do
