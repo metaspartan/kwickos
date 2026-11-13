@@ -172,9 +172,23 @@ matching Mesa/Vulkan drivers and firmware. `kwick-gpu` alone shows what it found
 amdgpu/i915/xe drivers with Mesa; NVIDIA uses nouveau with the NVK Vulkan driver (the proprietary driver is not packaged yet);
 Apple Silicon needs Asahi's kernel, which the stock KwickOS kernel does not include yet; DGX Spark (GB10) is untested.
 
-Verified: the KDE session, `kwick-layout` (all three styles, screenshots above), `kwick-desktop list`, `kwick-gpu`. Not verified: the animated
-effects (KWin needs a GPU/GL compositor; the screenshot environment is software-only), GNOME and tiling sessions, the Steam first-launch install,
-and fonts after `kwick-fonts`.
+Verified in the desktop image, rendered with Xvfb (no GPU):
+
+* the KDE session and `kwick-layout` in all three styles (screenshots above)
+* `kwick-fonts windows` and `macos`: `fc-match` resolves Segoe UI to Open Sans, Calibri to Carlito and Helvetica Neue to Inter
+* `kwick-effects compiz` writes the preset (wobbly windows, magic lamp, glide, fire, blur) into `kwinrc`
+* `kwick-desktop list`, `kwick-gpu`, and the font and window-tiling screenshots below
+
+![Font aliases from kwick-fonts](docs/img/fonts.png)
+![Windows snapped into a tiling layout](docs/img/tiling.png)
+
+Not verified, and why:
+
+* **The animated effects themselves.** KWin loads only the `qpainter` backend without a GPU, and `loadEffect wobblywindows` returns false on it. The config is written; the animation needs OpenGL compositing, which this environment cannot provide.
+* **GNOME and sway as running sessions.** Both are installed (`gnome-shell 48.7`, `sway 1.10.1`), and `gnome-shell --headless` reaches "GNOME Shell started". GNOME's screenshot service needs PipeWire and sway needs a DRM device, neither of which exists in the container, so there is no picture of them.
+* **Real Hyprland.** Debian 13 does not ship it, so `kwick-desktop install hyprland` installs sway.
+* **Steam's first launch**, the full reboot after `apt install kwick-desktop`, and the desktop ISO boot (no KVM here).
+* **Apple Silicon bare metal, DGX Spark (GB10) and the proprietary NVIDIA driver**, as noted above.
 ## Releases
 
 Every push to `main` that changes the product, and every kernel bump found by `kernel-watch`
