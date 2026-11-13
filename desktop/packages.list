@@ -4,7 +4,7 @@ sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview ok
 gnome-shell gnome-session gnome-control-center gnome-tweaks nautilus gnome-terminal gnome-text-editor xdg-desktop-portal-gnome
 gnome-shell-extension-dash-to-panel gnome-shell-extension-dashtodock gnome-shell-extension-blur-my-shell gnome-shell-extension-appindicator
 sway swaybg waybar wofi foot mako-notifier grim slurp wl-clipboard xdg-desktop-portal-wlr
-elogind libpam-elogind dbus-user-session polkitd pkexec udisks2 upower power-profiles-daemon rtkit network-manager bluez
+elogind libpam-elogind polkitd pkexec udisks2 upower power-profiles-daemon rtkit network-manager bluez
 pipewire pipewire-pulse pipewire-alsa wireplumber alsa-utils
 mesa-vulkan-drivers libgl1-mesa-dri mesa-va-drivers mesa-vdpau-drivers libegl1 libgbm1 mesa-opencl-icd vulkan-tools mesa-utils
 firmware-linux-free firmware-misc-nonfree firmware-amd-graphics firmware-intel-graphics firmware-nvidia-graphics firmware-realtek firmware-iwlwifi firmware-atheros firmware-brcm80211 firmware-mediatek
