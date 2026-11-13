@@ -1,4 +1,4 @@
-// KwickOS Windows 11 layout. Applied by kwick-layout and (macOS flavour) as the first-login default.
+// KwickOS Windows 11 layout — applied by kwick-layout.
 var desktopsArray = desktopsForActivity(currentActivity());
 for (var j = 0; j < desktopsArray.length; j++) {
     var d = desktopsArray[j];
@@ -14,27 +14,49 @@ var launchers = [
     "applications:org.kde.discover.desktop", "applications:steam.desktop",
     "applications:systemsettings.desktop"
 ].join(",");
-function clockCfg(c, fmt, below) {
-    c.currentConfigGroup = ["Appearance"];
-    c.writeConfig("showDate", "true");
-    c.writeConfig("dateFormat", "custom");
-    c.writeConfig("customDateFormat", fmt);
-    c.writeConfig("dateDisplayFormat", below ? "BelowTime" : "BesideTime");
-}
+
 // Windows 11: centered icons on a translucent full-width taskbar; tray + clock on the right.
 var p = new Panel;
-p.location = "bottom"; p.height = Math.round(gridUnit * 2.9); p.floating = false; p.hiding = "none"; p.opacity = "translucent";
-var lead = p.addWidget("org.kde.plasma.panelspacer");          // fixed spacer mirrors the tray width so the icons stay centered
-lead.currentConfigGroup = ["Configuration", "General"]; lead.writeConfig("expanding", "false"); lead.writeConfig("length", "230");
+p.location = "bottom";
+p.height = Math.round(gridUnit * 2.9);
+p.floating = false;
+p.hiding = "none";
+p.opacity = "translucent";
+
+// Left fixed spacer mirrors the tray+clock width so icons stay visually centered
+var lead = p.addWidget("org.kde.plasma.panelspacer");
+lead.currentConfigGroup = ["Configuration", "General"];
+lead.writeConfig("expanding", "false");
+lead.writeConfig("length", "260");
+
 var l2 = p.addWidget("org.kde.plasma.panelspacer");
+
+// Start button — original KwickOS mark (not the Windows logo)
 var k = p.addWidget("org.kde.plasma.kickoff");
-k.currentConfigGroup = ["General"]; k.writeConfig("icon", "kwick-start-fluent");
+k.currentConfigGroup = ["General"];
+k.writeConfig("icon", "kwick-start-fluent");
+
+// Centered task icons
 var t = p.addWidget("org.kde.plasma.icontasks");
-t.currentConfigGroup = ["General"]; t.writeConfig("launchers", launchers); t.writeConfig("showOnlyCurrentDesktop", "false");
-t.writeConfig("iconSpacing", "2"); t.writeConfig("maxStripes", "1");
+t.currentConfigGroup = ["General"];
+t.writeConfig("launchers", launchers);
+t.writeConfig("showOnlyCurrentDesktop", "false");
+t.writeConfig("iconSpacing", "2");
+t.writeConfig("maxStripes", "1");
+
 p.addWidget("org.kde.plasma.panelspacer");
+
+// Tray + clock (right side, Windows 11 style)
 p.addWidget("org.kde.plasma.systemtray");
 var c = p.addWidget("org.kde.plasma.digitalclock");
-clockCfg(c, "M/d/yyyy", true);
-c.writeConfig("use24hFormat", "1");
+c.currentConfigGroup = ["Appearance"];
+c.writeConfig("showDate", "true");
+c.writeConfig("dateFormat", "custom");
+c.writeConfig("customDateFormat", "M/d/yyyy");
+c.writeConfig("dateDisplayFormat", "BelowTime");
+c.writeConfig("use24hFormat", "false");
+c.writeConfig("showSeconds", "false");
+c.writeConfig("fontFamily", "Inter");
+c.writeConfig("fontWeight", "400");
+
 p.addWidget("org.kde.plasma.showdesktop");

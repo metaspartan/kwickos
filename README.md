@@ -1,5 +1,9 @@
 # KwickOS
 
+<p align="center">
+  <img src="docs/img/kwickos-logo.png" width="128" alt="KwickOS logo">
+</p>
+
 **A Linux distribution smaller and faster than Alpine that installs software
 like Debian.**
 
