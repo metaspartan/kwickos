@@ -77,7 +77,7 @@ jobs:
           mkdir -p release
           for a in amd64 arm64 riscv64; do
             cp dl/kwickos-$a/kwickos-* release/ 2>/dev/null || true
-            cp dl/kwickos-desktop-$a/kwickos-$a-desktop.iso release/ 2>/dev/null || true
+            find dl/kwickos-desktop-$a -name "kwickos-$a-desktop.iso" -exec cp {} release/ \;
           done
           # disk images are sparse 1 GiB; ship them compressed
           for f in release/*.img; do [ -f "$f" ] && zstd -19 -T0 --rm -q "$f"; done

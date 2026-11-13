@@ -66,6 +66,7 @@ Release artifacts (built by CI for each tag) are listed below; replace `amd64` w
 
 | file | what |
 |---|---|
+| `kwickos-amd64-desktop.iso` | KDE Plasma 6 desktop live ISO (also `arm64`, ~1.5 GB) |
 | `kwickos-amd64.iso` | UEFI live ISO (generic kernel, broad hardware); runs from RAM (erofs + overlay) |
 | `kwickos-amd64.qcow2` / `.img.zst` | VM/cloud disk: ESP (kernel) + ext4 root, 1 GiB |
 | `kwickos-amd64.efi` | the kernel itself (virt flavor): a UEFI app, `-kernel` for QEMU/Firecracker |
