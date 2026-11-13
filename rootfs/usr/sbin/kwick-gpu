@@ -1,46 +1,211 @@
 #!/bin/sh
-# kwick-gpu: detect GPUs and install the right graphics stack.
-#   kwick-gpu                 show detected GPUs and what is installed
-#   kwick-gpu install         install drivers for the detected hardware (also: apt install kwick-gpu)
-#   kwick-gpu install --list  only print the packages that would be installed
-# Mesa (open drivers) covers AMD (radeonsi/RADV), Intel (iris/ANV), NVIDIA (nouveau/NVK) and
-# Apple Silicon (Asahi), plus virtio for VMs. Firmware for each vendor comes from Debian non-free-firmware.
 set -u
-vendors=""
-for c in /sys/class/drm/card[0-9]*; do
-  [ -e "$c/device/vendor" ] || continue
-  case $(cat "$c/device/vendor") in 0x1002) vendors="$vendors amd";; 0x10de) vendors="$vendors nvidia";; 0x8086) vendors="$vendors intel";; 0x1af4) vendors="$vendors virtio";; esac
+PROG=kwick-gpu
+KNOWN="amd intel nvidia apple vm"
+usage() {
+  cat <<EOF
+usage: $PROG [command] [options]
+  status                 show detected GPUs, kernel drivers and what is installed (default)
+  detect                 print one detected vendor per line: amd intel nvidia apple vm
+  install [options]      install drivers and firmware for the detected hardware
+      --list             only print the packages that would be installed
+      --i386 | --no-i386 force or skip the 32-bit (i386) Mesa/Vulkan set (default: on for amd64 desktops)
+      --rocm             also install the ROCm compute stack (AMD)
+  rocm [--list]          install the ROCm compute stack (AMD)
+  steam [--list]         prepare the machine for Steam: udev rules, uinput, GameMode, MangoHud, 32-bit GL/Vulkan
+environment: KWICK_GPU_VENDOR=amd,intel,nvidia,apple,vm overrides detection
+EOF
+}
+
+pci_vendor_to_name() {
+  case "$1:$2" in
+    0x1002:*) echo amd ;;
+    0x10de:*) echo nvidia ;;
+    0x8086:*) echo intel ;;
+    0x1af4:*|0x15ad:*|0x1234:*|0x1414:*|0x1b36:*|0x1ab8:*|0x80ee:*) echo vm ;;
+  esac
+}
+
+detect_vendors() {
+  if [ -n "${KWICK_GPU_VENDOR:-}" ]; then
+    printf '%s\n' $(printf '%s' "$KWICK_GPU_VENDOR" | tr 'A-Z,' 'a-z ') | sed 's/^virtio$/vm/;s/^vmware$/vm/;s/^qxl$/vm/' | sort -u
+    return
+  fi
+  found=""
+  for d in /sys/bus/pci/devices/*; do
+    [ -r "$d/class" ] || continue
+    case $(cat "$d/class") in 0x03*) ;; *) continue ;; esac
+    n=$(pci_vendor_to_name "$(cat "$d/vendor")" "$(cat "$d/device" 2>/dev/null)")
+    [ -n "$n" ] && found="$found $n"
+  done
+  if [ -z "$found" ] && command -v lspci >/dev/null 2>&1; then
+    for line in $(lspci -nn 2>/dev/null | grep -E 'VGA|3D controller|Display controller' | grep -oE '\[[0-9a-f]{4}:[0-9a-f]{4}\]' | tr -d '[]' | cut -d: -f1); do
+      n=$(pci_vendor_to_name "0x$line" "")
+      [ -n "$n" ] && found="$found $n"
+    done
+  fi
+  if [ -r /proc/device-tree/compatible ] && tr '\0' ' ' < /proc/device-tree/compatible | grep -q 'apple,'; then found="$found apple"; fi
+  printf '%s\n' $found | sort -u
+}
+
+is_desktop() { [ -e /etc/kwick-edition ] || [ -n "${KWICK_GPU_DESKTOP:-}" ]; }
+
+arch=$(dpkg --print-architecture 2>/dev/null || echo amd64)
+want_i386=""
+want_rocm=""
+list_only=""
+
+build_pkgs() {
+  vendors=$(detect_vendors | tr '\n' ' ')
+  pkgs="mesa-vulkan-drivers libgl1-mesa-dri libegl1 libgbm1 vulkan-tools"
+  for v in $vendors; do
+    case $v in
+      amd) pkgs="$pkgs firmware-amd-graphics libdrm-amdgpu1 mesa-va-drivers mesa-vdpau-drivers radeontop mesa-opencl-icd" ;;
+      intel) pkgs="$pkgs firmware-intel-graphics firmware-intel-misc mesa-va-drivers vainfo intel-gpu-tools"
+             [ "$arch" = amd64 ] && pkgs="$pkgs intel-media-va-driver-non-free" ;;
+      nvidia) pkgs="$pkgs firmware-nvidia-graphics libdrm-nouveau2 mesa-va-drivers mesa-vdpau-drivers mesa-opencl-icd nvtop" ;;
+      apple) pkgs="$pkgs mesa-libgallium"; [ -x /usr/lib/kwick/gpu-apple ] && apple_helper=1 ;;
+      vm) ;;
+    esac
+  done
+  if is_desktop; then
+    pkgs="$pkgs firmware-iwlwifi firmware-realtek firmware-mediatek firmware-atheros firmware-brcm80211 firmware-sof-signed firmware-misc-nonfree firmware-linux-free"
+    [ "$arch" = amd64 ] && pkgs="$pkgs intel-microcode amd64-microcode"
+  fi
+  [ -n "$want_rocm" ] && pkgs="$pkgs $(rocm_pkgs)"
+  if [ "$arch" = amd64 ] && [ "$want_i386" != no ] && { [ "$want_i386" = yes ] || is_desktop; }; then
+    pkgs="$pkgs $(i386_pkgs "$vendors")"
+  fi
+}
+
+rocm_pkgs() { echo "rocm-opencl-icd rocminfo rocm-smi libamdhip64-5 hipcc"; }
+
+i386_pkgs() {
+  out="libgl1:i386 libglx-mesa0:i386 libgl1-mesa-dri:i386 libegl1:i386 libgbm1:i386 libvulkan1:i386 mesa-vulkan-drivers:i386"
+  for v in $1; do case $v in amd) out="$out libdrm-amdgpu1:i386" ;; esac; done
+  echo "$out"
+}
+
+steam_pkgs() {
+  echo "steam-installer steam-devices gamemode libgamemode0:i386 libgamemodeauto0:i386 mangohud mangohud:i386 vkbasalt libpipewire-0.3-0t64:i386 $(i386_pkgs "$(detect_vendors | tr '\n' ' ')")"
+}
+
+steam_pkgs_native() { echo "steam-devices gamemode mangohud vkbasalt"; }
+
+enable_components() {
+  sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null
+}
+
+multiarch_i386() {
+  dpkg --print-foreign-architectures 2>/dev/null | grep -qx i386 && return 0
+  dpkg --add-architecture i386 >/dev/null 2>&1 && dpkg --print-foreign-architectures 2>/dev/null | grep -qx i386
+}
+
+apt_install() {
+  apt install -y "$@" && return 0
+  rc=0
+  for p in "$@"; do apt install -y "$p" >/dev/null 2>&1 || { echo "$PROG: skipped $p (not installable here)"; rc=1; }; done
+  return $rc
+}
+
+split_i386() {
+  native=""; foreign=""
+  for p in "$@"; do case $p in *:i386) foreign="$foreign $p" ;; *) native="$native $p" ;; esac; done
+}
+
+install_set() {
+  split_i386 "$@"
+  if [ -n "$foreign" ]; then
+    if [ "$arch" = amd64 ] && multiarch_i386; then
+      apt update >/dev/null 2>&1
+    else
+      echo "$PROG: this system's package manager has no i386 multiarch; 32-bit libraries are skipped (Steam uses the Flatpak runtime instead)"
+      foreign=""
+    fi
+  fi
+  apt_install $native $foreign
+}
+
+prepare_steam_host() {
+  mkdir -p /etc/modules-load.d
+  printf 'uinput\nntsync\n' > /etc/modules-load.d/kwick-gaming.conf
+  modprobe uinput 2>/dev/null
+  modprobe ntsync 2>/dev/null
+  [ -c /dev/uinput ] || echo "$PROG: /dev/uinput missing (Steam Input needs the uinput module of the generic kernel)"
+  return 0
+}
+
+cmd=${1:-status}
+[ $# -gt 0 ] && shift
+for a in "$@"; do
+  case $a in
+    --i386) want_i386=yes ;;
+    --no-i386) want_i386=no ;;
+    --rocm) want_rocm=1 ;;
+    --list) list_only=1 ;;
+  esac
 done
-if [ -r /proc/device-tree/compatible ] && tr '\0' ' ' < /proc/device-tree/compatible | grep -q 'apple,'; then vendors="$vendors apple"; fi
-if [ -z "$vendors" ] && command -v lspci >/dev/null; then
-  lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display' | grep -q '1002:' && vendors="$vendors amd"
-  lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display' | grep -q '10de:' && vendors="$vendors nvidia"
-  lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display' | grep -q '8086:' && vendors="$vendors intel"
-fi
-vendors=$(printf '%s\n' $vendors | sort -u | tr '\n' ' ')
-pkgs="mesa-vulkan-drivers libgl1-mesa-dri libegl1 libgbm1 vulkan-tools"
-arch=$(dpkg --print-architecture)
-for v in $vendors; do case $v in
-  amd) pkgs="$pkgs firmware-amd-graphics libdrm-amdgpu1 mesa-va-drivers mesa-vdpau-drivers radeontop" ;;
-  intel) pkgs="$pkgs firmware-intel-graphics mesa-va-drivers"; [ "$arch" = amd64 ] && pkgs="$pkgs intel-media-va-driver-non-free" ;;
-  nvidia) pkgs="$pkgs firmware-nvidia-graphics libdrm-nouveau2 nvtop" ;;
-  apple) pkgs="$pkgs mesa-libgallium" ;;
-esac; done
-[ -e /etc/kwick-edition ] && pkgs="$pkgs firmware-iwlwifi firmware-realtek firmware-mediatek firmware-atheros firmware-brcm80211 firmware-sof-signed firmware-misc-nonfree"
-[ "$arch" = amd64 ] && [ -e /etc/kwick-edition ] && pkgs="$pkgs intel-microcode amd64-microcode"
-case "${1:-}" in
+
+case $cmd in
+  detect) detect_vendors ;;
   install)
-    [ "${2:-}" = --list ] && { echo $pkgs; exit 0; }
-    [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
-    sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null
-    apt update >/dev/null 2>&1; apt install -y $pkgs ;;
-  *)
+    build_pkgs
+    if [ -n "$list_only" ]; then echo $pkgs; exit 0; fi
+    [ "$(id -u)" -eq 0 ] || exec sudo -E "$0" install "$@"
+    enable_components
+    apt update >/dev/null 2>&1
+    install_set $pkgs
+    rc=$?
+    [ -n "${apple_helper:-}" ] && /usr/lib/kwick/gpu-apple install || true
+    is_desktop && [ "$arch" = amd64 ] && prepare_steam_host
+    exit $rc ;;
+  rocm)
+    [ -n "$list_only" ] && { rocm_pkgs; exit 0; }
+    [ "$(id -u)" -eq 0 ] || exec sudo -E "$0" rocm "$@"
+    enable_components
+    apt update >/dev/null 2>&1
+    apt_install $(rocm_pkgs) ;;
+  steam)
+    if [ "$arch" != amd64 ]; then
+      echo "Steam is x86 only and Debian 13 has no x86 emulator package (no fex-emu, no box64) for $arch: unsupported here."
+      exit 3
+    fi
+    vendors=$(detect_vendors | tr '\n' ' ')
+    if [ -n "$list_only" ]; then steam_pkgs; exit 0; fi
+    [ "$(id -u)" -eq 0 ] || exec sudo -E "$0" steam "$@"
+    enable_components
+    prepare_steam_host
+    apt update >/dev/null 2>&1
+    apt_install $(steam_pkgs_native)
+    if multiarch_i386; then
+      apt update >/dev/null 2>&1
+      echo steam steam/question select "I AGREE" | debconf-set-selections 2>/dev/null
+      echo steam steam/license note '' | debconf-set-selections 2>/dev/null
+      DEBIAN_FRONTEND=noninteractive apt_install $(steam_pkgs) || true
+    fi
+    [ -x /usr/games/steam ] && echo "native" || echo "flatpak" ;;
+  status|"")
+    vendors=$(detect_vendors | tr '\n' ' ')
     echo "Detected: ${vendors:-none (headless VM or no GPU)}"
-    for c in /sys/class/drm/card[0-9]*; do [ -e "$c/device/vendor" ] || continue
-      drv=$(basename "$(readlink $c/device/driver 2>/dev/null)" 2>/dev/null); echo "  $(basename $c): vendor $(cat $c/device/vendor), kernel driver: ${drv:-none}"; done
-    for v in $vendors; do case $v in
-      nvidia) echo "  NVIDIA: open drivers (nouveau + NVK Vulkan) are installed by 'kwick-gpu install'. The proprietary driver needs kernel headers for the KwickOS kernel and is not packaged yet." ;;
-      apple) echo "  Apple Silicon: needs the Asahi kernel (not in the stock KwickOS kernel yet); Mesa's Asahi driver is installed by 'kwick-gpu install'." ;; esac; done
+    for c in /sys/class/drm/card[0-9]*; do
+      [ -e "$c/device/vendor" ] || continue
+      drv=$(basename "$(readlink "$c/device/driver" 2>/dev/null)" 2>/dev/null)
+      echo "  $(basename "$c"): vendor $(cat "$c/device/vendor"), kernel driver: ${drv:-none}"
+    done
+    for v in $vendors; do
+      case $v in
+        nvidia) echo "  NVIDIA: nouveau + NVK (Mesa Vulkan) with GSP firmware. The proprietary driver is not available: its trixie version (550.163.01) does not build against the KwickOS kernel and the kernel package ships no headers." ;;
+        apple) echo "  Apple Silicon: needs an Apple-enabled kernel; trixie Mesa 25.0 has no Honeykrisp Vulkan driver." ;;
+        amd) echo "  AMD: amdgpu + RADV/radeonsi; 'kwick-gpu rocm' adds the compute stack." ;;
+        intel) echo "  Intel: i915/xe + ANV/iris; media-va-driver-non-free for hardware video." ;;
+        vm) echo "  Virtual GPU: virtio-gpu/vmware/qxl via Mesa llvmpipe/virgl." ;;
+      esac
+    done
+    build_pkgs
     echo "Would install: $pkgs"
+    [ "$arch" = amd64 ] && echo "i386 multiarch: $(dpkg --print-foreign-architectures 2>/dev/null | grep -qx i386 && echo enabled || echo 'not enabled (kpkg has none; Steam uses Flatpak)')"
+    [ -c /dev/uinput ] && echo "uinput: present" || echo "uinput: missing"
     command -v vulkaninfo >/dev/null && vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName' ;;
+  help|-h|--help) usage ;;
+  *) usage; exit 2 ;;
 esac

@@ -1,6 +1,4 @@
 #!/bin/bash
-# Build the arch-independent `kwick-gpu` package: apt install kwick-gpu detects the GPU(s)
-# (NVIDIA / AMD / Intel / Apple Silicon / virtio) and installs the matching drivers + firmware.
 set -euo pipefail
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; VER=$(tr -d '\r\n' < "$SRC/VERSION")
 P=$(mktemp -d); mkdir -p "$P/DEBIAN" "$P/usr/sbin"
@@ -15,8 +13,10 @@ Priority: optional
 Installed-Size: 20
 Depends: pciutils
 Description: KwickOS GPU driver selector
- Detects NVIDIA, AMD, Intel, Apple Silicon and virtio GPUs and installs the matching
- Mesa/Vulkan drivers and firmware. Re-run 'kwick-gpu install' after hardware changes.
+ Detects NVIDIA, AMD, Intel, Apple Silicon and virtual GPUs (PCI vendor IDs, device tree) and
+ installs the matching Mesa/Vulkan drivers and firmware, plus 32-bit Mesa/Vulkan for Steam where
+ the package manager supports i386. Commands: detect, install, status, rocm, steam. Re-run
+ 'kwick-gpu install' after hardware changes.
 EOF
 cat > "$P/DEBIAN/postinst" <<'PI'
 #!/bin/sh

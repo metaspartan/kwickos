@@ -42,11 +42,12 @@ M=(make -C "$KSRC" O="$O" ARCH="$KARCH" CROSS_COMPILE="$CROSS" -j"$(nproc)" KBUI
 
 # Fragments (normalize CRLF in case of a Windows checkout).
 FR="$O/fragments"; mkdir -p "$FR"
-for f in common "$FRAG" "$FLAVOR"; do sed 's/\r$//' "$SRC/config/kernel/$f.config" > "$FR/$f.config"; done
+XF=""; [ -f "$SRC/config/kernel/$FLAVOR-$FRAG.config" ] && XF="$FLAVOR-$FRAG"
+for f in common "$FRAG" "$FLAVOR" $XF; do sed 's/\r$//' "$SRC/config/kernel/$f.config" > "$FR/$f.config"; done
 
 # Embedded initramfs: just kinit as /init (stage 0 root finder).
 KINIT="$OUT/$ARCH/userland/kinit"
-[ -x "$KINIT" ] || { echo "missing $KINIT - build userland first"; exit 1; }
+[ -n "${CONFIG_ONLY:-}" ] || [ -x "$KINIT" ] || { echo "missing $KINIT - build userland first"; exit 1; }
 cat > "$O/initramfs.list" <<EOF
 dir /dev 0755 0 0
 nod /dev/console 0600 0 0 c 5 1
@@ -60,7 +61,7 @@ echo "CONFIG_INITRAMFS_SOURCE=\"$O/initramfs.list\"" > "$FR/initramfs.config"
 
 if [ "$FLAVOR" = virt ]; then BASE=tinyconfig; else BASE=defconfig; fi
 "${M[@]}" $BASE >/dev/null
-"$KSRC/scripts/kconfig/merge_config.sh" -m -O "$O" "$O/.config" "$FR"/common.config "$FR/$FRAG.config" "$FR/$FLAVOR.config" "$FR/initramfs.config" >/dev/null
+"$KSRC/scripts/kconfig/merge_config.sh" -m -O "$O" "$O/.config" "$FR"/common.config "$FR/$FRAG.config" "$FR/$FLAVOR.config" ${XF:+"$FR/$XF.config"} "$FR/initramfs.config" >/dev/null
 "${M[@]}" olddefconfig >/dev/null
 
 # Hard requirements: fail loudly if kconfig silently dropped something.
@@ -70,7 +71,7 @@ REQ="DEVTMPFS BLK_DEV_INITRD VIRTIO_PCI VIRTIO_BLK VIRTIO_NET VIRTIO_CONSOLE EXT
 case $ARCH in amd64) REQ="$REQ SERIAL_8250_CONSOLE BLK_DEV_SR PVH KVM_GUEST";; arm64) REQ="$REQ SERIAL_AMBA_PL011_CONSOLE";; riscv64) REQ="$REQ SERIAL_8250_CONSOLE SERIAL_OF_PLATFORM";; esac
 # Report (non-fatal) every fragment option kconfig dropped.
 dropped=""
-for f in "$FR"/common.config "$FR/$FRAG.config" "$FR/$FLAVOR.config"; do
+for f in "$FR"/common.config "$FR/$FRAG.config" "$FR/$FLAVOR.config" ${XF:+"$FR/$XF.config"}; do
   while IFS= read -r l; do
     case "$l" in CONFIG_*=y|CONFIG_*=m) grep -qx "${l%=*}=[ym]" "$O/.config" || dropped="$dropped ${l%=*}";; esac
   done < "$f"
@@ -80,6 +81,7 @@ missing=""
 for o in $REQ; do grep -q "^CONFIG_$o=y" "$O/.config" || missing="$missing $o"; done
 [ -z "$missing" ] || { echo "!! required kernel options missing:$missing"; exit 1; }
 
+if [ -n "${CONFIG_ONLY:-}" ]; then cp "$O/.config" "$OUT/config-$ARCH-$FLAVOR"; echo ">> config only: $OUT/config-$ARCH-$FLAVOR"; exit 0; fi
 T0=$(date +%s)
 TARGETS=$(basename $IMG)
 case $ARCH in arm64|riscv64) TARGETS="$TARGETS vmlinuz.efi";; esac

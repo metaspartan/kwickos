@@ -1,18 +1,33 @@
 #!/bin/sh
-# steam: launcher that makes Steam work out of the box. The first launch installs the
-# Flathub build (bundles the 32-bit runtime, Proton support and the Mesa/NVIDIA GL
-# extensions, so no multiarch is needed on the host) and then starts it.
 APP=com.valvesoftware.Steam
+note() { command -v notify-send >/dev/null 2>&1 && notify-send -i steam "Steam" "$1"; echo "steam: $1"; }
+
+case $(uname -m) in
+  x86_64) ;;
+  *)
+    msg="Steam is x86 only. Debian 13 ships no x86 emulator for $(uname -m) (no fex-emu, no box64), so Steam is not supported on this machine."
+    command -v zenity >/dev/null 2>&1 && zenity --error --no-markup --title Steam --text "$msg" 2>/dev/null
+    echo "steam: $msg" >&2
+    exit 3 ;;
+esac
+
+if [ -x /usr/games/steam ]; then exec /usr/games/steam "$@"; fi
+
 if ! flatpak info "$APP" >/dev/null 2>&1; then
-  command -v notify-send >/dev/null && notify-send -i steam "Steam" "Installing Steam (about 1 GB, first launch only)..."
+  note "Setting up Steam (first launch only)..."
+  if command -v kwick-gpu >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then kwick-gpu steam; else sudo -n kwick-gpu steam || pkexec /usr/sbin/kwick-gpu steam; fi >/dev/null 2>&1
+  fi
+  if [ -x /usr/games/steam ]; then exec /usr/games/steam "$@"; fi
+  note "Installing Steam from Flathub (about 1 GB)..."
   flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null \
     || flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-  flatpak install -y --noninteractive flathub "$APP" || { echo "Steam install failed (network?)"; exit 1; }
-  # match the NVIDIA GL runtime to the host driver when one is loaded
+  flatpak install -y --noninteractive flathub "$APP" || { note "Steam install failed (network?)"; exit 1; }
   if [ -r /sys/module/nvidia/version ]; then
     v=$(tr . - < /sys/module/nvidia/version)
     flatpak install -y --noninteractive flathub "org.freedesktop.Platform.GL.nvidia-$v" 2>/dev/null || true
   fi
-  flatpak override --user --filesystem=xdg-run/gamemode "$APP" 2>/dev/null || true
+  flatpak override --user --filesystem=xdg-run/gamemode --device=all "$APP" 2>/dev/null || true
 fi
+[ -c /dev/uinput ] || note "Steam Input needs /dev/uinput; run: sudo modprobe uinput"
 exec flatpak run "$APP" "$@"
