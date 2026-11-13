@@ -82,15 +82,15 @@ jobs:
           KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
           KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}
         run: |
-          mkdir -p out
+          mkdir -p keys
           export GNUPGHOME=$(mktemp -d)
           bash scripts/gpgimport.sh
-          gpg --batch --armor --export > out/archive-key.asc
-          test -s out/archive-key.asc
+          gpg --batch --armor --export > keys/archive-key.asc
+          test -s keys/archive-key.asc
       - name: Root filesystem
         env:
           KWICK_REPO_URL: ${{ inputs.release && 'https://metaspartan.github.io/kwickos' || '' }}
-          KWICK_REPO_KEY: ${{ inputs.release && '/out/archive-key.asc' || '' }}
+          KWICK_REPO_KEY: ${{ inputs.release && '/src/keys/archive-key.asc' || '' }}
         run: make rootfs ARCH=$ARCH
       - name: Images (efi, img, qcow2, iso, initramfs)
         run: make images ARCH=$ARCH
