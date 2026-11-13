@@ -32,6 +32,16 @@ Desktop layouts from `kwick-layout` (real Plasma session, software-rendered; sys
 |---|---|
 | ![tools](docs/img/terminal-tools.png) | ![settings](docs/img/system-settings.png) |
 
+| Dolphin, Windows style | Firefox, macOS style | Discover, Linux style |
+|---|---|---|
+| ![dolphin](docs/img/windows-dolphin.png) | ![firefox](docs/img/macos-firefox.png) | ![discover](docs/img/linux-discover.png) |
+
+Known issue: Discover shows an "Update Issue" dialog in the screenshot environment (no network or Flathub remote there); system packages are managed with `apt`, not Discover.
+
+## How it compares
+
+![comparison](docs/img/comparison.png)
+
 ## Results (measured, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md))
 
 | | Alpine 3.24.4 | **KwickOS 0.1** |

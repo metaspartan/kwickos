@@ -54,3 +54,7 @@ RUN for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-p
 RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/share/lintian \
  && find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' ! -name 'locale.alias' -exec rm -rf {} + \
  && rm -rf /var/cache/apt /var/lib/apt/lists/*
+
+# Discover: KwickOS has no PackageKit (kpkg is the package manager); keep only the Flatpak backend
+RUN rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
+
