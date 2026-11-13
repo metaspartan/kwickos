@@ -13,18 +13,10 @@ RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firm
  && PK="$(grep -hv '^#' /tmp/packages.list | tr '\n' ' ')"; [ "$(dpkg --print-architecture)" = amd64 ] && PK="$PK $(grep -hv '^#' /tmp/packages.amd64.list | tr '\n' ' ')"; apt install -y $PK \
  && apt clean && rm -rf /var/lib/apt/lists/* /tmp/packages*.list
 
-# Burn-My-Windows: compiz-style open/close effects for KWin 6 (fire, TV,
-# hexagon, pixelate, wisps, doom, energize, ...). Wobbly windows and magic
-# lamp are KWin built-ins. All are toggled in System Settings > Desktop Effects.
-ARG BMW_VERSION=v49
-RUN mkdir -p /usr/share/kwin/effects /tmp/bmw && cd /tmp/bmw \
- && curl -fsSL -o bmw.tgz https://github.com/Schneegans/Burn-My-Windows/releases/download/${BMW_VERSION}/burn_my_windows_kwin6.tar.gz \
- && tar xzf bmw.tgz && cp -r $(find . -mindepth 1 -maxdepth 2 -type d -name 'kwin6_effect_*' -o -mindepth 1 -maxdepth 2 -type d -name 'burn_my_windows_*' | grep -v '\.tgz') /usr/share/kwin/effects/ 2>/dev/null || true; \
-    rm -rf /tmp/bmw; ls /usr/share/kwin/effects | head -30
-
 COPY rootfs/ /
+RUN chmod 755 /usr/lib/kwick/fetch-fonts && /usr/lib/kwick/fetch-fonts / all && fc-cache -f
 RUN set -e; \
-    find /usr/lib/kwick /usr/bin/kwick-gaming /usr/bin/kwick-desktop /usr/bin/kwick-fonts /usr/bin/kwick-layout /usr/bin/kwick-effects /usr/bin/steam -type f -exec chmod 755 {} +; \
+    find /usr/lib/kwick /usr/bin/kwick-* /usr/bin/steam -type f -exec chmod 755 {} +; \
     rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
     W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W; \
     for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do \

@@ -1,15 +1,93 @@
 #!/bin/sh
-# kwick-fonts: font sets that match the desktop layouts.
-#   kwick-fonts windows   Segoe-like UI (Open Sans/Selawik-style), Carlito/Caladea (Calibri/Cambria metrics), Liberation (Arial/Times/Courier metrics)
-#   kwick-fonts macos     Inter (SF Pro look), Helvetica/Arial metric-compatible Liberation, JetBrains Mono
-#   kwick-fonts msfonts   download the real Microsoft core fonts (you accept Microsoft's EULA)
-[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+set -u
+
+usage() {
+  cat <<'USAGE'
+usage: kwick-fonts COMMAND
+
+  windows    install the Windows 11 font set: Selawik (Segoe UI compatible), Carlito, Caladea,
+             Liberation, Cascadia Code
+  macos      install the macOS font set: Inter and Inter Display (SF Pro look), Liberation
+             (Helvetica metrics), JetBrains Mono
+  linux      install the Linux font set: Ubuntu Sans and Ubuntu Sans Mono, Noto Serif
+  all        install every set above
+  apply L    apply layout L (windows|macos|linux) now: fontconfig defaults plus Plasma/GNOME UI fonts
+  names L    print the UI font and the fixed font used by layout L
+  msfonts    download the real Microsoft core fonts (you accept Microsoft's EULA)
+USAGE
+}
+
+names() {
+  case $1 in
+    macos)   UI="Inter"; MONO="JetBrains Mono"; SERIF="Noto Serif"; PT=10 ;;
+    windows) UI="Selawik"; MONO="Cascadia Code"; SERIF="Liberation Serif"; PT=10 ;;
+    linux)   UI="Ubuntu Sans"; MONO="Ubuntu Sans Mono"; SERIF="Noto Serif"; PT=10 ;;
+    *) return 1 ;;
+  esac
+}
+
+pkgs() {
+  case $1 in
+    macos)   echo fonts-inter fonts-liberation2 fonts-jetbrains-mono fonts-noto-core fonts-noto-color-emoji ;;
+    windows) echo fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-cascadia-code fonts-noto-color-emoji ;;
+    linux)   echo fonts-noto-core fonts-noto-mono fonts-liberation2 fonts-noto-color-emoji ;;
+  esac
+}
+
+as_root() { [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"; }
+
+apply() {
+  names "$1" || { usage; exit 1; }
+  d=${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig/conf.d
+  mkdir -p "$d"
+  cat > "$d/60-kwick-layout.conf" <<CONF
+<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <alias binding="same"><family>sans-serif</family><prefer><family>$UI</family></prefer></alias>
+  <alias binding="same"><family>serif</family><prefer><family>$SERIF</family></prefer></alias>
+  <alias binding="same"><family>monospace</family><prefer><family>$MONO</family></prefer></alias>
+</fontconfig>
+CONF
+  if command -v kwriteconfig6 >/dev/null 2>&1; then
+    kwriteconfig6 --file kdeglobals --group General --key font "$UI,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kwriteconfig6 --file kdeglobals --group General --key menuFont "$UI,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kwriteconfig6 --file kdeglobals --group General --key toolBarFont "$UI,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kwriteconfig6 --file kdeglobals --group General --key smallestReadableFont "$UI,$((PT - 2)),-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kwriteconfig6 --file kdeglobals --group General --key fixed "$MONO,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kwriteconfig6 --file kdeglobals --group WM --key activeFont "$UI,$PT,-1,5,600,0,0,0,0,0,0,0,0,0,0,1"
+  fi
+  if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface font-name "$UI $PT" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface document-font-name "$UI $PT" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface monospace-font-name "$MONO $PT" 2>/dev/null || true
+  fi
+  fc-cache -f >/dev/null 2>&1 || true
+}
+
+install_set() {
+  as_root "$@"
+  apt-get update >/dev/null 2>&1 || true
+  apt-get install -y --no-install-recommends $(pkgs "$1")
+  /usr/lib/kwick/fetch-fonts / "$1"
+  fc-cache -f >/dev/null 2>&1 || true
+}
+
 case "${1:-}" in
-  windows) apt install -y fonts-open-sans fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-color-emoji ;;
-  macos) apt install -y fonts-inter fonts-liberation2 fonts-jetbrains-mono fonts-noto-color-emoji ;;
-  msfonts) sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources
-           apt update >/dev/null 2>&1; echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
-           apt install -y ttf-mscorefonts-installer ;;
-  *) sed -n '2,6p' "$0" ;;
+  windows|macos|linux) install_set "$1" ;;
+  all)
+    as_root "$@"
+    apt-get update >/dev/null 2>&1 || true
+    apt-get install -y --no-install-recommends $(pkgs windows) $(pkgs macos) $(pkgs linux)
+    /usr/lib/kwick/fetch-fonts / all
+    fc-cache -f >/dev/null 2>&1 || true ;;
+  apply) apply "${2:-}" ;;
+  names) names "${2:-}" || { usage; exit 1; }; echo "$UI"; echo "$MONO" ;;
+  msfonts)
+    as_root "$@"
+    sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources
+    apt-get update >/dev/null 2>&1
+    echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
+    apt-get install -y ttf-mscorefonts-installer
+    fc-cache -f >/dev/null 2>&1 || true ;;
+  *) usage ;;
 esac
-fc-cache -f >/dev/null 2>&1 || true

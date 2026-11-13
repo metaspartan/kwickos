@@ -8,11 +8,9 @@ VER=$(tr -d '\r\n' < "$SRC/VERSION")
 P=$(mktemp -d); mkdir -p "$P/DEBIAN"
 cp -r --no-preserve=ownership "$SRC/desktop/rootfs/." "$P/"
 find "$P" -type f \( -path '*/usr/lib/kwick/*' -o -path '*/usr/bin/kwick-*' \) -exec chmod 755 {} +
+chmod 755 "$P/usr/lib/kwick/fetch-fonts"
+"$P/usr/lib/kwick/fetch-fonts" "$P" all
 rm -f "$P/etc/kinit/no-getty"   # keep the serial/VT getty on upgraded servers
-mkdir -p "$P/usr/share/kwin/effects" /tmp/bmw && cd /tmp/bmw
-curl -fsSL -o bmw.tgz "https://github.com/Schneegans/Burn-My-Windows/releases/download/${BMW_VERSION:-v49}/burn_my_windows_kwin6.tar.gz" \
-  && tar xzf bmw.tgz && cp -r $(find . -mindepth 1 -maxdepth 2 -type d \( -name 'kwin6_effect_*' -o -name 'burn_my_windows_*' \)) "$P/usr/share/kwin/effects/" || echo "note: Burn-My-Windows unavailable, skipping"
-cd /; rm -rf /tmp/bmw
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
 # non-free firmware/microcode/VA drivers are installed by kwick-gpu (enables non-free-firmware itself)
 deps="linux-image-kwick-generic, kwick-gpu, $deps"

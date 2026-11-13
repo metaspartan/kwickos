@@ -1,0 +1,59 @@
+#!/bin/sh
+set -eu
+
+ROOT=${1:-/}
+SET=${2:-all}
+BASE=$ROOT/usr/share/fonts/truetype/kwick
+
+SEL_URL=https://github.com/microsoft/Selawik/releases/download/1.01/Selawik_Release.zip
+SEL_SHA=3f62c51e05e3b5a1e6241cf92a371f0be2ea1183aa87b30718bbd40832a8d423
+SEL_LIC_URL=https://raw.githubusercontent.com/microsoft/Selawik/1.01/LICENSE.txt
+SEL_LIC_SHA=77b7c2506d4efb22e09c8ccf10159f4956eab3ef7c007fef95de136bcf45300c
+
+UBS_URL=https://github.com/canonical/Ubuntu-Sans-fonts/releases/download/v1.006/UbuntuSans-fonts-1.006.zip
+UBS_SHA=20aa7af47beaa6d64327782f7bf60df375edeedbdee2fe407e0bf9721890fb83
+
+UBM_URL=https://github.com/canonical/Ubuntu-Sans-Mono-fonts/releases/download/v1.100/Ubuntu-Sans-Mono-fonts-v1.100.zip
+UBM_SHA=0e459ed18b552190971561b3e474d0c4583db40483debf9e951321c2a1c2dec8
+
+T=$(mktemp -d)
+trap 'rm -rf "$T"' EXIT
+
+get() {
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 3 -o "$T/$3" "$1"; else wget -q -O "$T/$3" "$1"; fi
+  echo "$2  $T/$3" | sha256sum -c - >/dev/null
+}
+
+selawik() {
+  get "$SEL_URL" "$SEL_SHA" sel.zip
+  get "$SEL_LIC_URL" "$SEL_LIC_SHA" sel-lic.txt
+  mkdir -p "$T/sel" "$BASE/selawik"
+  unzip -oq "$T/sel.zip" '*.ttf' -d "$T/sel"
+  cp "$T"/sel/*.ttf "$BASE/selawik/"
+  cp "$T/sel-lic.txt" "$BASE/selawik/OFL.txt"
+}
+
+ubuntusans() {
+  get "$UBS_URL" "$UBS_SHA" ubs.zip
+  mkdir -p "$T/ubs" "$BASE/ubuntu-sans"
+  unzip -oq "$T/ubs.zip" 'UbuntuSans-fonts-1.006/ttf/*' 'UbuntuSans-fonts-1.006/LICENCE.txt' 'UbuntuSans-fonts-1.006/COPYRIGHT.txt' -d "$T/ubs"
+  cp "$T"/ubs/UbuntuSans-fonts-1.006/ttf/UbuntuSans-*.ttf "$BASE/ubuntu-sans/"
+  cp "$T/ubs/UbuntuSans-fonts-1.006/LICENCE.txt" "$T/ubs/UbuntuSans-fonts-1.006/COPYRIGHT.txt" "$BASE/ubuntu-sans/"
+}
+
+ubuntumono() {
+  get "$UBM_URL" "$UBM_SHA" ubm.zip
+  mkdir -p "$T/ubm" "$BASE/ubuntu-sans-mono"
+  unzip -oq "$T/ubm.zip" 'Ubuntu-Sans-Mono-fonts-v1.100/fonts/ttf/*' 'Ubuntu-Sans-Mono-fonts-v1.100/LICENCE.txt' -d "$T/ubm"
+  cp "$T"/ubm/Ubuntu-Sans-Mono-fonts-v1.100/fonts/ttf/*.ttf "$BASE/ubuntu-sans-mono/"
+  cp "$T/ubm/Ubuntu-Sans-Mono-fonts-v1.100/LICENCE.txt" "$BASE/ubuntu-sans-mono/"
+}
+
+case $SET in
+  windows) selawik ;;
+  linux) ubuntusans; ubuntumono ;;
+  macos) ;;
+  all) selawik; ubuntusans; ubuntumono ;;
+  *) echo "usage: fetch-fonts ROOT windows|macos|linux|all" >&2; exit 1 ;;
+esac
+chmod -R a+rX "$BASE" 2>/dev/null || true
