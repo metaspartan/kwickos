@@ -257,7 +257,7 @@ for i, c in enumerate(pal):
     cs += f"\n[Color{i}]\nColor={c[0]},{c[1]},{c[2]}\n\n[Color{i}Faint]\nColor={c[0]},{c[1]},{c[2]}\n\n[Color{i}Intense]\nColor={palI[i][0]},{palI[i][1]},{palI[i][2]}\n"
 cs += "\n[General]\nBlur=true\nColorRandomization=false\nDescription=KwickOS Glass\nOpacity=0.82\nWallpaper=\n"
 w("usr/share/konsole/KwickGlass.colorscheme", cs)
-w("usr/share/konsole/KwickOS.profile", "[Appearance]\nColorScheme=KwickGlass\nFont=JetBrains Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1\n\n[General]\nName=KwickOS\nParent=FALLBACK/\n\n[Scrolling]\nScrollBarPosition=2\n\n[Terminal Features]\nBlinkingCursorEnabled=true\n")
+w("usr/share/konsole/KwickOS.profile", "[Appearance]\nColorScheme=KwickGlass\nFont=JetBrains Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1\nTerminalMargin=14\nTerminalCenter=false\n\n[General]\nName=KwickOS\nParent=FALLBACK/\n\n[Scrolling]\nScrollBarPosition=2\n\n[Terminal Features]\nBlinkingCursorEnabled=true\n")
 w("etc/xdg/konsolerc", "[Desktop Entry]\nDefaultProfile=KwickOS.profile\n\n[KonsoleWindow]\nShowMenuBarByDefault=false\n")
 
 # ------------------------------------------------------------------------ icons

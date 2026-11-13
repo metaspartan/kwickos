@@ -1,4 +1,3 @@
-// KwickOS Windows 11 layout — applied by kwick-layout.
 var desktopsArray = desktopsForActivity(currentActivity());
 for (var j = 0; j < desktopsArray.length; j++) {
     var d = desktopsArray[j];
@@ -15,15 +14,13 @@ var launchers = [
     "applications:systemsettings.desktop"
 ].join(",");
 
-// Windows 11: centered icons on a translucent full-width taskbar; tray + clock on the right.
 var p = new Panel;
 p.location = "bottom";
-p.height = Math.round(gridUnit * 2.9);
+p.height = 48;
 p.floating = false;
 p.hiding = "none";
 p.opacity = "translucent";
 
-// Left fixed spacer mirrors the tray+clock width so icons stay visually centered
 var lead = p.addWidget("org.kde.plasma.panelspacer");
 lead.currentConfigGroup = ["Configuration", "General"];
 lead.writeConfig("expanding", "false");
@@ -31,12 +28,13 @@ lead.writeConfig("length", "260");
 
 var l2 = p.addWidget("org.kde.plasma.panelspacer");
 
-// Start button — original KwickOS mark (not the Windows logo)
 var k = p.addWidget("org.kde.plasma.kickoff");
 k.currentConfigGroup = ["General"];
 k.writeConfig("icon", "kwick-start-fluent");
+var gapK = p.addWidget("org.kde.plasma.marginsseparator");
+gapK.currentConfigGroup = ["General"];
+gapK.writeConfig("margin", "6");
 
-// Centered task icons
 var t = p.addWidget("org.kde.plasma.icontasks");
 t.currentConfigGroup = ["General"];
 t.writeConfig("launchers", launchers);
@@ -46,7 +44,9 @@ t.writeConfig("maxStripes", "1");
 
 p.addWidget("org.kde.plasma.panelspacer");
 
-// Tray + clock (right side, Windows 11 style)
+var gapT = p.addWidget("org.kde.plasma.marginsseparator");
+gapT.currentConfigGroup = ["General"];
+gapT.writeConfig("margin", "8");
 p.addWidget("org.kde.plasma.systemtray");
 var c = p.addWidget("org.kde.plasma.digitalclock");
 c.currentConfigGroup = ["Appearance"];
@@ -56,12 +56,12 @@ c.writeConfig("customDateFormat", "M/d/yyyy");
 c.writeConfig("dateDisplayFormat", "BelowTime");
 c.writeConfig("use24hFormat", 0);
 c.writeConfig("showSeconds", "false");
-c.writeConfig("fontFamily", "Inter");
+c.writeConfig("fontFamily", "Selawik");
 c.writeConfig("fontWeight", "400");
-c.writeConfig("fontSize", "8");           // Windows 11 clock is small
+c.writeConfig("fontSize", "8");
 c.writeConfig("autoFontAndSize", "false");
 
 var edge = p.addWidget("org.kde.plasma.marginsseparator");
 edge.currentConfigGroup = ["General"];
 edge.writeConfig("margin", "8");
-p.addWidget("org.kde.plasma.showdesktop");
+
