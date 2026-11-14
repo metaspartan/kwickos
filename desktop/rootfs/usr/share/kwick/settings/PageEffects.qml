@@ -9,17 +9,53 @@ ColumnLayout {
         { id: "wobbly", title: "Wobbly windows", sub: "Windows deform like jelly while you drag them" },
         { id: "lamp", title: "Magic lamp", sub: "Minimized windows are sucked into the dock" },
         { id: "flame", title: "Flame open and close", sub: "Windows ignite when they open and burn away when they close" },
+        { id: "flip", title: "3D flip open and close", sub: "Windows swing in and out in perspective with lighting (replaces flame)" },
         { id: "cube", title: "3D desktop cube", sub: "Meta+C shows your desktops as a cube with windows floating above the faces" },
         { id: "blur", title: "Blur", sub: "Frosted glass behind menus, docks and panels" },
         { id: "transparency", title: "Translucency", sub: "Inactive windows, dialogs and menus turn slightly see-through" }
     ]
     readonly property var moreList: [
+        { id: "dissolve", title: "Dissolve", sub: "Closing windows crumble into glowing dust (replaces flame)" },
         { id: "glide", title: "Glide", sub: "Windows glide in and out in 3D (replaces flame)" },
         { id: "fallapart", title: "Fall apart", sub: "Closing windows shatter into pieces (replaces flame)" },
         { id: "sheet", title: "Sheet", sub: "Dialogs drop down from the top of their window" },
         { id: "dim", title: "Dim inactive windows", sub: "Draws attention to the window you are working in" },
         { id: "overview", title: "Overview", sub: "Window and desktop overview" }
     ]
+
+    property int wobble: 6
+    property int sway: 7
+    property bool wobbleReady: false
+
+    function loadParams() {
+        Sys.run("kwick-effects param wobbly", function (out) {
+            var p = String(out).trim().split(/\s+/)
+            if (p.length === 2) {
+                page.wobble = parseInt(p[0])
+                page.sway = parseInt(p[1])
+            }
+            page.wobbleReady = true
+        })
+        Sys.run("kwick-effects flame-style", function (out) {
+            var v = String(out).trim()
+            if (v === "classic" || v === "inferno" || v === "ember" || v === "blue") page.flameStyle = v
+        })
+        Sys.run("kwick-effects flame-height", function (out) {
+            var v = parseInt(String(out).trim())
+            if (v >= 50 && v <= 200) page.flameHeight = v
+        })
+        Sys.run("kwick-effects param flip", function (out) {
+            var v = String(out).trim()
+            if (v === "flip" || v === "door" || v === "tilt") page.flipStyle = v
+        })
+    }
+    property string flipStyle: "flip"
+    property string flameStyle: "classic"
+    property int flameHeight: 100
+    function applyWobble() {
+        Sys.run("kwick-effects wobbly " + page.wobble + " " + page.sway)
+    }
+    Component.onCompleted: loadParams()
 
     function lastVisible(list) {
         for (var i = list.length - 1; i >= 0; i--)
@@ -66,7 +102,7 @@ ColumnLayout {
             model: [
                 { id: "off", name: "Off", sub: "No animations" },
                 { id: "subtle", name: "Subtle", sub: "Fades, blur, magic lamp" },
-                { id: "fluid", name: "Fluid", sub: "Plus wobbly windows" },
+                { id: "fluid", name: "Fluid", sub: "Wobbly windows, 3D flip" },
                 { id: "full", name: "Full", sub: "Flames, 3D cube, translucency" }
             ]
             delegate: Rectangle {
@@ -127,6 +163,76 @@ ColumnLayout {
                     checked: Sys.fx[modelData.id] === "on"
                     onToggled: (v) => Sys.setEffect(modelData.id, v)
                 }
+            }
+        }
+    }
+
+    SectionTitle { text: "WOBBLE, FLAME AND 3D"; visible: Sys.backend === "kde" || Sys.backend === "gnome" || Sys.backend === "hyprland" }
+    Card {
+        visible: Sys.backend === "kde" || Sys.backend === "gnome" || Sys.backend === "hyprland"
+        Cell {
+            title: "Wobble"
+            subtitle: "How far windows stretch while you drag them"
+            Sld {
+                implicitWidth: 220
+                from: 1
+                to: 10
+                step: 1
+                value: page.wobble
+                onValueChanged: if (pressed) page.wobble = value
+                onReleased: (v) => { page.wobble = v; page.applyWobble() }
+            }
+            Text { Layout.preferredWidth: 22; horizontalAlignment: Text.AlignRight; text: page.wobble; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
+        }
+        Cell {
+            last: Sys.backend !== "kde"
+            title: "Sway"
+            subtitle: "How curvy and fluid the wobble is: softer springs, finer mesh"
+            Sld {
+                implicitWidth: 220
+                from: 1
+                to: 10
+                step: 1
+                value: page.sway
+                onValueChanged: if (pressed) page.sway = value
+                onReleased: (v) => { page.sway = v; page.applyWobble() }
+            }
+            Text { Layout.preferredWidth: 22; horizontalAlignment: Text.AlignRight; text: page.sway; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
+        }
+        Cell {
+            visible: Sys.backend === "kde"
+            title: "Flame style"
+            subtitle: "Classic rises above the window, Inferno flares out wide, Ember is a subtle burn with sparks, Blue is a gas flame"
+            Seg {
+                options: [{ id: "classic", label: "Classic" }, { id: "inferno", label: "Inferno" }, { id: "ember", label: "Ember" }, { id: "blue", label: "Blue" }]
+                current: page.flameStyle
+                onPicked: (id) => { page.flameStyle = id; Sys.run("kwick-effects flame-style " + id) }
+            }
+        }
+        Cell {
+            visible: Sys.backend === "kde"
+            title: "Flame height"
+            subtitle: "How far the flames rise past the window edges"
+            Sld {
+                implicitWidth: 220
+                from: 50
+                to: 200
+                step: 10
+                value: page.flameHeight
+                onValueChanged: if (pressed) page.flameHeight = value
+                onReleased: (v) => { page.flameHeight = v; Sys.run("kwick-effects flame-height " + v) }
+            }
+            Text { Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight; text: page.flameHeight + "%"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
+        }
+        Cell {
+            visible: Sys.backend === "kde"
+            last: true
+            title: "3D open and close style"
+            subtitle: "Flip turns the window around its middle, Door hinges it on the left, Tilt drops it back"
+            Seg {
+                options: [{ id: "flip", label: "Flip" }, { id: "door", label: "Door" }, { id: "tilt", label: "Tilt" }]
+                current: page.flipStyle
+                onPicked: (id) => { page.flipStyle = id; Sys.run("kwick-effects param flip " + id) }
             }
         }
     }

@@ -10,12 +10,13 @@ KWinComponents.SceneEffect {
     property var lastDesktop: null
     readonly property var currentDesktop: KWinComponents.Workspace.currentDesktop
     readonly property real azimuth: fromAzimuth + (toAzimuth - fromAzimuth) * ease(progress)
-    readonly property real pull: Math.sin(Math.PI * progress)
+    readonly property real pull: Math.pow(Math.sin(Math.PI * progress), 0.8)
 
-    delegate: Qt.createComponent("ScreenView.qml")
+    readonly property var screenComponent: Qt.createComponent("ScreenView.qml")
+    delegate: screenComponent
 
     function ease(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        return t * t * t * (t * (6 * t - 15) + 10);
     }
 
     function begin(desktop) {
@@ -40,7 +41,12 @@ KWinComponents.SceneEffect {
         run.restart();
     }
 
-    Component.onCompleted: lastDesktop = currentDesktop
+    Component.onCompleted: {
+        lastDesktop = currentDesktop;
+        if (screenComponent.status === Component.Error) {
+            console.log("kwick_cubeslide:", screenComponent.errorString());
+        }
+    }
 
     onCurrentDesktopChanged: begin(currentDesktop)
 

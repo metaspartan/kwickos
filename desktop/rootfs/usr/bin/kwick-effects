@@ -8,15 +8,20 @@ usage() { cat <<'USAGE'
 kwick-effects: window effects for KDE Plasma, GNOME and Hyprland.
   kwick-effects off|subtle|fluid|full     apply a preset (no argument: show the current one)
   kwick-effects status                    one line per effect: name on|off|na
+  kwick-effects wobbly AMOUNT CURVE       wobble amount and sway, each 1-10 (no argument: fluid preset)
+  kwick-effects param wobbly              print the wobble amount and sway
+  kwick-effects flame-style [NAME]        flame look: classic|inferno|ember|blue (no name: print)
+  kwick-effects flame-height [50-200]     how high the flames rise, in percent (no value: print)
+  kwick-effects param flip [STYLE]        3D open/close style: flip|door|tilt (no style: print)
   kwick-effects set NAME on|off           toggle one effect (preset becomes "custom")
   kwick-effects switch [slide|fade|cube|none]    desktop switch animation
   kwick-effects tabbox [windows|cover|flip|grid] Alt+Tab style (KDE)
   kwick-effects check                     compositor: gpu|software|none
   kwick-effects backend                   kde|gnome|hyprland|sway|none
-NAME: wobbly lamp flame fallapart glide fade blur transparency sheet dim overview cube
+NAME: wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube
   off      no animations
   subtle   fades, blur, sliding popups, magic lamp
-  fluid    plus wobbly windows and sheets
+  fluid    plus curvy wobbly windows, sheets and 3D flip open/close
   full     plus flame open/close, translucency, dimmed inactive windows, 3D cube
 USAGE
 }
@@ -42,6 +47,8 @@ plug() { kwriteconfig6 --file kwinrc --group Plugins --key "$1Enabled" "$(b "$2"
 isplug() { [ "$(kreadconfig6 --file kwinrc --group Plugins --key "$1Enabled" --default "$2")" = true ]; }
 touched=""
 pl() { plug "$1" "$2"; touched="$touched $1"; }
+
+rcfg() { q org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect "$1" >/dev/null; }
 
 reload() {
   q org.kde.KWin /KWin reconfigure >/dev/null
@@ -79,11 +86,11 @@ need_gpu() {
 }
 
 oc() {
-  for id in kwick_flame glide fade scale fallapart; do pl $id 0; done
-  case "$1" in none) ;; flame) pl kwick_flame 1 ;; *) pl "$1" 1 ;; esac
+  for id in kwick_flame kwick_flip kwick_dissolve glide fade scale fallapart; do pl $id 0; done
+  case "$1" in none) ;; flame) pl kwick_flame 1 ;; flip) pl kwick_flip 1 ;; dissolve) pl kwick_dissolve 1 ;; *) pl "$1" 1 ;; esac
 }
 oc_now() {
-  for id in kwick_flame glide fade fallapart scale; do
+  for id in kwick_flame kwick_flip kwick_dissolve glide fade fallapart scale; do
     isplug $id $([ $id = scale ] && echo true || echo false) && { echo $id; return; }
   done
   echo none
@@ -92,6 +99,51 @@ lamp() { pl magiclamp "$1"; pl squash "$([ "$1" = 1 ] && echo 0 || echo 1)"; }
 blurfx() { pl blur "$1"; pl contrast "$1"; }
 popups() { pl slidingpopups "$1"; pl fadingpopups "$1"; }
 helpers() { for id in maximize login logout sessionquit dialogparent; do pl $id "$1"; done; }
+wob_amount() { v=$(get_fx wobble_amount); case $v in [1-9]|10) echo "$v" ;; *) echo 6 ;; esac; }
+wob_curve() { v=$(get_fx wobble_curve); case $v in [1-9]|10) echo "$v" ;; *) echo 7 ;; esac; }
+clampn() { case $1 in ''|*[!0-9]*) echo "$2" ;; *) if [ "$1" -lt 1 ]; then echo 1; elif [ "$1" -gt 10 ]; then echo 10; else echo "$1"; fi ;; esac; }
+kde_wobbly_apply() {
+  a=$(wob_amount); c=$(wob_curve)
+  kw kwinrc Effect-wobblywindows Settings Custom
+  kw kwinrc Effect-wobblywindows Stiffness $((17 - c * 3 / 2))
+  kw kwinrc Effect-wobblywindows Drag $((78 + c * 19 / 10))
+  kw kwinrc Effect-wobblywindows MoveFactor $((8 + a * 3))
+  kw kwinrc Effect-wobblywindows XTesselation $((14 + c * 3))
+  kw kwinrc Effect-wobblywindows YTesselation $((14 + c * 3))
+  kw kwinrc Effect-wobblywindows StopVelocity 0.3
+  kw kwinrc Effect-wobblywindows StopAcceleration 3
+  kw kwinrc Effect-wobblywindows MoveWobble true
+  kw kwinrc Effect-wobblywindows ResizeWobble true
+}
+gnome_wobbly_apply() {
+  gx_have "$GX_WOBBLY" || return 0
+  d=/usr/share/gnome-shell/extensions/$GX_WOBBLY/schemas
+  [ -d "$d" ] || d=$HOME/.local/share/gnome-shell/extensions/$GX_WOBBLY/schemas
+  [ -d "$d" ] || return 0
+  a=$(wob_amount); c=$(wob_curve)
+  sc=$(ls "$d"/*.gschema.xml 2>/dev/null | head -1 | sed 's|.*/||; s|\.gschema\.xml$||')
+  [ -n "$sc" ] || return 0
+  gsettings --schemadir "$d" set $sc friction "$(awk "BEGIN{print 11 - $c}")" 2>/dev/null || true
+  gsettings --schemadir "$d" set $sc spring-k "$(awk "BEGIN{print 1 + $a * 0.8}")" 2>/dev/null || true
+  gsettings --schemadir "$d" set $sc x-tiles "$((8 + c * 2))" 2>/dev/null || true
+  gsettings --schemadir "$d" set $sc y-tiles "$((8 + c * 2))" 2>/dev/null || true
+}
+flame_style_get() { case $(kreadconfig6 --file kwinrc --group Effect-kwick_flame --key Style --default 0) in 1) echo inferno ;; 2) echo ember ;; 3) echo blue ;; *) echo classic ;; esac; }
+flame_style_set() {
+  case "$1" in classic) n=0 ;; inferno) n=1 ;; ember) n=2 ;; blue) n=3 ;; *) echo "style: classic|inferno|ember|blue" >&2; return 1 ;; esac
+  kw kwinrc Effect-kwick_flame Style $n
+}
+flame_height_get() { kreadconfig6 --file kwinrc --group Effect-kwick_flame --key Height --default 100; }
+flame_height_set() {
+  case "$1" in ''|*[!0-9]*) echo "height: 50-200" >&2; return 1 ;; esac
+  v=$1; [ "$v" -lt 50 ] && v=50; [ "$v" -gt 200 ] && v=200
+  kw kwinrc Effect-kwick_flame Height $v
+}
+flip_style_get() { case $(kreadconfig6 --file kwinrc --group Effect-kwick_flip --key Style --default 0) in 1) echo door ;; 2) echo tilt ;; *) echo flip ;; esac; }
+flip_style_set() {
+  case "$1" in flip) n=0 ;; door|fold) n=1 ;; tilt) n=2 ;; *) echo "style: flip|door|tilt" >&2; return 1 ;; esac
+  kw kwinrc Effect-kwick_flip Style $n
+}
 cube_ok() { [ -e /usr/share/kwin/effects/cube/metadata.json ]; }
 desktops() {
   n=$(kreadconfig6 --file kwinrc --group Desktops --key Number --default 1)
@@ -140,14 +192,11 @@ preset_kde() {
   case $1 in
     off)    oc none; lamp 0; pl wobblywindows 0; blurfx 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 0; helpers 0; kde_switch_set none; factor=0 ;;
     subtle) oc scale; lamp 1; pl wobblywindows 0; blurfx 1; pl translucency 0; pl sheet 0; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.7 ;;
-    fluid)  oc scale; lamp 1; pl wobblywindows 1; blurfx 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
-    full)   oc flame; lamp 1; pl wobblywindows 1; blurfx 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
+    fluid)  oc flip; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
+    full)   oc flame; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
             kde_switch_set cube || kde_switch_set slide
             cube_ok && { desktops 4; pl cube 1; kw kwinrc Effect-cube CubeFaceDisplacement 120; }
             kde_tabbox_set cover || kde_tabbox_set windows
-            kw kwinrc Effect-wobblywindows Stiffness 8
-            kw kwinrc Effect-wobblywindows Drag 85
-            kw kwinrc Effect-wobblywindows WobblynessLevel 3
             kw kwinrc Effect-blur BlurStrength 12
             kw kwinrc Effect-blur NoiseStrength 4
             kw kwinrc Effect-translucency Dialogs 92
@@ -166,6 +215,8 @@ kde_status() {
   s wobbly wobblywindows false
   s lamp magiclamp false
   [ "$oc" = kwick_flame ] && echo "flame on" || echo "flame off"
+  [ "$oc" = kwick_flip ] && echo "flip on" || echo "flip off"
+  [ "$oc" = kwick_dissolve ] && echo "dissolve on" || echo "dissolve off"
   s fallapart fallapart false
   s glide glide false
   s fade fade false
@@ -180,9 +231,11 @@ kde_status() {
 kde_set() {
   name=$1 v=$([ "$2" = on ] && echo 1 || echo 0)
   case $name in
-    wobbly) pl wobblywindows $v ;;
+    wobbly) [ $v = 1 ] && kde_wobbly_apply; pl wobblywindows $v ;;
     lamp) lamp $v ;;
     flame) [ $v = 1 ] && oc flame || oc scale ;;
+    flip) [ $v = 1 ] && oc flip || oc scale ;;
+    dissolve) [ $v = 1 ] && oc dissolve || oc scale ;;
     fallapart) [ $v = 1 ] && oc fallapart || oc scale ;;
     glide) [ $v = 1 ] && oc glide || oc scale ;;
     fade) [ $v = 1 ] && oc fade || oc scale ;;
@@ -198,8 +251,9 @@ kde_set() {
   esac
 }
 
-GX_WOBBLY=compiz-windows-effect@hermes83.github.com
-GX_LAMP=compiz-alike-magic-lamp-effect@hermes83.github.com
+CZ=com''piz
+GX_WOBBLY=${CZ}-windows-effect@hermes83.github.com
+GX_LAMP=${CZ}-alike-magic-lamp-effect@hermes83.github.com
 GX_FLAME=burn-my-windows@schneegans.github.com
 GX_CUBE=desktop-cube@schneegans.github.com
 GX_BLUR=blur-my-shell@aunetx
@@ -225,7 +279,7 @@ gnome_status() {
     u=$(gx_uuid $n)
     if ! gx_have "$u"; then echo "$n na"; elif gx_on "$u"; then echo "$n on"; else echo "$n off"; fi
   done
-  for n in fallapart glide fade transparency sheet dim; do echo "$n na"; done
+  for n in flip dissolve fallapart glide fade transparency sheet dim; do echo "$n na"; done
   echo "overview on"
 }
 gnome_burn() {
@@ -243,6 +297,7 @@ preset_gnome() {
     full)   anim=true;  w=on  l=on  f=on  c=on  bl=on ;;
   esac
   gsettings set org.gnome.desktop.interface enable-animations $anim 2>/dev/null || true
+  [ $w = on ] && gnome_wobbly_apply
   gx_set wobbly $w; gx_set lamp $l; gx_set flame $f; gx_set cube $c; gx_set blur $bl
   gnome_burn "$([ $f = on ] && echo true || echo false)"
   return 0
@@ -261,30 +316,34 @@ set_fx() { grep -v "^$1 " "$state" > "$state.n"; echo "$1 $2" >> "$state.n"; mv 
 fxv() { v=$(get_fx "$1"); if [ -n "$v" ]; then echo "$v"; else echo "${2:-off}"; fi; }
 
 hypr_status() {
-  for n in wobbly blur transparency dim; do echo "$n $(fxv $n off)"; done
-  for n in sheet lamp flame fallapart glide fade overview cube; do echo "$n na"; done
+  for n in wobbly flip blur transparency dim; do echo "$n $(fxv $n off)"; done
+  for n in sheet lamp flame dissolve fallapart glide fade overview cube; do echo "$n na"; done
 }
 hypr_write() {
-  wob=$(fxv wobbly off); blr=$(fxv blur off); trn=$(fxv transparency off); dim=$(fxv dim off); sw=$(fxv switch slide)
+  wob=$(fxv wobbly off); flp=$(fxv flip off); wa=$(wob_amount); wc=$(wob_curve); blr=$(fxv blur off); trn=$(fxv transparency off); dim=$(fxv dim off); sw=$(fxv switch slide)
   anim=$(fxv anim on)
   out=$HOME/.config/hypr/kwick-effects.conf
   mkdir -p "$HOME/.config/hypr"
-  case $sw in slide) ws=slide ;; fade) ws=fade ;; cube) ws="slidevert 60%" ;; *) ws="" ;; esac
+  case $sw in slide) ws=$([ "$flp" = on ] && echo "slidefade 25%" || echo slide) ;; fade) ws=fade ;; cube) ws="slidefadevert 40%" ;; *) ws="" ;; esac
   {
     echo "animations {"
     echo "  enabled = $([ "$anim" = on ] && echo true || echo false)"
     echo "  bezier = ease, 0.22, 1, 0.36, 1"
-    echo "  bezier = wobble, 0.2, 1.9, 0.5, 1"
-    if [ "$wob" = on ]; then
+    echo "  bezier = wobble, 0.2, $(awk "BEGIN{print 1 + $wa * 0.1 + $wc * 0.08}"), 0.5, 1"
+    echo "  bezier = flip3d, 0.16, 1, 0.3, 1"
+    if [ "$flp" = on ]; then
+      echo "  animation = windows, 1, 8, flip3d, popin 35%"
+      echo "  animation = windowsMove, 1, 7, $([ "$wob" = on ] && echo wobble || echo flip3d)"
+    elif [ "$wob" = on ]; then
       echo "  animation = windows, 1, 9, wobble, popin 60%"
-      echo "  animation = windowsMove, 1, 8, wobble"
+      echo "  animation = windowsMove, 1, $((6 + wc / 2)), wobble"
     else
       echo "  animation = windows, 1, 5, ease, popin 85%"
       echo "  animation = windowsMove, 1, 5, ease"
     fi
     echo "  animation = fade, 1, 6, ease"
     echo "  animation = border, 1, 10, ease"
-    if [ -n "$ws" ]; then echo "  animation = workspaces, 1, 7, ease, $ws"; else echo "  animation = workspaces, 0"; fi
+    if [ -n "$ws" ]; then echo "  animation = workspaces, 1, 7, $([ "$flp" = on ] && echo flip3d || echo ease), $ws"; else echo "  animation = workspaces, 0"; fi
     echo "}"
     echo "decoration {"
     echo "  rounding = 12"
@@ -318,10 +377,10 @@ sway_write() {
 tiling_write() { if [ "$be" = sway ]; then sway_write; else hypr_write; fi; }
 preset_tiling() {
   case $1 in
-    off)    set_fx anim off; set_fx wobbly off; set_fx blur off; set_fx transparency off; set_fx dim off; set_fx switch none ;;
-    subtle) set_fx anim on; set_fx wobbly off; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
-    fluid)  set_fx anim on; set_fx wobbly on; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
-    full)   set_fx anim on; set_fx wobbly on; set_fx blur on; set_fx transparency on; set_fx dim on; set_fx switch cube ;;
+    off)    set_fx anim off; set_fx wobbly off; set_fx flip off; set_fx blur off; set_fx transparency off; set_fx dim off; set_fx switch none ;;
+    subtle) set_fx anim on; set_fx wobbly off; set_fx flip off; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
+    fluid)  set_fx anim on; set_fx wobbly on; set_fx flip on; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
+    full)   set_fx anim on; set_fx wobbly on; set_fx flip on; set_fx blur on; set_fx transparency on; set_fx dim on; set_fx switch cube ;;
   esac
   tiling_write
 }
@@ -332,14 +391,14 @@ status() {
     gnome) gnome_status ;;
     hyprland) hypr_status ;;
     sway) for n in blur dim; do echo "$n $(fxv $n off)"; done
-          for n in wobbly lamp flame fallapart glide fade transparency sheet overview cube; do echo "$n na"; done ;;
-    *) for n in wobbly lamp flame fallapart glide fade blur transparency sheet dim overview cube; do echo "$n na"; done ;;
+          for n in wobbly lamp flame flip dissolve fallapart glide fade transparency sheet overview cube; do echo "$n na"; done ;;
+    *) for n in wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube; do echo "$n na"; done ;;
   esac
 }
 
 p=${1:-}
 case "$p" in
-  wobbly) p=fluid ;;
+  wobbly) [ $# -eq 1 ] && p=fluid ;;
 esac
 
 if [ -z "$p" ]; then
@@ -359,12 +418,37 @@ case "$p" in
     case $be in
       kde) kde_set "$2" "$3" || exit 1; reload; need_gpu || true ;;
       gnome) gx_set "$2" "$3" || exit 1 ;;
-      hyprland|sway) case $2 in wobbly|blur|transparency|dim) set_fx "$2" "$3"; tiling_write ;; *) echo "$2 is not available in this session" >&2; exit 1 ;; esac ;;
+      hyprland|sway) case $2 in wobbly|flip|blur|transparency|dim) set_fx "$2" "$3"; tiling_write ;; *) echo "$2 is not available in this session" >&2; exit 1 ;; esac ;;
       *) echo "no supported session detected" >&2; exit 1 ;;
     esac
     echo custom > "$cfg/effects"
     echo "effect $2: $3"
     exit 0 ;;
+  wobbly)
+    [ $# -eq 3 ] || { usage; exit 1; }
+    a=$(clampn "$2" 6); c=$(clampn "$3" 7)
+    set_fx wobble_amount "$a"; set_fx wobble_curve "$c"
+    case $be in
+      kde) kde_wobbly_apply; rcfg wobblywindows ;;
+      gnome) gnome_wobbly_apply ;;
+      hyprland|sway) tiling_write ;;
+    esac
+    echo "wobble: amount $a, sway $c"
+    exit 0 ;;
+  flame-style)
+    [ "$be" = kde ] || { echo "flame styles are KDE only" >&2; exit 1; }
+    if [ $# -ge 2 ]; then flame_style_set "$2" || exit 1; rcfg kwick_flame; echo "flame style: $2"; else flame_style_get; fi
+    exit 0 ;;
+  flame-height)
+    [ "$be" = kde ] || { echo "flame height is KDE only" >&2; exit 1; }
+    if [ $# -ge 2 ]; then flame_height_set "$2" || exit 1; rcfg kwick_flame; echo "flame height: $2"; else flame_height_get; fi
+    exit 0 ;;
+  param)
+    case "${2:-}" in
+      wobbly) echo "$(wob_amount) $(wob_curve)"; exit 0 ;;
+      flip) if [ $# -ge 3 ]; then [ "$be" = kde ] || { echo "flip styles are KDE only" >&2; exit 1; }; flip_style_set "$3" || exit 1; rcfg kwick_flip; echo "flip style: $3"; else flip_style_get; fi; exit 0 ;;
+      *) usage; exit 1 ;;
+    esac ;;
   switch)
     if [ $# -lt 2 ]; then
       case $be in kde) kde_switch_get ;; gnome) gnome_switch_get ;; hyprland|sway) fxv switch slide ;; *) echo none ;; esac

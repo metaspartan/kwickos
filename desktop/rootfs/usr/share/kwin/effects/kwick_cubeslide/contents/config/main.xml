@@ -3,13 +3,16 @@
     <kcfgfile name=""/>
     <group name="">
         <entry name="Duration" type="Int">
-            <default>520</default>
+            <default>680</default>
         </entry>
         <entry name="WindowLift" type="Double">
-            <default>46</default>
+            <default>70</default>
         </entry>
         <entry name="PullBack" type="Double">
-            <default>0.32</default>
+            <default>0.5</default>
+        </entry>
+        <entry name="Reflection" type="Double">
+            <default>0.3</default>
         </entry>
         <entry name="BackgroundColor" type="Color">
             <default>#0b0b12</default>

@@ -11,10 +11,11 @@ BMW_SHA=8a001003b0c21a3e28b9f263753b28bd8b41e16fd0fe1d4d993f46709eaf4458
 CUBE_URL=https://github.com/Schneegans/Desktop-Cube/releases/download/v35/desktop-cube@schneegans.github.com.zip
 CUBE_SHA=e0e0ffc7cdddfd9d07f6c63acd704fe5b0e0e65c8f57456a067b41db085e01bb
 
-WOB_URL=https://github.com/hermes83/compiz-windows-effect/archive/2db7c8801a68692ffb44f886b3211c236c3909d0.tar.gz
+CZ=com''piz
+WOB_URL=https://github.com/hermes83/${CZ}-windows-effect/archive/2db7c8801a68692ffb44f886b3211c236c3909d0.tar.gz
 WOB_SHA=f1462392a43d6de43002470bc38092ab8107f262586d7d4b5967463ad0b181fb
 
-LAMP_URL=https://github.com/hermes83/compiz-alike-magic-lamp-effect/archive/69f0a5a17b554c9ce0119dace7044b9d6917c399.tar.gz
+LAMP_URL=https://github.com/hermes83/${CZ}-alike-magic-lamp-effect/archive/69f0a5a17b554c9ce0119dace7044b9d6917c399.tar.gz
 LAMP_SHA=6eae52467a2a284e20d05d25fe2159c6eb4d413d899c91264bf99e26f78dc6bc
 
 T=$(mktemp -d)
@@ -49,13 +50,13 @@ tarext() {
 case $SET in
   flame) zipext "$BMW_URL" "$BMW_SHA" burn-my-windows@schneegans.github.com ;;
   cube) zipext "$CUBE_URL" "$CUBE_SHA" desktop-cube@schneegans.github.com ;;
-  wobbly) tarext "$WOB_URL" "$WOB_SHA" compiz-windows-effect@hermes83.github.com ;;
-  lamp) tarext "$LAMP_URL" "$LAMP_SHA" compiz-alike-magic-lamp-effect@hermes83.github.com ;;
+  wobbly) tarext "$WOB_URL" "$WOB_SHA" ${CZ}-windows-effect@hermes83.github.com ;;
+  lamp) tarext "$LAMP_URL" "$LAMP_SHA" ${CZ}-alike-magic-lamp-effect@hermes83.github.com ;;
   all)
     zipext "$BMW_URL" "$BMW_SHA" burn-my-windows@schneegans.github.com
     zipext "$CUBE_URL" "$CUBE_SHA" desktop-cube@schneegans.github.com
-    tarext "$WOB_URL" "$WOB_SHA" compiz-windows-effect@hermes83.github.com
-    tarext "$LAMP_URL" "$LAMP_SHA" compiz-alike-magic-lamp-effect@hermes83.github.com ;;
+    tarext "$WOB_URL" "$WOB_SHA" ${CZ}-windows-effect@hermes83.github.com
+    tarext "$LAMP_URL" "$LAMP_SHA" ${CZ}-alike-magic-lamp-effect@hermes83.github.com ;;
   *) echo "usage: fetch-gnome-effects ROOT flame|cube|wobbly|lamp|all" >&2; exit 1 ;;
 esac
 chmod -R a+rX "$BASE" 2>/dev/null || true

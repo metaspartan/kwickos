@@ -169,15 +169,56 @@ compositor `kwick-effects` writes the config and tells you so).
 |---|---|
 | off | no animations |
 | subtle | fades, blur, sliding popups, magic lamp |
-| fluid | plus wobbly windows and sheets |
-| full | plus flame open/close, translucency, dimmed inactive windows, 3D desktop cube |
+| fluid | plus curvy wobbly windows, sheets and the 3D flip open/close |
+| full | plus flame open/close, translucency, dimmed inactive windows, the lit 3D desktop cube and Cover Flow Alt+Tab |
 
-| Wobbly windows | Magic lamp | Flame close | 3D desktop cube |
+Effects you can switch one by one (`kwick-effects set NAME on|off`, or the toggles on the Effects page of Settings):
+
+| name | what it does |
+|---|---|
+| `wobbly` | windows stretch like jelly while you drag them |
+| `lamp` | magic lamp minimize into the dock |
+| `flame` | windows ignite and burn away, with flames that rise past the window edges |
+| `flip` | windows swing in and out in 3D perspective with lighting (styles flip, door, tilt) |
+| `dissolve` | closing windows crumble into glowing dust |
+| `glide`, `fallapart` | the stock Glide and Fall Apart open/close effects |
+| `cube` | Meta+C shows the desktops as a cube; the desktop switch animation can be a cube too (`kwick-effects switch cube`, Meta+Ctrl+Left/Right) |
+| `blur`, `transparency`, `sheet`, `dim`, `overview` | frosted glass, translucency, dropping dialogs, dimmed inactive windows, overview |
+
+Only one open/close effect is active at a time (`flame`, `flip`, `dissolve`, `glide`, `fallapart` replace each other).
+
+Options:
+
+* `kwick-effects wobbly AMOUNT SWAY` takes two numbers from 1 to 10 (`kwick-effects param wobbly` prints them). Amount is how far the window
+  stretches, sway is how curvy and fluid it is (softer springs and a finer mesh). The defaults are 6 and 7. In Settings they are the
+  "Wobble" and "Sway" sliders.
+* `kwick-effects flame-style classic|inferno|ember|blue` and `kwick-effects flame-height 50-200`: Classic is tall orange fire rising above
+  the window, Inferno is wide and flares out at the sides, Ember is a subtle burn edge with drifting sparks, Blue is a hot gas flame.
+* `kwick-effects param flip flip|door|tilt` picks the 3D open/close style.
+* `kwick-effects switch slide|fade|cube|none` and `kwick-effects tabbox windows|cover|flip|grid` set the desktop switch animation and the
+  Alt+Tab style.
+
+| Wobbly windows (6/7) | Dissolve close | 3D desktop cube |
+|---|---|---|
+| ![wobbly](docs/img/effects-wobbly.gif) | ![dissolve](docs/img/effects-dissolve.gif) | ![cube](docs/img/effects-cube.gif) |
+
+| 3D open/close: flip | door | tilt |
+|---|---|---|
+| ![flip](docs/img/effects-3dopen.gif) | ![door](docs/img/effects-3dopen-door.gif) | ![tilt](docs/img/effects-3dopen-tilt.gif) |
+
+| Flame: classic | Flame: inferno | Flame: ember | Flame: blue |
 |---|---|---|---|
-| ![wobbly](docs/img/effects-wobbly.gif) | ![lamp](docs/img/effects-magiclamp.gif) | ![flame](docs/img/effects-flame.gif) | ![cube](docs/img/effects-cube.gif) |
+| ![flame classic](docs/img/effects-flame.gif) | ![flame inferno](docs/img/effects-flame-inferno.gif) | ![flame ember](docs/img/effects-flame-ember.gif) | ![flame blue](docs/img/effects-flame-blue.gif) |
+
+| Magic lamp |
+|---|
+| ![lamp](docs/img/effects-magiclamp.gif) |
 
 These were captured in a KVM guest with a virgl GPU (KWin on OpenGL), see [docs/VERIFICATION.md](docs/VERIFICATION.md). The capture
-path delivers only a few frames per animation, so the GIFs are jumpier than the real thing. The cube rotates with Meta+Ctrl+Right.
+path drops frames, so the GIFs are jumpier than the real thing; frame sheets are next to them in `docs/img` (`effects-*-frames.png`). The
+magic lamp GIF is from an earlier capture round. On GNOME the presets drive the extensions that are installed (wobbly, lamp, burn, cube,
+blur, and the wobble sliders map to the wobbly extension); on Hyprland they write bezier-curve animations (an overshoot curve for wobbly,
+a 3D-ish pop-in and fading slide for flip and the cube setting), blur and dimming.
 
 ### KwickOS Settings
 

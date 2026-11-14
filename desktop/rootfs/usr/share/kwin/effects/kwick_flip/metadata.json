@@ -1,0 +1,20 @@
+{
+  "KPackageStructure": "KWin/Effect",
+  "KPlugin": {
+    "Name": "Flip",
+    "Description": "Windows flip, fold or tilt in 3D with perspective and lighting when they open and close",
+    "Icon": "kwick-effects",
+    "Category": "Window Open/Close Animation",
+    "Authors": [ { "Name": "KwickOS", "Email": "dev@kwickos.org" } ],
+    "Id": "kwick_flip",
+    "License": "MIT",
+    "Version": "1.0",
+    "EnabledByDefault": false,
+    "ServiceTypes": [ "KWin/Effect" ]
+  },
+  "X-KDE-Ordering": "60",
+  "X-KDE-PluginKeyword": "kwick_flip",
+  "X-KWin-Exclusive-Category": "toplevel-open-close-animation",
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js"
+}
