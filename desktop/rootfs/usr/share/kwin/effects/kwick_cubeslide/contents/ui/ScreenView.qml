@@ -220,7 +220,7 @@ Item {
                         required property var model
                         readonly property QtObject w: model.window
                         readonly property bool plain: w.desktopWindow || w.dock
-                        readonly property real z0: plain ? (w.dock ? root.lift * 0.5 * root.pull : 0) : root.lift * root.pull * (0.55 + 0.45 * Math.min(8, Math.max(0, w.stackingOrder)) / 8) * 1.4
+                        readonly property real z0: plain ? (w.dock ? root.lift * 0.5 * root.pull : 0) : root.lift * root.pull * (0.7 + 0.3 * Math.min(8, Math.max(0, w.stackingOrder)) / 8) * 2.7
                         readonly property real cx: w.x - root.targetScreen.geometry.x + w.width / 2 - root.width / 2
                         readonly property real cy: root.height / 2 - (w.y - root.targetScreen.geometry.y + w.height / 2)
                         visible: !w.minimized
@@ -228,8 +228,8 @@ Item {
                         Model {
                             visible: !slot.plain && !slot.w.minimized && root.pull > 0.12
                             source: "#Rectangle"
-                            scale: Qt.vector3d((Math.max(1, slot.w.width) + 90) / 100, (Math.max(1, slot.w.height) + 90) / 100, 1)
-                            position: Qt.vector3d(slot.cx + 6, slot.cy - 18, slot.z0 * 0.5)
+                            scale: Qt.vector3d((Math.max(1, slot.w.width) + 70 + 0.35 * slot.z0) / 100, (Math.max(1, slot.w.height) + 70 + 0.35 * slot.z0) / 100, 1)
+                            position: Qt.vector3d(slot.cx + 0.12 * slot.z0, slot.cy - 0.22 * slot.z0, slot.z0 * 0.06)
                             materials: PrincipledMaterial {
                                 lighting: PrincipledMaterial.NoLighting
                                 cullMode: Material.NoCulling

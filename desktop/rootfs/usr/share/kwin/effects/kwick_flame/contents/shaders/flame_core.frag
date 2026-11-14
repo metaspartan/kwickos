@@ -84,9 +84,10 @@ float sparkLayer(vec2 pos, float scale, float speed, float seed, float t, float 
 }
 
 vec3 legacyRamp(float a) {
-    vec3 c = mix(vec3(1.0, 0.86, 0.38), vec3(1.0, 0.46, 0.08), smoothstep(0.0, 0.32, a));
-    c = mix(c, vec3(0.62, 0.08, 0.02), smoothstep(0.35, 0.78, a));
-    return mix(c, vec3(0.15, 0.02, 0.01), smoothstep(0.78, 1.0, a));
+    vec3 c = mix(vec3(1.0, 0.92, 0.55), vec3(1.0, 0.5, 0.08), smoothstep(0.0, 0.25, a));
+    c = mix(c, vec3(0.9, 0.2, 0.03), smoothstep(0.2, 0.55, a));
+    c = mix(c, vec3(0.5, 0.05, 0.02), smoothstep(0.5, 0.85, a));
+    return mix(c, vec3(0.38, 0.03, 0.01), smoothstep(0.85, 1.0, a));
 }
 
 void main() {
@@ -140,26 +141,29 @@ void main() {
     if (legacy > 0.5) {
         float lp = clamp(uProgress, 0.0, 1.0);
         float frontL = mix(-0.04, 1.04, lp);
-        float wob = (fbm3(vec2(tc.x * size.x / 90.0, t * 0.8 + uSeed)) - 0.5) * 0.03;
+        float wob = (fbm3(vec2(tc.x * size.x / 90.0, t * 0.8 + uSeed)) - 0.5) * 0.025;
         float dl = tc.y - frontL - wob;
         float aliveL = smoothstep(-0.003, 0.012, dl) * inside;
         vec4 srcL = texture(sampler, clamp(tc, 0.001, 0.999)) * inside;
         vec3 rgbL = srcL.rgb * aliveL;
         float aL = srcL.a * aliveL;
-        float hot = exp(-pow((dl - 0.004) / 0.012, 2.0)) * inside * step(0.01, lp) * step(lp, 0.99);
-        rgbL += vec3(1.0, 0.8, 0.35) * hot * 0.9 * srcL.a;
-        aL = max(aL, hot * 0.6 * srcL.a);
+        float activeL = step(0.01, lp) * step(lp, 0.985);
+        float hot = exp(-pow((dl - 0.004) / 0.014, 2.0)) * inside * activeL;
+        float glowL = exp(-pow((dl - 0.01) / 0.07, 2.0)) * activeL;
+        rgbL += vec3(1.0, 0.85, 0.4) * hot * 1.1 * srcL.a;
+        rgbL += vec3(1.0, 0.4, 0.06) * glowL * 0.5 * srcL.a * inside;
+        aL = max(aL, hot * 0.8 * srcL.a);
         vec2 P = tc * size;
-        vec3 acc = vec3(0.0);
         float accA = 0.0;
-        float cell = 9.0;
-        float life = 0.42;
-        float dtE = life / 8.0;
+        float ageSum = 0.0;
+        float cell = 22.0;
+        float life = 0.5;
+        float dtE = life / 10.0;
         float col0 = floor(P.x / cell);
-        float riseMax = mg.y * 1.0;
-        for (int sl = 0; sl < 8; sl++) {
+        float riseMax = min(size.y * 1.45, mg.y * 0.98);
+        for (int sl = 0; sl < 10; sl++) {
             float m = floor(lp / dtE) - float(sl);
-            for (int dc = -2; dc <= 2; dc++) {
+            for (int dc = -3; dc <= 3; dc++) {
                 float c = col0 + float(dc);
                 float h1 = hash(vec2(c, m) + uSeed);
                 float h2 = hash(vec2(c * 1.3, m * 0.7) + 5.0 + uSeed);
@@ -171,18 +175,24 @@ void main() {
                     continue;
                 }
                 float y0 = mix(-0.04, 1.04, te) * size.y;
-                float rise = pow(a, 0.8) * riseMax * (0.55 + 0.9 * h3);
-                vec2 pos = vec2(x0 + sin(a * 5.0 + h1 * 6.28) * 16.0 * a, y0 + rise);
-                float rad = cell * (0.8 + 1.0 * h3) * (1.0 - 0.5 * a);
-                float dd = length(P - pos) / rad;
-                float w = exp(-dd * dd * 1.8) * pow(1.0 - a, 1.3);
-                acc += legacyRamp(a) * w;
+                float rise = pow(a, 0.55) * riseMax * (0.75 + 0.5 * h3);
+                float turb = (vnoise(vec2(h1 * 17.0 + a * 3.0, t * 2.2 + h2 * 9.0)) - 0.5) * 70.0 * a;
+                vec2 pos = vec2(x0 + turb + sin(a * 6.0 + h1 * 6.28) * 14.0 * a, y0 + rise);
+                float rad = cell * (0.75 + 0.9 * h3) * (1.2 - 0.45 * a) * (1.0 + 0.15 * sin(t * 18.0 + h1 * 40.0));
+                float dd = length(vec2(P.x - pos.x, (P.y - pos.y) * 0.5)) / rad;
+                float w = exp(-dd * dd * 1.5) * (1.0 - pow(a, 1.6)) * (0.8 + 0.4 * h2);
                 accA += w;
+                ageSum += w * a;
             }
         }
-        vec3 rgbF = rgbL * (1.0 - clamp(accA * 0.35, 0.0, 0.7)) + acc * 0.7;
-        float aF = max(aL, clamp(accA * 0.8, 0.0, 1.0));
-        vec4 oc = vec4(min(rgbF, vec3(aF + 0.7)), clamp(aF, 0.0, 1.0));
+        float avgAge = ageSum / max(accA, 0.001);
+        float tongue = 0.7 + 0.6 * fbm3(vec2(P.x / 38.0, P.y / 110.0 - t * 5.5 + uSeed));
+        float cover = (1.0 - exp(-accA * 2.0 * tongue)) * (1.0 - smoothstep(0.55, 1.0, (P.y / size.y - 1.0) / (mg.y / size.y)));
+        float core = 1.0 - exp(-accA * 0.45);
+        vec3 fcol = legacyRamp(clamp(avgAge * 1.35 + 0.04 - core * 0.1, 0.0, 1.0));
+        vec3 rgbF = rgbL * (1.0 - cover * 0.85) + fcol * cover * 0.95 + vec3(1.0, 0.8, 0.35) * pow(core, 3.0) * 0.3 * cover;
+        float aF = max(aL, cover * 0.97);
+        vec4 oc = vec4(min(rgbF, vec3(aF + 0.6)), clamp(aF, 0.0, 1.0));
         fragColor = oc;
         fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
         fragColor = nitsToDestinationEncoding(fragColor);

@@ -11,7 +11,7 @@ const skipClasses = [
 class KwickFlipEffect {
     constructor() {
         effect.configChanged.connect(this.loadConfig.bind(this));
-        effect.animationEnded.connect(this.release.bind(this));
+        effect.animationEnded.connect(this.onEnded.bind(this));
         effects.windowAdded.connect(this.onWindowAdded.bind(this));
         effects.windowClosed.connect(this.onWindowClosed.bind(this));
         effects.windowDataChanged.connect(this.onWindowDataChanged.bind(this));
@@ -50,6 +50,31 @@ class KwickFlipEffect {
         w.setData(Effect.WindowForceBlurRole, null);
     }
 
+    onEnded(w) {
+        if (w.kwickPhase === 1) {
+            w.kwickPhase = 2;
+            w.KwickFlipIn = this.openNative(w);
+            return;
+        }
+        w.kwickPhase = 0;
+        this.release(w);
+    }
+
+    prepare(w) {
+        this.hold(w);
+        w.kwickPhase = 1;
+        return animate({
+            window: w,
+            duration: 700,
+            curve: QEasingCurve.Linear,
+            animations: [{
+                type: Effect.Opacity,
+                from: 0.0,
+                to: 0.0
+            }]
+        });
+    }
+
     openNative(w) {
         this.hold(w);
         const dur = this.duration;
@@ -59,7 +84,7 @@ class KwickFlipEffect {
             curve: QEasingCurve.OutCubic,
             animations: [{
                 type: Effect.Rotation,
-                axis: this.styleId === 2 ? Effect.XAxis : Effect.YAxis,
+                axis: this.styleId === 2 ? 0 : 1,
                 from: this.styleId === 1 ? 72 : (this.styleId === 2 ? 62 : -72),
                 to: 0
             }, {
@@ -68,8 +93,8 @@ class KwickFlipEffect {
                 to: 1.0
             }, {
                 type: Effect.Scale,
-                from: 0.7,
-                to: 1.0
+                from: { value1: 0.7, value2: 0.7 },
+                to: { value1: 1.0, value2: 1.0 }
             }]
         });
     }
@@ -108,7 +133,7 @@ class KwickFlipEffect {
         if (effect.isGrabbed(w, Effect.WindowAddedGrabRole)) {
             return;
         }
-        w.KwickFlipIn = this.openNative(w);
+        w.KwickFlipIn = this.prepare(w);
     }
 
     onWindowClosed(w) {
@@ -122,6 +147,7 @@ class KwickFlipEffect {
             cancel(w.KwickFlipIn);
             delete w.KwickFlipIn;
         }
+        w.kwickPhase = 0;
         w.KwickFlipOut = this.run(w, false);
     }
 
