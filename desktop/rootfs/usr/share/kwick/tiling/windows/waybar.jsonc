@@ -5,7 +5,7 @@
   "spacing": 2,
   "modules-left": [],
   "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "wlr/taskbar"],
-  "modules-right": ["tray", "network", "pulseaudio", "battery", "clock"],
+  "modules-right": ["tray", "custom/vpn", "network", "pulseaudio", "battery", "clock"],
   "custom/start": { "format": " ", "tooltip-format": "Start", "on-click": "fuzzel" },
   "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "fuzzel" },
   "custom/files": { "format": "\u00a0", "tooltip-format": "Files", "on-click": "xdg-open ~" },
@@ -22,6 +22,13 @@
   "clock": {
     "format": "{:%H:%M\n%d/%m/%Y}",
     "tooltip-format": "<tt>{calendar}</tt>"
+  },
+  "custom/vpn": {
+    "exec": "kwick-vpn waybar",
+    "return-type": "json",
+    "interval": 5,
+    "format": "{}",
+    "on-click": "foot nmtui"
   },
   "network": {
     "format": " ",

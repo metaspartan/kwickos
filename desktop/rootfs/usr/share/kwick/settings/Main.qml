@@ -21,7 +21,8 @@ ApplicationWindow {
         { name: "Fonts", icon: "fonts", color: "#8e8e93", page: "PageFonts.qml" },
         { name: "Desktop Session", icon: "desktop", color: "#ff9f0a", page: "PageDesktop.qml" },
         { name: "GPU", icon: "gpu", color: "#30d158", page: "PageGpu.qml" },
-        { name: "Gaming", icon: "gaming", color: "#ff453a", page: "PageGaming.qml" }
+        { name: "Gaming", icon: "gaming", color: "#ff453a", page: "PageGaming.qml" },
+        { name: "VPN", icon: "vpn", color: "#2c5aa0", page: "PageVPN.qml" }
     ]
 
     Component.onCompleted: {

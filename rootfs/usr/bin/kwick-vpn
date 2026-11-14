@@ -1,0 +1,382 @@
+#!/bin/sh
+set -u
+
+WGDIR=/etc/wireguard
+OVDIR=/etc/openvpn/client
+PIDDIR=/run/kwick-vpn
+
+die() { printf 'kwick-vpn: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+usage() {
+  cat <<'EOF'
+usage: kwick-vpn <command> [args]
+
+  import <file.conf|file.ovpn>   import a WireGuard or OpenVPN profile
+  list                           list VPN profiles (name, type, state)
+  up <name>                      connect
+  down <name>                    disconnect
+  status                         show active VPN connections
+  providers                      list optional providers and their state
+  install <what>                 install base, plugins, tailscale, mullvad,
+                                 protonvpn, protonvpn-cli, zerotier, netbird
+  waybar                         JSON status for a waybar custom module
+EOF
+}
+
+as_root() {
+  if [ "$(id -u)" -eq 0 ]; then "$@"
+  elif have sudo; then sudo "$@"
+  elif have pkexec; then pkexec "$@"
+  else die "root privileges required"
+  fi
+}
+
+nm_ok() {
+  have nmcli || return 1
+  [ "$(nmcli -t -f RUNNING general status 2>/dev/null)" = running ]
+}
+
+nm_vpn_rows() {
+  nmcli -t -f NAME,TYPE,ACTIVE connection show "$@" 2>/dev/null |
+    sed -E 's/^(.*):([^:]*):([^:]*)$/\1\t\2\t\3/; s/\\:/:/g' |
+    awk -F'\t' '$2=="vpn" || $2=="wireguard" || $2=="tun"'
+}
+
+nm_list() {
+  nm_vpn_rows | while IFS='	' read -r name type active; do
+    [ "$active" = yes ] && st=up || st=down
+    printf '%s\t%s\t%s\n' "$name" "$type" "$st"
+  done
+}
+
+direct_names() {
+  for f in $(as_root sh -c "ls $WGDIR/*.conf 2>/dev/null"); do
+    n=${f##*/}; printf '%s\twireguard\n' "${n%.conf}"
+  done
+  for f in $(as_root sh -c "ls $OVDIR/*.conf 2>/dev/null"); do
+    n=${f##*/}; printf '%s\topenvpn\n' "${n%.conf}"
+  done
+}
+
+wg_up() { have wg && [ -n "$(as_root wg show interfaces 2>/dev/null)" ] && as_root wg show interfaces 2>/dev/null | tr ' ' '\n' | grep -qx "$1"; }
+
+ov_pid() {
+  [ -f "$PIDDIR/$1.pid" ] || return 1
+  p=$(cat "$PIDDIR/$1.pid" 2>/dev/null) || return 1
+  [ -n "$p" ] && kill -0 "$p" 2>/dev/null
+}
+
+ov_up() {
+  if have systemctl && [ -d /run/systemd/system ]; then
+    systemctl is-active --quiet "openvpn-client@$1" 2>/dev/null && return 0
+  fi
+  ov_pid "$1"
+}
+
+direct_list() {
+  direct_names | while IFS='	' read -r name type; do
+    st=down
+    case $type in
+      wireguard) wg_up "$name" && st=up ;;
+      openvpn) ov_up "$name" && st=up ;;
+    esac
+    printf '%s\t%s\t%s\n' "$name" "$type" "$st"
+  done
+}
+
+cmd_list() {
+  if nm_ok; then rows=$(nm_list); else rows=$(direct_list); fi
+  [ -n "$rows" ] || return 0
+  if [ -t 1 ]; then
+    printf '%s\n' "$rows" | awk -F'\t' 'BEGIN{printf "%-24s %-10s %s\n","NAME","TYPE","STATE"} {printf "%-24s %-10s %s\n",$1,$2,$3}'
+  else
+    printf '%s\n' "$rows"
+  fi
+}
+
+sanitize_name() {
+  b=${1##*/}; b=${b%.*}
+  printf '%s' "$b" | tr -c 'A-Za-z0-9_=+.-' '-' | cut -c1-15
+}
+
+cmd_import() {
+  [ $# -eq 1 ] || die "usage: kwick-vpn import <file.conf|file.ovpn>"
+  f=$1
+  [ -f "$f" ] || die "no such file: $f"
+  case $f in
+    *.ovpn) kind=openvpn ;;
+    *.conf)
+      if grep -qE '^\[Interface\]' "$f"; then kind=wireguard
+      elif grep -qE '^(remote|client|dev) ' "$f"; then kind=openvpn
+      else die "cannot tell what kind of profile $f is"
+      fi ;;
+    *) die "unsupported file type: $f (expected .conf or .ovpn)" ;;
+  esac
+  if nm_ok; then
+    if [ "$kind" = wireguard ]; then
+      name=$(sanitize_name "$f")
+      tmp=$(mktemp -d) || die "mktemp failed"
+      cp "$f" "$tmp/$name.conf"
+      nmcli connection import type wireguard file "$tmp/$name.conf"
+      rc=$?
+      rm -rf "$tmp"
+      exit $rc
+    fi
+    nmcli connection import type openvpn file "$f"
+    exit $?
+  fi
+  name=$(sanitize_name "$f")
+  if [ "$kind" = wireguard ]; then
+    have wg-quick || die "wg-quick missing: run kwick-vpn install base"
+    as_root install -d -m 700 "$WGDIR"
+    as_root install -m 600 "$f" "$WGDIR/$name.conf"
+    printf 'imported %s as %s (wireguard)\n' "$f" "$name"
+  else
+    have openvpn || die "openvpn missing: run kwick-vpn install base"
+    as_root install -d -m 755 "$OVDIR"
+    as_root install -m 600 "$f" "$OVDIR/$name.conf"
+    printf 'imported %s as %s (openvpn)\n' "$f" "$name"
+  fi
+}
+
+direct_type() {
+  direct_names | awk -F'\t' -v n="$1" '$1==n{print $2; exit}'
+}
+
+cmd_up() {
+  [ $# -eq 1 ] || die "usage: kwick-vpn up <name>"
+  if nm_ok; then
+    nmcli connection up id "$1"
+    exit $?
+  fi
+  case $(direct_type "$1") in
+    wireguard) as_root wg-quick up "$1" ;;
+    openvpn)
+      if have systemctl && [ -d /run/systemd/system ]; then
+        as_root systemctl start "openvpn-client@$1"
+      else
+        as_root install -d -m 755 "$PIDDIR"
+        as_root openvpn --config "$OVDIR/$1.conf" --cd "$OVDIR" --daemon "kwick-vpn-$1" --writepid "$PIDDIR/$1.pid"
+      fi ;;
+    *) die "no such profile: $1" ;;
+  esac
+}
+
+cmd_down() {
+  [ $# -eq 1 ] || die "usage: kwick-vpn down <name>"
+  if nm_ok; then
+    nmcli connection down id "$1"
+    exit $?
+  fi
+  case $(direct_type "$1") in
+    wireguard) as_root wg-quick down "$1" ;;
+    openvpn)
+      if have systemctl && [ -d /run/systemd/system ]; then
+        as_root systemctl stop "openvpn-client@$1"
+      elif ov_pid "$1"; then
+        as_root kill "$(cat "$PIDDIR/$1.pid")"
+      else
+        die "$1 is not running"
+      fi ;;
+    *) die "no such profile: $1" ;;
+  esac
+}
+
+tunnel_ifaces() {
+  for d in /sys/class/net/*; do
+    [ -e "$d" ] || continue
+    n=${d##*/}
+    if grep -qx 'DEVTYPE=wireguard' "$d/uevent" 2>/dev/null; then
+      printf '%s\n' "$n"
+      continue
+    fi
+    case $n in
+      tun[0-9]*|tailscale[0-9]*|zt*|wt[0-9]*|nordlynx|pvpn*|proton[0-9]*|ipv6leakintrf*|mullvad*) printf '%s\n' "$n" ;;
+    esac
+  done
+}
+
+active_list() {
+  if nm_ok; then
+    nm_vpn_rows --active | awk -F'\t' '{print $1 "\t" $2}'
+  fi
+  tunnel_ifaces | while IFS= read -r n; do printf '%s\tinterface\n' "$n"; done
+}
+
+cmd_status() {
+  act=$(active_list | awk -F'\t' '!seen[$1]++')
+  if [ -z "$act" ]; then
+    echo "no VPN connected"
+    return 1
+  fi
+  printf '%s\n' "$act" | awk -F'\t' '{printf "up  %-24s %s\n",$1,$2}'
+  if have tailscale; then
+    tailscale status --peers=false 2>/dev/null | head -1 | sed 's/^/tailscale: /'
+  fi
+}
+
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+cmd_waybar() {
+  act=$(active_list | awk -F'\t' '!seen[$1]++')
+  if [ -z "$act" ]; then
+    printf '{"text":"","tooltip":"","class":"off"}\n'
+    return 0
+  fi
+  tip=$(printf '%s\n' "$act" | awk -F'\t' '{printf "%s%s", (NR>1?"\\n":""), $1}')
+  tip=$(json_escape "$tip" | sed 's/\\\\n/\\n/g')
+  printf '{"text":"\\uf023","tooltip":"VPN: %s","class":"on"}\n' "$tip"
+}
+
+apt_install() {
+  as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
+}
+
+host_arch() { dpkg --print-architecture 2>/dev/null || uname -m; }
+
+codename() {
+  c=$(sed -n 's/^VERSION_CODENAME=//p' /etc/os-release 2>/dev/null | tr -d '"')
+  printf '%s' "${c:-trixie}"
+}
+
+require_arch() {
+  a=$(host_arch)
+  for ok in "$@"; do [ "$a" = "$ok" ] && return 0; done
+  die "not available for $a (supported: $*)"
+}
+
+fetch() {
+  if have curl; then curl -fsSL "$1" -o "$2"
+  elif have wget; then wget -q -O "$2" "$1"
+  else apt_install curl ca-certificates && curl -fsSL "$1" -o "$2"
+  fi
+}
+
+primary_fprs() {
+  gpg --show-keys --with-colons "$1" 2>/dev/null |
+    awk -F: '$1=="pub"{p=1;next} $1=="fpr"&&p{print $10;p=0}'
+}
+
+add_repo() {
+  name=$1; keyurl=$2; fpr=$3; line=$4
+  have gpg || apt_install gpg
+  tmp=$(mktemp -d) || die "mktemp failed"
+  fetch "$keyurl" "$tmp/key" || { rm -rf "$tmp"; die "could not download $keyurl"; }
+  got=$(primary_fprs "$tmp/key")
+  if [ "$got" != "$fpr" ]; then
+    rm -rf "$tmp"
+    die "signing key fingerprint mismatch for $name (expected $fpr, got ${got:-none})"
+  fi
+  if grep -q 'PGP PUBLIC KEY' "$tmp/key"; then
+    gpg --dearmor < "$tmp/key" > "$tmp/key.gpg" || { rm -rf "$tmp"; die "dearmor failed"; }
+  else
+    cp "$tmp/key" "$tmp/key.gpg"
+  fi
+  as_root install -d -m 755 /usr/share/keyrings
+  as_root install -m 644 "$tmp/key.gpg" "/usr/share/keyrings/$name-archive-keyring.gpg"
+  rm -rf "$tmp"
+  printf 'deb [signed-by=/usr/share/keyrings/%s-archive-keyring.gpg] %s\n' "$name" "$line" |
+    as_root tee "/etc/apt/sources.list.d/$name.list" >/dev/null
+  as_root apt-get update
+}
+
+pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q '^install ok installed'; }
+
+provider_state() {
+  case $1 in
+    tailscale) pkg_installed tailscale ;;
+    mullvad) pkg_installed mullvad-vpn ;;
+    protonvpn) pkg_installed proton-vpn-gnome-desktop || pkg_installed proton-vpn-gtk-app ;;
+    protonvpn-cli) pkg_installed proton-vpn-cli ;;
+    zerotier) pkg_installed zerotier-one ;;
+    netbird) pkg_installed netbird ;;
+    base) pkg_installed wireguard-tools && pkg_installed openvpn ;;
+    plugins) pkg_installed network-manager-openvpn ;;
+  esac
+}
+
+provider_arches() {
+  case $1 in
+    tailscale) echo "amd64 arm64 riscv64" ;;
+    mullvad|protonvpn|protonvpn-cli|zerotier|netbird) echo "amd64 arm64" ;;
+    *) echo "amd64 arm64 riscv64" ;;
+  esac
+}
+
+cmd_providers() {
+  a=$(host_arch)
+  for p in tailscale mullvad protonvpn zerotier netbird; do
+    if provider_state "$p"; then st=installed
+    elif provider_arches "$p" | tr ' ' '\n' | grep -qx "$a"; then st=available
+    else st=unavailable
+    fi
+    printf '%s\t%s\n' "$p" "$st"
+  done
+}
+
+cmd_install() {
+  [ $# -ge 1 ] || { cmd_providers; return 0; }
+  what=$1
+  have apt-get || die "apt-get not found"
+  case $what in
+    base)
+      as_root apt-get update
+      if have resolvconf || have resolvectl; then
+        apt_install wireguard-tools openvpn
+      else
+        apt_install wireguard-tools openvpn openresolv
+      fi ;;
+    plugins)
+      as_root apt-get update
+      apt_install network-manager-openvpn network-manager-openconnect network-manager-vpnc \
+        network-manager-l2tp network-manager-strongswan network-manager-sstp \
+        wireguard-tools openvpn openconnect ;;
+    tailscale)
+      require_arch amd64 arm64 riscv64
+      c=$(codename)
+      add_repo tailscale "https://pkgs.tailscale.com/stable/debian/$c.noarmor.gpg" \
+        2596A99EAAB33821893C0A79458CA832957F5868 "https://pkgs.tailscale.com/stable/debian $c main"
+      apt_install tailscale
+      echo "run: sudo tailscale up" ;;
+    mullvad)
+      require_arch amd64 arm64
+      add_repo mullvad "https://repository.mullvad.net/deb/mullvad-keyring.asc" \
+        A1198702FC3E0A09A9AE5B75D5A1D4F266DE8DDF "https://repository.mullvad.net/deb/stable stable main"
+      apt_install mullvad-vpn ;;
+    protonvpn|protonvpn-cli)
+      require_arch amd64 arm64
+      add_repo protonvpn "https://repo.protonvpn.com/debian/public_key.asc" \
+        84B0D3492C76C9C6F5873C18EDA3E22630349F1C "https://repo.protonvpn.com/debian stable main"
+      if [ "$what" = protonvpn ]; then apt_install proton-vpn-gnome-desktop; else apt_install proton-vpn-cli; fi ;;
+    zerotier)
+      require_arch amd64 arm64
+      c=$(codename)
+      add_repo zerotier "https://download.zerotier.com/contact%40zerotier.com.gpg" \
+        74A5E9C458E1A431F1DA57A71657198823E52A61 "https://download.zerotier.com/debian/$c $c main"
+      apt_install zerotier-one
+      echo "run: sudo zerotier-cli join <network-id>" ;;
+    netbird)
+      require_arch amd64 arm64
+      add_repo netbird "https://pkgs.netbird.io/debian/public.key" \
+        EFE37DF047DF7CCDF1FC54FA83F79AD029778355 "https://pkgs.netbird.io/debian stable main"
+      apt_install netbird
+      echo "run: sudo netbird up" ;;
+    *) die "unknown provider: $what" ;;
+  esac
+}
+
+cmd=${1:-}
+[ $# -gt 0 ] && shift
+case $cmd in
+  import) cmd_import "$@" ;;
+  list|ls) cmd_list ;;
+  up) cmd_up "$@" ;;
+  down) cmd_down "$@" ;;
+  status) cmd_status ;;
+  providers) cmd_providers ;;
+  install) cmd_install "$@" ;;
+  waybar) cmd_waybar ;;
+  ""|-h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

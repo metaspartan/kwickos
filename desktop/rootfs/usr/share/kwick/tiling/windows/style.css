@@ -138,3 +138,8 @@ tooltip {
   border: 1px solid #3a3a3a;
   border-radius: 8px;
 }
+
+#custom-vpn {
+  padding: 0 9px;
+  color: #ffffff;
+}

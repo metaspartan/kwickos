@@ -17,3 +17,4 @@ fuzzel swaylock swayidle brightnessctl pavucontrol fonts-font-awesome gnome-them
 kwin-addons systemsettings
 locales
 fdisk e2fsprogs dosfstools cryptsetup-bin btrfs-progs xfsprogs grub-common grub2-common systemd-boot-efi tzdata
+wireguard-tools openvpn openconnect network-manager-openvpn network-manager-openconnect network-manager-vpnc network-manager-l2tp network-manager-strongswan network-manager-sstp network-manager-openvpn-gnome network-manager-vpnc-gnome network-manager-l2tp-gnome network-manager-sstp-gnome

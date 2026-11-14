@@ -99,3 +99,8 @@ tooltip {
   border: 1px solid #414868;
   border-radius: 8px;
 }
+
+#custom-vpn {
+  padding: 0 9px;
+  color: #ffffff;
+}
