@@ -157,11 +157,11 @@ void main() {
         float accA = 0.0;
         float ageSum = 0.0;
         float cell = 22.0;
-        float life = 0.5;
-        float dtE = life / 10.0;
+        float life = 0.62;
+        float dtE = life / 12.0;
         float col0 = floor(P.x / cell);
-        float riseMax = min(size.y * 1.45, mg.y * 0.98);
-        for (int sl = 0; sl < 10; sl++) {
+        float riseMax = min(size.y * 1.7, mg.y * 0.99);
+        for (int sl = 0; sl < 12; sl++) {
             float m = floor(lp / dtE) - float(sl);
             for (int dc = -3; dc <= 3; dc++) {
                 float c = col0 + float(dc);
@@ -175,12 +175,12 @@ void main() {
                     continue;
                 }
                 float y0 = mix(-0.04, 1.04, te) * size.y;
-                float rise = pow(a, 0.55) * riseMax * (0.75 + 0.5 * h3);
+                float rise = pow(a, 0.6) * riseMax * (0.8 + 0.45 * h3);
                 float turb = (vnoise(vec2(h1 * 17.0 + a * 3.0, t * 2.2 + h2 * 9.0)) - 0.5) * 70.0 * a;
                 vec2 pos = vec2(x0 + turb + sin(a * 6.0 + h1 * 6.28) * 14.0 * a, y0 + rise);
-                float rad = cell * (0.75 + 0.9 * h3) * (1.2 - 0.45 * a) * (1.0 + 0.15 * sin(t * 18.0 + h1 * 40.0));
+                float rad = cell * (0.75 + 0.9 * h3) * (1.2 - 0.32 * a) * (1.0 + 0.15 * sin(t * 18.0 + h1 * 40.0));
                 float dd = length(vec2(P.x - pos.x, (P.y - pos.y) * 0.5)) / rad;
-                float w = exp(-dd * dd * 1.5) * (1.0 - pow(a, 1.6)) * (0.8 + 0.4 * h2);
+                float w = exp(-dd * dd * 1.5) * (1.0 - pow(a, 2.2)) * (0.8 + 0.4 * h2);
                 accA += w;
                 ageSum += w * a;
             }

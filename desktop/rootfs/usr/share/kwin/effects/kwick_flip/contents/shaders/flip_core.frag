@@ -24,7 +24,7 @@ void main() {
     float p = clamp(uProgress, 0.0, 1.0);
     float e = p * p * (3.0 - 2.0 * p);
     float big = max(hs.x, hs.y);
-    float D = big * 3.4;
+    float D = big * 2.6;
 
     vec3 ax = vec3(0.0, 1.0, 0.0);
     vec2 piv = vec2(0.0);

@@ -121,7 +121,7 @@ Item {
                 const c = getContext("2d");
                 c.reset();
                 for (let i = 0; i < 40; i++) {
-                    c.fillStyle = "rgba(0,0,0," + (0.03 + 0.0004 * i) + ")";
+                    c.fillStyle = "rgba(0,0,0," + (0.05 + 0.0008 * i) + ")";
                     c.fillRect(i, i, 128 - 2 * i, 128 - 2 * i);
                 }
             }
@@ -220,7 +220,7 @@ Item {
                         required property var model
                         readonly property QtObject w: model.window
                         readonly property bool plain: w.desktopWindow || w.dock
-                        readonly property real z0: plain ? (w.dock ? root.lift * 0.5 * root.pull : 0) : root.lift * root.pull * (0.7 + 0.3 * Math.min(8, Math.max(0, w.stackingOrder)) / 8) * 2.7
+                        readonly property real z0: plain ? (w.dock ? root.lift * 0.5 * root.pull : 0) : root.lift * root.pull * (0.7 + 0.3 * Math.min(8, Math.max(0, w.stackingOrder)) / 8) * 3.4
                         readonly property real cx: w.x - root.targetScreen.geometry.x + w.width / 2 - root.width / 2
                         readonly property real cy: root.height / 2 - (w.y - root.targetScreen.geometry.y + w.height / 2)
                         visible: !w.minimized
@@ -234,7 +234,7 @@ Item {
                                 lighting: PrincipledMaterial.NoLighting
                                 cullMode: Material.NoCulling
                                 alphaMode: PrincipledMaterial.Blend
-                                baseColor: Qt.rgba(1, 1, 1, 0.35 + 0.55 * root.pull)
+                                baseColor: Qt.rgba(1, 1, 1, 0.6 + 0.4 * root.pull)
                                 baseColorMap: shadowTex
                             }
                         }
