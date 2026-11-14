@@ -53,6 +53,7 @@ headerbar:hover button image {
   color: rgba(0, 0, 0, 0.62);
 }
 
+.navigation-sidebar row image,
 .navigation-sidebar image,
 .sidebar-pane image,
 placessidebar image,

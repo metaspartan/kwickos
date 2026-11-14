@@ -3,6 +3,7 @@ set -euo pipefail
 ARCH=${1:?arch}; SRC=${SRC:-/src}; OUT=${OUT:-/out}
 VER=$(tr -d '\r\n' < "$SRC/VERSION")
 HYPRLAND=${HYPRLAND_VERSION:-v0.49.0}
+HYPRPLUGINS=${HYPRLAND_PLUGINS_VERSION:-v0.49.0}
 HYPRUTILS=${HYPRUTILS_VERSION:-v0.8.0}
 HYPRLANG=${HYPRLANG_VERSION:-v0.6.3}
 HYPRCURSOR=${HYPRCURSOR_VERSION:-v0.1.12}
@@ -43,7 +44,19 @@ cd hyprland-src
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DNO_SYSTEMD=ON -DNO_UWSM=ON -DNO_HYPRPM=ON
 cmake --build build -j8
 DESTDIR=$STAGE cmake --install build
+cmake --install build
 cd "$W"
+git clone -q --depth 1 --branch "$HYPRPLUGINS" https://github.com/hyprwm/hyprland-plugins.git hyprland-plugins
+if [ -f hyprland-plugins/hyprbars/CMakeLists.txt ]; then
+  cmake -S hyprland-plugins/hyprbars -B hyprland-plugins/hyprbars/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+  cmake --build hyprland-plugins/hyprbars/build -j8
+  BARS=$(ls hyprland-plugins/hyprbars/build/*hyprbars.so)
+else
+  make -C hyprland-plugins/hyprbars all
+  BARS=$(ls hyprland-plugins/hyprbars/*hyprbars.so)
+fi
+mkdir -p "$STAGE/usr/lib/kwick/hypr"
+cp "$BARS" "$STAGE/usr/lib/kwick/hypr/hyprbars.so"
 rm -rf "$STAGE/usr/include" "$STAGE/usr/lib/"*/pkgconfig "$STAGE/usr/lib/"*/cmake "$STAGE/usr/share/pkgconfig" "$STAGE/usr/lib/"*/*.a
 find "$STAGE/usr/bin" "$STAGE/usr/lib" -type f \( -perm -u+x -o -name '*.so*' \) -exec strip --strip-unneeded {} + 2>/dev/null || true
 apt-get install -y --no-install-recommends dpkg-dev >/dev/null
