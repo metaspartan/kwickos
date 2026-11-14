@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Install Homebrew
+GenericName=Homebrew package manager
+Comment=Set up Homebrew (Linuxbrew) on demand
+Icon=system-software-install
+Exec=kwick-terminal -e sh -c "kwick-brew install; printf '\\\\nPress Enter to close. '; read -r _"
+Categories=System;PackageManager;
+Keywords=homebrew;brew;linuxbrew;packages;
+Terminal=false
