@@ -1,9 +1,136 @@
 #!/bin/sh
-set -e
-APPS="${*:-com.valvesoftware.Steam net.davidotek.pupgui2 com.heroicgameslauncher.hgl net.lutris.Lutris}"
-flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-echo "Installing: $APPS"
-flatpak install -y --noninteractive flathub $APPS
-echo
-echo "Done. GameMode (gamemoderun %command%) and MangoHud (mangohud %command%) are"
-echo "preinstalled; in Steam enable Proton under Settings > Compatibility."
+SELF=$(readlink -f "$0")
+LIBDIR=/usr/lib/kwick/gaming
+. "$LIBDIR/lib.sh"
+
+MODULES="steam gamescope-session proton launchers overlay controllers handheld waydroid decky streaming rgb tweaks"
+for m in $MODULES; do . "$LIBDIR/$m.sh"; done
+
+fn() { echo "$1" | tr - _; }
+
+valid() {
+  case " $MODULES " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+usage() {
+  cat <<EOF
+usage: $PROG <command>
+  list                       modules and what they provide
+  status [--machine]         installed state of every module
+  install <module...>        install modules
+  remove <module...>         remove modules
+  all                        install every module this machine supports
+  session boot-on|boot-off|status
+                             log in straight to Steam Game Mode at boot
+modules: $MODULES
+EOF
+}
+
+mod_state() {
+  f=$(fn "$1")
+  if [ "$(${f}_arch)" = x86 ] && ! is_x86; then echo "na|x86 only, not available on $ARCH"; return 0; fi
+  s=$(${f}_state)
+  if [ "$s" = na ] && type "${f}_why" >/dev/null 2>&1; then echo "na|$(${f}_why)"; else echo "$s|"; fi
+}
+
+state_label() {
+  case $1 in
+    yes) echo installed ;;
+    part) echo partial ;;
+    no) echo - ;;
+    na) echo unavailable ;;
+  esac
+}
+
+cmd_list() {
+  for m in $MODULES; do
+    f=$(fn "$m")
+    printf '%-18s %-4s %s\n' "$m" "$(${f}_arch)" "$(${f}_desc)"
+  done
+}
+
+cmd_status() {
+  machine=""
+  [ "${1:-}" = --machine ] && machine=1
+  for m in $MODULES; do
+    f=$(fn "$m")
+    IFS='|' read -r st note <<EOF
+$(mod_state "$m")
+EOF
+    if [ -n "$machine" ]; then
+      printf '%s|%s|%s|%s\n' "$m" "$st" "$(${f}_desc)" "$note"
+    else
+      printf '%-18s %-12s %s\n' "$m" "$(state_label "$st")" "${note:-$(${f}_desc)}"
+    fi
+  done
+  if [ -n "$machine" ]; then printf 'boot|%s\n' "$(boot_state)"; fi
+}
+
+cmd_install() {
+  [ $# -gt 0 ] || { usage; exit 2; }
+  for m; do valid "$m" || die "unknown module '$m' (see: $PROG list)"; done
+  need_root install "$@"
+  fails=0
+  for m; do
+    f=$(fn "$m")
+    if [ "$(${f}_arch)" = x86 ] && ! is_x86; then
+      warn "$m is x86-only and is not available on $ARCH"
+      fails=1
+      continue
+    fi
+    say "== $m"
+    if ${f}_install; then say "$m: done"; else warn "$m: failed"; fails=1; fi
+  done
+  exit $fails
+}
+
+cmd_remove() {
+  [ $# -gt 0 ] || { usage; exit 2; }
+  for m; do valid "$m" || die "unknown module '$m' (see: $PROG list)"; done
+  need_root remove "$@"
+  fails=0
+  for m; do
+    f=$(fn "$m")
+    say "== $m"
+    if ${f}_remove; then say "$m: removed"; else warn "$m: failed"; fails=1; fi
+  done
+  exit $fails
+}
+
+cmd_all() {
+  list=""
+  for m in $MODULES; do
+    IFS='|' read -r st _ <<EOF
+$(mod_state "$m")
+EOF
+    [ "$st" = na ] && continue
+    list="$list $m"
+  done
+  [ -n "$list" ] || die "no module is available on this machine"
+  need_root all "$@"
+  cmd_install $list
+}
+
+cmd_session() {
+  case ${1:-status} in
+    boot-on) need_root session boot-on; session_boot_on ;;
+    boot-off) need_root session boot-off; session_boot_off ;;
+    status) say "boot to Game Mode: $(boot_state)" ;;
+    *) usage; exit 2 ;;
+  esac
+}
+
+cmd=${1:-}
+[ $# -gt 0 ] && shift
+case $cmd in
+  list) cmd_list ;;
+  status) cmd_status "$@" ;;
+  install) cmd_install "$@" ;;
+  remove) cmd_remove "$@" ;;
+  all) cmd_all "$@" ;;
+  session) cmd_session "$@" ;;
+  session-select) session_select "$@" ;;
+  ""|help|-h|--help) usage; echo; cmd_status ;;
+  *) usage; exit 2 ;;
+esac

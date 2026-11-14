@@ -1,0 +1,11 @@
+#!/bin/sh
+case ${1:-} in
+  game|gamescope) target=game ;;
+  *) target=desktop ;;
+esac
+sudo -n /usr/bin/kwick-gaming session-select "$target" >/dev/null 2>&1
+sid=${XDG_SESSION_ID:-$(loginctl show-user "$(id -un)" -p Display --value 2>/dev/null)}
+if [ -n "$sid" ]; then
+  exec loginctl terminate-session "$sid"
+fi
+exec loginctl terminate-user "$(id -un)"

@@ -12,7 +12,7 @@ chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 "$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
-deps="linux-image-kwick-generic, kwick-gpu, $deps"
+deps="linux-image-kwick-generic, kwick-gpu, kwick-gaming, $deps"
 cat > "$P/DEBIAN/control" <<EOF
 Package: kwick-desktop
 Version: $VER
@@ -65,7 +65,7 @@ else
 fi
 echo "KwickOS Desktop $(cut -d' ' -f2 /etc/kwick-release)" > /etc/kwick-edition
 command -v flatpak >/dev/null && flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
-nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1' >/dev/null 2>&1 &
+nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1; /usr/bin/kwick-gaming install overlay >/var/log/kwick-gaming.log 2>&1' >/dev/null 2>&1 &
 echo "KwickOS Desktop installed. Reboot to start the desktop (kernel: generic flavor via kwick-kernel-install)."
 EOF
 chmod 755 "$P/DEBIAN/postinst"

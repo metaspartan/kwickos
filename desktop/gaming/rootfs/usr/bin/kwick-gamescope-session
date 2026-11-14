@@ -1,0 +1,25 @@
+#!/bin/sh
+[ -r /etc/kwick/gamescope.conf ] && . /etc/kwick/gamescope.conf
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/kwick/gamescope.conf" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/kwick/gamescope.conf"
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=gamescope
+export STEAM_MULTIPLE_XWAYLANDS=1
+export STEAM_GAMESCOPE_HAS_TEARING_SUPPORT=1
+export STEAM_GAMESCOPE_TEARING_SUPPORTED=1
+export STEAM_GAMESCOPE_VRR_SUPPORTED=1
+export STEAM_ENABLE_VOLUME_HANDLER=1
+
+ARGS=${KWICK_GAMESCOPE_ARGS:--e}
+if command -v mangoapp >/dev/null 2>&1; then ARGS="$ARGS --mangoapp"; fi
+STEAM_ARGS=${KWICK_STEAM_ARGS:--steamdeck -steamos3 -steampal -gamepadui}
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+  exec dbus-run-session -- "$0" "$@"
+fi
+
+if command -v gamescope >/dev/null 2>&1; then
+  exec gamescope $ARGS -- steam $STEAM_ARGS
+fi
+
+exec flatpak run --device=all --command=gamescope com.valvesoftware.Steam $ARGS -- steam $STEAM_ARGS
