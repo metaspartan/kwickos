@@ -832,6 +832,11 @@ def build():
         idx += [f"[{dpath}]", "Size=64", "MinSize=8", "MaxSize=1024", "Type=Scalable", f"Context={ctx[sub]}", ""]
     with open(os.path.join(OUT, "index.theme"), "w", newline="\n") as f:
         f.write("\n".join(idx))
+    if isinstance(STYLE, Mac):
+        for nm, gl, pl in (("layout", "layout", "blue"), ("dock", "dock", "indigo"), ("effects", "flame", "orange"), ("fonts", "font", "indigo"), ("desktop", "display", "blue"), ("gpu", "chip", "green"), ("gaming", "gamepad", "violet")):
+            sp = os.path.join(ROOT, "desktop/rootfs/usr/share/kwick/settings/icons", "obj-" + nm + ".svg")
+            with open(sp, "w", newline="\n") as f:
+                f.write(STYLE.tile(gl, pl, False))
     print(STYLE.name, names)
 
 

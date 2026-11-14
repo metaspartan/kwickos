@@ -1,5 +1,6 @@
 from icondesign import DD, DV, OBJECTS, XL, lg, mix, shadow_stack
 import placeicons
+import settingsicons
 
 BOX = {
     "folder": (8, 22, 92, 80), "folderfill": (8, 22, 92, 80), "terminal": (8, 16, 92, 84), "gear": (9, 9, 91, 91),
@@ -11,6 +12,7 @@ BOX = {
     "house": (6, 12, 94, 86), "template": (14, 12, 84, 90), "people": (8, 18, 92, 88),
 }
 
+BOX.update(settingsicons.BOX)
 FILL = 112.0
 
 
@@ -31,17 +33,8 @@ def free_icon(glyph, colors, pal, markup, d):
         sc, tx, ty = fit(BOX.get(glyph, (8, 8, 92, 92)))
         inner = f'<g transform="translate({tx:.2f} {ty:.2f}) scale({sc:.3f})">{sh}{body}</g>'
     else:
-        g = markup(glyph, "url(#gg)")
-        gb = markup(glyph, "#000")
-        gl = markup(glyph, "#fff")
-        defs = f'<linearGradient id="gg" gradientUnits="userSpaceOnUse" x1="12" y1="3" x2="12" y2="21"><stop offset="0" stop-color="{mix(c1, "#ffffff", 0.45)}"/><stop offset="1" stop-color="{mix(c1, c2, 0.4)}"/></linearGradient>'
-        ga = 'fill="none" stroke-linecap="round" stroke-linejoin="round"'
-        t = "translate(64 63) scale(6.0) translate(-12 -12)"
-        inner = (
-            f'<g transform="{t} translate(0 1.2)" {ga} stroke="#000" stroke-opacity="0.1" stroke-width="3.4">{gb}</g>'
-            f'<g transform="{t} translate(0 0.7)" {ga} stroke="#000" stroke-opacity="0.18" stroke-width="3">{gb}</g>'
-            f'<g transform="{t}" {ga} stroke="{mix(c2, "#000000", 0.25)}" stroke-width="2.9">{markup(glyph, mix(c2, "#000000", 0.25))}</g>'
-            f'<g transform="{t}" {ga} stroke="url(#gg)" stroke-width="2.3">{g}</g>'
-            f'<g transform="{t} translate(-0.1 -0.2)" {ga} stroke="#fff" stroke-opacity="0.35" stroke-width="0.7">{gl}</g>'
-        )
+        defs, body, sil = settingsicons.glyph_disc(markup, glyph, mix(c1, "#ffffff", 0.08), c2)
+        sh = shadow_stack(sil, offs)
+        sc, tx, ty = fit((8, 8, 92, 92))
+        inner = f'<g transform="translate({tx:.2f} {ty:.2f}) scale({sc:.3f})">{sh}{body}</g>'
     return f'<svg {XL} width="128" height="128" viewBox="0 0 128 128"><defs>{defs}</defs>{inner}</svg>\n'

@@ -123,22 +123,12 @@ ApplicationWindow {
                             anchors.fill: parent
                             anchors.leftMargin: 8
                             spacing: 11
-                            Rectangle {
+                            Image {
                                 Layout.preferredWidth: 28
                                 Layout.preferredHeight: 28
-                                radius: 7
-                                gradient: Gradient {
-                                    GradientStop { position: 0; color: Qt.lighter(item.modelData.color, 1.18) }
-                                    GradientStop { position: 1; color: item.modelData.color }
-                                }
-                                Image {
-                                    anchors.centerIn: parent
-                                    width: 18
-                                    height: 18
-                                    source: "icons/" + item.modelData.icon + ".svg"
-                                    sourceSize.width: 72
-                                    sourceSize.height: 72
-                                }
+                                source: "icons/obj-" + item.modelData.icon + ".svg"
+                                sourceSize.width: 112
+                                sourceSize.height: 112
                             }
                             Text {
                                 Layout.fillWidth: true
