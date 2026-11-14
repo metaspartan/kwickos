@@ -5,10 +5,10 @@ import QtQuick.Controls.Basic
 
 ApplicationWindow {
     id: win
-    visible: true
+    visible: false
     title: "Install KwickOS"
     width: Math.round(Math.min(1060, Screen.desktopAvailableWidth * 0.9))
-    height: Math.round(Math.min(740, Screen.desktopAvailableHeight * 0.9))
+    height: Math.round(Math.min(740, Screen.desktopAvailableHeight * 0.78))
     minimumWidth: 720
     minimumHeight: 560
     color: Theme.bg
@@ -44,7 +44,14 @@ ApplicationWindow {
         go(page - 1)
     }
 
-    Component.onCompleted: Inst.load()
+    Component.onCompleted: {
+        Qt.application.name = "kwick-installer"
+        Qt.application.organization = ""
+        Qt.application.domain = ""
+        stack.push(Qt.resolvedUrl("PWelcome.qml"), {}, StackView.Immediate)
+        visible = true
+        Inst.load()
+    }
 
     onClosing: (close) => {
         if (Inst.running) {
@@ -95,7 +102,6 @@ ApplicationWindow {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: nav.top
-        initialItem: Qt.resolvedUrl(win.pages[0])
         focus: true
 
         onCurrentItemChanged: if (currentItem) Qt.callLater(function () { if (stack.currentItem && stack.currentItem.focusFirst) stack.currentItem.focusFirst() })
@@ -119,7 +125,7 @@ ApplicationWindow {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 84
+        height: 76
         opacity: win.cur && win.cur.showNav ? 1 : 0
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 220 } }

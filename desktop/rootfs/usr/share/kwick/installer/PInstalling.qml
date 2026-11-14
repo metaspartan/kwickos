@@ -15,8 +15,12 @@ PageFrame {
 
     Item {
         Layout.fillWidth: true
-        Layout.topMargin: Math.max(0, Math.min(90, (p.height - 440) / 2 - 40))
-        implicitHeight: 168
+        Layout.topMargin: details.open ? 0 : Math.max(0, Math.min(90, (p.height - 440) / 2 - 40))
+        implicitHeight: details.open ? 112 : 168
+        scale: details.open ? 0.68 : 1
+        Behavior on implicitHeight { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+        Behavior on Layout.topMargin { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
         Repeater {
             model: 3
@@ -184,7 +188,7 @@ PageFrame {
 
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: Math.max(120, Math.min(220, p.height - 520))
+            implicitHeight: Math.max(140, Math.min(240, p.height - 420))
             radius: 10
             color: Theme.dark ? "#141417" : "#fafafc"
             border.width: 1

@@ -34,6 +34,12 @@ if command -v flock >/dev/null 2>&1; then
   flock -n 9 || { echo "Install KwickOS is already open" >&2; exit 0; }
 fi
 
+app=$run/kwick-installer
+real=$(readlink -f "$qml")
+if [ -n "$real" ] && cp -f "$real" "$app.new" 2>/dev/null && chmod 755 "$app.new" && mv -f "$app.new" "$app" && "$app" --version >/dev/null 2>&1; then
+  qml=$app
+fi
+
 export QT_QUICK_CONTROLS_STYLE=Basic
 export QML_XHR_ALLOW_FILE_READ=1
 export QML_XHR_ALLOW_FILE_WRITE=1

@@ -93,7 +93,7 @@ FocusScope {
                 enabled: !Inst.backendMissing
                 KeyNavigation.down: tryBtn
                 KeyNavigation.tab: tryBtn
-                onClicked: Inst.navNext()
+                onClicked: Inst.navTo(1)
                 Keys.onReturnPressed: clicked()
                 Keys.onEnterPressed: clicked()
             }
