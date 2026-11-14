@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KwickOS</title>
-<meta name="description" content="KwickOS: tiny, fast, Debian 13 compatible Linux for every architecture. A 5.5 MB base that installs software like Debian, with an optional desktop in macOS, Windows or Linux style.">
+<meta name="description" content="KwickOS: smaller than Alpine, installs like Debian. A 5.5 MB Linux for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
 <meta name="theme-color" content="#070a1a">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="KwickOS">
-<meta property="og:description" content="Tiny, fast, Debian 13 compatible Linux for every architecture.">
+<meta property="og:description" content="Smaller than Alpine. Installs like Debian. A 5.5 MB Linux for every architecture.">
 <meta property="og:image" content="img/desktop.png">
 <link rel="icon" href="img/kwickos-logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,8 +46,8 @@
   <div class="wrap hero-inner">
     <img class="hero-logo" src="img/kwickos-logo.svg" alt="KwickOS logo" width="120" height="139">
     <h1>KwickOS</h1>
-    <p class="tagline">Tiny, fast, Debian&nbsp;13 compatible Linux for every architecture.</p>
-    <p class="lede">A 5.5&nbsp;MB base that installs software like Debian, with an optional desktop that looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
+    <p class="tagline">Smaller than Alpine. Installs like Debian.</p>
+    <p class="lede">A 5.5&nbsp;MB Linux for every architecture. <code>apt</code> pulls straight from Debian&nbsp;13, Alpine&rsquo;s <code>apk</code> works right next to it, and an optional desktop looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso">Download desktop ISO</a>
       <a class="btn btn-ghost" href="#download">All downloads <span aria-hidden="true">&rarr;</span></a>
@@ -68,7 +68,7 @@
       <li class="reveal"><strong>1.17<small>&nbsp;s</small></strong><span>VM boot to shell</span></li>
       <li class="reveal"><strong>38.3<small>&nbsp;MiB</small></strong><span>memory after boot</span></li>
       <li class="reveal"><strong>24<small>&nbsp;MB</small></strong><span>live ISO</span></li>
-      <li class="reveal"><strong>~69k</strong><span>Debian 13 packages</span></li>
+      <li class="reveal"><strong>~69k</strong><span>Debian 13 packages, plus Alpine apk</span></li>
     </ul>
   </div>
 </section>
@@ -294,15 +294,16 @@
 <section class="section" id="debian">
   <div class="wrap">
     <header class="head reveal">
-      <p class="eyebrow">apt and Debian compatibility</p>
-      <h2>Small like Alpine.<br>Installs like Debian.</h2>
-      <p class="sub"><code>apt install</code> runs against the unmodified Debian&nbsp;13 &ldquo;trixie&rdquo; archive, about 69,000 packages with glibc pulled in only when something needs it.</p>
+      <p class="eyebrow">Debian and Alpine compatibility</p>
+      <h2>Debian&rsquo;s packages.<br>Alpine&rsquo;s too.</h2>
+      <p class="sub"><code>apt install</code> runs against the unmodified Debian&nbsp;13 &ldquo;trixie&rdquo; archive, about 69,000 packages with glibc pulled in only when something needs it. <code>apk add</code> works alongside it, with a signature-verified bootstrap, so Alpine&rsquo;s musl packages and Debian&rsquo;s glibc packages live side by side.</p>
     </header>
     <div class="term reveal" role="group" aria-label="Example session">
       <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i></div>
 <pre><code><span class="p">$</span> docker run --rm -it ghcr.io/metaspartan/kwickos
 <span class="p">root@kwick:/#</span> apt update &amp;&amp; apt install -y nginx python3
-<span class="p">root@kwick:/#</span> systemctl enable --now nginx</code></pre>
+<span class="p">root@kwick:/#</span> systemctl enable --now nginx
+<span class="p">root@kwick:/#</span> apk add nodejs</code></pre>
     </div>
     <div class="cards three">
       <article class="card reveal">
