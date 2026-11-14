@@ -148,7 +148,7 @@ tiling() {
   sub hyprland "$T/common/hyprland.conf" > "$C/hypr/hyprland.conf"
   cp "$T/$want/hyprland.conf" "$C/hypr/kwick-layout.conf"
   [ -f "$C/hypr/kwick-effects.conf" ] || : > "$C/hypr/kwick-effects.conf"
-  : > "$C/hypr/kwick-bars.conf"
+  if [ -f "$T/$want/hyprbars.conf" ]; then cp "$T/$want/hyprbars.conf" "$C/hypr/kwick-bars.conf"; else : > "$C/hypr/kwick-bars.conf"; fi
   sub sway "$T/common/sway.conf" > "$C/sway/config"
   sub sway "$T/$want/sway.conf" > "$C/sway/kwick-layout.conf"
   for wm in hyprland sway; do sub $wm "$T/$want/waybar.jsonc" > "$C/waybar/$wm.jsonc"; done
@@ -161,11 +161,13 @@ tiling() {
   sub x "$T/common/swaylock.conf" > "$C/swaylock/config"
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then
     wm=hyprland; hyprctl reload >/dev/null 2>&1
-    hyprctl plugin unload /usr/lib/kwick/hypr/hyprbars.so >/dev/null 2>&1
-    if [ -f "$cfg/hyprbars" ] && [ -f "$T/$want/hyprbars.conf" ] && [ -f /usr/lib/kwick/hypr/hyprbars.so ]; then
-      hyprctl plugin load /usr/lib/kwick/hypr/hyprbars.so >/dev/null 2>&1
-      cp "$T/$want/hyprbars.conf" "$C/hypr/kwick-bars.conf"
-      hyprctl reload >/dev/null 2>&1
+    if [ -f /usr/lib/kwick/hypr/hyprbars.so ] && ! hyprctl plugin list 2>/dev/null | grep -q hyprbars; then
+      (
+        sleep 4
+        hyprctl plugin list 2>/dev/null | grep -q hyprbars && exit 0
+        hyprctl plugin load /usr/lib/kwick/hypr/hyprbars.so
+        hyprctl reload
+      ) >/dev/null 2>&1 &
     fi
   elif [ -n "${SWAYSOCK:-}" ] && command -v swaymsg >/dev/null 2>&1; then wm=sway; swaymsg reload >/dev/null 2>&1
   else echo "tiling session not running: layout applies at next login"; return 0; fi
