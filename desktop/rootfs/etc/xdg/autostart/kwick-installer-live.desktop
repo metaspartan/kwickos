@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install KwickOS (live session)
+Exec=/usr/lib/kwick/installer-live
+NoDisplay=true
+X-KDE-autostart-phase=2
+X-GNOME-Autostart-Phase=Applications

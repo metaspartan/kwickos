@@ -1,0 +1,86 @@
+#!/bin/sh
+set -u
+live() {
+  [ -e /run/media/kwick/root.erofs ] && return 0
+  grep -qw 'kwick.live' /proc/cmdline 2>/dev/null && return 0
+  return 1
+}
+live || exit 0
+[ -n "${KWICK_INSTALLER_NO_AUTOSTART:-}" ] && exit 0
+
+id=kwick-installer.desktop
+src=/usr/share/applications/$id
+[ -f "$src" ] || exit 0
+apps=${XDG_DATA_HOME:-$HOME/.local/share}/applications
+mkdir -p "$apps"
+sed '/^NoDisplay=/d' "$src" > "$apps/$id"
+
+desk=$(xdg-user-dir DESKTOP 2>/dev/null)
+[ -n "$desk" ] && [ "$desk" != "$HOME" ] || desk=$HOME/Desktop
+mkdir -p "$desk"
+cp "$apps/$id" "$desk/$id"
+chmod 755 "$desk/$id"
+command -v gio >/dev/null 2>&1 && gio set "$desk/$id" metadata::trusted true >/dev/null 2>&1
+command -v kbuildsycoca6 >/dev/null 2>&1 && kbuildsycoca6 >/dev/null 2>&1
+
+pin_kde() {
+  q=$(command -v qdbus6 || command -v qdbus) || return 0
+  "$q" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '
+panels().forEach(function (p) {
+  p.widgets().forEach(function (w) {
+    if (w.type !== "org.kde.plasma.icontasks" && w.type !== "org.kde.plasma.taskmanager") return;
+    w.currentConfigGroup = ["General"];
+    var cur = w.readConfig("launchers", "");
+    var list = Array.isArray(cur) ? cur.slice() : String(cur).split(",");
+    list = list.filter(function (s) { return s.length > 0; });
+    if (list.join(",").indexOf("kwick-installer.desktop") >= 0) return;
+    list.unshift("applications:kwick-installer.desktop");
+    w.writeConfig("launchers", list.join(","));
+    w.reloadConfig();
+  });
+});' >/dev/null 2>&1
+}
+
+stamp() {
+  c=${XDG_CONFIG_HOME:-$HOME/.config}
+  stat -c %Y "$c/plasma-org.kde.plasma.desktop-appletsrc" "$c/kwick/layout" "$c/kwick/dock.conf" 2>/dev/null | tr '\n' ' '
+}
+
+case ${XDG_CURRENT_DESKTOP:-} in
+  *KDE*)
+    (
+      i=0
+      while [ $i -lt 60 ]; do
+        qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1 && break
+        sleep 1; i=$((i + 1))
+      done
+      sleep 3
+      pin_kde
+      last=$(stamp)
+      while :; do
+        sleep 4
+        now=$(stamp)
+        if [ "$now" != "$last" ]; then
+          sleep 2
+          pin_kde
+          last=$(stamp)
+        fi
+      done
+    ) >/dev/null 2>&1 &
+    ;;
+  *GNOME*)
+    fav=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null)
+    case $fav in
+      *"$id"*) ;;
+      "[]"|"@as []"|"") gsettings set org.gnome.shell favorite-apps "['$id']" ;;
+      *) gsettings set org.gnome.shell favorite-apps "['$id', ${fav#[}" ;;
+    esac
+    ;;
+esac
+
+mark=${XDG_CONFIG_HOME:-$HOME/.config}/kwick/installer-autostarted
+[ -e "$mark" ] && exit 0
+mkdir -p "${mark%/*}"
+: > "$mark"
+sleep 4
+exec kwick-installer-gui

@@ -1,0 +1,43 @@
+#!/bin/sh
+set -u
+dir=${KWICK_INSTALLER_DIR:-/usr/share/kwick/installer}
+qml=$(command -v qml6 || command -v qml) || { echo "kwick-installer-gui needs qml6 (apt install qml-qt6)" >&2; exit 1; }
+
+dry=${KWICK_INSTALLER_DRYRUN:-}
+backend=${KWICK_INSTALL_BIN:-}
+theme=${KWICK_INSTALLER_THEME:-}
+for a in "$@"; do
+  case $a in
+    --dry-run) dry=1 ;;
+    --backend=*) backend=${a#--backend=} ;;
+    --theme=*) theme=${a#--theme=} ;;
+    -h|--help) echo "usage: kwick-installer-gui [--dry-run] [--theme=dark|light] [--backend=PATH]"; exit 0 ;;
+  esac
+done
+[ -n "$backend" ] || backend=$(command -v kwick-install 2>/dev/null || echo /usr/sbin/kwick-install)
+
+if [ -z "$theme" ]; then
+  case ${XDG_CURRENT_DESKTOP:-} in
+    *GNOME*)
+      case $(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null) in
+        *light*|*default*) theme=light ;; *dark*) theme=dark ;;
+      esac ;;
+    *)
+      s=$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null)
+      case $s in *[Ll]ight*) theme=light ;; *[Dd]ark*) theme=dark ;; esac ;;
+  esac
+fi
+
+run=${XDG_RUNTIME_DIR:-/tmp}
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$run/kwick-installer-gui.lock"
+  flock -n 9 || { echo "Install KwickOS is already open" >&2; exit 0; }
+fi
+
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QML_XHR_ALLOW_FILE_READ=1
+export QML_XHR_ALLOW_FILE_WRITE=1
+set -- "--backend=$backend"
+[ -n "$dry" ] && [ "$dry" != 0 ] && set -- "$@" --dry-run
+[ -n "$theme" ] && set -- "$@" "--theme=$theme"
+exec "$qml" "$dir/Main.qml" -- "$@"

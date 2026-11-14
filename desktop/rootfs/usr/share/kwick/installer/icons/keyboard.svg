@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f5f8"/><stop offset="1" stop-color="#b9bfcc"/></linearGradient>
+    <linearGradient id="k" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e3e6ec"/></linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5eb0ff"/><stop offset="1" stop-color="#0a6ee8"/></linearGradient>
+  </defs>
+  <rect x="8" y="30" width="112" height="68" rx="12" fill="#000000" fill-opacity="0.18" transform="translate(0 3)"/>
+  <rect x="8" y="30" width="112" height="68" rx="12" fill="url(#b)"/>
+  <rect x="8.5" y="30.5" width="111" height="67" rx="11.5" fill="none" stroke="#ffffff" stroke-opacity="0.7"/>
+  <g fill="url(#k)" stroke="#9aa2b2" stroke-opacity="0.45" stroke-width="0.8">
+    <rect x="17" y="39" width="12" height="11" rx="2.5"/><rect x="32" y="39" width="12" height="11" rx="2.5"/><rect x="47" y="39" width="12" height="11" rx="2.5"/><rect x="62" y="39" width="12" height="11" rx="2.5"/><rect x="77" y="39" width="12" height="11" rx="2.5"/><rect x="92" y="39" width="19" height="11" rx="2.5"/>
+    <rect x="17" y="53" width="18" height="11" rx="2.5"/><rect x="38" y="53" width="12" height="11" rx="2.5"/><rect x="53" y="53" width="12" height="11" rx="2.5"/><rect x="68" y="53" width="12" height="11" rx="2.5"/><rect x="83" y="53" width="12" height="11" rx="2.5"/><rect x="98" y="53" width="13" height="11" rx="2.5"/>
+    <rect x="17" y="67" width="12" height="11" rx="2.5"/><rect x="32" y="67" width="12" height="11" rx="2.5"/><rect x="47" y="67" width="12" height="11" rx="2.5"/><rect x="62" y="67" width="12" height="11" rx="2.5"/><rect x="77" y="67" width="12" height="11" rx="2.5"/><rect x="92" y="67" width="19" height="11" rx="2.5"/>
+    <rect x="17" y="81" width="12" height="9" rx="2.5"/><rect x="32" y="81" width="12" height="9" rx="2.5"/><rect x="92" y="81" width="19" height="9" rx="2.5"/>
+  </g>
+  <rect x="47" y="81" width="42" height="9" rx="2.5" fill="url(#a)"/>
+</svg>

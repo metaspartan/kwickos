@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Install KwickOS
+GenericName=System Installer
+Comment=Install KwickOS on this computer
+Icon=kwickos-logo
+Exec=kwick-installer-gui
+Categories=System;
+Keywords=install;installer;setup;disk;partition;
+Terminal=false
+NoDisplay=true

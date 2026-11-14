@@ -1066,6 +1066,8 @@ do_copy() {
 		echo './etc/machine-id'
 		echo './etc/sudoers.d/kwick-live'
 		echo './etc/kwick-live'
+		echo './etc/xdg/autostart/kwick-installer-live.desktop'
+		echo './usr/lib/kwick/installer-live'
 	} >"$ex"
 	topts=""
 	if is_gnu_tar; then topts="--numeric-owner --xattrs --acls"; fi
@@ -1315,7 +1317,7 @@ cfg_autologin() {
 }
 
 cfg_liveclean() {
-	rm -f "$T/etc/xdg/kscreenlockerrc" "$T/etc/sudoers.d/kwick-live" "$T/etc/kwick-live"
+	rm -f "$T/etc/xdg/kscreenlockerrc" "$T/etc/sudoers.d/kwick-live" "$T/etc/kwick-live" "$T/etc/xdg/autostart/kwick-installer-live.desktop" "$T/usr/lib/kwick/installer-live"
 	: >"$T/etc/machine-id"
 	uuidgen 2>/dev/null | tr -d '-' >"$T/etc/machine-id"
 	[ -s "$T/etc/machine-id" ] || cat /proc/sys/kernel/random/uuid | tr -d '-' >"$T/etc/machine-id"
