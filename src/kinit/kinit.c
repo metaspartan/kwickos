@@ -365,7 +365,9 @@ static void stage0(void)
 						    ro ? MS_RDONLY : 0, flags) == 0;
 			}
 		} else {
-			if (resolve_dev("PARTLABEL=kwick-root", dev, sizeof dev) &&
+			if (cmdline_get("kwick.live") && resolve_dev("LABEL=KWICKOS", dev, sizeof dev) && setup_live(dev) == 0)
+				mounted = 1;
+			else if (resolve_dev("PARTLABEL=kwick-root", dev, sizeof dev) &&
 			    try_mount(dev, "/newroot", "ext4,erofs,btrfs,xfs", ro ? MS_RDONLY : 0, flags) == 0)
 				mounted = 1;
 			else if (resolve_dev("LABEL=KWICKOS", dev, sizeof dev) && setup_live(dev) == 0)

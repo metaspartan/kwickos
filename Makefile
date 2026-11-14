@@ -17,7 +17,7 @@ RUN_BUILDER = docker run --rm -v $(CURDIR):/src -v $(OUT):/out -v kwick-build:/b
               -e KVER=$(KVER) -e KWICK_REPO_URL -e KWICK_REPO_KEY -e KWICK_SIGNING_KEY $(BUILDER)
 KVM := $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: all builder userland kpkg kernel kernel-generic rootfs images headless-iso headless-iso-grub container repo test boot-test compat bench clean
+.PHONY: all builder userland kpkg kernel kernel-generic zfs storage-pkg rootfs images headless-iso headless-iso-grub container repo test boot-test compat bench clean
 
 all: userland kpkg kernel kernel-generic rootfs images
 
@@ -36,6 +36,12 @@ kernel:
 
 kernel-generic:
 	$(RUN_BUILDER) bash /src/scripts/build-kernel.sh $(ARCH) generic $(KVER)
+
+zfs:
+	$(RUN_BUILDER) bash /src/scripts/mkzfspkg.sh $(ARCH) generic
+
+storage-pkg:
+	$(RUN_BUILDER) bash /src/scripts/mkstoragepkg.sh
 
 rootfs:
 	$(RUN_BUILDER) bash /src/scripts/mkrootfs.sh $(ARCH)

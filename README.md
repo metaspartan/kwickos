@@ -29,8 +29,9 @@ a settings app, an icon theme, per-layout fonts, native Steam and automatic GPU 
 * [How it compares](#how-it-compares) and [results](#results)
 * [Install](#install)
 * [The desktop](#the-desktop): [layouts](#three-layouts-three-desktops), [Kwick Effects](#kwick-effects), [Settings](#kwickos-settings),
-  [icons](#icons), [fonts](#fonts), [app names](#files-and-terminal), [Steam](#steam), [GPUs and hardware](#gpus-and-hardware),
+  [icons](#icons), [fonts](#fonts), [app names](#files-and-terminal), [gaming](#gaming), [GPUs and hardware](#gpus-and-hardware),
   [Darling](#darling-macos-command-line-binaries-optional)
+* [Storage and NAS](#storage-and-nas)
 * [Using the base system](#using-the-base-system)
 * [Verification](#verification), [building](#building), [limitations](#limitations)
 
@@ -84,6 +85,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 |---|---|
 | `kwickos-amd64-desktop.iso` | KDE Plasma 6 desktop live ISO, boots in **UEFI and BIOS** (also `arm64`, UEFI) |
 | `kwickos-amd64.iso` | headless live ISO (UEFI, generic kernel, broad hardware), runs from RAM |
+| `kwickos-amd64-headless.iso` | headless live and installer ISO, boots in **UEFI and BIOS** (`make headless-iso`) |
 | `kwickos-amd64.qcow2` / `.img.zst` | VM/cloud disk: ESP (kernel) + ext4 root, 1 GiB |
 | `kwickos-amd64.efi` | the kernel itself (virt flavor), a UEFI app and `-kernel` image for QEMU/Firecracker |
 | `kwickos-amd64-initramfs.cpio.zst` | the whole OS as an initramfs (microVMs, CI sandboxes) |
@@ -108,6 +110,53 @@ The reboot into the upgraded desktop, the BIOS and UEFI ISO boots and a clean in
 | Desktop ISO, UEFI | Desktop ISO, BIOS (SeaBIOS) | After `apt install kwick-desktop` on a headless image |
 |---|---|---|
 | ![uefi](docs/img/iso-uefi-desktop.png) | ![bios](docs/img/iso-bios-desktop.png) | ![clean install](docs/img/vm-clean-install-desktop.png) |
+
+### Installer
+
+The live desktop opens **Install KwickOS** once at login and keeps it on the desktop and in the dock or panel. It walks
+through one decision per screen: language, keyboard (with a test field), time zone, look (macOS, Windows or Linux
+layout), disk (erase or existing partitions, with file system, encryption, swap and the boot loaders this machine
+supports under Advanced Options), account and a summary that ends in an **Erase and Install** confirmation. It follows
+the system's light or dark appearance and works entirely from the keyboard (Return continues, Alt+Left goes back).
+`kwick-installer-gui --dry-run` runs every step without writing to disk. The work is done by `kwick-install`, which can
+also be scripted directly.
+
+| Welcome | Select a disk | Installing |
+|---|---|---|
+| ![welcome](docs/img/installer-welcome.png) | ![disk](docs/img/installer-disk.png) | ![installing](docs/img/installer-progress.png) |
+
+### Installing
+
+`kwick-installer` opens the graphical installer in a desktop session and the terminal installer (`kwick-installer-tui`,
+plain ANSI, no extra packages) everywhere else. The headless live ISO prints `Run kwick-installer to install KwickOS` at
+login, and a `kwick.install` kernel argument starts it on the console. Both front ends call `kwick-install`, which also
+scripts the whole thing; secrets are only ever read from files:
+
+```sh
+kwick-install disks --json                     # path, size, model, transport, removable, is_live_medium
+kwick-install bootloaders --json --fs btrfs    # what this machine can boot, and the default
+kwick-install plan --disk /dev/vda --user alice --password-file /root/pw
+kwick-install run --yes --disk /dev/vda --fs btrfs --encrypt --passphrase-file /root/luks --bootloader grub \
+  --user alice --fullname "Alice" --password-file /root/pw --hostname box --timezone Europe/Berlin --swap zram
+```
+
+`run` prints only `PROGRESS <0-100> <text>`, `STEP <id> <title>`, `LOG <text>`, `ERROR <text>` (then exits non-zero) and `DONE`.
+`--mode manual --root-part P --efi-part P [--home-part P]` uses existing partitions, `--dry-run` walks the steps without touching
+the disk, and the disk holding the live medium is always refused. Installer tools (`fdisk`, `e2fsprogs`, `dosfstools`, `grub`, ...)
+that the live system lacks are fetched with `apt` first, so the headless ISO needs a network for that step.
+
+| boot loader | firmware | notes |
+|---|---|---|
+| EFI stub | UEFI | default on UEFI with an unencrypted ext4 root, the kernel is the boot entry |
+| GRUB | UEFI, BIOS (amd64) | any filesystem, LUKS2, kernel and menu on the ESP (UEFI) or `/boot` (BIOS) |
+| systemd-boot | UEFI | kernel and initramfs on the ESP |
+
+Limine is not packaged in Debian 13 and is not offered. btrfs, xfs and LUKS roots get a small generated initramfs; ext4 does
+not need one. `make headless-iso ARCH=amd64` builds `kwickos-amd64-headless.iso` (UEFI and BIOS), and
+`make headless-iso-grub` adds a GRUB menu with live, safe graphics (`nomodeset`) and install entries. The default boot path
+stays the EFI stub. Every live boot path (EFI image, isolinux, GRUB) passes `kwick.live`, which makes kinit mount the live
+medium before any installed KwickOS; without it kinit prefers the `kwick-root` partition, so a live USB left plugged in never
+hijacks an installed machine. GRUB and systemd-boot installs pin `root=UUID=`.
 
 **Headless examples**
 
@@ -192,9 +241,10 @@ Options:
 * `kwick-effects wobbly AMOUNT SWAY` takes two numbers from 1 to 10 (`kwick-effects param wobbly` prints them). Amount is how far the window
   stretches, sway is how curvy and fluid it is (softer springs and a finer mesh). The defaults are 6 and 7. In Settings they are the
   "Wobble" and "Sway" sliders.
-* `kwick-effects flame-style classic|inferno|ember|blue` and `kwick-effects flame-height 50-200`: Classic is tall orange fire rising above
+* `kwick-effects flame-style classic|inferno|ember|blue|legacy` and `kwick-effects flame-height 50-200`: Legacy is a particle-system burn (many additive flame particles along a line that sweeps up the window, yellow-white to orange to deep red, about one second); Classic is tall orange fire rising above
   the window, Inferno is wide and flares out at the sides, Ember is a subtle burn edge with drifting sparks, Blue is a hot gas flame.
 * `kwick-effects param flip flip|door|tilt` picks the 3D open/close style.
+* `kwick-effects param depth 0-10` sets how far windows float off the cube faces while it turns (the "Window depth" slider; default 5).
 * `kwick-effects switch slide|fade|cube|none` and `kwick-effects tabbox windows|cover|flip|grid` set the desktop switch animation and the
   Alt+Tab style.
 
@@ -206,24 +256,27 @@ Options:
 |---|---|---|
 | ![flip](docs/img/effects-3dopen.gif) | ![door](docs/img/effects-3dopen-door.gif) | ![tilt](docs/img/effects-3dopen-tilt.gif) |
 
-| Flame: classic | Flame: inferno | Flame: ember | Flame: blue |
-|---|---|---|---|
-| ![flame classic](docs/img/effects-flame.gif) | ![flame inferno](docs/img/effects-flame-inferno.gif) | ![flame ember](docs/img/effects-flame-ember.gif) | ![flame blue](docs/img/effects-flame-blue.gif) |
+| Flame: classic | Flame: inferno | Flame: ember |
+|---|---|---|
+| ![flame classic](docs/img/effects-flame.gif) | ![flame inferno](docs/img/effects-flame-inferno.gif) | ![flame ember](docs/img/effects-flame-ember.gif) |
+
+| Flame: blue | Flame: legacy |
+|---|---|
+| ![flame blue](docs/img/effects-flame-blue.gif) | ![flame legacy](docs/img/effects-flame-legacy.gif) |
 
 | Magic lamp |
 |---|
 | ![lamp](docs/img/effects-magiclamp.gif) |
 
 These were captured in a KVM guest with a virgl GPU (KWin on OpenGL), see [docs/VERIFICATION.md](docs/VERIFICATION.md). The capture
-path drops frames, so the GIFs are jumpier than the real thing; frame sheets are next to them in `docs/img` (`effects-*-frames.png`). The
-magic lamp GIF is from an earlier capture round. On GNOME the presets drive the extensions that are installed (wobbly, lamp, burn, cube,
+path drops frames, so the GIFs are jumpier than the real thing; frame sheets are next to them in `docs/img` (`effects-*-frames.png`). All of them were recorded on the current macOS layout. On GNOME the presets drive the extensions that are installed (wobbly, lamp, burn, cube,
 blur, and the wobble sliders map to the wobbly extension); on Hyprland they write bezier-curve animations (an overshoot curve for wobbly,
 a 3D-ish pop-in and fading slide for flip and the cube setting), blur and dimming.
 
 ### KwickOS Settings
 
-`kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, GPU and
-Gaming. It tells you when no GPU compositor is running and offers to install `kwick-gpu`.
+`kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, GPU,
+Gaming and VPN. It tells you when no GPU compositor is running and offers to install `kwick-gpu`.
 
 | Appearance | Dock | Effects |
 |---|---|---|
@@ -269,13 +322,56 @@ Apps show neutral names: **Files** (Dolphin), **Terminal** (Konsole), **Text Edi
 
 ![terminal tools](docs/img/terminal-tools.png)
 
-### Steam
+### Gaming
 
 Native Steam: `steam` enables the i386 architecture through kpkg multiarch, installs Debian's `steam-installer`, downloads the
-client and runs it (the kernel has IA32 emulation). `kwick-gaming` adds Proton-GE, Heroic, Lutris, GameMode and MangoHud from
-Flathub, with a gaming sysctl preset. If the native install fails, `steam` falls back to the Flathub build.
+client and runs it (the kernel has IA32 emulation). If the native install fails, `steam` falls back to the Flathub build.
+
+`kwick-gaming` is a modular, Bazzite-style setup, also in Settings, Gaming (status plus Install and Remove per module):
+`kwick-gaming list | status | install <module...> | remove <module...> | all`. Modules: `steam`, `gamescope-session` (Steam Game
+Mode on the login screen; `kwick-gaming session boot-on` boots straight into it), `proton` (ProtonUp-Qt and pinned GE-Proton),
+`launchers` (Lutris, Heroic, Bottles), `overlay` (MangoHud, GameMode, vkBasalt), `controllers`, `handheld` (HHD), `waydroid`,
+`decky`, `streaming` (Sunshine and Moonlight), `rgb` (OpenRGB) and `tweaks` (zram, sysctl, ntsync, I/O schedulers). x86-only
+modules say so on arm64 and riscv64. The comparison with Bazzite is in [docs/GAMING.md](docs/GAMING.md).
 
 ![steam](docs/img/steam.png)
+
+### VPN
+
+WireGuard is built into every kernel flavor, and the desktop ships NetworkManager plugins for OpenVPN, OpenConnect (AnyConnect,
+GlobalProtect, Fortinet, Pulse), vpnc, L2TP/IPsec, strongSwan and SSTP, so VPNs show up in the Plasma network applet, the GNOME
+quick settings and the Hyprland bar (a lock appears while a tunnel is up). `kwick-vpn import <file.conf|file.ovpn> | list | up
+<name> | down <name> | status` works on both editions (NetworkManager if present, else `wg-quick` and `openvpn`), and `kwick-vpn
+install tailscale | mullvad | protonvpn | zerotier | netbird` adds a provider from its official repository with a pinned key
+fingerprint. Settings has a VPN page. Details in [docs/VPN.md](docs/VPN.md).
+
+### Storage and NAS
+
+`kwick-storage` turns either edition into a NAS without growing the base image: `kwick-storage list | status | install
+<module...> | remove <module...> | all`. Modules: `zfs` (OpenZFS modules prebuilt in CI for every KwickOS kernel, as the separate
+CDDL package `kwick-zfs`, with the Debian userland, sanoid snapshots and a monthly scrub), `raid` (mdadm, LVM), `btrfs` (snapper),
+`array` (Unraid-style mergerfs + SnapRAID: `kwick-storage array setup --data sdb,sdc --parity sdd --format --yes` writes
+`snapraid.conf` and the fstab entries and schedules a nightly sync and weekly scrub), `shares` (Samba with wsdd2 and Avahi, NFS:
+`kwick-storage share add /srv/media --smb --nfs`), `iscsi`, `smart`, `ups`, `containers`, `vms` and `webui` (Cockpit on port
+9090). Settings has a Storage page with disks, pools, arrays and per-module install rows. `kwick-install --fs zfs` installs onto a
+ZFS root. Details and a comparison with Unraid and TrueNAS in [docs/STORAGE.md](docs/STORAGE.md).
+
+### Security toolkit
+
+`kwick-pen` is an optional, Kali-style toolkit; nothing is preinstalled: `kwick-pen list | status | install <module...> | remove
+<module...> | all`. Modules: `recon`, `web` (Burp Suite, ZAP, sqlmap, ffuf, nuclei), `network` (Wireshark, bettercap, Responder,
+NetExec), `passwords` (john, hashcat, hydra, SecLists), `wireless`, `exploit` (Metasploit, searchsploit), `ad`, `re` (Ghidra,
+radare2, gdb with GEF), `forensics`, `mobile`, `cloud`, `osint` and `defense`. Sources: Debian 13 first, then Flathub, vendor repos
+and pinned upstream releases with sha256. Kali repositories are deliberately never added, since mixing archives breaks Debian
+systems. Tools without an arm64 or riscv64 build are skipped. A Security menu folder lists the GUI launchers. For authorized
+testing only. Tool table in [docs/PEN.md](docs/PEN.md).
+
+### AI agents
+
+`kwick-agents list | status | install <module...> | remove <module...> | all` installs optional AI agent tooling. `kwick-agents
+install cybara` installs the [Cybara](https://cybara.ai) self-hosted agent platform CLI from the official release, pinned and
+sha256-verified (amd64 and arm64). The `inference` module is a placeholder for a future multi-GPU engine. See
+[docs/AGENTS.md](docs/AGENTS.md).
 
 ### GPUs and hardware
 
@@ -319,6 +415,16 @@ vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by de
 * `kwick-kernel-install --list | --rollback` manages kernels.
 * `apk add <pkg>` works next to `apt`: Alpine (musl) and Debian (glibc) packages coexist, and the apk bootstrap is signature-verified.
   `tests/ecosystems.sh` checks that `apk add nodejs`, `apt install python3` and the official Bun installer work side by side.
+
+### Homebrew (on demand)
+
+`kwick-brew install` sets up [Homebrew](https://brew.sh) (Linuxbrew) at `/home/linuxbrew/.linuxbrew` using the official installer. Nothing
+is preinstalled, so it costs about 0 bytes in the image. It first installs the Debian build dependencies it needs (`build-essential`,
+`procps`, `curl`, `file`, `git`) if they are missing. After install Homebrew itself takes about 220 MB, plus roughly 460 MB of build
+tools on a minimal system. `kwick-brew status`, `kwick-brew uninstall` (the official uninstall script) and `kwick-brew shellenv` cover
+the rest; the desktop also has an "Install Homebrew" launcher. Supported on x86_64 and arm64 only; other architectures exit with
+status 3. Once installed, login shells add brew to the end of `PATH` (`/etc/profile.d/20-kwick-brew.sh`), so system tools in
+`/usr/bin` always win.
 
 ## Verification
 

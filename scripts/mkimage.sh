@@ -41,6 +41,8 @@ if [ -f "$KI/modules.tar.zst" ]; then
   zstd -dc "$KI/modules.tar.zst" | tar -C "$RI/usr" -x
 fi
 EFII=$(efibin "$KI")
+. "$(cd "$(dirname "$0")" && pwd)/live-boot.sh"
+uki_build "$ARCH" "$EFII" "$W/live-efi.efi" kwick.live && EFII="$W/live-efi.efi"
 LR="$W/live"; mkdir -p "$LR/kwick"
 mkfs.erofs --quiet -zlz4hc,12 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$LR/kwick/root.erofs" "$RI"
 cp "$KI/vmlinuz" "$LR/kwick/vmlinuz"

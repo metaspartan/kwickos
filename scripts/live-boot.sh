@@ -1,8 +1,29 @@
+uki_build() {
+	local arch=$1 kernel=$2 out=$3 cmdline=$4 sfx stub dir end=0 idx name size vma rest e v1 v2 v3 v4
+	case $arch in amd64) sfx=x64;; arm64) sfx=aa64;; riscv64) sfx=riscv64;; *) return 1;; esac
+	stub=/usr/lib/systemd/boot/efi/linux$sfx.efi.stub
+	[ -f "$stub" ] && command -v objcopy >/dev/null && command -v objdump >/dev/null || return 1
+	dir=$(dirname "$out")
+	printf '%s' "$cmdline" > "$dir/uki-cmdline.txt"
+	while read -r idx name size vma rest; do
+		[[ $idx =~ ^[0-9]+$ ]] || continue
+		e=$((0x$vma + 0x$size))
+		[ "$e" -gt "$end" ] && end=$e
+	done < <(objdump -h "$stub")
+	v1=$(( (end + 4095) / 4096 * 4096 ))
+	v2=$(( (v1 + $(stat -c %s /usr/lib/os-release) + 4095) / 4096 * 4096 ))
+	v3=$(( (v2 + $(stat -c %s "$dir/uki-cmdline.txt") + 4095) / 4096 * 4096 ))
+	objcopy --add-section .osrel=/usr/lib/os-release --change-section-vma .osrel=$v1 \
+	  --add-section .cmdline="$dir/uki-cmdline.txt" --change-section-vma .cmdline=$v2 \
+	  --add-section .linux="$kernel" --change-section-vma .linux=$v3 "$stub" "$out"
+}
+
 live_boot_prepare() {
 	local arch=$1 kdir=$2 w=$3 efiname=$4
 	local efi="$kdir/vmlinuz"
 	[ -f "$kdir/vmlinuz.efi" ] && efi="$kdir/vmlinuz.efi"
 	LIVE_BOOT=${LIVE_BOOT:-stub}
+	if uki_build "$arch" "$efi" "$w/live-efi.efi" kwick.live; then efi="$w/live-efi.efi"; echo ">> EFI image carries kwick.live"; else echo "note: no systemd EFI stub or objcopy here, the EFI image has no kwick.live marker"; fi
 	BIOSARGS=()
 	mkdir -p "$w/live/kwick"
 	cp "$kdir/vmlinuz" "$w/live/kwick/vmlinuz"
@@ -16,13 +37,13 @@ terminal_input console serial
 terminal_output console serial
 search --no-floppy --file --set=root /kwick/root.erofs
 menuentry "KwickOS live" {
-	linux /kwick/vmlinuz
+	linux /kwick/vmlinuz kwick.live
 }
 menuentry "KwickOS live, safe graphics (nomodeset)" {
-	linux /kwick/vmlinuz nomodeset
+	linux /kwick/vmlinuz kwick.live nomodeset
 }
 menuentry "Install KwickOS" {
-	linux /kwick/vmlinuz kwick.install
+	linux /kwick/vmlinuz kwick.live kwick.install
 }
 EOF
 		local mods="part_gpt part_msdos iso9660 fat search search_fs_file normal linux echo serial terminal configfile"
@@ -54,7 +75,7 @@ EOF
 	if [ "$arch" = amd64 ] && [ -f /usr/lib/ISOLINUX/isolinux.bin ] && [ -f /usr/lib/syslinux/modules/bios/ldlinux.c32 ]; then
 		mkdir -p "$w/live/isolinux"
 		cp /usr/lib/ISOLINUX/isolinux.bin /usr/lib/syslinux/modules/bios/ldlinux.c32 "$w/live/isolinux/"
-		printf 'DEFAULT kwick\nPROMPT 0\nTIMEOUT 1\nLABEL kwick\n  KERNEL /kwick/vmlinuz\n' > "$w/live/isolinux/isolinux.cfg"
+		printf 'DEFAULT kwick\nPROMPT 0\nTIMEOUT 1\nLABEL kwick\n  KERNEL /kwick/vmlinuz\n  APPEND kwick.live\n' > "$w/live/isolinux/isolinux.cfg"
 		BIOSARGS=(-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot)
 	else
 		echo "note: no isolinux in this builder, the ISO is UEFI only"

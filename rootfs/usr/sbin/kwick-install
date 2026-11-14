@@ -11,6 +11,9 @@ LOWER=/run/lower
 CONF=/etc/kwick/install.conf
 KDIR=/usr/lib/kwick/kernels
 CRYPT_NAME=kwick-root
+ZPOOL=kwickpool
+ZROOT=$ZPOOL/ROOT/kwick
+BPO_SUITE=trixie-backports
 ESP_MIB=512
 BOOT_MIB=1024
 
@@ -175,11 +178,21 @@ live_disk_names() {
 		case $d in /dev/loop*) continue ;; esac
 		parent_disk "$d"
 	done
-	blkid 2>/dev/null | grep -i 'LABEL="KWICKOS"' | sed 's/:.*//' | while read -r d; do parent_disk "$d"; done
+	for n in $(list_disk_names) $(ls /sys/block 2>/dev/null | grep '^sr'); do
+		[ -b "/dev/$n" ] || continue
+		blkid "/dev/$n" 2>/dev/null | grep -qi 'LABEL="KWICKOS"' && echo "$n"
+	done
 }
 
+LIVE_READY=0
+LIVE_LIST=""
+
 disk_is_live() {
-	live_disk_names | sort -u | grep -qx "$1"
+	if [ "$LIVE_READY" = 0 ]; then
+		LIVE_LIST=$(live_disk_names | sort -u)
+		LIVE_READY=1
+	fi
+	printf '%s\n' "$LIVE_LIST" | grep -qx "$1"
 }
 
 disk_model() {
@@ -549,7 +562,7 @@ options
   --disk /dev/X                target disk (erase mode)
   --mode erase|alongside|manual
   --root-part P --efi-part P [--boot-part P] [--home-part P] [--keep-home]   (manual mode)
-  --fs ext4|btrfs|xfs
+  --fs ext4|btrfs|xfs|zfs
   --encrypt --passphrase-file F
   --bootloader grub|systemd-boot|efistub|limine
   --hostname H --user U --fullname N
@@ -629,7 +642,11 @@ validate_common() {
 		;;
 	*) bad "unknown mode: $MODE" ;;
 	esac
-	case $FS in ext4 | btrfs | xfs) ;; *) bad "unsupported filesystem: $FS" ;; esac
+	case $FS in ext4 | btrfs | xfs | zfs) ;; *) bad "unsupported filesystem: $FS" ;; esac
+	if [ "$FS" = zfs ]; then
+		[ -e /proc/modules ] || bad "a ZFS root needs a kernel with module support (the generic kernel)"
+		[ -n "$HOME_PART" ] && bad "a ZFS root keeps /home as a dataset in the pool, drop --home-part"
+	fi
 	case $AUTOLOGIN in yes | no) ;; *) bad "--autologin takes yes or no" ;; esac
 	case $LAYOUT in macos | windows | linux) ;; *) bad "unknown layout: $LAYOUT" ;; esac
 	case $SWAP in
@@ -691,7 +708,7 @@ layout_erase() {
 		P_ESP=$(part_dev "$DISK" $n); S_ESP=$ESP_MIB; n=$((n + 1)); used=$((used + S_ESP))
 	else
 		P_BIOS=$(part_dev "$DISK" $n); S_BIOS=1; n=$((n + 1)); used=$((used + 1))
-		if [ "$ENCRYPT" = 1 ]; then
+		if [ "$ENCRYPT" = 1 ] || [ "$FS" = zfs ]; then
 			P_BOOT=$(part_dev "$DISK" $n); S_BOOT=$BOOT_MIB; n=$((n + 1)); used=$((used + S_BOOT))
 		fi
 	fi
@@ -730,6 +747,7 @@ layout_manual() {
 		disk_busy "${p#/dev/}" && bad "$p is mounted or used as swap"
 	done
 	[ "$ENCRYPT" = 1 ] && [ "$FW" = bios ] && [ -z "$BOOT_PART" ] && bad "encrypted BIOS installs need --boot-part for an unencrypted /boot"
+	[ "$FS" = zfs ] && [ "$FW" = bios ] && [ -z "$BOOT_PART" ] && bad "ZFS BIOS installs need --boot-part for an ext4 /boot"
 	P_ESP=$EFI_PART; P_BIOS=""; P_BOOT=$BOOT_PART; P_ROOT=$ROOT_PART; P_HOME=$HOME_PART
 	S_ROOT=$(($(sectors_of "$ROOT_PART") / 2048))
 	if [ "$EDITION" = desktop ]; then MINROOT=10240; else MINROOT=1536; fi
@@ -777,6 +795,7 @@ steps_list() {
 	printf 'mount|Mounting the target\n'
 	printf 'copy|Copying the system\n'
 	if [ "$EDITION" = desktop ] && [ "$LIVE_EDITION" = headless ]; then printf 'desktop|Installing the desktop packages\n'; fi
+	[ "$FS" = zfs ] && printf 'zfs|Installing OpenZFS into the system\n'
 	printf 'configure|Configuring the system\n'
 	printf 'kernel|Installing the kernel\n'
 	printf 'bootloader|Installing the bootloader (%s)\n' "$BL"
@@ -820,7 +839,14 @@ umount_target() {
 	done
 }
 
+export_pool() {
+	if [ "$FS" = zfs ] && have zpool && zpool list -H "$ZPOOL" >/dev/null 2>&1; then
+		zpool export "$ZPOOL" >/dev/null 2>&1 || zpool export -f "$ZPOOL" >/dev/null 2>&1
+	fi
+}
+
 close_crypt() {
+	export_pool
 	if [ -e "/dev/mapper/$CRYPT_NAME" ] && have cryptsetup; then
 		cryptsetup close "$CRYPT_NAME" >/dev/null 2>&1
 	fi
@@ -914,6 +940,7 @@ tools_needed() {
 	[ "$FS" = xfs ] && ! have mkfs.xfs && addpk xfsprogs
 	[ "$ENCRYPT" = 1 ] && ! have cryptsetup && addpk cryptsetup-bin
 	[ "$ENCRYPT" = 1 ] && ! have ldd && addpk libc-bin
+	[ "$FS" = zfs ] && ! have ldd && addpk libc-bin
 	if ! bl_installed "$BL" "$FW"; then
 		for p in $(bl_pkgs "$BL" "$FW"); do addpk "$p"; done
 	fi
@@ -937,6 +964,54 @@ ensure_tools() {
 	[ -z "$pk" ] || { printf 'ERROR tools still missing after install: %s\n' "$pk"; exit 1; }
 }
 
+zfs_apt_setup() {
+	r=${1:-}
+	mkdir -p "$r/etc/apt/sources.list.d" "$r/etc/apt/preferences.d"
+	if [ ! -f "$r/etc/apt/sources.list.d/kwick-backports.sources" ]; then
+		printf 'Types: deb\nURIs: http://deb.debian.org/debian\nSuites: %s\nComponents: main contrib\n' "$BPO_SUITE" >"$r/etc/apt/sources.list.d/kwick-backports.sources"
+	fi
+	sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' "$r/etc/apt/sources.list.d/debian.sources" 2>/dev/null
+	printf 'Package: /^(zfsutils-linux|zfs-zed|zfs-initramfs|zfs-dracut|zfs-test|libzfs[0-9].*|libzpool[0-9].*|libnvpair[0-9].*|libuutil[0-9].*|libzfsbootenv[0-9].*|python3-pyzfs|pyzfs-doc)$/\nPin: release n=%s\nPin-Priority: 990\n' "$BPO_SUITE" >"$r/etc/apt/preferences.d/kwick-zfs"
+	printf 'Package: *\nPin: release n=%s\nPin-Priority: 100\n' "$BPO_SUITE" >"$r/etc/apt/preferences.d/zz-kwick-backports"
+}
+
+ensure_zfs() {
+	[ "$FS" = zfs ] || return 0
+	if ! have zpool || ! modprobe zfs >/dev/null 2>&1; then
+		have apt-get || { printf 'ERROR OpenZFS is missing and there is no package manager to fetch it\n'; exit 1; }
+		progress 4 "Downloading OpenZFS"
+		zfs_apt_setup ""
+		xrun apt-get update
+		if ! xrun apt-get install -y --no-install-recommends "kwick-zfs-modules-$(uname -r)" zfsutils-linux; then
+			tail -n 6 "$LOGF" 2>/dev/null | while IFS= read -r l; do printf 'LOG %s\n' "$l"; done
+			printf 'ERROR could not install OpenZFS for kernel %s, check the network and the KwickOS repository\n' "$(uname -r)"
+			exit 1
+		fi
+		modprobe zfs >/dev/null 2>&1 || { printf 'ERROR the zfs module does not load on kernel %s\n' "$(uname -r)"; exit 1; }
+	fi
+	[ -s /etc/hostid ] || { have zgenhostid && xrun zgenhostid; }
+	log "OpenZFS $(cat /sys/module/zfs/version 2>/dev/null) ready"
+}
+
+do_zfs_target() {
+	find_kernel
+	chroot_mounts
+	zfs_apt_setup "$T"
+	[ -s /etc/hostid ] && cp /etc/hostid "$T/etc/hostid"
+	mkdir -p "$T/var/cache/apt/archives" "$T/var/lib/apt/lists"
+	cp /var/cache/apt/archives/*.deb "$T/var/cache/apt/archives/" 2>/dev/null
+	cp /var/lib/apt/lists/*_Packages /var/lib/apt/lists/*Release "$T/var/lib/apt/lists/" 2>/dev/null
+	xrun chroot "$T" apt-get update
+	if ! xrun chroot "$T" apt-get install -y --no-install-recommends "kwick-zfs-modules-$REL" zfsutils-linux; then
+		tail -n 6 "$LOGF" 2>/dev/null | while IFS= read -r l; do printf 'LOG %s\n' "$l"; done
+		chroot_umounts
+		printf 'ERROR installing OpenZFS into the new system failed\n'
+		exit 1
+	fi
+	chroot_umounts
+	rm -f "$T"/var/cache/apt/archives/*.deb
+}
+
 do_partition() {
 	need swapoff -a
 	zero_start "$DISK"
@@ -954,7 +1029,7 @@ do_partition() {
 		if [ -n "$P_BOOT" ]; then
 			printf 'size=%sMiB, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="kwick-boot"\n' "$S_BOOT"
 		fi
-		if [ "$ENCRYPT" = 1 ]; then rt=0FC63DAF-8483-4772-8E79-3D69D8477DE4; else rt=$(root_type_guid); fi
+		if [ "$ENCRYPT" = 1 ] || [ "$FS" = zfs ]; then rt=0FC63DAF-8483-4772-8E79-3D69D8477DE4; else rt=$(root_type_guid); fi
 		printf 'type=%s, name="kwick-root"\n' "$rt"
 	} >"$sfscript"
 	cat "$sfscript" >>"$LOGF"
@@ -986,6 +1061,19 @@ mkfs_on() {
 	esac
 }
 
+make_pool() {
+	zpool list -H "$ZPOOL" >/dev/null 2>&1 && bad "a pool named $ZPOOL is already imported, export it first"
+	xrun wipefs -af "$ROOTDEV"
+	need zpool create -f -o ashift=12 -o autotrim=on -o cachefile=none \
+		-O compression=lz4 -O acltype=posixacl -O xattr=sa -O atime=off -O dnodesize=auto -O normalization=formD \
+		-O canmount=off -O mountpoint=none "$ZPOOL" "$ROOTDEV"
+	need zfs create -o canmount=off -o mountpoint=none "$ZPOOL/ROOT"
+	need zfs create -o canmount=noauto -o mountpoint=legacy "$ZROOT"
+	need zfs create -o mountpoint=legacy "$ZPOOL/home"
+	need zpool set bootfs="$ZROOT" "$ZPOOL"
+	ROOT_UUID=$(zpool get -H -o value guid "$ZPOOL")
+}
+
 do_format() {
 	if [ -n "$P_ESP" ]; then
 		if [ "$MODE" = erase ] || ! blkid "$P_ESP" 2>/dev/null | grep -q 'TYPE="vfat"'; then
@@ -1007,8 +1095,12 @@ do_format() {
 		do_encrypt
 		step format "Creating filesystems"
 	fi
-	mkfs_on "$FS" "$ROOTDEV" kwick-root
-	ROOT_UUID=$(blkid_uuid "$ROOTDEV") || { printf 'ERROR cannot read the root UUID\n'; exit 1; }
+	if [ "$FS" = zfs ]; then
+		make_pool
+	else
+		mkfs_on "$FS" "$ROOTDEV" kwick-root
+		ROOT_UUID=$(blkid_uuid "$ROOTDEV") || { printf 'ERROR cannot read the root UUID\n'; exit 1; }
+	fi
 	if [ -n "$P_HOME" ] && [ "${HOME_FMT:-true}" = true ]; then
 		zero_start "$P_HOME"
 		mkfs_on "$FS" "$P_HOME" kwick-home
@@ -1021,7 +1113,13 @@ do_format() {
 do_mount() {
 	mkdir -p "$T"
 	case $FS in btrfs | xfs) modprobe -q "$FS" >/dev/null 2>&1 ;; esac
-	need mount -t "$FS" -o noatime "$ROOTDEV" "$T"
+	if [ "$FS" = zfs ]; then
+		need mount -t zfs "$ZROOT" "$T"
+		mkdir -p "$T/home"
+		need mount -t zfs "$ZPOOL/home" "$T/home"
+	else
+		need mount -t "$FS" -o noatime "$ROOTDEV" "$T"
+	fi
 	if [ -n "$P_BOOT" ]; then
 		mkdir -p "$T/boot"
 		need mount -t ext4 -o noatime "$P_BOOT" "$T/boot"
@@ -1173,7 +1271,12 @@ cfg_fstab() {
 	[ "$FS" = ext4 ] && ro="defaults,noatime,errors=remount-ro"
 	{
 		printf '# <file system> <mount point> <type> <options> <dump> <pass>\n'
-		printf 'UUID=%s / %s %s 0 1\n' "$ROOT_UUID" "$FS" "$ro"
+		if [ "$FS" = zfs ]; then
+			printf '%s / zfs defaults 0 0\n' "$ZROOT"
+			printf '%s/home /home zfs defaults 0 0\n' "$ZPOOL"
+		else
+			printf 'UUID=%s / %s %s 0 1\n' "$ROOT_UUID" "$FS" "$ro"
+		fi
 		[ -n "$P_BOOT" ] && printf 'UUID=%s /boot ext4 defaults,noatime 0 2\n' "$BOOT_UUID"
 		[ -n "$P_ESP" ] && printf 'UUID=%s /boot/efi vfat umask=0077 0 2\n' "$ESP_UUID"
 		[ -n "$P_HOME" ] && printf 'UUID=%s /home %s %s 0 2\n' "$HOME_UUID" "$FS" "$ro"
@@ -1302,6 +1405,27 @@ cfg_layout() {
 	echo "$LAYOUT" >"$T/home/$USERN/.config/kwick/layout"
 }
 
+pick_session() {
+	SESSION_FILE=""
+	for f in "$T/usr/share/wayland-sessions/plasma.desktop" "$T"/usr/share/wayland-sessions/plasma*.desktop "$T/usr/share/xsessions/plasmax11.desktop" "$T"/usr/share/xsessions/plasma*.desktop; do
+		[ -f "$f" ] && { SESSION_FILE=${f#"$T"}; break; }
+	done
+	SESSION_NAME=$(basename "${SESSION_FILE:-/plasma.desktop}" .desktop)
+}
+
+cfg_session() {
+	[ -d "$T/etc/sddm.conf.d" ] || [ -d "$T/usr/share/wayland-sessions" ] || return 0
+	pick_session
+	[ -n "$SESSION_FILE" ] || { log "no Plasma session found, leaving the login screen default alone"; return 0; }
+	mkdir -p "$T/var/lib/sddm"
+	printf '[Last]\nSession=%s\nUser=%s\n' "$SESSION_FILE" "$USERN" >"$T/var/lib/sddm/state.conf"
+	sid=$(awk -F: '$1 == "sddm" { print $3 ":" $4 }' "$T/etc/passwd")
+	[ -n "$sid" ] && chown -R "$sid" "$T/var/lib/sddm"
+	printf 'Session=%s\n' "$SESSION_FILE" >"$T/home/$USERN/.dmrc.new"
+	printf '[Desktop]\n%s' "$(cat "$T/home/$USERN/.dmrc.new")" >"$T/home/$USERN/.dmrc"
+	rm -f "$T/home/$USERN/.dmrc.new"
+}
+
 cfg_autologin() {
 	rm -f "$T/etc/kinit/autologin"
 	if [ "$AUTOLOGIN" = yes ]; then
@@ -1311,7 +1435,8 @@ cfg_autologin() {
 	if [ -d "$T/etc/sddm.conf.d" ]; then
 		rm -f "$T/etc/sddm.conf.d/20-autologin.conf"
 		if [ "$AUTOLOGIN" = yes ]; then
-			printf '[Autologin]\nUser=%s\nSession=plasma\nRelogin=false\n' "$USERN" >"$T/etc/sddm.conf.d/20-autologin.conf"
+			pick_session
+			printf '[Autologin]\nUser=%s\nSession=%s\nRelogin=false\n' "$USERN" "$SESSION_NAME" >"$T/etc/sddm.conf.d/20-autologin.conf"
 		fi
 	fi
 }
@@ -1357,6 +1482,7 @@ cfg_conf() {
 		printf 'FS=%s\n' "$FS"
 		printf 'ENCRYPT=%s\n' "$ENCRYPT"
 		printf 'ROOT_UUID=%s\n' "$ROOT_UUID"
+		[ "$FS" = zfs ] && printf 'ZPOOL=%s\n' "$ZPOOL"
 		printf 'LUKS_UUID=%s\n' "${LUKS_UUID:-}"
 		printf 'ESP_UUID=%s\n' "${ESP_UUID:-}"
 		printf 'BOOT_UUID=%s\n' "${BOOT_UUID:-}"
@@ -1374,6 +1500,7 @@ do_configure() {
 	cfg_time
 	cfg_keymap
 	cfg_layout
+	[ "$EDITION" = desktop ] && cfg_session
 	cfg_autologin
 	cfg_swap
 	cfg_conf
@@ -1458,6 +1585,7 @@ make_initrd() {
 	[ "$FS" = btrfs ] && mods="$mods btrfs"
 	[ "$FS" = xfs ] && mods="$mods xfs"
 	[ "$ENCRYPT" = 1 ] && mods="$mods dm_crypt xts essiv"
+	[ "$FS" = zfs ] && mods="$mods zfs"
 	mdir=/usr/lib/modules/$rel
 	: >"$d/lib/modules/load.list"
 	if [ -n "$mods" ]; then
@@ -1482,6 +1610,18 @@ make_initrd() {
 		done
 		mkdir -p "$d/sbin"
 		[ -e "$d/sbin/cryptsetup" ] || ln -sf "$cs" "$d/sbin/cryptsetup"
+	fi
+	if [ "$FS" = zfs ]; then
+		zp=$(command -v zpool)
+		[ -n "$zp" ] || { printf 'ERROR zpool is needed to build the initramfs\n'; exit 1; }
+		for f in "$zp" $(ldd "$zp" 2>/dev/null | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | sort -u); do
+			mkdir -p "$d$(dirname "$f")"
+			cp -L "$f" "$d$f"
+		done
+		[ -e "$d/sbin/zpool" ] || ln -sf "$zp" "$d/sbin/zpool"
+		mkdir -p "$d/etc"
+		[ -s /etc/hostid ] && cp /etc/hostid "$d/etc/hostid"
+		: >"$d/etc/mtab"
 	fi
 	cat >"$d/init" <<'INITEOF'
 #!/bin/busybox sh
@@ -1571,7 +1711,17 @@ fi
 [ -n "$RDEV" ] || { echo "root device not found"; exec sh; }
 OPTS=rw
 [ -n "$FLAGS" ] && OPTS=rw,$FLAGS
-if [ -n "$FST" ]; then
+if [ "$FST" = zfs ]; then
+	DS=${ROOT#ZFS=}
+	POOL=${DS%%/*}
+	i=0
+	until zpool import -N -d /dev -d /dev/mapper "$POOL" 2>/dev/null || zpool import -N -f -d /dev -d /dev/mapper "$POOL"; do
+		i=$((i + 1))
+		[ $i -gt 15 ] && { echo "cannot import the ZFS pool $POOL"; exec sh; }
+		sleep 1
+	done
+	mount -t zfs "$DS" /newroot || exec sh
+elif [ -n "$FST" ]; then
 	mount -t "$FST" -o "$OPTS" "$RDEV" /newroot || exec sh
 else
 	mount -o "$OPTS" "$RDEV" /newroot || exec sh
@@ -1589,7 +1739,9 @@ INITEOF
 }
 
 boot_cmdline() {
-	if [ "$ENCRYPT" = 1 ]; then
+	if [ "$FS" = zfs ]; then
+		if [ "$ENCRYPT" = 1 ]; then echo "root=ZFS=$ZROOT rootfstype=zfs kwick.luks=$LUKS_UUID"; else echo "root=ZFS=$ZROOT rootfstype=zfs"; fi
+	elif [ "$ENCRYPT" = 1 ]; then
 		echo "root=UUID=$ROOT_UUID rootfstype=$FS kwick.luks=$LUKS_UUID"
 	elif [ "$FS" != ext4 ]; then
 		echo "root=UUID=$ROOT_UUID rootfstype=$FS"
@@ -1760,6 +1912,7 @@ cmd_run() {
 	progress 1 "Starting"
 	step prepare "Checking the system and tools"
 	ensure_tools
+	ensure_zfs
 	progress 5 "Tools ready"
 	step partition "Partitioning the disk"
 	if [ "$MODE" = erase ]; then
@@ -1782,6 +1935,10 @@ cmd_run() {
 		step desktop "Installing the desktop packages"
 		do_desktop_upgrade
 	fi
+	if [ "$FS" = zfs ]; then
+		step zfs "Installing OpenZFS into the system"
+		do_zfs_target
+	fi
 	step configure "Configuring the system"
 	do_configure
 	progress 84 "System configured"
@@ -1802,6 +1959,7 @@ cmd_run() {
 cmd_refresh() {
 	[ -f "$CONF" ] || { echo "kwick-install: $CONF not found, this system was not installed by kwick-install" >&2; exit 1; }
 	. "$CONF"
+	ZROOT=$ZPOOL/ROOT/kwick
 	T=""
 	W=/run/kwick-refresh
 	mkdir -p "$W"
