@@ -3,10 +3,10 @@ FROM ${BASE}
 SHELL ["/bin/sh", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY packages.list packages.amd64.list /tmp/
+COPY packages.list packages.amd64.list packages.arm64.list packages.riscv64.list /tmp/
 RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
  && apt update \
- && PK="$(grep -hv '^#' /tmp/packages.list | tr '\n' ' ')"; [ "$(dpkg --print-architecture)" = amd64 ] && PK="$PK $(grep -hv '^#' /tmp/packages.amd64.list | tr '\n' ' ')"; apt install -y $PK \
+ && PK="$(grep -hv '^#' /tmp/packages.list | tr '\n' ' ')"; PK="$PK $(grep -hv '^#' /tmp/packages.$(dpkg --print-architecture).list 2>/dev/null | tr '\n' ' ')"; apt install -y $PK \
  && apt clean && rm -rf /var/lib/apt/lists/* /tmp/packages*.list
 
 COPY rootfs/ /

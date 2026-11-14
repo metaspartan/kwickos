@@ -21,6 +21,13 @@ case "$(uname -m)" in
 	*) echo "kwick-kernel-install: unsupported arch $(uname -m)" >&2; exit 1 ;;
 esac
 
+managed_by() {
+	[ -f /etc/kwick/install.conf ] && [ -x /usr/sbin/kwick-install ] || return 1
+	b=$(sed -n 's/^BOOTLOADER=//p' /etc/kwick/install.conf)
+	[ -n "$b" ] && [ "$b" != efistub ] || return 1
+	echo "$b"
+}
+
 find_esp() {
 	for u in /sys/class/block/*/uevent; do
 		if grep -q '^PARTNAME=EFI System$' "$u" 2>/dev/null; then
@@ -44,6 +51,7 @@ case "${1:-}" in
 		echo "running: $(uname -r)"
 		exit 0 ;;
 	--rollback)
+		if b=$(managed_by); then echo "boot entries are managed by $b; edit its configuration to roll back" >&2; exit 1; fi
 		mount_esp || { echo "no EFI System Partition found" >&2; exit 1; }
 		[ -f "$ESP/EFI/kwick/previous.efi" ] || { echo "no previous kernel" >&2; exit 1; }
 		cp "$ESP/EFI/BOOT/$NAME" "$ESP/EFI/kwick/rollback-from.efi"
@@ -56,6 +64,9 @@ case "${1:-}" in
 		sed -n '2,15p' "$0"; exit 0 ;;
 esac
 
+if managed_by >/dev/null; then
+	exec /usr/sbin/kwick-install refresh-boot "$1"
+fi
 REL=$1
 SRC="$KDIR/$REL"
 IMG="$SRC/vmlinuz.efi"; [ -f "$IMG" ] || IMG="$SRC/vmlinuz"

@@ -11,4 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ovmf qemu-efi-aarch64 opensbi \
       dpkg-dev gnupg golang-go \
     && rm -rf /var/lib/apt/lists/*
+RUN if [ "$(dpkg --print-architecture)" = amd64 ]; then \
+      apt-get update && apt-get install -y --no-install-recommends grub-common grub-efi-amd64-bin grub-pc-bin \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 WORKDIR /src

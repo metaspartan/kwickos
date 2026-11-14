@@ -1,0 +1,14 @@
+#!/bin/sh
+gui=${KWICK_INSTALLER_GUI:-/usr/bin/kwick-installer-gui}
+tui=/usr/sbin/kwick-installer-tui
+if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+	if [ -x "$gui" ]; then exec "$gui" "$@"; fi
+	for term in konsole gnome-terminal foot kitty alacritty xterm; do
+		command -v "$term" >/dev/null 2>&1 || continue
+		case $term in
+		gnome-terminal) exec "$term" -- "$tui" "$@" ;;
+		*) exec "$term" -e "$tui" "$@" ;;
+		esac
+	done
+fi
+exec "$tui" "$@"

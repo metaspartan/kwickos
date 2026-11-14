@@ -1,0 +1,10 @@
+[Unit]
+Description=Compressed RAM swap (zram)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/kwick/zram-setup
+
+[Install]
+WantedBy=multi-user.target

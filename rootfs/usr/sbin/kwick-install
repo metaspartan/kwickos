@@ -1,0 +1,1865 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+W=/run/kwick-install
+T=$W/target
+LOCKF=/run/kwick-install.lock
+LOGF=/var/log/kwick-install.log
+MEDIA=/run/media
+LOWER=/run/lower
+CONF=/etc/kwick/install.conf
+KDIR=/usr/lib/kwick/kernels
+CRYPT_NAME=kwick-root
+ESP_MIB=512
+BOOT_MIB=1024
+
+CMD=""
+JSON=0
+DISK=""
+MODE=erase
+FS=ext4
+ENCRYPT=0
+PASSPHRASE_FILE=""
+BL=""
+HNAME=kwick
+USERN=""
+FULLNAME=""
+PASSWORD_FILE=""
+ROOT_PASSWORD_FILE=""
+AUTOLOGIN=no
+TZONE=UTC
+LOCALE=en_US.UTF-8
+KEYMAP=us
+EDITION=""
+LAYOUT=macos
+SWAP=none
+DRYRUN=0
+YES=0
+ROOT_PART=""
+EFI_PART=""
+HOME_PART=""
+BOOT_PART=""
+KEEP_HOME=0
+BGPID=""
+CURSTEP=""
+
+jstr() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
+jbool() { if [ "$1" = 1 ]; then echo true; else echo false; fi; }
+
+bad() {
+	case $CMD in
+	run) printf 'ERROR %s\n' "$*" ;;
+	*) printf '{"ok":false,"error":"%s"}\n' "$(jstr "$*")" ;;
+	esac
+	exit 1
+}
+
+log() {
+	printf 'LOG %s\n' "$*"
+	printf '%s\n' "$*" >>"$LOGF" 2>/dev/null
+}
+progress() { printf 'PROGRESS %s %s\n' "$1" "$2"; }
+step() {
+	CURSTEP=$1
+	printf 'STEP %s %s\n' "$1" "$2"
+	printf '== %s\n' "$2" >>"$LOGF" 2>/dev/null
+}
+
+xrun() { "$@" >>"$LOGF" 2>&1; }
+
+need() {
+	if ! xrun "$@"; then
+		tail -n 6 "$LOGF" 2>/dev/null | while IFS= read -r l; do printf 'LOG %s\n' "$l"; done
+		printf 'ERROR command failed: %s\n' "$*"
+		exit 1
+	fi
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+fwmode() { if [ -d /sys/firmware/efi ]; then echo uefi; else echo bios; fi; }
+
+archname() {
+	case $(uname -m) in
+	x86_64) echo amd64 ;;
+	aarch64 | arm64) echo arm64 ;;
+	riscv64) echo riscv64 ;;
+	*) uname -m ;;
+	esac
+}
+
+efi_suffix() {
+	case $ARCHN in
+	amd64) echo x64 ;;
+	arm64) echo aa64 ;;
+	riscv64) echo riscv64 ;;
+	esac
+}
+
+efi_boot_name() {
+	case $ARCHN in
+	amd64) echo BOOTX64.EFI ;;
+	arm64) echo BOOTAA64.EFI ;;
+	riscv64) echo BOOTRISCV64.EFI ;;
+	esac
+}
+
+root_type_guid() {
+	case $ARCHN in
+	amd64) echo 4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709 ;;
+	arm64) echo B921B045-1DF0-41C3-AF44-4C6F280D3FAE ;;
+	riscv64) echo 72EC70A6-CF74-40E6-BD49-4BDA08E8F224 ;;
+	esac
+}
+
+grub_target() {
+	if [ "$1" = uefi ]; then
+		case $ARCHN in
+		amd64) echo x86_64-efi ;;
+		arm64) echo arm64-efi ;;
+		riscv64) echo riscv64-efi ;;
+		esac
+	else
+		echo i386-pc
+	fi
+}
+
+detect_edition() {
+	if grep -qi desktop /etc/kwick-edition 2>/dev/null; then echo desktop; else echo headless; fi
+}
+
+human() {
+	awk -v b="$1" 'BEGIN { if (b >= 1099511627776) printf "%.1f TiB", b / 1099511627776; else if (b >= 1073741824) printf "%.1f GiB", b / 1073741824; else printf "%d MiB", b / 1048576 }'
+}
+
+part_dev() {
+	case $1 in
+	*[0-9]) echo "${1}p$2" ;;
+	*) echo "${1}$2" ;;
+	esac
+}
+
+parent_disk() {
+	n=${1#/dev/}
+	if [ -e "/sys/class/block/$n/partition" ]; then
+		p=$(readlink -f "/sys/class/block/$n")
+		basename "$(dirname "$p")"
+	else
+		echo "$n"
+	fi
+}
+
+sectors_of() {
+	n=${1#/dev/}
+	cat "/sys/class/block/$n/size" 2>/dev/null || echo 0
+}
+
+list_disk_names() {
+	for s in /sys/block/*; do
+		n=${s##*/}
+		case $n in
+		loop* | ram* | zram* | dm-* | md* | nbd* | sr* | fd* | mtd* | *boot[0-9] | *rpmb) continue ;;
+		esac
+		[ -r "$s/size" ] || continue
+		sz=$(cat "$s/size")
+		[ "$sz" -gt 0 ] 2>/dev/null || continue
+		echo "$n"
+	done
+}
+
+live_disk_names() {
+	for mp in "$MEDIA" "$LOWER" /; do
+		d=$(awk -v m="$mp" '$2 == m && $1 ~ /^\/dev\// { print $1 }' /proc/mounts | tail -n 1)
+		[ -n "$d" ] || continue
+		case $d in /dev/loop*) continue ;; esac
+		parent_disk "$d"
+	done
+	blkid 2>/dev/null | grep -i 'LABEL="KWICKOS"' | sed 's/:.*//' | while read -r d; do parent_disk "$d"; done
+}
+
+disk_is_live() {
+	live_disk_names | sort -u | grep -qx "$1"
+}
+
+disk_model() {
+	s=/sys/block/$1/device
+	m=""
+	for f in vendor model; do
+		if [ -r "$s/$f" ]; then
+			v=$(cat "$s/$f" 2>/dev/null)
+			case $v in 0x*) ;; *) m="$m $v" ;; esac
+		fi
+	done
+	m=$(echo $m)
+	[ -n "$m" ] || m=$(cat "$s/name" 2>/dev/null)
+	if [ -z "$m" ] && [ "$(disk_transport "$1")" = virtio ]; then m="Virtio disk"; fi
+	echo "$m"
+}
+
+disk_transport() {
+	case $1 in
+	nvme*) echo nvme; return ;;
+	mmcblk*) echo mmc; return ;;
+	esac
+	p=$(readlink -f "/sys/block/$1" 2>/dev/null)
+	case $p in
+	*usb*) echo usb ;;
+	*virtio*) echo virtio ;;
+	*/ata*) echo sata ;;
+	*xen*) echo xen ;;
+	*scsi* | *host*) echo scsi ;;
+	*) echo unknown ;;
+	esac
+}
+
+disk_busy() {
+	grep -q "^/dev/$1" /proc/mounts 2>/dev/null && return 0
+	grep -q "^/dev/$1" /proc/swaps 2>/dev/null && return 0
+	return 1
+}
+
+cmd_disks() {
+	live=$(live_disk_names | sort -u)
+	first=1
+	printf '[\n'
+	for n in $(list_disk_names); do
+		bytes=$(($(cat "/sys/block/$n/size") * 512))
+		model=$(disk_model "$n")
+		tr_=$(disk_transport "$n")
+		[ -n "$model" ] || model=Unknown
+		rem=0
+		[ "$(cat "/sys/block/$n/removable" 2>/dev/null)" = 1 ] && rem=1
+		isl=0
+		echo "$live" | grep -qx "$n" && isl=1
+		[ $first = 1 ] || printf ',\n'
+		first=0
+		printf '  {"path":"/dev/%s","size_bytes":%s,"size_human":"%s","model":"%s","transport":"%s","removable":%s,"is_live_medium":%s}' \
+			"$n" "$bytes" "$(human "$bytes")" "$(jstr "$model")" "$tr_" "$(jbool $rem)" "$(jbool $isl)"
+	done
+	printf '\n]\n'
+}
+
+bl_name() {
+	case $1 in
+	efistub) echo "EFI stub (direct kernel boot)" ;;
+	grub) echo "GRUB" ;;
+	systemd-boot) echo "systemd-boot" ;;
+	limine) echo "Limine" ;;
+	esac
+}
+
+bl_desc() {
+	case $1 in
+	efistub) echo "The firmware starts the kernel directly. Fastest, nothing to configure, ext4 without encryption." ;;
+	grub) echo "Boot menu for BIOS and UEFI, reads every filesystem and encrypted setups." ;;
+	systemd-boot) echo "Minimal UEFI boot menu." ;;
+	limine) echo "Not packaged in Debian 13." ;;
+	esac
+}
+
+bl_pkgs() {
+	case $1 in
+	grub)
+		p="grub-common grub2-common"
+		if [ "$2" = uefi ]; then
+			case $ARCHN in
+			amd64) p="$p grub-efi-amd64-bin" ;;
+			arm64) p="$p grub-efi-arm64-bin" ;;
+			riscv64) p="$p grub-efi-riscv64-bin" ;;
+			esac
+		else
+			p="$p grub-pc-bin"
+		fi
+		echo "$p"
+		;;
+	systemd-boot) echo systemd-boot-efi ;;
+	esac
+}
+
+bl_unavailable() {
+	case $1 in
+	efistub)
+		[ "$2" = uefi ] || { echo "needs UEFI firmware"; return 0; }
+		[ "$3" = ext4 ] || { echo "needs an ext4 root filesystem"; return 0; }
+		[ "$4" = 1 ] && { echo "cannot unlock an encrypted root"; return 0; }
+		;;
+	grub)
+		if [ "$2" = bios ] && [ "$ARCHN" != amd64 ]; then
+			echo "BIOS boot is only available on amd64"
+			return 0
+		fi
+		;;
+	systemd-boot)
+		[ "$2" = uefi ] || { echo "needs UEFI firmware"; return 0; }
+		;;
+	limine)
+		echo "not packaged in Debian 13"
+		return 0
+		;;
+	*)
+		echo "unknown bootloader"
+		return 0
+		;;
+	esac
+	return 1
+}
+
+bl_installed() {
+	case $1 in
+	efistub) return 0 ;;
+	grub) have grub-install && [ -d "/usr/lib/grub/$(grub_target "$2")" ] ;;
+	systemd-boot) [ -f "/usr/lib/systemd/boot/efi/systemd-boot$(efi_suffix).efi" ] ;;
+	*) return 1 ;;
+	esac
+}
+
+bl_default() {
+	if [ "$1" = uefi ]; then
+		if bl_unavailable efistub "$1" "$2" "$3" >/dev/null; then echo grub; else echo efistub; fi
+	else
+		echo grub
+	fi
+}
+
+cmd_bootloaders() {
+	FW=$(fwmode)
+	ARCHN=$(archname)
+	def=$(bl_default "$FW" "$FS" "$ENCRYPT")
+	first=1
+	avail=""
+	unav=""
+	for id in efistub grub systemd-boot limine; do
+		if r=$(bl_unavailable "$id" "$FW" "$FS" "$ENCRYPT"); then
+			[ -n "$unav" ] && unav="$unav,"
+			unav="$unav{\"id\":\"$id\",\"name\":\"$(bl_name "$id")\",\"reason\":\"$(jstr "$r")\"}"
+			continue
+		fi
+		pk=""
+		for p in $(bl_pkgs "$id" "$FW"); do
+			[ -n "$pk" ] && pk="$pk,"
+			pk="$pk\"$p\""
+		done
+		inst=0
+		bl_installed "$id" "$FW" && inst=1
+		[ -n "$avail" ] && avail="$avail,"
+		avail="$avail{\"id\":\"$id\",\"name\":\"$(jstr "$(bl_name "$id")")\",\"description\":\"$(jstr "$(bl_desc "$id")")\",\"installed\":$(jbool $inst),\"packages\":[$pk]}"
+	done
+	printf '{"firmware":"%s","arch":"%s","default":"%s","bootloaders":[%s],"unavailable":[%s]}\n' "$FW" "$ARCHN" "$def" "$avail" "$unav"
+}
+
+builtin_timezones() {
+	cat <<'EOF'
+Africa/Cairo
+Africa/Johannesburg
+Africa/Lagos
+Africa/Nairobi
+America/Anchorage
+America/Argentina/Buenos_Aires
+America/Bogota
+America/Chicago
+America/Denver
+America/Halifax
+America/Los_Angeles
+America/Mexico_City
+America/New_York
+America/Phoenix
+America/Santiago
+America/Sao_Paulo
+America/Toronto
+America/Vancouver
+Asia/Bangkok
+Asia/Dhaka
+Asia/Dubai
+Asia/Hong_Kong
+Asia/Jakarta
+Asia/Karachi
+Asia/Kolkata
+Asia/Manila
+Asia/Seoul
+Asia/Shanghai
+Asia/Singapore
+Asia/Taipei
+Asia/Tehran
+Asia/Tokyo
+Atlantic/Reykjavik
+Australia/Adelaide
+Australia/Brisbane
+Australia/Melbourne
+Australia/Perth
+Australia/Sydney
+Europe/Amsterdam
+Europe/Athens
+Europe/Berlin
+Europe/Brussels
+Europe/Dublin
+Europe/Helsinki
+Europe/Istanbul
+Europe/Lisbon
+Europe/London
+Europe/Madrid
+Europe/Moscow
+Europe/Oslo
+Europe/Paris
+Europe/Prague
+Europe/Rome
+Europe/Stockholm
+Europe/Vienna
+Europe/Warsaw
+Europe/Zurich
+Pacific/Auckland
+Pacific/Honolulu
+UTC
+EOF
+}
+
+list_timezones() {
+	z=/usr/share/zoneinfo
+	if [ -d "$z" ] && [ -f "$z/zone1970.tab" ]; then
+		{
+			echo UTC
+			grep -v '^#' "$z/zone1970.tab" | cut -f3
+			[ -f "$z/tzdata.zi" ] && awk '$1 == "Z" { print $2 } $1 == "L" { print $3 }' "$z/tzdata.zi"
+		} | grep -E '^(UTC$|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/)' | sort -u
+	elif [ -d "$z" ]; then
+		(cd "$z" && find . -type f 2>/dev/null | sed 's|^\./||') | grep -E '^(UTC$|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/)' | sort -u
+	else
+		builtin_timezones
+	fi
+}
+
+builtin_locales() {
+	cat <<'EOF'
+en_US.UTF-8
+en_GB.UTF-8
+en_AU.UTF-8
+en_CA.UTF-8
+de_DE.UTF-8
+fr_FR.UTF-8
+es_ES.UTF-8
+es_MX.UTF-8
+it_IT.UTF-8
+pt_BR.UTF-8
+pt_PT.UTF-8
+nl_NL.UTF-8
+sv_SE.UTF-8
+nb_NO.UTF-8
+da_DK.UTF-8
+fi_FI.UTF-8
+pl_PL.UTF-8
+cs_CZ.UTF-8
+ru_RU.UTF-8
+uk_UA.UTF-8
+tr_TR.UTF-8
+el_GR.UTF-8
+he_IL.UTF-8
+ar_EG.UTF-8
+hi_IN.UTF-8
+ja_JP.UTF-8
+ko_KR.UTF-8
+zh_CN.UTF-8
+zh_TW.UTF-8
+vi_VN.UTF-8
+th_TH.UTF-8
+id_ID.UTF-8
+C.UTF-8
+EOF
+}
+
+list_locales() {
+	if [ -f /usr/share/i18n/SUPPORTED ]; then
+		awk '$2 == "UTF-8" { print $1 }' /usr/share/i18n/SUPPORTED | sort -u
+	else
+		builtin_locales
+	fi
+}
+
+builtin_keymaps() {
+	cat <<'EOF'
+us	English (US)
+gb	English (UK)
+us(intl)	English (US, international)
+us(dvorak)	English (Dvorak)
+us(colemak)	English (Colemak)
+de	German
+fr	French
+es	Spanish
+it	Italian
+pt	Portuguese
+br	Portuguese (Brazil)
+nl	Dutch
+se	Swedish
+no	Norwegian
+dk	Danish
+fi	Finnish
+pl	Polish
+cz	Czech
+sk	Slovak
+hu	Hungarian
+ro	Romanian
+ru	Russian
+ua	Ukrainian
+tr	Turkish
+gr	Greek
+il	Hebrew
+ara	Arabic
+jp	Japanese
+kr	Korean
+ch	Swiss
+be	Belgian
+ca	Canadian
+latam	Latin American
+in	Indian
+EOF
+}
+
+list_keymaps() {
+	b=/usr/share/X11/xkb/rules/base.lst
+	if [ -f "$b" ]; then
+		awk '/^! layout/ { f = 1; next } /^!/ { f = 0 } f && NF { c = $1; $1 = ""; sub(/^ +/, ""); print c "\t" $0 }' "$b"
+	else
+		builtin_keymaps
+	fi
+}
+
+cmd_list() {
+	case $1 in
+	timezones) list_timezones ;;
+	locales) list_locales ;;
+	keymaps)
+		if [ "$2" = --names ]; then list_keymaps; else list_keymaps | cut -f1; fi
+		;;
+	esac
+}
+
+usage() {
+	cat <<'EOF'
+usage: kwick-install <command> [options]
+
+commands
+  disks --json                 list installable disks as JSON
+  bootloaders --json [--fs F] [--encrypt]
+                               bootloaders usable on this machine as JSON
+  plan [options]               print the partition and step plan as JSON, touch nothing
+  run [options] --yes          perform the installation, emit machine lines on stdout
+  timezones | locales | keymaps [--names]
+  refresh-boot [release]       reinstall kernel files and boot entries on an installed system
+
+options
+  --disk /dev/X                target disk (erase mode)
+  --mode erase|alongside|manual
+  --root-part P --efi-part P [--boot-part P] [--home-part P] [--keep-home]   (manual mode)
+  --fs ext4|btrfs|xfs
+  --encrypt --passphrase-file F
+  --bootloader grub|systemd-boot|efistub|limine
+  --hostname H --user U --fullname N
+  --password-file F --root-password-file F
+  --autologin yes|no
+  --timezone Area/City --locale xx_YY.UTF-8 --keymap K
+  --edition desktop|headless
+  --layout macos|windows|linux
+  --swap none|zram|file:<size>
+  --dry-run --yes
+
+run output lines: PROGRESS <0-100> <message>, STEP <id> <title>, LOG <text>, ERROR <message>, DONE
+EOF
+}
+
+parse_opts() {
+	while [ $# -gt 0 ]; do
+		case $1 in
+		--json) JSON=1; shift; continue ;;
+		--encrypt) ENCRYPT=1; shift; continue ;;
+		--dry-run) DRYRUN=1; shift; continue ;;
+		--yes) YES=1; shift; continue ;;
+		--keep-home) KEEP_HOME=1; shift; continue ;;
+		--names) shift; continue ;;
+		--*) ;;
+		*) bad "unexpected argument: $1" ;;
+		esac
+		[ $# -ge 2 ] || bad "option $1 needs a value"
+		case $1 in
+		--disk) DISK=$2 ;;
+		--mode) MODE=$2 ;;
+		--fs) FS=$2 ;;
+		--passphrase-file) PASSPHRASE_FILE=$2 ;;
+		--bootloader) BL=$2 ;;
+		--hostname) HNAME=$2 ;;
+		--user) USERN=$2 ;;
+		--fullname) FULLNAME=$2 ;;
+		--password-file) PASSWORD_FILE=$2 ;;
+		--root-password-file) ROOT_PASSWORD_FILE=$2 ;;
+		--autologin) AUTOLOGIN=$2 ;;
+		--timezone) TZONE=$2 ;;
+		--locale) LOCALE=$2 ;;
+		--keymap) KEYMAP=$2 ;;
+		--edition) EDITION=$2 ;;
+		--layout) LAYOUT=$2 ;;
+		--swap) SWAP=$2 ;;
+		--root-part) ROOT_PART=$2 ;;
+		--efi-part) EFI_PART=$2 ;;
+		--boot-part) BOOT_PART=$2 ;;
+		--home-part) HOME_PART=$2 ;;
+		*) bad "unknown option: $1" ;;
+		esac
+		shift 2
+	done
+}
+
+src_root() {
+	if awk -v m="$LOWER" '$2 == m { f = 1 } END { exit !f }' /proc/mounts; then echo "$LOWER"; else echo /; fi
+}
+
+PJ=""
+add_part() {
+	[ -n "$PJ" ] && PJ="$PJ,"
+	PJ="$PJ{\"role\":\"$1\",\"device\":\"$2\",\"size_mib\":$3,\"fs\":\"$4\",\"mount\":\"$5\",\"format\":$6,\"label\":\"$7\"}"
+}
+
+validate_common() {
+	case $MODE in
+	erase | manual) ;;
+	alongside)
+		if [ "$CMD" = run ]; then
+			printf 'ERROR alongside installation is not supported yet, use erase or manual\n'
+			exit 2
+		fi
+		printf '{"ok":false,"supported":false,"error":"alongside installation is not supported yet, use erase or manual"}\n'
+		exit 2
+		;;
+	*) bad "unknown mode: $MODE" ;;
+	esac
+	case $FS in ext4 | btrfs | xfs) ;; *) bad "unsupported filesystem: $FS" ;; esac
+	case $AUTOLOGIN in yes | no) ;; *) bad "--autologin takes yes or no" ;; esac
+	case $LAYOUT in macos | windows | linux) ;; *) bad "unknown layout: $LAYOUT" ;; esac
+	case $SWAP in
+	none | zram) ;;
+	file:*[0-9] | file:*[0-9][MmGg] | file:*[0-9][MmGg][Bb] | file:*[0-9][MmGg][Ii][Bb]) ;;
+	*) bad "--swap takes none, zram or file:<size> such as file:2G" ;;
+	esac
+	if ! printf '%s' "$HNAME" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'; then
+		bad "invalid hostname: $HNAME"
+	fi
+	if [ -n "$USERN" ]; then
+		printf '%s' "$USERN" | grep -Eq '^[a-z_][a-z0-9_-]{0,31}$' || bad "invalid user name: $USERN"
+		case $USERN in root | daemon | bin | sys | sync | games | man | lp | mail | news | uucp | proxy | nobody | sshd | messagebus | polkitd) bad "reserved user name: $USERN" ;; esac
+	fi
+	printf '%s' "$LOCALE" | grep -Eq '^([a-z]{2,3}_[A-Z]{2}(\.UTF-8)?(@[a-z]+)?|C\.UTF-8|C)$' || bad "invalid locale: $LOCALE"
+	printf '%s' "$KEYMAP" | grep -Eq '^[a-z0-9_-]+(\([a-z0-9_-]+\))?$' || bad "invalid keymap: $KEYMAP"
+	if [ "$TZONE" != UTC ]; then
+		printf '%s' "$TZONE" | grep -Eq '^[A-Za-z_]+(/[A-Za-z0-9_+-]+)+$' || bad "invalid timezone: $TZONE"
+		if [ -d /usr/share/zoneinfo ] && [ -f /usr/share/zoneinfo/zone1970.tab ] && [ ! -f "/usr/share/zoneinfo/$TZONE" ]; then
+			bad "unknown timezone: $TZONE"
+		fi
+	fi
+	[ -n "$EDITION" ] || EDITION=$(detect_edition)
+	case $EDITION in desktop | headless) ;; *) bad "unknown edition: $EDITION" ;; esac
+	LIVE_EDITION=$(detect_edition)
+	if [ "$EDITION" = headless ] && [ "$LIVE_EDITION" = desktop ]; then
+		bad "the headless edition cannot be installed from the desktop live system, boot the headless ISO"
+	fi
+}
+
+resolve_bootloader() {
+	FW=$(fwmode)
+	ARCHN=$(archname)
+	if [ -z "$BL" ]; then
+		BL=$(bl_default "$FW" "$FS" "$ENCRYPT")
+	fi
+	case $BL in
+	efistub | grub | systemd-boot | limine) ;;
+	*) bad "unknown bootloader: $BL" ;;
+	esac
+	if r=$(bl_unavailable "$BL" "$FW" "$FS" "$ENCRYPT"); then
+		bad "bootloader $BL is not available here: $r"
+	fi
+}
+
+layout_erase() {
+	[ -n "$DISK" ] || bad "--disk is required for erase mode"
+	DN=${DISK#/dev/}
+	[ -d "/sys/block/$DN" ] || bad "not a whole disk: $DISK"
+	case $DN in loop* | ram* | zram* | dm-* | md* | sr*) bad "not an installable disk: $DISK" ;; esac
+	disk_is_live "$DN" && bad "$DISK holds the live medium or the running system and cannot be erased"
+	disk_busy "$DN" && bad "$DISK has mounted partitions or active swap"
+	DSZ_MIB=$(($(sectors_of "$DN") / 2048))
+	P_ESP=""; P_BIOS=""; P_BOOT=""; P_ROOT=""; P_HOME=""
+	S_ESP=0; S_BIOS=0; S_BOOT=0
+	n=1
+	used=2
+	if [ "$FW" = uefi ]; then
+		P_ESP=$(part_dev "$DISK" $n); S_ESP=$ESP_MIB; n=$((n + 1)); used=$((used + S_ESP))
+	else
+		P_BIOS=$(part_dev "$DISK" $n); S_BIOS=1; n=$((n + 1)); used=$((used + 1))
+		if [ "$ENCRYPT" = 1 ]; then
+			P_BOOT=$(part_dev "$DISK" $n); S_BOOT=$BOOT_MIB; n=$((n + 1)); used=$((used + S_BOOT))
+		fi
+	fi
+	P_ROOT=$(part_dev "$DISK" $n)
+	S_ROOT=$((DSZ_MIB - used))
+	if [ "$EDITION" = desktop ]; then MINROOT=10240; else MINROOT=1536; fi
+	[ "$S_ROOT" -ge "$MINROOT" ] || bad "$DISK is too small: the root partition would be $S_ROOT MiB, at least $MINROOT MiB is needed"
+	ERASES="\"$DISK\""
+	PJ=""
+	[ -n "$P_ESP" ] && add_part esp "$P_ESP" "$S_ESP" vfat /boot/efi true KWICKESP
+	[ -n "$P_BIOS" ] && add_part bios_boot "$P_BIOS" "$S_BIOS" none none true ""
+	[ -n "$P_BOOT" ] && add_part boot "$P_BOOT" "$S_BOOT" ext4 /boot true kwick-boot
+	if [ "$ENCRYPT" = 1 ]; then
+		add_part root "$P_ROOT" "$S_ROOT" "luks2+$FS" / true kwick-root
+	else
+		add_part root "$P_ROOT" "$S_ROOT" "$FS" / true kwick-root
+	fi
+}
+
+part_exists() { [ -b "$1" ] || [ -e "/sys/class/block/${1#/dev/}" ]; }
+
+layout_manual() {
+	[ -n "$ROOT_PART" ] || bad "--root-part is required for manual mode"
+	part_exists "$ROOT_PART" || bad "no such partition: $ROOT_PART"
+	[ -n "$DISK" ] || DISK=/dev/$(parent_disk "$ROOT_PART")
+	DN=${DISK#/dev/}
+	disk_is_live "$DN" && bad "$DISK holds the live medium or the running system and cannot be modified"
+	if [ "$FW" = uefi ]; then
+		[ -n "$EFI_PART" ] || bad "--efi-part is required on UEFI machines"
+		part_exists "$EFI_PART" || bad "no such partition: $EFI_PART"
+	fi
+	for p in "$ROOT_PART" "$EFI_PART" "$BOOT_PART" "$HOME_PART"; do
+		[ -n "$p" ] || continue
+		part_exists "$p" || bad "no such partition: $p"
+		disk_is_live "$(parent_disk "$p")" && bad "$p is on the live medium"
+		disk_busy "${p#/dev/}" && bad "$p is mounted or used as swap"
+	done
+	[ "$ENCRYPT" = 1 ] && [ "$FW" = bios ] && [ -z "$BOOT_PART" ] && bad "encrypted BIOS installs need --boot-part for an unencrypted /boot"
+	P_ESP=$EFI_PART; P_BIOS=""; P_BOOT=$BOOT_PART; P_ROOT=$ROOT_PART; P_HOME=$HOME_PART
+	S_ROOT=$(($(sectors_of "$ROOT_PART") / 2048))
+	if [ "$EDITION" = desktop ]; then MINROOT=10240; else MINROOT=1536; fi
+	[ "$S_ROOT" -ge "$MINROOT" ] || bad "$ROOT_PART is too small: $S_ROOT MiB, at least $MINROOT MiB is needed"
+	PJ=""
+	ERASES="\"$ROOT_PART\""
+	if [ -n "$P_ESP" ]; then
+		fmtesp=true
+		if blkid "$P_ESP" 2>/dev/null | grep -q 'TYPE="vfat"'; then fmtesp=false; else ERASES="$ERASES,\"$P_ESP\""; fi
+		add_part esp "$P_ESP" $(($(sectors_of "$P_ESP") / 2048)) vfat /boot/efi $fmtesp ""
+	fi
+	if [ -n "$P_BOOT" ]; then
+		ERASES="$ERASES,\"$P_BOOT\""
+		add_part boot "$P_BOOT" $(($(sectors_of "$P_BOOT") / 2048)) ext4 /boot true kwick-boot
+	fi
+	if [ "$ENCRYPT" = 1 ]; then
+		add_part root "$P_ROOT" "$S_ROOT" "luks2+$FS" / true kwick-root
+	else
+		add_part root "$P_ROOT" "$S_ROOT" "$FS" / true kwick-root
+	fi
+	if [ -n "$P_HOME" ]; then
+		fmthome=true
+		if [ "$KEEP_HOME" = 1 ] && blkid "$P_HOME" 2>/dev/null | grep -Eq 'TYPE="(ext4|btrfs|xfs)"'; then fmthome=false; else ERASES="$ERASES,\"$P_HOME\""; fi
+		add_part home "$P_HOME" $(($(sectors_of "$P_HOME") / 2048)) "$FS" /home $fmthome ""
+		HOME_FMT=$fmthome
+	fi
+}
+
+compute_layout() {
+	validate_common
+	FW=$(fwmode)
+	ARCHN=$(archname)
+	resolve_bootloader
+	case $MODE in
+	erase) layout_erase ;;
+	manual) layout_manual ;;
+	esac
+}
+
+steps_list() {
+	printf 'prepare|Checking the system and tools\n'
+	printf 'partition|Partitioning the disk\n'
+	[ "$ENCRYPT" = 1 ] && printf 'encrypt|Setting up disk encryption\n'
+	printf 'format|Creating filesystems\n'
+	printf 'mount|Mounting the target\n'
+	printf 'copy|Copying the system\n'
+	if [ "$EDITION" = desktop ] && [ "$LIVE_EDITION" = headless ]; then printf 'desktop|Installing the desktop packages\n'; fi
+	printf 'configure|Configuring the system\n'
+	printf 'kernel|Installing the kernel\n'
+	printf 'bootloader|Installing the bootloader (%s)\n' "$BL"
+	printf 'finish|Finishing up\n'
+}
+
+cmd_plan() {
+	compute_layout
+	sj=""
+	while IFS='|' read -r id title; do
+		[ -n "$sj" ] && sj="$sj,"
+		sj="$sj{\"id\":\"$id\",\"title\":\"$(jstr "$title")\"}"
+	done <<EOF
+$(steps_list)
+EOF
+	warn=""
+	if [ "$(src_root)" = / ]; then
+		warn="\"installing from the running root, not from a clean live image\""
+	fi
+	if [ "$EDITION" = desktop ] && [ "$LIVE_EDITION" = headless ]; then
+		[ -n "$warn" ] && warn="$warn,"
+		warn="$warn\"the desktop packages are downloaded during the install and need a network connection\""
+	fi
+	printf '{"ok":true,"mode":"%s","disk":"%s","firmware":"%s","arch":"%s","edition":"%s","fs":"%s","encrypt":%s,"bootloader":"%s",' \
+		"$MODE" "$DISK" "$FW" "$ARCHN" "$EDITION" "$FS" "$(jbool "$ENCRYPT")" "$BL"
+	printf '"swap":"%s","hostname":"%s","user":"%s","fullname":"%s","timezone":"%s","locale":"%s","keymap":"%s","layout":"%s","autologin":%s,' \
+		"$SWAP" "$HNAME" "$(jstr "$USERN")" "$(jstr "$FULLNAME")" "$TZONE" "$LOCALE" "$KEYMAP" "$LAYOUT" "$([ "$AUTOLOGIN" = yes ] && echo true || echo false)"
+	printf '"partitions":[%s],"steps":[%s],"erases":[%s],"warnings":[%s]}\n' "$PJ" "$sj" "$ERASES" "$warn"
+}
+
+umount_target() {
+	i=0
+	while [ $i -lt 4 ]; do
+		awk -v p="$T" '$2 == p || index($2, p "/") == 1 { print $2 }' /proc/mounts | sort -r | while read -r m; do
+			umount "$m" 2>/dev/null
+		done
+		i=$((i + 1))
+	done
+	awk -v p="$T" '$2 == p || index($2, p "/") == 1 { print $2 }' /proc/mounts | sort -r | while read -r m; do
+		umount -l "$m" 2>/dev/null
+	done
+}
+
+close_crypt() {
+	if [ -e "/dev/mapper/$CRYPT_NAME" ] && have cryptsetup; then
+		cryptsetup close "$CRYPT_NAME" >/dev/null 2>&1
+	fi
+}
+
+safe_rm_work() {
+	if awk -v p="$W" '$2 == p || index($2, p "/") == 1 { f = 1 } END { exit !f }' /proc/mounts; then
+		printf 'LOG leaving %s in place, something is still mounted there\n' "$W"
+		return 1
+	fi
+	rm -rf "$W"
+}
+
+cleanup() {
+	rc=$?
+	trap - EXIT INT TERM HUP
+	[ -n "$BGPID" ] && kill "$BGPID" 2>/dev/null
+	umount_target
+	close_crypt
+	safe_rm_work
+	rm -f "$LOCKF"
+	exit $rc
+}
+
+take_lock() {
+	if [ -e "$LOCKF" ]; then
+		other=$(cat "$LOCKF" 2>/dev/null)
+		if [ -n "$other" ] && kill -0 "$other" 2>/dev/null; then
+			bad "another installation is already running (pid $other)"
+		fi
+		rm -f "$LOCKF"
+	fi
+	if [ -d "$W" ]; then
+		umount_target
+		close_crypt
+		safe_rm_work || bad "a previous installation left mounts in $W, reboot or unmount them"
+	fi
+	echo $$ >"$LOCKF"
+}
+
+read_secret() {
+	[ -f "$1" ] || bad "secret file not found: $1"
+	IFS= read -r REPLY_SECRET <"$1"
+	[ -n "$REPLY_SECRET" ] || bad "secret file is empty: $1"
+}
+
+wait_node() {
+	i=0
+	while [ ! -b "$1" ]; do
+		i=$((i + 1))
+		[ $i -gt 30 ] && return 1
+		sleep 1
+	done
+	return 0
+}
+
+zero_start() {
+	need dd if=/dev/zero of="$1" bs=1M count=8 conv=fsync
+}
+
+blkid_uuid() {
+	i=0
+	while [ $i -lt 10 ]; do
+		u=$(blkid "$1" 2>/dev/null | sed -n 's/.* UUID="\([^"]*\)".*/\1/p' | head -n 1)
+		[ -n "$u" ] && { echo "$u"; return 0; }
+		sleep 1
+		i=$((i + 1))
+	done
+	return 1
+}
+
+pick_cipher() {
+	modprobe -q xts >/dev/null 2>&1
+	modprobe -q dm_crypt >/dev/null 2>&1
+	if grep -q '^name *: xts(aes)' /proc/crypto 2>/dev/null || [ -n "$(find "/usr/lib/modules/$(uname -r)" -name 'xts.ko*' 2>/dev/null | head -n 1)" ]; then
+		CIPHER=aes-xts-plain64
+		KEYSIZE=512
+	else
+		CIPHER=aes-cbc-essiv:sha256
+		KEYSIZE=256
+	fi
+}
+
+tools_needed() {
+	pk=""
+	addpk() { case " $pk " in *" $1 "*) ;; *) pk="$pk $1" ;; esac; }
+	have sfdisk || addpk fdisk
+	have mkfs.ext4 || addpk e2fsprogs
+	[ -n "$P_ESP" ] && { have mkfs.vfat || have mkfs.fat || addpk dosfstools; }
+	[ "$FS" = btrfs ] && ! have mkfs.btrfs && addpk btrfs-progs
+	[ "$FS" = xfs ] && ! have mkfs.xfs && addpk xfsprogs
+	[ "$ENCRYPT" = 1 ] && ! have cryptsetup && addpk cryptsetup-bin
+	[ "$ENCRYPT" = 1 ] && ! have ldd && addpk libc-bin
+	if ! bl_installed "$BL" "$FW"; then
+		for p in $(bl_pkgs "$BL" "$FW"); do addpk "$p"; done
+	fi
+	if [ "$TZONE" != UTC ] && [ ! -f "/usr/share/zoneinfo/$TZONE" ]; then addpk tzdata; fi
+	echo $pk
+}
+
+ensure_tools() {
+	pk=$(tools_needed)
+	[ -n "$pk" ] || { log "all required tools are present"; return 0; }
+	log "installing tools: $pk"
+	have apt-get || { printf 'ERROR missing tools (%s) and no package manager to fetch them\n' "$pk"; exit 1; }
+	progress 3 "Downloading installer tools"
+	xrun apt-get update
+	if ! xrun apt-get install -y --no-install-recommends $pk; then
+		tail -n 6 "$LOGF" 2>/dev/null | while IFS= read -r l; do printf 'LOG %s\n' "$l"; done
+		printf 'ERROR could not install %s, check the network connection\n' "$pk"
+		exit 1
+	fi
+	pk=$(tools_needed)
+	[ -z "$pk" ] || { printf 'ERROR tools still missing after install: %s\n' "$pk"; exit 1; }
+}
+
+do_partition() {
+	need swapoff -a
+	zero_start "$DISK"
+	sz=$(sectors_of "$DN")
+	endmib=$((sz / 2048 - 2))
+	need dd if=/dev/zero of="$DISK" bs=1M seek=$endmib count=2 conv=fsync
+	sfscript=$W/partition.sfdisk
+	{
+		printf 'label: gpt\nunit: sectors\nfirst-lba: 2048\n'
+		if [ -n "$P_ESP" ]; then
+			printf 'start=1MiB, size=%sMiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="EFI System"\n' "$S_ESP"
+		else
+			printf 'start=1MiB, size=1MiB, type=21686148-6449-6E6F-744E-656564454649, name="BIOS boot"\n'
+		fi
+		if [ -n "$P_BOOT" ]; then
+			printf 'size=%sMiB, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="kwick-boot"\n' "$S_BOOT"
+		fi
+		if [ "$ENCRYPT" = 1 ]; then rt=0FC63DAF-8483-4772-8E79-3D69D8477DE4; else rt=$(root_type_guid); fi
+		printf 'type=%s, name="kwick-root"\n' "$rt"
+	} >"$sfscript"
+	cat "$sfscript" >>"$LOGF"
+	need sfdisk --wipe always --wipe-partitions always --no-reread "$DISK" <"$sfscript" || true
+	have partprobe && xrun partprobe "$DISK"
+	have udevadm && xrun udevadm settle
+	for p in $P_ESP $P_BIOS $P_BOOT $P_ROOT; do
+		wait_node "$p" || { printf 'ERROR partition node %s did not appear\n' "$p"; exit 1; }
+	done
+}
+
+do_encrypt() {
+	pick_cipher
+	log "encrypting $P_ROOT with $CIPHER"
+	need cryptsetup luksFormat --type luks2 --batch-mode --cipher "$CIPHER" --key-size "$KEYSIZE" --hash sha256 \
+		--pbkdf argon2id --pbkdf-memory 262144 --iter-time 2000 --key-file "$W/luks.key" "$P_ROOT"
+	need cryptsetup open --type luks2 --key-file "$W/luks.key" "$P_ROOT" "$CRYPT_NAME"
+	LUKS_UUID=$(cryptsetup luksUUID "$P_ROOT")
+	[ -n "$LUKS_UUID" ] || { printf 'ERROR cannot read the LUKS UUID\n'; exit 1; }
+	ROOTDEV=/dev/mapper/$CRYPT_NAME
+	wait_node "$ROOTDEV" || { printf 'ERROR %s did not appear\n' "$ROOTDEV"; exit 1; }
+}
+
+mkfs_on() {
+	case $1 in
+	ext4) need mkfs.ext4 -F -q -L "$3" "$2" ;;
+	btrfs) need mkfs.btrfs -f -q -L "$3" "$2" ;;
+	xfs) need mkfs.xfs -f -q -L "$3" "$2" ;;
+	esac
+}
+
+do_format() {
+	if [ -n "$P_ESP" ]; then
+		if [ "$MODE" = erase ] || ! blkid "$P_ESP" 2>/dev/null | grep -q 'TYPE="vfat"'; then
+			zero_start "$P_ESP"
+			if have mkfs.fat; then need mkfs.fat -F 32 -n KWICKESP "$P_ESP"; else need mkfs.vfat -F 32 -n KWICKESP "$P_ESP"; fi
+		fi
+		ESP_UUID=$(blkid_uuid "$P_ESP") || { printf 'ERROR cannot read the ESP UUID\n'; exit 1; }
+	fi
+	if [ -n "$P_BOOT" ]; then
+		zero_start "$P_BOOT"
+		mkfs_on ext4 "$P_BOOT" kwick-boot
+		BOOT_UUID=$(blkid_uuid "$P_BOOT") || { printf 'ERROR cannot read the /boot UUID\n'; exit 1; }
+	fi
+	[ "$MODE" = manual ] && zero_start "$P_ROOT"
+	ROOTDEV=$P_ROOT
+	if [ "$ENCRYPT" = 1 ]; then
+		step encrypt "Setting up disk encryption"
+		progress 14 "Encrypting the root partition"
+		do_encrypt
+		step format "Creating filesystems"
+	fi
+	mkfs_on "$FS" "$ROOTDEV" kwick-root
+	ROOT_UUID=$(blkid_uuid "$ROOTDEV") || { printf 'ERROR cannot read the root UUID\n'; exit 1; }
+	if [ -n "$P_HOME" ] && [ "${HOME_FMT:-true}" = true ]; then
+		zero_start "$P_HOME"
+		mkfs_on "$FS" "$P_HOME" kwick-home
+	fi
+	if [ -n "$P_HOME" ]; then
+		HOME_UUID=$(blkid_uuid "$P_HOME") || { printf 'ERROR cannot read the /home UUID\n'; exit 1; }
+	fi
+}
+
+do_mount() {
+	mkdir -p "$T"
+	case $FS in btrfs | xfs) modprobe -q "$FS" >/dev/null 2>&1 ;; esac
+	need mount -t "$FS" -o noatime "$ROOTDEV" "$T"
+	if [ -n "$P_BOOT" ]; then
+		mkdir -p "$T/boot"
+		need mount -t ext4 -o noatime "$P_BOOT" "$T/boot"
+	fi
+	if [ -n "$P_ESP" ]; then
+		mkdir -p "$T/boot/efi"
+		need mount -t vfat "$P_ESP" "$T/boot/efi"
+	fi
+	if [ -n "$P_HOME" ]; then
+		mkdir -p "$T/home"
+		need mount -t "$FS" -o noatime "$P_HOME" "$T/home"
+	fi
+}
+
+is_gnu_tar() { tar --version 2>&1 | grep -q GNU; }
+
+do_copy() {
+	SRC=$(src_root)
+	log "copying from $SRC"
+	progress 15 "Measuring the system"
+	total=$(du -sk "$SRC" 2>/dev/null | awk '{print $1}')
+	[ -n "$total" ] && [ "$total" -gt 0 ] || total=1000000
+	avail=$(df -kP "$T" | awk 'NR == 2 { print $4 }')
+	need_kb=$((total + total / 8 + 262144))
+	if [ "$avail" -lt "$need_kb" ] 2>/dev/null; then
+		printf 'ERROR the root filesystem has %s MiB free but %s MiB are needed\n' $((avail / 1024)) $((need_kb / 1024))
+		exit 1
+	fi
+	ex=$W/exclude.list
+	{
+		echo './proc/*'
+		echo './sys/*'
+		echo './dev/*'
+		echo './run/*'
+		echo './tmp/*'
+		echo './mnt/*'
+		echo './media/*'
+		echo './var/tmp/*'
+		echo './var/lib/apt/lists/*'
+		echo './var/cache/apt/archives/*.deb'
+		echo './root/.bash_history'
+		echo './etc/machine-id'
+		echo './etc/sudoers.d/kwick-live'
+		echo './etc/kwick-live'
+	} >"$ex"
+	topts=""
+	if is_gnu_tar; then topts="--numeric-owner --xattrs --acls"; fi
+	(
+		(
+			cd "$SRC" && tar $topts -cf - -X "$ex" . 2>>"$LOGF"
+			echo $? >"$W/tar1.rc"
+		) | (cd "$T" && tar $topts -xpf - 2>>"$LOGF")
+		echo $? >"$W/tar2.rc"
+	) &
+	BGPID=$!
+	while kill -0 "$BGPID" 2>/dev/null; do
+		u=$(df -kP "$T" 2>/dev/null | awk 'NR == 2 { print $3 }')
+		if [ -n "$u" ]; then
+			pct=$((15 + u * 65 / total))
+			[ $pct -gt 79 ] && pct=79
+			progress $pct "Copying system files"
+		fi
+		sleep 2
+	done
+	wait "$BGPID" 2>/dev/null
+	BGPID=""
+	r1=$(cat "$W/tar1.rc" 2>/dev/null)
+	r2=$(cat "$W/tar2.rc" 2>/dev/null)
+	if [ "$r1" != 0 ] || [ "$r2" != 0 ]; then
+		tail -n 6 "$LOGF" 2>/dev/null | while IFS= read -r l; do printf 'LOG %s\n' "$l"; done
+		printf 'ERROR copying the system failed (read %s, write %s)\n' "$r1" "$r2"
+		exit 1
+	fi
+	mkdir -p "$T/proc" "$T/sys" "$T/dev" "$T/run" "$T/tmp" "$T/mnt" "$T/media" "$T/var/tmp"
+	chmod 1777 "$T/tmp" "$T/var/tmp"
+	[ -e "$T/usr/sbin/kinit" ] || [ -e "$T/sbin/init" ] || { printf 'ERROR the copied system has no init\n'; exit 1; }
+	sync
+}
+
+chroot_mounts() {
+	mkdir -p "$T/dev" "$T/proc" "$T/sys"
+	mount --bind /dev "$T/dev" >/dev/null 2>&1
+	mount -t proc proc "$T/proc" >/dev/null 2>&1
+	mount -t sysfs sysfs "$T/sys" >/dev/null 2>&1
+	[ -s /etc/resolv.conf ] && cp /etc/resolv.conf "$T/etc/resolv.conf" 2>/dev/null
+}
+
+chroot_umounts() {
+	for m in sys proc dev; do umount "$T/$m" 2>/dev/null || umount -l "$T/$m" 2>/dev/null; done
+}
+
+do_desktop_upgrade() {
+	chroot_mounts
+	log "installing kwick-desktop from the package repository"
+	xrun chroot "$T" apt-get update
+	if ! xrun chroot "$T" apt-get install -y kwick-desktop; then
+		tail -n 6 "$LOGF" 2>/dev/null | while IFS= read -r l; do printf 'LOG %s\n' "$l"; done
+		chroot_umounts
+		printf 'ERROR installing kwick-desktop failed, check the network connection\n'
+		exit 1
+	fi
+	chroot_umounts
+}
+
+add_member() {
+	[ -f "$1" ] || return 0
+	awk -F: -v OFS=: -v g="$2" -v u="$3" '$1 == g { n = split($4, a, ","); f = 0; for (i = 1; i <= n; i++) if (a[i] == u) f = 1; if (!f) $4 = ($4 == "" ? u : $4 "," u) } { print }' "$1" >"$1.new" && cat "$1.new" >"$1"
+	rm -f "$1.new"
+}
+
+drop_member() {
+	[ -f "$1" ] || return 0
+	awk -F: -v OFS=: -v u="$2" '{ n = split($4, a, ","); s = ""; for (i = 1; i <= n; i++) if (a[i] != u && a[i] != "") s = (s == "" ? a[i] : s "," a[i]); $4 = s; print }' "$1" >"$1.new" && cat "$1.new" >"$1"
+	rm -f "$1.new"
+}
+
+drop_user() {
+	for f in passwd shadow group gshadow; do
+		[ -f "$T/etc/$f" ] && sed -i "/^$1:/d" "$T/etc/$f"
+	done
+	drop_member "$T/etc/group" "$1"
+	drop_member "$T/etc/gshadow" "$1"
+}
+
+set_password() {
+	printf '%s:%s\n' "$1" "$2" >"$T/root/.kwick-pw"
+	chmod 600 "$T/root/.kwick-pw"
+	ok=0
+	for opt in "-c SHA512" "-c sha512" "-m SHA512" ""; do
+		if chroot "$T" /bin/sh -c "chpasswd $opt </root/.kwick-pw" >>"$LOGF" 2>&1; then
+			h=$(awk -F: -v u="$1" '$1 == u { print $2 }' "$T/etc/shadow")
+			case $h in '' | '!' | '*' | '!!' | '!*') ;; *) ok=1; break ;; esac
+		fi
+	done
+	rm -f "$T/root/.kwick-pw"
+	[ $ok = 1 ] || { printf 'ERROR could not set the password for %s\n' "$1"; exit 1; }
+}
+
+cfg_hostname() {
+	echo "$HNAME" >"$T/etc/hostname"
+	[ -f "$T/etc/hosts" ] && sed -i '/^127\.0\.1\.1/d' "$T/etc/hosts"
+	printf '127.0.1.1\t%s\n' "$HNAME" >>"$T/etc/hosts"
+}
+
+cfg_fstab() {
+	ro="defaults,noatime"
+	[ "$FS" = ext4 ] && ro="defaults,noatime,errors=remount-ro"
+	{
+		printf '# <file system> <mount point> <type> <options> <dump> <pass>\n'
+		printf 'UUID=%s / %s %s 0 1\n' "$ROOT_UUID" "$FS" "$ro"
+		[ -n "$P_BOOT" ] && printf 'UUID=%s /boot ext4 defaults,noatime 0 2\n' "$BOOT_UUID"
+		[ -n "$P_ESP" ] && printf 'UUID=%s /boot/efi vfat umask=0077 0 2\n' "$ESP_UUID"
+		[ -n "$P_HOME" ] && printf 'UUID=%s /home %s %s 0 2\n' "$HOME_UUID" "$FS" "$ro"
+		case $SWAP in file:*) printf '/swapfile none swap sw 0 0\n' ;; esac
+	} >"$T/etc/fstab"
+	if [ "$ENCRYPT" = 1 ]; then
+		printf '%s UUID=%s none luks\n' "$CRYPT_NAME" "$LUKS_UUID" >"$T/etc/crypttab"
+		chmod 600 "$T/etc/crypttab"
+	fi
+}
+
+next_free_id() {
+	id=1000
+	while awk -F: -v i="$id" '$3 == i { f = 1 } END { exit !f }' "$T/etc/passwd" || awk -F: -v i="$id" '$3 == i { f = 1 } END { exit !f }' "$T/etc/group"; do
+		id=$((id + 1))
+	done
+	echo $id
+}
+
+cfg_users() {
+	[ -f "$T/etc/shadow" ] || : >"$T/etc/shadow"
+	[ -f "$T/etc/gshadow" ] || : >"$T/etc/gshadow"
+	if [ "$USERN" != kwick ] && grep -q '^kwick:' "$T/etc/passwd"; then
+		drop_user kwick
+		rm -rf "$T/home/kwick"
+		rm -f "$T/etc/sudoers.d/kwick-live"
+	fi
+	if [ -f "$T/etc/sudoers.d/kwick-steam" ] && [ "$USERN" != kwick ]; then
+		sed -i "s/^kwick /$USERN /" "$T/etc/sudoers.d/kwick-steam"
+	fi
+	rm -f "$T/etc/sudoers.d/kwick-live"
+	sh_=/bin/bash
+	if [ ! -e "$T/usr/bin/bash" ] || cmp -s "$T/usr/bin/bash" "$T/usr/lib/kwick/bash-on-demand" 2>/dev/null; then sh_=/bin/sh; fi
+	gecos=$(printf '%s' "$FULLNAME" | tr -d ':\n\r')
+	if ! grep -q "^$USERN:" "$T/etc/passwd"; then
+		uid=$(next_free_id)
+		gid=$uid
+		printf '%s:x:%s:\n' "$USERN" "$gid" >>"$T/etc/group"
+		printf '%s:!::\n' "$USERN" >>"$T/etc/gshadow"
+		printf '%s:x:%s:%s:%s:/home/%s:%s\n' "$USERN" "$uid" "$gid" "$gecos" "$USERN" "$sh_" >>"$T/etc/passwd"
+		printf '%s:!:%s:0:99999:7:::\n' "$USERN" $(($(date +%s) / 86400)) >>"$T/etc/shadow"
+	fi
+	uid=$(awk -F: -v u="$USERN" '$1 == u { print $3 }' "$T/etc/passwd")
+	gid=$(awk -F: -v u="$USERN" '$1 == u { print $4 }' "$T/etc/passwd")
+	for g in sudo video render audio input netdev bluetooth plugdev users lpadmin; do
+		grep -q "^$g:" "$T/etc/group" && { add_member "$T/etc/group" "$g" "$USERN"; add_member "$T/etc/gshadow" "$g" "$USERN"; }
+	done
+	chmod 640 "$T/etc/shadow" "$T/etc/gshadow"
+	chgrp 42 "$T/etc/shadow" "$T/etc/gshadow" 2>/dev/null
+	mkdir -p "$T/home/$USERN"
+	if [ ! -e "$T/home/$USERN/.profile" ] && [ -d "$T/etc/skel" ]; then
+		cp -a "$T/etc/skel/." "$T/home/$USERN/" 2>/dev/null
+	fi
+	chmod 700 "$T/home/$USERN"
+	USER_UID=$uid
+	USER_GID=$gid
+	read_secret "$PASSWORD_FILE"
+	USER_PW=$REPLY_SECRET
+	set_password "$USERN" "$USER_PW"
+	if [ -n "$ROOT_PASSWORD_FILE" ]; then
+		read_secret "$ROOT_PASSWORD_FILE"
+		set_password root "$REPLY_SECRET"
+	elif ! [ -e "$T/usr/bin/sudo" ] && ! [ -e "$T/usr/sbin/sudo" ]; then
+		log "no sudo in this system, root gets the same password as $USERN"
+		set_password root "$USER_PW"
+	fi
+	USER_PW=""
+}
+
+cfg_locale() {
+	mkdir -p "$T/etc/default"
+	printf 'LANG=%s\n' "$LOCALE" >"$T/etc/default/locale"
+	printf 'LANG=%s\n' "$LOCALE" >"$T/etc/locale.conf"
+	if [ "$LOCALE" != C.UTF-8 ] && [ "$LOCALE" != C ]; then
+		if [ -f "$T/etc/locale.gen" ]; then
+			if grep -q "^# *$LOCALE UTF-8" "$T/etc/locale.gen"; then
+				sed -i "s/^# *$LOCALE UTF-8/$LOCALE UTF-8/" "$T/etc/locale.gen"
+			elif ! grep -q "^$LOCALE UTF-8" "$T/etc/locale.gen"; then
+				echo "$LOCALE UTF-8" >>"$T/etc/locale.gen"
+			fi
+			if [ -x "$T/usr/sbin/locale-gen" ]; then
+				chroot_mounts
+				xrun chroot "$T" /usr/sbin/locale-gen || log "locale-gen failed, continuing"
+				chroot_umounts
+			fi
+		fi
+	fi
+	if [ -f "$T/etc/xdg/plasma-localerc" ]; then
+		sed -i "s/^LANG=.*/LANG=$LOCALE/" "$T/etc/xdg/plasma-localerc"
+	fi
+}
+
+cfg_time() {
+	echo "$TZONE" >"$T/etc/timezone"
+	if [ ! -f "$T/usr/share/zoneinfo/$TZONE" ] && [ -f "/usr/share/zoneinfo/$TZONE" ]; then
+		mkdir -p "$T/usr/share/zoneinfo/$(dirname "$TZONE")"
+		cp "/usr/share/zoneinfo/$TZONE" "$T/usr/share/zoneinfo/$TZONE"
+	fi
+	if [ -f "$T/usr/share/zoneinfo/$TZONE" ]; then
+		ln -sf "/usr/share/zoneinfo/$TZONE" "$T/etc/localtime"
+	elif [ "$TZONE" != UTC ]; then
+		log "no zoneinfo for $TZONE in the target, install tzdata to apply it"
+	fi
+}
+
+cfg_keymap() {
+	kl=${KEYMAP%%(*}
+	kv=""
+	case $KEYMAP in *\(*) kv=${KEYMAP#*\(}; kv=${kv%)} ;; esac
+	mkdir -p "$T/etc/default"
+	printf 'XKBMODEL="pc105"\nXKBLAYOUT="%s"\nXKBVARIANT="%s"\nXKBOPTIONS=""\nBACKSPACE="guess"\n' "$kl" "$kv" >"$T/etc/default/keyboard"
+	printf 'KEYMAP=%s\n' "$kl" >"$T/etc/vconsole.conf"
+	mkdir -p "$T/etc/X11/xorg.conf.d"
+	printf 'Section "InputClass"\n\tIdentifier "system-keyboard"\n\tMatchIsKeyboard "on"\n\tOption "XkbLayout" "%s"\n\tOption "XkbVariant" "%s"\nEndSection\n' "$kl" "$kv" >"$T/etc/X11/xorg.conf.d/00-keyboard.conf"
+	if [ "$EDITION" = desktop ]; then
+		cdir=$T/home/$USERN/.config
+		mkdir -p "$cdir"
+		printf '[Layout]\nLayoutList=%s\nUse=true\n' "$kl" >"$cdir/kxkbrc"
+		[ -n "$kv" ] && printf 'VariantList=%s\n' "$kv" >>"$cdir/kxkbrc"
+	fi
+}
+
+cfg_layout() {
+	[ "$EDITION" = desktop ] || return 0
+	mkdir -p "$T/home/$USERN/.config/kwick"
+	echo "$LAYOUT" >"$T/home/$USERN/.config/kwick/layout"
+}
+
+cfg_autologin() {
+	rm -f "$T/etc/kinit/autologin"
+	if [ "$AUTOLOGIN" = yes ]; then
+		mkdir -p "$T/etc/kinit"
+		echo "$USERN" >"$T/etc/kinit/autologin"
+	fi
+	if [ -d "$T/etc/sddm.conf.d" ]; then
+		rm -f "$T/etc/sddm.conf.d/20-autologin.conf"
+		if [ "$AUTOLOGIN" = yes ]; then
+			printf '[Autologin]\nUser=%s\nSession=plasma\nRelogin=false\n' "$USERN" >"$T/etc/sddm.conf.d/20-autologin.conf"
+		fi
+	fi
+}
+
+cfg_liveclean() {
+	rm -f "$T/etc/xdg/kscreenlockerrc" "$T/etc/sudoers.d/kwick-live" "$T/etc/kwick-live"
+	: >"$T/etc/machine-id"
+	uuidgen 2>/dev/null | tr -d '-' >"$T/etc/machine-id"
+	[ -s "$T/etc/machine-id" ] || cat /proc/sys/kernel/random/uuid | tr -d '-' >"$T/etc/machine-id"
+}
+
+cfg_swap() {
+	case $SWAP in
+	none) ;;
+	zram)
+		mkdir -p "$T/etc/systemd/system/multi-user.target.wants"
+		ln -sf /usr/lib/systemd/system/kwick-zram.service "$T/etc/systemd/system/multi-user.target.wants/kwick-zram.service"
+		;;
+	file:*)
+		sz=${SWAP#file:}
+		num=${sz%%[!0-9]*}
+		unit=${sz#"$num"}
+		case $unit in G* | g*) mib=$((num * 1024)) ;; *) mib=$num ;; esac
+		sf=$T/swapfile
+		if [ "$FS" = btrfs ]; then
+			: >"$sf"
+			xrun chattr +C "$sf" || log "could not set nodatacow on the swap file"
+		fi
+		need dd if=/dev/zero of="$sf" bs=1M count="$mib" conv=fsync
+		chmod 600 "$sf"
+		need mkswap "$sf"
+		mkdir -p "$T/etc/systemd/system/multi-user.target.wants"
+		ln -sf /usr/lib/systemd/system/kwick-swap.service "$T/etc/systemd/system/multi-user.target.wants/kwick-swap.service"
+		;;
+	esac
+}
+
+cfg_conf() {
+	mkdir -p "$T/etc/kwick"
+	{
+		printf 'BOOTLOADER=%s\n' "$BL"
+		printf 'FIRMWARE=%s\n' "$FW"
+		printf 'FS=%s\n' "$FS"
+		printf 'ENCRYPT=%s\n' "$ENCRYPT"
+		printf 'ROOT_UUID=%s\n' "$ROOT_UUID"
+		printf 'LUKS_UUID=%s\n' "${LUKS_UUID:-}"
+		printf 'ESP_UUID=%s\n' "${ESP_UUID:-}"
+		printf 'BOOT_UUID=%s\n' "${BOOT_UUID:-}"
+		printf 'DISK=%s\n' "$DISK"
+		printf 'EDITION=%s\n' "$EDITION"
+	} >"$T/etc/kwick/install.conf"
+}
+
+do_configure() {
+	cfg_hostname
+	cfg_fstab
+	cfg_liveclean
+	cfg_users
+	cfg_locale
+	cfg_time
+	cfg_keymap
+	cfg_layout
+	cfg_autologin
+	cfg_swap
+	cfg_conf
+	if [ -d "$T/home/$USERN" ]; then
+		chown -R "$USER_UID:$USER_GID" "$T/home/$USERN"
+	fi
+}
+
+find_kernel() {
+	KIMG=""
+	for c in "$MEDIA/kwick/vmlinuz" "$MEDIA/isolinux/vmlinuz" "$MEDIA/boot/vmlinuz"; do
+		[ -f "$c" ] && { KIMG=$c; break; }
+	done
+	if [ -z "$KIMG" ]; then
+		for c in "$KDIR"/*/vmlinuz.efi "$KDIR"/*/vmlinuz /boot/vmlinuz /boot/vmlinuz-*; do
+			[ -f "$c" ] && KIMG=$c
+		done
+	fi
+	if [ -z "$KIMG" ]; then
+		for d in $(blkid 2>/dev/null | grep 'LABEL="KWICK-ESP"' | sed 's/:.*//'); do
+			mkdir -p "$W/espsrc"
+			if mount -t vfat -o ro "$d" "$W/espsrc" 2>/dev/null; then
+				f=$(ls "$W"/espsrc/EFI/BOOT/BOOT*.EFI 2>/dev/null | head -n 1)
+				if [ -n "$f" ]; then
+					cp "$f" "$W/kernel.img"
+					KIMG=$W/kernel.img
+				fi
+				umount "$W/espsrc"
+				[ -n "$KIMG" ] && break
+			fi
+		done
+	fi
+	[ -n "$KIMG" ] || { printf 'ERROR no kernel image found on the live medium\n'; exit 1; }
+	REL=$(uname -r)
+	[ -d "/usr/lib/modules/$REL" ] || REL=$(ls -1 /usr/lib/modules 2>/dev/null | tail -n 1)
+	[ -n "$REL" ] || REL=$(uname -r)
+}
+
+module_closure() {
+	mdir=$1
+	shift
+	for m in "$@"; do
+		awk -v m="$m" -F: '
+			function norm(s) { gsub(/-/, "_", s); return s }
+			{
+				p = $1
+				n = p
+				sub(/^.*\//, "", n)
+				sub(/\.ko(\.[a-z]+)?$/, "", n)
+				if (norm(n) == norm(m)) {
+					k = split($2, d, " ")
+					for (i = k; i >= 1; i--) print d[i]
+					print p
+					exit
+				}
+			}' "$mdir/modules.dep"
+	done | awk '!seen[$0]++'
+}
+
+decompress_module() {
+	case $1 in
+	*.xz) xz -dc "$1" >"$2" ;;
+	*.gz) gzip -dc "$1" >"$2" ;;
+	*.zst) zstd -dc "$1" >"$2" ;;
+	*) cp "$1" "$2" ;;
+	esac
+}
+
+make_initrd() {
+	out=$1
+	rel=$2
+	d=$W/initrd
+	rm -rf "$d"
+	mkdir -p "$d/bin" "$d/sbin" "$d/lib/modules" "$d/proc" "$d/sys" "$d/dev" "$d/run" "$d/newroot" "$d/usr/bin" "$d/usr/sbin"
+	bb=$(command -v busybox)
+	[ -n "$bb" ] || { printf 'ERROR busybox is needed to build the initramfs\n'; exit 1; }
+	cp "$bb" "$d/bin/busybox"
+	for a in sh mount umount mkdir sleep cat echo findfs insmod switch_root mknod ls kill stty printf read ps cttyhack setsid dd tr head ln rm; do
+		ln -sf busybox "$d/bin/$a"
+	done
+	mods=""
+	[ "$FS" = btrfs ] && mods="$mods btrfs"
+	[ "$FS" = xfs ] && mods="$mods xfs"
+	[ "$ENCRYPT" = 1 ] && mods="$mods dm_crypt xts essiv"
+	mdir=/usr/lib/modules/$rel
+	: >"$d/lib/modules/load.list"
+	if [ -n "$mods" ]; then
+		[ -f "$mdir/modules.dep" ] || { printf 'ERROR no modules.dep for %s\n' "$rel"; exit 1; }
+		i=0
+		for p in $(module_closure "$mdir" $mods); do
+			i=$((i + 1))
+			f=$mdir/$p
+			[ -f "$f" ] || continue
+			n=$(printf '%02d' $i)-$(basename "$p")
+			n=${n%.xz}; n=${n%.gz}; n=${n%.zst}
+			decompress_module "$f" "$d/lib/modules/$n" || { printf 'ERROR cannot unpack %s\n' "$f"; exit 1; }
+			echo "$n" >>"$d/lib/modules/load.list"
+		done
+	fi
+	if [ "$ENCRYPT" = 1 ]; then
+		cs=$(command -v cryptsetup)
+		[ -n "$cs" ] || { printf 'ERROR cryptsetup is needed to build the initramfs\n'; exit 1; }
+		for f in "$cs" $(ldd "$cs" 2>/dev/null | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | sort -u); do
+			mkdir -p "$d$(dirname "$f")"
+			cp -L "$f" "$d$f"
+		done
+		mkdir -p "$d/sbin"
+		[ -e "$d/sbin/cryptsetup" ] || ln -sf "$cs" "$d/sbin/cryptsetup"
+	fi
+	cat >"$d/init" <<'INITEOF'
+#!/bin/busybox sh
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t tmpfs tmpfs /run
+ROOT=""; FST=""; LUKS=""; FLAGS=""
+for a in $(cat /proc/cmdline); do
+	case $a in
+	root=*) ROOT=${a#root=} ;;
+	rootfstype=*) FST=${a#rootfstype=} ;;
+	rootflags=*) FLAGS=${a#rootflags=} ;;
+	kwick.luks=*) LUKS=${a#kwick.luks=} ;;
+	esac
+done
+for m in $(cat /lib/modules/load.list); do
+	insmod "/lib/modules/$m" 2>/dev/null
+done
+export DM_DISABLE_UDEV=1
+consoles() {
+	for c in $(cat /sys/class/tty/console/active 2>/dev/null); do
+		[ "$c" = tty0 ] && echo /dev/tty0 && continue
+		echo "/dev/$c"
+	done
+}
+ask_passphrase() {
+	rm -f /run/pw.*
+	n=0
+	for c in $(consoles); do
+		n=$((n + 1))
+		(
+			stty -echo <"$c" 2>/dev/null
+			printf '\nPassphrase for the KwickOS disk: ' >"$c"
+			IFS= read -r p <"$c"
+			stty echo <"$c" 2>/dev/null
+			printf '\n' >"$c"
+			printf '%s' "$p" >/run/pw.$n
+		) &
+	done
+	while :; do
+		for f in /run/pw.*; do
+			[ -e "$f" ] || continue
+			PASS=$(cat "$f")
+			kill $(jobs -p) 2>/dev/null
+			rm -f /run/pw.*
+			return 0
+		done
+		sleep 1
+	done
+}
+find_dev() {
+	i=0
+	while [ $i -lt 40 ]; do
+		d=$(findfs "$1" 2>/dev/null) && [ -n "$d" ] && { echo "$d"; return 0; }
+		sleep 1
+		i=$((i + 1))
+	done
+	return 1
+}
+if [ -n "$LUKS" ]; then
+	LDEV=$(find_dev "UUID=$LUKS")
+	if [ -z "$LDEV" ]; then
+		for d in /dev/[a-z]*; do
+			[ -b "$d" ] || continue
+			if cryptsetup luksUUID "$d" 2>/dev/null | grep -qx "$LUKS"; then LDEV=$d; break; fi
+		done
+	fi
+	[ -n "$LDEV" ] || { echo "encrypted device $LUKS not found"; exec sh; }
+	tries=0
+	while [ $tries -lt 5 ]; do
+		ask_passphrase
+		if printf '%s' "$PASS" | cryptsetup open --type luks2 --key-file=- "$LDEV" kwick-root; then break; fi
+		tries=$((tries + 1))
+		echo "wrong passphrase"
+	done
+	PASS=""
+	[ -b /dev/mapper/kwick-root ] || { echo "could not unlock the disk"; exec sh; }
+	RDEV=/dev/mapper/kwick-root
+else
+	case $ROOT in
+	UUID=* | LABEL=* | PARTUUID=*) RDEV=$(find_dev "$ROOT") ;;
+	*) RDEV=$ROOT ;;
+	esac
+fi
+[ -n "$RDEV" ] || { echo "root device not found"; exec sh; }
+OPTS=rw
+[ -n "$FLAGS" ] && OPTS=rw,$FLAGS
+if [ -n "$FST" ]; then
+	mount -t "$FST" -o "$OPTS" "$RDEV" /newroot || exec sh
+else
+	mount -o "$OPTS" "$RDEV" /newroot || exec sh
+fi
+umount /proc
+umount /sys
+mount --move /dev /newroot/dev
+mount --move /run /newroot/run
+exec switch_root /newroot /sbin/init
+INITEOF
+	chmod 755 "$d/init"
+	( cd "$d" && find . -mindepth 1 | cpio -o -H newc -R 0:0 ) 2>>"$LOGF" | gzip -9 >"$out"
+	[ -s "$out" ] || { printf 'ERROR building the initramfs failed\n'; exit 1; }
+	rm -rf "$d"
+}
+
+boot_cmdline() {
+	if [ "$ENCRYPT" = 1 ]; then
+		echo "root=UUID=$ROOT_UUID rootfstype=$FS kwick.luks=$LUKS_UUID"
+	elif [ "$FS" != ext4 ]; then
+		echo "root=UUID=$ROOT_UUID rootfstype=$FS"
+	else
+		echo "root=UUID=$ROOT_UUID"
+	fi
+}
+
+need_initrd() {
+	if [ "$FS" != ext4 ] || [ "$ENCRYPT" = 1 ]; then echo 1; else echo 0; fi
+}
+
+setup_boot_paths() {
+	if [ "$FW" = uefi ]; then
+		BOOTDIR=$T/boot/efi/EFI/kwick
+		BREL=/EFI/kwick
+		ESPDIR=$T/boot/efi
+	else
+		BOOTDIR=$T/boot
+		if [ -n "$BOOT_UUID" ]; then BREL=""; else BREL=/boot; fi
+		ESPDIR=""
+	fi
+}
+
+install_boot_files() {
+	setup_boot_paths
+	mkdir -p "$BOOTDIR"
+	if [ "$BL" = efistub ]; then
+		nm=$(efi_boot_name)
+		mkdir -p "$ESPDIR/EFI/BOOT" "$ESPDIR/EFI/kwick"
+		if [ -f "$ESPDIR/EFI/BOOT/$nm" ] && ! cmp -s "$ESPDIR/EFI/BOOT/$nm" "$KIMG"; then
+			cp "$ESPDIR/EFI/BOOT/$nm" "$ESPDIR/EFI/kwick/previous.efi"
+		fi
+		cp "$KIMG" "$ESPDIR/EFI/BOOT/$nm.new" && mv "$ESPDIR/EFI/BOOT/$nm.new" "$ESPDIR/EFI/BOOT/$nm" || { printf 'ERROR cannot write the kernel to the ESP\n'; exit 1; }
+		echo "$REL" >"$ESPDIR/EFI/kwick/current"
+		return 0
+	fi
+	cp "$KIMG" "$BOOTDIR/vmlinuz.new" && mv "$BOOTDIR/vmlinuz.new" "$BOOTDIR/vmlinuz" || { printf 'ERROR cannot copy the kernel to %s\n' "$BOOTDIR"; exit 1; }
+	if [ "$(need_initrd)" = 1 ]; then
+		progress 86 "Building the initramfs"
+		make_initrd "$BOOTDIR/initrd.img.new" "$REL"
+		mv "$BOOTDIR/initrd.img.new" "$BOOTDIR/initrd.img"
+	else
+		rm -f "$BOOTDIR/initrd.img"
+	fi
+	echo "$REL" >"$BOOTDIR/current"
+}
+
+write_grub_cfg() {
+	cfgfile=$1
+	mkdir -p "$(dirname "$cfgfile")"
+	cl=$(boot_cmdline)
+	if [ "$FW" = uefi ]; then fsu=$ESP_UUID; else fsu=${BOOT_UUID:-$ROOT_UUID}; fi
+	ini=""
+	[ "$(need_initrd)" = 1 ] && ini="	initrd $BREL/initrd.img"
+	{
+		printf 'set timeout=3\nset default=0\n'
+		printf 'insmod part_gpt\ninsmod part_msdos\ninsmod fat\ninsmod ext2\ninsmod btrfs\ninsmod xfs\ninsmod gzio\n'
+		printf 'search --no-floppy --fs-uuid --set=root %s\n' "$fsu"
+		printf 'menuentry "KwickOS" {\n\tlinux %s/vmlinuz %s\n%s\n}\n' "$BREL" "$cl" "$ini"
+		printf 'menuentry "KwickOS (safe graphics)" {\n\tlinux %s/vmlinuz %s nomodeset\n%s\n}\n' "$BREL" "$cl" "$ini"
+	} >"$cfgfile"
+}
+
+write_sdboot_entries() {
+	cl=$(boot_cmdline)
+	mkdir -p "$ESPDIR/loader/entries"
+	printf 'default kwickos.conf\ntimeout 3\nconsole-mode keep\n' >"$ESPDIR/loader/loader.conf"
+	for v in "kwickos:KwickOS:" "kwickos-safe:KwickOS (safe graphics): nomodeset"; do
+		fn=${v%%:*}
+		rest=${v#*:}
+		title=${rest%%:*}
+		extra=${rest#*:}
+		{
+			printf 'title %s\n' "$title"
+			printf 'version %s\n' "$REL"
+			printf 'linux %s/vmlinuz\n' "$BREL"
+			[ "$(need_initrd)" = 1 ] && printf 'initrd %s/initrd.img\n' "$BREL"
+			printf 'options %s%s\n' "$cl" "$extra"
+		} >"$ESPDIR/loader/entries/$fn.conf"
+	done
+}
+
+install_bootloader() {
+	case $BL in
+	efistub) log "kernel installed as the firmware boot target" ;;
+	grub)
+		gt=$(grub_target "$FW")
+		if [ "$FW" = uefi ]; then
+			need grub-install --target="$gt" --efi-directory="$T/boot/efi" --boot-directory="$T/boot/efi/EFI/kwick" --removable --no-nvram
+			write_grub_cfg "$T/boot/efi/EFI/kwick/grub/grub.cfg"
+		else
+			need grub-install --target="$gt" --boot-directory="$T/boot" --modules="part_gpt part_msdos ext2 btrfs xfs" "$DISK"
+			write_grub_cfg "$T/boot/grub/grub.cfg"
+		fi
+		;;
+	systemd-boot)
+		sfx=$(efi_suffix)
+		src=/usr/lib/systemd/boot/efi/systemd-boot$sfx.efi
+		[ -f "$src" ] || { printf 'ERROR %s not found\n' "$src"; exit 1; }
+		mkdir -p "$ESPDIR/EFI/systemd" "$ESPDIR/EFI/BOOT"
+		cp "$src" "$ESPDIR/EFI/systemd/systemd-boot$sfx.efi"
+		cp "$src" "$ESPDIR/EFI/BOOT/$(efi_boot_name)"
+		write_sdboot_entries
+		;;
+	esac
+}
+
+do_kernel() {
+	find_kernel
+	log "kernel $REL from $KIMG"
+	mkdir -p "$T$KDIR/$REL"
+	cp "$KIMG" "$T$KDIR/$REL/vmlinuz"
+	[ "$ENCRYPT" = 1 ] && pick_cipher
+	install_boot_files
+}
+
+do_bootloader() {
+	progress 90 "Installing the bootloader"
+	install_bootloader
+	sync
+}
+
+steps_dry() {
+	pct=5
+	while IFS='|' read -r id title; do
+		step "$id" "$title"
+		progress $pct "$title"
+		log "dry-run: nothing was changed"
+		pct=$((pct + 10))
+	done <<EOF
+$(steps_list)
+EOF
+}
+
+cmd_run() {
+	[ "$YES" = 1 ] || bad "refusing to run without --yes"
+	compute_layout
+	[ -n "$USERN" ] || bad "--user is required"
+	[ -n "$PASSWORD_FILE" ] || bad "--password-file is required"
+	[ -f "$PASSWORD_FILE" ] || bad "password file not found: $PASSWORD_FILE"
+	if [ "$ENCRYPT" = 1 ]; then
+		[ -n "$PASSPHRASE_FILE" ] || bad "--encrypt needs --passphrase-file"
+		[ -f "$PASSPHRASE_FILE" ] || bad "passphrase file not found: $PASSPHRASE_FILE"
+	fi
+	[ -z "$ROOT_PASSWORD_FILE" ] || [ -f "$ROOT_PASSWORD_FILE" ] || bad "root password file not found: $ROOT_PASSWORD_FILE"
+	if [ "$DRYRUN" = 1 ]; then
+		steps_dry
+		progress 100 "Dry run complete"
+		printf 'DONE\n'
+		exit 0
+	fi
+	[ "$(id -u)" = 0 ] || bad "the installer must run as root"
+	mkdir -p "$(dirname "$LOGF")" 2>/dev/null
+	: >"$LOGF" 2>/dev/null || LOGF=/run/kwick-install.log
+	mkdir -p /run
+	take_lock
+	trap cleanup EXIT
+	trap 'printf "ERROR interrupted\n"; exit 1' INT TERM HUP
+	mkdir -p "$W"
+	chmod 700 "$W"
+	if [ "$ENCRYPT" = 1 ]; then
+		read_secret "$PASSPHRASE_FILE"
+		printf '%s' "$REPLY_SECRET" >"$W/luks.key"
+		chmod 600 "$W/luks.key"
+		REPLY_SECRET=""
+	fi
+	progress 1 "Starting"
+	step prepare "Checking the system and tools"
+	ensure_tools
+	progress 5 "Tools ready"
+	step partition "Partitioning the disk"
+	if [ "$MODE" = erase ]; then
+		progress 6 "Partitioning $DISK"
+		do_partition
+	else
+		log "manual mode: using the existing partitions"
+	fi
+	progress 10 "Partitions ready"
+	step format "Creating filesystems"
+	do_format
+	progress 13 "Filesystems created"
+	step mount "Mounting the target"
+	do_mount
+	progress 14 "Target mounted"
+	step copy "Copying the system"
+	do_copy
+	progress 80 "System copied"
+	if [ "$EDITION" = desktop ] && [ "$LIVE_EDITION" = headless ]; then
+		step desktop "Installing the desktop packages"
+		do_desktop_upgrade
+	fi
+	step configure "Configuring the system"
+	do_configure
+	progress 84 "System configured"
+	step kernel "Installing the kernel"
+	do_kernel
+	step bootloader "Installing the bootloader ($BL)"
+	do_bootloader
+	step finish "Finishing up"
+	progress 97 "Unmounting"
+	sync
+	umount_target
+	close_crypt
+	progress 100 "Installation complete"
+	printf 'DONE\n'
+	exit 0
+}
+
+cmd_refresh() {
+	[ -f "$CONF" ] || { echo "kwick-install: $CONF not found, this system was not installed by kwick-install" >&2; exit 1; }
+	. "$CONF"
+	T=""
+	W=/run/kwick-refresh
+	mkdir -p "$W"
+	LOGF=/var/log/kwick-install.log
+	BL=$BOOTLOADER
+	FW=$FIRMWARE
+	ARCHN=$(archname)
+	REL=${1:-}
+	if [ -z "$REL" ]; then REL=$(ls -1 "$KDIR" 2>/dev/null | tail -n 1); fi
+	KIMG=$KDIR/$REL/vmlinuz.efi
+	[ -f "$KIMG" ] || KIMG=$KDIR/$REL/vmlinuz
+	[ -f "$KIMG" ] || { echo "kwick-install: no kernel image for $REL" >&2; exit 1; }
+	if [ "$FW" = uefi ]; then
+		awk '$2 == "/boot/efi"' /proc/mounts | grep -q . || mount /boot/efi || { echo "kwick-install: cannot mount /boot/efi" >&2; exit 1; }
+	elif [ -n "$BOOT_UUID" ]; then
+		awk '$2 == "/boot"' /proc/mounts | grep -q . || mount /boot || { echo "kwick-install: cannot mount /boot" >&2; exit 1; }
+	fi
+	[ "$ENCRYPT" = 1 ] && pick_cipher
+	install_boot_files
+	case $BL in
+	grub)
+		if [ "$FW" = uefi ]; then write_grub_cfg /boot/efi/EFI/kwick/grub/grub.cfg; else write_grub_cfg /boot/grub/grub.cfg; fi
+		;;
+	systemd-boot) write_sdboot_entries ;;
+	esac
+	sync
+	rm -rf "$W"
+	echo "kwick-install: $REL is now the boot kernel ($BL)"
+}
+
+CMD=${1:-}
+[ $# -gt 0 ] && shift
+case $CMD in
+disks)
+	parse_opts "$@"
+	cmd_disks
+	;;
+bootloaders)
+	parse_opts "$@"
+	cmd_bootloaders
+	;;
+plan)
+	parse_opts "$@"
+	cmd_plan
+	;;
+run)
+	parse_opts "$@"
+	cmd_run
+	;;
+timezones | locales | keymaps)
+	cmd_list "$CMD" "${1:-}"
+	;;
+refresh-boot)
+	cmd_refresh "$@"
+	;;
+"" | -h | --help | help)
+	usage
+	;;
+*)
+	usage >&2
+	exit 1
+	;;
+esac

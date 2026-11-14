@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libvirglrenderer1 libegl1 libgl1 libgbm1 libgl1-mesa-dri libegl-mesa0 mesa-utils-bin mesa-utils xvfb x11-utils xdotool libsdl2-2.0-0 \
       python3 socat netcat-openbsd imagemagick ffmpeg gifsicle xz-utils zstd curl ca-certificates \
       openssh-client sshpass unzip git fontconfig fdisk e2fsprogs dpkg-dev gnupg apt-utils nginx-light procps iproute2 \
-      xorriso isolinux syslinux-common mtools dosfstools erofs-utils kmod \
+      xorriso isolinux syslinux-common mtools dosfstools erofs-utils kmod grub-common grub-efi-amd64-bin grub-pc-bin \
     && rm -rf /var/lib/apt/lists/*
 COPY qmp.py /usr/local/bin/qmp
 COPY vm.sh /usr/local/bin/vm

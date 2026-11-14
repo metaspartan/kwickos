@@ -17,7 +17,7 @@ RUN_BUILDER = docker run --rm -v $(CURDIR):/src -v $(OUT):/out -v kwick-build:/b
               -e KVER=$(KVER) -e KWICK_REPO_URL -e KWICK_REPO_KEY -e KWICK_SIGNING_KEY $(BUILDER)
 KVM := $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: all builder userland kpkg kernel kernel-generic rootfs images container repo test boot-test compat bench clean
+.PHONY: all builder userland kpkg kernel kernel-generic rootfs images headless-iso headless-iso-grub container repo test boot-test compat bench clean
 
 all: userland kpkg kernel kernel-generic rootfs images
 
@@ -42,6 +42,12 @@ rootfs:
 
 images:
 	$(RUN_BUILDER) bash /src/scripts/mkimage.sh $(ARCH)
+
+headless-iso:
+	$(RUN_BUILDER) bash /src/scripts/mkheadless-iso.sh $(ARCH)
+
+headless-iso-grub:
+	$(RUN_BUILDER) env LIVE_BOOT=grub bash /src/scripts/mkheadless-iso.sh $(ARCH)
 
 container:
 	docker import --platform linux/$(ARCH) \

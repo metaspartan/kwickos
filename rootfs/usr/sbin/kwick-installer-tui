@@ -1,0 +1,695 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+if [ "$(id -u)" != 0 ]; then
+	if command -v sudo >/dev/null 2>&1; then exec sudo -E "$0" "$@"; fi
+	echo "kwick-installer: run this as root (sudo kwick-installer)" >&2
+	exit 1
+fi
+
+umask 077
+WORK=$(mktemp -d /run/kwick-tui.XXXXXX) || exit 1
+STTY=$(stty -g 2>/dev/null)
+LOGF=/var/log/kwick-install.log
+KI_BIN=${KWICK_INSTALL_BIN:-kwick-install}
+
+ESC=$(printf '\033')
+if [ -n "$KWICK_TUI_ASCII" ] || [ "$TERM" = dumb ]; then
+	TL="+"; TR="+"; BL_="+"; BR="+"; HZ="-"; VT="|"; FULL="#"; EMPTY="-"; PTR=">"
+else
+	TL="╭"; TR="╮"; BL_="╰"; BR="╯"; HZ="─"; VT="│"; FULL="█"; EMPTY="░"; PTR="›"
+fi
+R="${ESC}[0m"
+B="${ESC}[1m"
+DIM="${ESC}[2m"
+ACC="${ESC}[1;36m"
+SEL="${ESC}[30;46m"
+RED="${ESC}[1;31m"
+GRN="${ESC}[1;32m"
+BAR="${ESC}[30;46m"
+
+S_KEYMAP=us
+S_LOCALE=en_US.UTF-8
+S_TZ=UTC
+S_DISK=""
+S_DISKDESC=""
+S_MODE=erase
+S_ROOT_PART=""
+S_EFI_PART=""
+S_BOOT_PART=""
+S_HOME_PART=""
+S_FS=ext4
+S_SWAP=zram
+S_ENC=0
+S_BL=""
+S_FULL=""
+S_USER=""
+S_HOST=kwick
+S_AUTO=no
+S_LAYOUT=macos
+S_PASSPHRASE=""
+S_PW=""
+EDITION=headless
+grep -qi desktop /etc/kwick-edition 2>/dev/null && EDITION=desktop
+VER=$(sed 's/^KwickOS //' /etc/kwick-release 2>/dev/null)
+
+restore() {
+	stty "$STTY" 2>/dev/null
+	printf '%s[?25h%s[?1049l' "$ESC" "$ESC"
+	rm -rf "$WORK"
+}
+trap restore EXIT
+trap 'exit 130' INT TERM HUP
+
+term_size() {
+	sz=$(stty size 2>/dev/null)
+	ROWS=${sz% *}
+	COLS=${sz#* }
+	case $ROWS in '' | *[!0-9]*) ROWS=24 ;; esac
+	case $COLS in '' | *[!0-9]*) COLS=80 ;; esac
+	[ "$ROWS" -ge 20 ] || ROWS=24
+	[ "$COLS" -ge 60 ] || COLS=80
+	BW=$((COLS - 8))
+	[ $BW -gt 78 ] && BW=78
+	LM=$(((COLS - BW) / 2 + 1))
+	IW=$((BW - 6))
+	IC=$((LM + 3))
+}
+
+wrap() {
+	awk -v w="$1" '{
+		n = split($0, a, " "); line = ""
+		for (i = 1; i <= n; i++) {
+			if (line != "" && length(line) + length(a[i]) + 1 > w) { print line; line = a[i] }
+			else line = (line == "" ? a[i] : line " " a[i])
+		}
+		if (line != "") print line
+	}'
+}
+
+at() { printf '%s[%s;%sH' "$ESC" "$1" "$2"; }
+rep() { printf '%*s' "$1" '' | sed "s/ /$2/g"; }
+pad() { printf '%-*s' "$1" "$2" | cut -c1-"$1"; }
+
+getkey() {
+	KEY=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d ' \n')
+	case $KEY in
+	1b)
+		stty min 0 time 1
+		seq=$(dd bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')
+		stty min 1 time 0
+		case $seq in
+		5b41 | 4f41) KEY=up ;;
+		5b42 | 4f42) KEY=down ;;
+		5b43 | 4f43) KEY=right ;;
+		5b44 | 4f44) KEY=left ;;
+		5b35) dd bs=1 count=1 >/dev/null 2>&1; KEY=pgup ;;
+		5b36) dd bs=1 count=1 >/dev/null 2>&1; KEY=pgdn ;;
+		'') KEY=esc ;;
+		*) KEY=other ;;
+		esac
+		;;
+	0a | 0d) KEY=enter ;;
+	7f | 08) KEY=bksp ;;
+	09) KEY=tab ;;
+	04 | '') KEY=eof ;;
+	*) KEY=$(printf "\\$(printf '%03o' "0x$KEY")") ;;
+	esac
+}
+
+desc_lines() {
+	if [ -n "$1" ]; then printf '%s\n' "$1" | wrap "$IW" | head -n 5 | wc -l; else echo 0; fi
+}
+
+screen_begin() {
+	term_size
+	rows=${3:-6}
+	nl=$(desc_lines "$2")
+	printf '%s[2J%s[?25l' "$ESC" "$ESC"
+	at 1 1
+	printf '%s %-*s%s' "$BAR" $((COLS - 1)) " KwickOS Installer  ${VER}" "$R"
+	if [ -n "$STEP_NO" ]; then
+		at 3 "$LM"
+		printf '%sStep %s of %s%s' "$DIM" "$STEP_NO" "$STEP_TOTAL" "$R"
+	fi
+	top=4
+	CUR=$((top + 3))
+	[ "$nl" -gt 0 ] && CUR=$((CUR + nl + 1))
+	last=$((CUR + rows))
+	[ $last -gt $((ROWS - 2)) ] && last=$((ROWS - 2))
+	at $top "$LM"
+	printf '%s%s%s%s%s' "$ACC" "$TL" "$(rep $((BW - 2)) "$HZ")" "$TR" "$R"
+	r=$((top + 1))
+	while [ $r -lt $last ]; do
+		at $r "$LM"
+		printf '%s%s%s%*s%s%s%s' "$ACC" "$VT" "$R" $((BW - 2)) "" "$ACC" "$VT" "$R"
+		r=$((r + 1))
+	done
+	at $last "$LM"
+	printf '%s%s%s%s%s' "$ACC" "$BL_" "$(rep $((BW - 2)) "$HZ")" "$BR" "$R"
+	at $((top + 1)) "$IC"
+	printf '%s%s%s' "$B" "$1" "$R"
+	if [ "$nl" -gt 0 ]; then
+		printf '%s\n' "$2" | wrap "$IW" | head -n 5 | awk -v r0=$((top + 3)) -v c0="$IC" -v esc="$ESC" '{ printf "%s[%d;%dH%s", esc, r0 + NR - 1, c0, $0 }'
+	fi
+}
+
+footer() {
+	at "$ROWS" "$LM"
+	printf '%s%-*s%s' "$DIM" "$BW" "$1" "$R"
+}
+
+menu_pick() {
+	title=$1
+	desc=$2
+	list=$3
+	want=$4
+	term_size
+	count=$(wc -l <"$list")
+	[ "$count" -gt 0 ] || return 2
+	nl=$(desc_lines "$desc")
+	base=7
+	[ "$nl" -gt 0 ] && base=$((7 + nl + 1))
+	vis=$((ROWS - 3 - base))
+	[ "$vis" -gt 14 ] && vis=14
+	[ "$vis" -gt "$count" ] && vis=$count
+	extra=0
+	[ "$count" -gt "$vis" ] && extra=1
+	screen_begin "$title" "$desc" $((vis + extra + 1))
+	sel=1
+	if [ -n "$want" ]; then
+		n=$(awk -F'|' -v w="$want" '$1 == w { print NR; exit }' "$list")
+		[ -n "$n" ] && sel=$n
+	fi
+	topi=1
+	footer "Up/Down move   Enter select   Esc back   type to jump"
+	while :; do
+		[ "$sel" -lt "$topi" ] && topi=$sel
+		[ "$sel" -ge $((topi + vis)) ] && topi=$((sel - vis + 1))
+		awk -F'|' -v top="$topi" -v vis="$vis" -v sel="$sel" -v r0="$CUR" -v c0="$IC" -v w="$IW" -v esc="$ESC" -v ptr="$PTR" '
+			NR >= top && NR < top + vis {
+				l = $2
+				if (length(l) > w - 3) l = substr(l, 1, w - 3)
+				p = ""
+				for (i = length(l); i < w - 3; i++) p = p " "
+				printf "%s[%d;%dH", esc, r0 + NR - top, c0
+				if (NR == sel) printf "%s[30;46m %s %s%s%s[0m", esc, ptr, l, p, esc
+				else printf "   %s%s", l, p
+			}' "$list"
+		if [ "$count" -gt "$vis" ]; then
+			at $((CUR + vis)) "$IC"
+			printf '%s%s%s' "$DIM" "$(pad "$IW" "  $sel / $count")" "$R"
+		fi
+		getkey
+		case $KEY in
+		up) [ "$sel" -gt 1 ] && sel=$((sel - 1)) ;;
+		down) [ "$sel" -lt "$count" ] && sel=$((sel + 1)) ;;
+		pgup) sel=$((sel - vis)); [ "$sel" -lt 1 ] && sel=1 ;;
+		pgdn) sel=$((sel + vis)); [ "$sel" -gt "$count" ] && sel=$count ;;
+		enter)
+			REPLY=$(sed -n "${sel}p" "$list" | cut -d'|' -f1)
+			return 0
+			;;
+		esc | left) return 1 ;;
+		eof) return 2 ;;
+		*)
+			if [ "${#KEY}" = 1 ]; then
+				n=$(awk -F'|' -v c="$KEY" -v s="$sel" 'BEGIN { c = tolower(c) } tolower(substr($2, 1, 1)) == c && NR > s { print NR; exit }' "$list")
+				[ -z "$n" ] && n=$(awk -F'|' -v c="$KEY" 'BEGIN { c = tolower(c) } tolower(substr($2, 1, 1)) == c { print NR; exit }' "$list")
+				[ -n "$n" ] && sel=$n
+			fi
+			;;
+		esac
+	done
+}
+
+input_line() {
+	label=$1
+	val=$2
+	mask=$3
+	row=$CUR
+	at "$row" "$IC"
+	printf '%s' "$label"
+	footer "Enter accept   Esc back"
+	printf '%s[?25h' "$ESC"
+	while :; do
+		at $((row + 1)) "$IC"
+		if [ -n "$mask" ]; then shown=$(printf '%s' "$val" | sed 's/./*/g'); else shown=$val; fi
+		printf '%s %s%s%s' "$SEL" "$(pad $((IW - 2)) "$shown")" " " "$R"
+		at $((row + 1)) $((IC + 1 + ${#val}))
+		getkey
+		case $KEY in
+		enter) REPLY=$val; printf '%s[?25l' "$ESC"; return 0 ;;
+		esc) printf '%s[?25l' "$ESC"; return 1 ;;
+		eof) return 2 ;;
+		bksp) val=${val%?} ;;
+		up | down | left | right | pgup | pgdn | tab | other) ;;
+		*) [ ${#val} -lt $((IW - 6)) ] && val="$val$KEY" ;;
+		esac
+	done
+}
+
+note() {
+	at "$CUR" "$IC"
+	printf '%s%s%s' "$1" "$2" "$R"
+	CUR=$((CUR + 1))
+}
+
+message() {
+	screen_begin "$1" "$2"
+	footer "Press Enter"
+	while :; do
+		getkey
+		case $KEY in enter | esc | eof | left) break ;; esac
+	done
+	return 0
+}
+
+yesno() {
+	printf 'yes|%s\nno|%s\n' "${3:-Yes}" "${4:-No}" >"$WORK/yn"
+	menu_pick "$1" "$2" "$WORK/yn" "${5:-yes}"
+}
+
+STEP_NO=""
+STEP_TOTAL=""
+
+s_welcome() {
+	screen_begin "Welcome to KwickOS" "This will guide you through installing KwickOS ${VER} on this computer. It takes a few minutes. Use the arrow keys and Enter, and press Esc to go back to the previous screen."
+	at "$CUR" "$IC"
+	printf '%sEdition%s   %s\n' "$DIM" "$R" "$EDITION"
+	at $((CUR + 1)) "$IC"
+	fwm=uefi
+	[ -d /sys/firmware/efi ] || fwm=bios
+	printf '%sFirmware%s  %s   %sArchitecture%s  %s' "$DIM" "$R" "$fwm" "$DIM" "$R" "$(uname -m)"
+	footer "Enter continue   Ctrl-C quit"
+	while :; do
+		getkey
+		case $KEY in enter | right) return 0 ;; esc | left | eof) return 1 ;; esac
+	done
+}
+
+s_keyboard() {
+	$KI_BIN keymaps --names | awk -F'\t' '{ print $1 "|" $2 "  (" $1 ")" }' >"$WORK/keymaps"
+	menu_pick "Keyboard layout" "Choose the layout of your keyboard." "$WORK/keymaps" "$S_KEYMAP" || return $?
+	S_KEYMAP=$REPLY
+	command -v loadkeys >/dev/null 2>&1 && loadkeys "${S_KEYMAP%%(*}" >/dev/null 2>&1
+	return 0
+}
+
+s_language() {
+	$KI_BIN locales | awk '{ print $1 "|" $1 }' >"$WORK/locales"
+	menu_pick "Language" "Choose the system language and regional formats." "$WORK/locales" "$S_LOCALE" || return $?
+	S_LOCALE=$REPLY
+	return 0
+}
+
+s_timezone() {
+	$KI_BIN timezones >"$WORK/tz.all"
+	{
+		echo "UTC|UTC"
+		sed 's|/.*||' "$WORK/tz.all" | grep -vx UTC | sort -u | awk '{ print $1 "|" $1 }'
+	} >"$WORK/tz.regions"
+	while :; do
+		cur=${S_TZ%%/*}
+		menu_pick "Time zone" "Choose your region." "$WORK/tz.regions" "$cur" || return $?
+		reg=$REPLY
+		if [ "$reg" = UTC ]; then S_TZ=UTC; return 0; fi
+		grep "^$reg/" "$WORK/tz.all" | awk -F/ '{ n = $0; sub(/^[^\/]+\//, "", n); l = n; gsub(/_/, " ", l); print $0 "|" l }' >"$WORK/tz.cities"
+		menu_pick "Time zone" "Choose your city in $reg." "$WORK/tz.cities" "$S_TZ"
+		rc=$?
+		if [ $rc = 0 ]; then S_TZ=$REPLY; return 0; fi
+		[ $rc = 2 ] && return 2
+	done
+}
+
+s_disk() {
+	$KI_BIN disks --json >"$WORK/disks.json"
+	grep '"path"' "$WORK/disks.json" | grep '"is_live_medium":false' | sed 's/^ *{//; s/}[, ]*$//' | awk '{
+		p = $0; sub(/^"path":"/, "", p); sub(/".*/, "", p)
+		h = $0; sub(/.*"size_human":"/, "", h); sub(/".*/, "", h)
+		m = $0; sub(/.*"model":"/, "", m); sub(/".*/, "", m)
+		t = $0; sub(/.*"transport":"/, "", t); sub(/".*/, "", t)
+		printf "%s|%-14s %-10s %-26s %s\n", p, p, h, substr(m, 1, 26), t
+	}' >"$WORK/disks"
+	if [ ! -s "$WORK/disks" ]; then
+		message "No disk found" "There is no disk the installer can write to. Attach a disk and start the installer again."
+		return 2
+	fi
+	hid=$(grep -c '"is_live_medium":true' "$WORK/disks.json")
+	d="Choose the disk to install KwickOS on."
+	[ "$hid" -gt 0 ] && d="$d The installation medium itself is not listed."
+	menu_pick "Installation disk" "$d" "$WORK/disks" "$S_DISK" || return $?
+	S_DISK=$REPLY
+	S_DISKDESC=$(grep "^$S_DISK|" "$WORK/disks" | cut -d'|' -f2 | sed 's/  */ /g')
+	return 0
+}
+
+s_mode() {
+	cat >"$WORK/modes" <<EOF
+erase|Erase the whole disk and install KwickOS
+manual|Use existing partitions (advanced)
+alongside|Install alongside another system (not available yet)
+EOF
+	menu_pick "How to install" "Choose how KwickOS is placed on $S_DISK." "$WORK/modes" "$S_MODE" || return $?
+	case $REPLY in
+	alongside)
+		message "Not available yet" "Installing next to another system is not supported yet. Choose to erase the disk, or pick existing partitions."
+		S_STAY=1
+		return 3
+		;;
+	erase) S_MODE=erase; return 0 ;;
+	manual) S_MODE=manual ;;
+	esac
+	disk=${S_DISK#/dev/}
+	: >"$WORK/parts"
+	for p in /sys/block/$disk/$disk*; do
+		[ -d "$p" ] || continue
+		pn=${p##*/}
+		sectors=$(cat "$p/size")
+		mib=$((sectors / 2048))
+		ft=$(blkid "/dev/$pn" 2>/dev/null | sed -n 's/.* TYPE="\([^"]*\)".*/\1/p')
+		printf '/dev/%s|%-14s %8s MiB  %s\n' "$pn" "/dev/$pn" "$mib" "${ft:-unformatted}" >>"$WORK/parts"
+	done
+	if [ ! -s "$WORK/parts" ]; then
+		message "No partitions" "$S_DISK has no partitions. Create them first with fdisk, or choose to erase the whole disk."
+		return 3
+	fi
+	menu_pick "Root partition" "Choose the partition for the KwickOS system. It will be formatted." "$WORK/parts" "$S_ROOT_PART" || return $?
+	S_ROOT_PART=$REPLY
+	S_EFI_PART=""
+	if [ -d /sys/firmware/efi ]; then
+		menu_pick "EFI system partition" "Choose the EFI system partition. It is only formatted when it is not FAT yet." "$WORK/parts" "$S_EFI_PART" || return $?
+		S_EFI_PART=$REPLY
+	fi
+	S_BOOT_PART=""
+	if [ "$S_ENC" = 1 ] && [ ! -d /sys/firmware/efi ]; then
+		menu_pick "Boot partition" "Choose a partition for the unencrypted /boot." "$WORK/parts" "" || return $?
+		S_BOOT_PART=$REPLY
+	fi
+	return 0
+}
+
+s_storage() {
+	cat >"$WORK/fs" <<EOF
+ext4|ext4 (recommended, simple and fast)
+btrfs|btrfs (snapshots and compression)
+xfs|xfs (large files and volumes)
+EOF
+	menu_pick "Filesystem" "Choose the filesystem for the system partition." "$WORK/fs" "$S_FS" || return $?
+	S_FS=$REPLY
+	cat >"$WORK/swap" <<EOF
+zram|Compressed memory swap (zram, recommended)
+none|No swap
+file:2G|Swap file, 2 GiB
+file:4G|Swap file, 4 GiB
+file:8G|Swap file, 8 GiB
+EOF
+	menu_pick "Swap" "Choose how the system gets swap space." "$WORK/swap" "$S_SWAP" || return $?
+	S_SWAP=$REPLY
+	return 0
+}
+
+s_encrypt() {
+	yesno "Disk encryption" "Encrypt the system partition with LUKS2? You will type the passphrase at every boot. Without it nobody can read the data on this disk." "Yes, encrypt the disk" "No, leave it unencrypted" "$([ "$S_ENC" = 1 ] && echo yes || echo no)" || return $?
+	if [ "$REPLY" = no ]; then S_ENC=0; S_PASSPHRASE=""; return 0; fi
+	while :; do
+		screen_begin "Encryption passphrase" "Choose a passphrase of at least 8 characters. There is no way to recover the data if you forget it."
+		input_line "Passphrase" "" mask
+		rc=$?
+		[ $rc != 0 ] && return $rc
+		p1=$REPLY
+		if [ ${#p1} -lt 8 ]; then
+			message "Too short" "The passphrase needs at least 8 characters."
+			continue
+		fi
+		screen_begin "Encryption passphrase" "Type the passphrase again to confirm."
+		input_line "Passphrase again" "" mask
+		rc=$?
+		[ $rc != 0 ] && return $rc
+		if [ "$REPLY" != "$p1" ]; then
+			message "They do not match" "The two passphrases are different. Try again."
+			continue
+		fi
+		S_ENC=1
+		S_PASSPHRASE=$p1
+		return 0
+	done
+}
+
+s_bootloader() {
+	args="--fs $S_FS"
+	[ "$S_ENC" = 1 ] && args="$args --encrypt"
+	$KI_BIN bootloaders --json $args >"$WORK/bl.json"
+	def=$(sed -n 's/.*"default":"\([^"]*\)".*/\1/p' "$WORK/bl.json")
+	sed 's/"unavailable".*//' "$WORK/bl.json" | sed 's/{"id"/\n{"id"/g' | grep '^{"id"' | sed 's/^{"id":"\([^"]*\)","name":"\([^"]*\)","description":"\([^"]*\)".*/\1|\2 - \3/' >"$WORK/bls"
+	if [ -n "$def" ]; then
+		awk -F'|' -v d="$def" '$1 == d { sub(/ - /, " (recommended) - ", $2); print $1 "|" $2; next } { print }' "$WORK/bls" >"$WORK/bls2"
+		mv "$WORK/bls2" "$WORK/bls"
+	fi
+	[ -n "$S_BL" ] || S_BL=$def
+	menu_pick "Bootloader" "Choose how this computer starts KwickOS." "$WORK/bls" "$S_BL" || return $?
+	S_BL=$REPLY
+	return 0
+}
+
+suggest_user() {
+	printf '%s' "$1" | tr 'A-Z' 'a-z' | sed 's/ .*//; s/[^a-z0-9_-]//g; s/^[^a-z_]*//' | cut -c1-32
+}
+
+s_user() {
+	while :; do
+		screen_begin "Your account" "Tell us who will use this computer."
+		input_line "Your name" "$S_FULL" || return $?
+		S_FULL=$REPLY
+		[ -n "$S_USER" ] || S_USER=$(suggest_user "$S_FULL")
+		screen_begin "Your account" "Choose a user name for logging in. Lowercase letters, digits, - and _."
+		input_line "User name" "$S_USER" || return $?
+		u=$REPLY
+		if ! printf '%s' "$u" | grep -Eq '^[a-z_][a-z0-9_-]{0,31}$'; then
+			message "Invalid user name" "Use lowercase letters, digits, - and _, starting with a letter."
+			continue
+		fi
+		S_USER=$u
+		screen_begin "Your account" "Choose a name for this computer."
+		input_line "Computer name" "$S_HOST" || return $?
+		if ! printf '%s' "$REPLY" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'; then
+			message "Invalid computer name" "Use lowercase letters, digits and - only."
+			continue
+		fi
+		S_HOST=$REPLY
+		screen_begin "Your account" "Choose a password for $S_USER."
+		input_line "Password" "" mask || return $?
+		p1=$REPLY
+		if [ -z "$p1" ]; then
+			message "Password needed" "The password cannot be empty."
+			continue
+		fi
+		screen_begin "Your account" "Type the password again to confirm."
+		input_line "Password again" "" mask || return $?
+		if [ "$REPLY" != "$p1" ]; then
+			message "They do not match" "The two passwords are different. Try again."
+			continue
+		fi
+		S_PW=$p1
+		yesno "Login" "Log in automatically as $S_USER when the computer starts?" "Yes, log in automatically" "No, ask for the password" "$S_AUTO" || return $?
+		S_AUTO=$REPLY
+		return 0
+	done
+}
+
+s_layout() {
+	cat >"$WORK/layouts" <<EOF
+macos|macOS style: top bar and dock
+windows|Windows style: bottom taskbar
+linux|Linux style: classic panel
+EOF
+	menu_pick "Desktop layout" "Choose how the desktop looks. You can change it later in Settings." "$WORK/layouts" "$S_LAYOUT" || return $?
+	S_LAYOUT=$REPLY
+	return 0
+}
+
+ki() {
+	sub=$1
+	shift
+	set -- "$sub" --mode "$S_MODE" --fs "$S_FS" --bootloader "$S_BL" --hostname "$S_HOST" --user "$S_USER" --fullname "$S_FULL" \
+		--autologin "$S_AUTO" --timezone "$S_TZ" --locale "$S_LOCALE" --keymap "$S_KEYMAP" --edition "$EDITION" --layout "$S_LAYOUT" --swap "$S_SWAP" "$@"
+	[ -n "$S_DISK" ] && set -- "$@" --disk "$S_DISK"
+	[ "$S_MODE" = manual ] && set -- "$@" --root-part "$S_ROOT_PART"
+	[ -n "$S_EFI_PART" ] && set -- "$@" --efi-part "$S_EFI_PART"
+	[ -n "$S_BOOT_PART" ] && set -- "$@" --boot-part "$S_BOOT_PART"
+	[ "$S_ENC" = 1 ] && set -- "$@" --encrypt --passphrase-file "$WORK/luks"
+	"$KI_BIN" "$@"
+}
+
+s_summary() {
+	printf '%s' "$S_PW" >"$WORK/pw"
+	[ "$S_ENC" = 1 ] && printf '%s' "$S_PASSPHRASE" >"$WORK/luks"
+	ki plan >"$WORK/plan.json" 2>&1
+	if ! grep -q '"ok":true' "$WORK/plan.json"; then
+		err=$(sed -n 's/.*"error":"\([^"]*\)".*/\1/p' "$WORK/plan.json")
+		message "Cannot install like this" "${err:-The installer could not make a plan for these choices.}"
+		return 1
+	fi
+	screen_begin "Ready to install" "" 15
+	r=$CUR
+	row() { at "$r" "$IC"; printf '%s%-14s%s %s' "$DIM" "$1" "$R" "$2"; r=$((r + 1)); }
+	if [ "$S_MODE" = erase ]; then
+		at "$r" "$IC"
+		printf '%sThis will erase everything on %s%s' "$RED" "$S_DISK" "$R"
+		r=$((r + 1))
+		at "$r" "$IC"
+		printf '%s(%s)%s' "$DIM" "$S_DISKDESC" "$R"
+		r=$((r + 2))
+	else
+		at "$r" "$IC"
+		printf '%sThis will format %s and install KwickOS there%s' "$RED" "$S_ROOT_PART" "$R"
+		r=$((r + 2))
+	fi
+	enc="no"
+	[ "$S_ENC" = 1 ] && enc="LUKS2"
+	row "System" "KwickOS $VER ($EDITION)"
+	row "Filesystem" "$S_FS, encryption: $enc, swap: $S_SWAP"
+	row "Bootloader" "$S_BL"
+	row "Computer" "$S_HOST"
+	row "User" "$S_USER ($S_FULL)"
+	row "Language" "$S_LOCALE, keyboard $S_KEYMAP"
+	row "Time zone" "$S_TZ"
+	[ "$EDITION" = desktop ] && row "Layout" "$S_LAYOUT"
+	r=$((r + 1))
+	printf 'back|Go back and change something\ngo|Erase and install now\n' >"$WORK/confirm"
+	[ "$S_MODE" = manual ] && printf 'back|Go back and change something\ngo|Format and install now\n' >"$WORK/confirm"
+	CUR=$r
+	vis=2
+	sel=1
+	footer "Up/Down move   Enter select   Esc back"
+	while :; do
+		awk -F'|' -v sel="$sel" -v r0="$CUR" -v c0="$IC" -v w="$IW" -v esc="$ESC" -v ptr="$PTR" '{
+			l = $2; p = ""
+			for (i = length(l); i < w - 3; i++) p = p " "
+			printf "%s[%d;%dH", esc, r0 + NR - 1, c0
+			if (NR == sel) {
+				if ($1 == "go") printf "%s[1;37;41m %s %s%s%s[0m", esc, ptr, l, p, esc
+				else printf "%s[30;46m %s %s%s%s[0m", esc, ptr, l, p, esc
+			} else printf "   %s%s", l, p
+		}' "$WORK/confirm"
+		getkey
+		case $KEY in
+		up) sel=1 ;;
+		down) sel=2 ;;
+		enter) if [ $sel = 2 ]; then return 0; else return 1; fi ;;
+		esc | left) return 1 ;;
+		eof) return 2 ;;
+		esac
+	done
+}
+
+gauge() {
+	pct=$1
+	w=$((IW - 8))
+	f=$((pct * w / 100))
+	at "$CUR" "$IC"
+	printf '%s%s%s%s%s %3s%%' "$ACC" "$(rep "$f" "$FULL")" "$DIM" "$(rep $((w - f)) "$EMPTY")" "$R" "$pct"
+}
+
+s_install() {
+	screen_begin "Installing KwickOS" "Please do not turn off the computer." 12
+	gr=$CUR
+	: >"$WORK/out"
+	ki run --yes --password-file "$WORK/pw" >"$WORK/out" 2>&1 &
+	pid=$!
+	done_n=0
+	pct=0
+	title="Starting"
+	msg=""
+	status=run
+	ended=0
+	errmsg=""
+	: >"$WORK/lastlog"
+	footer "Installing, this takes a few minutes"
+	while :; do
+		total=$(wc -l <"$WORK/out")
+		if [ "$total" -gt "$done_n" ]; then
+			sed -n "$((done_n + 1)),${total}p" "$WORK/out" >"$WORK/new"
+			done_n=$total
+			while IFS= read -r line; do
+				case $line in
+				PROGRESS*) set -- $line; pct=$2; shift 2; msg=$* ;;
+				STEP*) title=${line#STEP * } ;;
+				LOG*) printf '%s\n' "${line#LOG }" >>"$WORK/lastlog" ;;
+				ERROR*) errmsg=${line#ERROR }; status=error ;;
+				DONE) status=done ;;
+				esac
+			done <"$WORK/new"
+		fi
+		CUR=$gr
+		at "$CUR" "$IC"
+		printf '%s%s%s' "$B" "$(pad "$IW" "$title")" "$R"
+		CUR=$((gr + 2))
+		gauge "$pct"
+		at $((gr + 4)) "$IC"
+		printf '%s%s%s' "$DIM" "$(pad "$IW" "$msg")" "$R"
+		tail -n 5 "$WORK/lastlog" | awk -v r0=$((gr + 6)) -v c0="$IC" -v w="$IW" -v esc="$ESC" '{
+			l = substr($0, 1, w); p = ""
+			for (i = length(l); i < w; i++) p = p " "
+			printf "%s[%d;%dH%s[2m%s%s%s[0m", esc, r0 + NR - 1, c0, esc, l, p, esc
+		}'
+		[ $status != run ] && break
+		if kill -0 "$pid" 2>/dev/null; then
+			sleep 1
+		else
+			if [ "$ended" = 1 ]; then
+				status=error
+				[ -n "$errmsg" ] || errmsg="the installer stopped unexpectedly"
+				break
+			fi
+			ended=1
+		fi
+	done
+	wait "$pid" 2>/dev/null
+	rm -f "$WORK/pw" "$WORK/luks"
+	if [ $status = error ]; then
+		screen_begin "Installation failed" "$errmsg"
+		at "$CUR" "$IC"
+		printf '%sNothing was left mounted. The full log is in %s%s' "$DIM" "$LOGF" "$R"
+		footer "Press Enter to exit"
+		while :; do getkey; case $KEY in enter | esc | eof) break ;; esac; done
+		return 4
+	fi
+	return 0
+}
+
+s_done() {
+	printf 'reboot|Restart now\nshutdown|Power off\nstay|Stay in the live system\n' >"$WORK/done"
+	menu_pick "KwickOS is installed" "Remove the installation medium, then restart to boot your new system." "$WORK/done" reboot
+	case $REPLY in
+	reboot) restore; trap - EXIT; reboot; exit 0 ;;
+	shutdown) restore; trap - EXIT; poweroff; exit 0 ;;
+	esac
+	return 5
+}
+
+stepfn() { case $1 in 1) echo welcome ;; 2) echo keyboard ;; 3) echo language ;; 4) echo timezone ;; 5) echo disk ;; 6) echo storage ;; 7) echo encrypt ;; 8) echo mode ;; 9) echo bootloader ;; 10) echo user ;; 11) if [ "$EDITION" = desktop ]; then echo layout; else echo summary; fi ;; 12) if [ "$EDITION" = desktop ]; then echo summary; else echo install; fi ;; 13) if [ "$EDITION" = desktop ]; then echo install; else echo done; fi ;; 14) echo done ;; esac; }
+
+if [ "$EDITION" = desktop ]; then TOTAL=12; else TOTAL=11; fi
+
+printf '%s[?1049h' "$ESC"
+stty -icanon -echo min 1 time 0
+i=1
+while :; do
+	fn=$(stepfn $i)
+	STEP_NO=$i
+	STEP_TOTAL=$TOTAL
+	[ "$fn" = install ] || [ "$fn" = done ] && { STEP_NO=""; STEP_TOTAL=""; }
+	S_STAY=0
+	"s_$fn"
+	rc=$?
+	case $rc in
+	0) i=$((i + 1)) ;;
+	1) [ $i -gt 1 ] && i=$((i - 1)) ;;
+	2) exit 0 ;;
+	3) ;;
+	4) exit 1 ;;
+	5) exit 0 ;;
+	esac
+done

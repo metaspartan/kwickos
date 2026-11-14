@@ -43,6 +43,7 @@ fi
 EFII=$(efibin "$KI")
 LR="$W/live"; mkdir -p "$LR/kwick"
 mkfs.erofs --quiet -zlz4hc,12 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$LR/kwick/root.erofs" "$RI"
+cp "$KI/vmlinuz" "$LR/kwick/vmlinuz"
 echo "KwickOS $(cat "$RI/etc/kwick-release" 2>/dev/null) live ($(cat "$KI/version"))" > "$LR/kwick/README"
 mkfs.vfat -n KWICK-ESP -C "$W/efiboot.img" $(( $(stat -c %s "$EFII") / 1024 + 512 )) >/dev/null
 mmd -i "$W/efiboot.img" ::/EFI ::/EFI/BOOT

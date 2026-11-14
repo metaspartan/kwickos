@@ -40,8 +40,8 @@ for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dp
          dpkg-statoverride dpkg-architecture update-alternatives apk; do ln -sf kpkg usr/bin/$l; done
 
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
-find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew
+find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" -type f -exec sed -i 's/\r$//' {} +
+chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd
