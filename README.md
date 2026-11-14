@@ -187,7 +187,10 @@ Gaming. It tells you when no GPU compositor is running and offers to install `kw
 | Appearance | Dock | Effects |
 |---|---|---|
 | ![settings](docs/img/settings.png) | ![dock](docs/img/settings-dock.png) | ![effects](docs/img/settings-effects.png) |
-KDE System Settings uses the same KwickOS object icons:![KDE System Settings](docs/img/settings-kde.png)
+
+KDE System Settings uses the same KwickOS object icons:
+
+![KDE System Settings](docs/img/settings-kde.png)
 
 ### Icons
 
