@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": ["custom/logo", "@WM@/window"],
   "modules-center": [],
-  "modules-right": ["tray", "bluetooth", "network", "pulseaudio", "battery", "clock"],
+  "modules-right": ["tray", "bluetooth", "custom/vpn", "network", "pulseaudio", "battery", "clock"],
   "custom/logo": {
     "format": "\u00a0",
     "tooltip": false,
@@ -13,10 +13,10 @@
     "on-click-right": "kwick-keys"
   },
   "@WM@/window": {
-    "format": "{app_id}",
+    "format": "{@APPID@}",
     "max-length": 40,
     "separate-outputs": true,
-    "rewrite": { "": "Finder" }
+    "rewrite": { "": "Finder", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox" }
   },
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
@@ -27,6 +27,13 @@
     "format-disabled": "",
     "format-off": "",
     "tooltip-format": "{status}"
+  },
+  "custom/vpn": {
+    "exec": "kwick-vpn waybar",
+    "return-type": "json",
+    "interval": 5,
+    "format": "{}",
+    "on-click": "foot nmtui"
   },
   "network": {
     "format-wifi": "",

@@ -172,7 +172,7 @@ gnome() {
 tiling() {
   T=/usr/share/kwick/tiling; C=${XDG_CONFIG_HOME:-$HOME/.config}
   ui=$(kwick-fonts names "$want" | sed -n 1p); mono=$(kwick-fonts names "$want" | sed -n 2p)
-  sub() { sed -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" "$2"; }
+  sub() { sed -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" -e "s|@APPID@|$([ "$1" = hyprland ] && echo class || echo app_id)|g" "$2"; }
   case $want in macos) wp=KwickGlass ;; windows) wp=KwickFluent ;; *) wp=KwickOS ;; esac
   ICO=$(icontheme)
   for v in gtk-3.0 gtk-4.0; do
