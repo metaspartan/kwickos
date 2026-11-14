@@ -18,7 +18,7 @@
   "custom/sep": { "format": " ", "tooltip": false },
   "wlr/taskbar": {
     "format": "{icon}",
-    "icon-size": 44,
+    "icon-size": 48,
     "icon-theme": "KwickOS",
     "tooltip-format": "{title}",
     "on-click": "activate",

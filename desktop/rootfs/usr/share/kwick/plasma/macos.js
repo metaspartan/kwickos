@@ -37,7 +37,7 @@ edgeL.writeConfig("margin", "10");
 
 var k = top.addWidget("org.kde.plasma.kickoff");
 k.currentConfigGroup = ["General"];
-k.writeConfig("icon", "kwickos-symbolic");
+k.writeConfig("icon", "kwickos-menubar");
 k.writeConfig("showAppsByName", "true");
 
 var gapL = top.addWidget("org.kde.plasma.marginsseparator");
@@ -70,7 +70,7 @@ clk.writeConfig("autoFontAndSize", "false");
 
 var sep2 = top.addWidget("org.kde.plasma.marginsseparator");
 sep2.currentConfigGroup = ["General"];
-sep2.writeConfig("margin", "8");
+sep2.writeConfig("margin", "12");
 
 var dock = new Panel;
 dock.location = dockCfg.position;

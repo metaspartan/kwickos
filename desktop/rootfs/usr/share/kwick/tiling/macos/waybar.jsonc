@@ -16,10 +16,10 @@
     "format": "{@APPID@}",
     "max-length": 40,
     "separate-outputs": true,
-    "rewrite": { "": "Finder", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox" }
+    "rewrite": { "": "Finder", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.qt-project.qml": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Finder" }
   },
   "clock": {
-    "format": "{:%a %d %b  %H:%M}",
+    "format": "{:%a %b %e  %I:%M %p}",
     "tooltip-format": "<tt>{calendar}</tt>"
   },
   "bluetooth": {

@@ -60,8 +60,9 @@ window#waybar {
 }
 
 #taskbar button.active {
-  background: rgba(255, 255, 255, 0.12);
-  border-bottom: 3px solid rgba(255, 255, 255, 0.85);
+  background-color: transparent;
+  background-image: radial-gradient(circle at 50% 94%, rgba(255, 255, 255, 0.85) 0, rgba(255, 255, 255, 0.85) 2px, rgba(255, 255, 255, 0) 3px);
+  border-bottom: 3px solid transparent;
 }
 
 #taskbar button:hover {

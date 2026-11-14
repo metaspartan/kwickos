@@ -68,7 +68,7 @@ c.writeConfig("use24hFormat", 0);
 c.writeConfig("showSeconds", "false");
 c.writeConfig("fontFamily", "Selawik");
 c.writeConfig("fontWeight", "400");
-c.writeConfig("fontSize", "8");
+c.writeConfig("fontSize", "9");
 c.writeConfig("autoFontAndSize", "false");
 
 var edge = p.addWidget("org.kde.plasma.marginsseparator");

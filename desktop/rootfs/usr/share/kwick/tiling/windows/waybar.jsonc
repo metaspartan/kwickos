@@ -1,7 +1,7 @@
 {
   "layer": "top",
   "position": "bottom",
-  "height": 46,
+  "height": 48,
   "spacing": 2,
   "modules-left": [],
   "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "wlr/taskbar"],
@@ -13,14 +13,14 @@
   "custom/term": { "format": "\u00a0", "tooltip-format": "Terminal", "on-click": "kwick-terminal" },
   "wlr/taskbar": {
     "format": "{icon}",
-    "icon-size": 26,
+    "icon-size": 24,
     "icon-theme": "KwickOS-Fluent",
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close"
   },
   "clock": {
-    "format": "{:%H:%M\n%d/%m/%Y}",
+    "format": "{:%I:%M %p\n%m/%d/%Y}",
     "tooltip-format": "<tt>{calendar}</tt>"
   },
   "custom/vpn": {

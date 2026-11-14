@@ -1,46 +1,49 @@
 windowcontrols {
-  margin: 0 6px;
+  margin: 0 5px;
 }
 
 windowcontrols button.close,
 windowcontrols button.minimize,
 windowcontrols button.maximize,
 windowcontrols button.restore {
-  min-width: 20px;
-  min-height: 20px;
+  min-width: 12px;
+  min-height: 12px;
   padding: 0;
-  margin: 0 1px;
+  margin: 0 2px;
   border-radius: 0;
   background-color: transparent;
+  background-size: 12px 12px;
+  background-position: center;
+  background-repeat: no-repeat;
   box-shadow: none;
   outline: none;
 }
 
 windowcontrols button.close {
-  background-image: radial-gradient(circle closest-side at center, #ff5f57 0, #ff5f57 6.3px, rgba(0, 0, 0, 0.28) 6.6px, rgba(0, 0, 0, 0) 7.2px);
+  background-image: radial-gradient(circle closest-side at center, #ff5f57 0, #ff5f57 5.3px, rgba(0, 0, 0, 0.28) 5.6px, rgba(0, 0, 0, 0) 6px);
 }
 
 windowcontrols button.minimize {
-  background-image: radial-gradient(circle closest-side at center, #febc2e 0, #febc2e 6.3px, rgba(0, 0, 0, 0.28) 6.6px, rgba(0, 0, 0, 0) 7.2px);
+  background-image: radial-gradient(circle closest-side at center, #febc2e 0, #febc2e 5.3px, rgba(0, 0, 0, 0.28) 5.6px, rgba(0, 0, 0, 0) 6px);
 }
 
 windowcontrols button.maximize,
 windowcontrols button.restore {
-  background-image: radial-gradient(circle closest-side at center, #28c840 0, #28c840 6.3px, rgba(0, 0, 0, 0.28) 6.6px, rgba(0, 0, 0, 0) 7.2px);
+  background-image: radial-gradient(circle closest-side at center, #28c840 0, #28c840 5.3px, rgba(0, 0, 0, 0.28) 5.6px, rgba(0, 0, 0, 0) 6px);
 }
 
 windowcontrols button.close:backdrop,
 windowcontrols button.minimize:backdrop,
 windowcontrols button.maximize:backdrop,
 windowcontrols button.restore:backdrop {
-  background-image: radial-gradient(circle closest-side at center, rgba(255, 255, 255, 0.24) 0, rgba(255, 255, 255, 0.24) 6.3px, rgba(0, 0, 0, 0.28) 6.6px, rgba(0, 0, 0, 0) 7.2px);
+  background-image: radial-gradient(circle closest-side at center, rgba(255, 255, 255, 0.24) 0, rgba(255, 255, 255, 0.24) 5.3px, rgba(0, 0, 0, 0.28) 5.6px, rgba(0, 0, 0, 0) 6px);
 }
 
 windowcontrols button image {
   color: transparent;
   -gtk-icon-size: 8px;
-  min-width: 20px;
-  min-height: 20px;
+  min-width: 12px;
+  min-height: 12px;
   padding: 0;
   margin: 0;
   border-radius: 0;

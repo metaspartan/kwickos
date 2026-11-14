@@ -10,9 +10,9 @@ ColumnLayout {
         spacing: 14
         Repeater {
             model: [
-                { id: "macos", name: "macOS", sub: "Menu bar and floating dock" },
+                { id: "macos", name: "macOS", sub: "Menu bar and dock" },
                 { id: "windows", name: "Windows 11", sub: "Centered taskbar" },
-                { id: "linux", name: "Linux", sub: "Top bar and bottom panel" }
+                { id: "linux", name: "Linux", sub: "Top bar, Tokyo Night" }
             ]
             delegate: Rectangle {
                 id: opt

@@ -80,7 +80,7 @@ refresh_icons() {
   ) >/dev/null 2>&1 &
 }
 
-fontset() { UI=$(kwick-fonts names "$want" | sed -n 1p),10; MONO=$(kwick-fonts names "$want" | sed -n 2p),10; }
+fontset() { pt=10; [ "$want" = windows ] && pt=9; UI=$(kwick-fonts names "$want" | sed -n 1p),$pt; MONO=$(kwick-fonts names "$want" | sed -n 2p),10; }
 
 kde() {
   fontset

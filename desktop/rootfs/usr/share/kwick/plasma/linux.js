@@ -16,14 +16,14 @@ var launchers = [
 
 var top = new Panel;
 top.location = "top";
-top.height = Math.round(gridUnit * 1.5);
+top.height = 30;
 top.floating = false;
 top.hiding = "none";
 top.opacity = "translucent";
 
 var edgeL = top.addWidget("org.kde.plasma.marginsseparator");
 edgeL.currentConfigGroup = ["General"];
-edgeL.writeConfig("margin", "8");
+edgeL.writeConfig("margin", "12");
 var k = top.addWidget("org.kde.plasma.kickoff");
 k.currentConfigGroup = ["General"];
 k.writeConfig("icon", "kwick-start");
@@ -53,7 +53,7 @@ sepT.writeConfig("margin", "6");
 top.addWidget("org.kde.plasma.systemtray");
 var edgeR = top.addWidget("org.kde.plasma.marginsseparator");
 edgeR.currentConfigGroup = ["General"];
-edgeR.writeConfig("margin", "8");
+edgeR.writeConfig("margin", "12");
 
 var dock = new Panel;
 dock.location = "left";

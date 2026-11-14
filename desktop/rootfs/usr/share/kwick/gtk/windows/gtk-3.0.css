@@ -6,8 +6,8 @@ headerbar button.titlebutton.close,
 headerbar button.titlebutton.minimize,
 headerbar button.titlebutton.maximize,
 headerbar button.titlebutton.restore {
-  min-width: 40px;
-  min-height: 30px;
+  min-width: 46px;
+  min-height: 32px;
   padding: 0;
   margin: 0;
   border-radius: 0;
@@ -19,9 +19,9 @@ headerbar button.titlebutton.restore {
 }
 
 headerbar button.titlebutton image {
-  -gtk-icon-size: 12px;
-  min-width: 40px;
-  min-height: 30px;
+  -gtk-icon-size: 10px;
+  min-width: 46px;
+  min-height: 32px;
   padding: 0;
   margin: 0;
   border-radius: 0;

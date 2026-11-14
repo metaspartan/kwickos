@@ -20,7 +20,7 @@ USAGE
 names() {
   case $1 in
     macos)   UI="Inter"; MONO="JetBrains Mono"; SERIF="Noto Serif"; PT=10 ;;
-    windows) UI="Selawik"; MONO="Cascadia Code"; SERIF="Liberation Serif"; PT=10 ;;
+    windows) UI="Selawik"; MONO="Cascadia Code"; SERIF="Liberation Serif"; PT=9 ;;
     linux)   UI="Ubuntu Sans"; MONO="Ubuntu Sans Mono"; SERIF="Noto Serif"; PT=10 ;;
     *) return 1 ;;
   esac
@@ -53,13 +53,13 @@ CONF
     kwriteconfig6 --file kdeglobals --group General --key menuFont "$UI,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
     kwriteconfig6 --file kdeglobals --group General --key toolBarFont "$UI,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
     kwriteconfig6 --file kdeglobals --group General --key smallestReadableFont "$UI,$((PT - 2)),-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
-    kwriteconfig6 --file kdeglobals --group General --key fixed "$MONO,$PT,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kwriteconfig6 --file kdeglobals --group General --key fixed "$MONO,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
     kwriteconfig6 --file kdeglobals --group WM --key activeFont "$UI,$PT,-1,5,600,0,0,0,0,0,0,0,0,0,0,1"
   fi
   if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.interface font-name "$UI $PT" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface document-font-name "$UI $PT" 2>/dev/null || true
-    gsettings set org.gnome.desktop.interface monospace-font-name "$MONO $PT" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface monospace-font-name "$MONO 10" 2>/dev/null || true
   fi
   fc-cache -f >/dev/null 2>&1 || true
 }
