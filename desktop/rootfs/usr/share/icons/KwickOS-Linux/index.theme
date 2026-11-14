@@ -1,6 +1,6 @@
 [Icon Theme]
 Name=KwickOS-Linux
-Comment=KwickOS Linux variant: Tokyo Night squircles and folders
+Comment=KwickOS Linux variant: Tokyo Night glass squircles and folders
 Inherits=KwickOS,Papirus-Dark,breeze-dark,hicolor
 Example=folder
 DesktopDefault=48

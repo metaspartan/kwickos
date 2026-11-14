@@ -28,3 +28,4 @@ org.gnome.shell.extensions.blur-my-shell.dash-to-dock static-blur true
 org.gnome.shell.extensions.blur-my-shell.dash-to-dock brightness 0.6
 org.gnome.shell.extensions.blur-my-shell.dash-to-dock sigma 30
 org.gnome.desktop.interface icon-theme 'KwickOS'
+org.gnome.shell.extensions.dash-to-dock show-apps-icon-file '/usr/share/icons/hicolor/scalable/apps/kwickos-symbolic.svg'

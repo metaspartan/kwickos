@@ -1,0 +1,46 @@
+headerbar .titlebar-buttons {
+  margin: 0;
+}
+
+headerbar button.titlebutton.close,
+headerbar button.titlebutton.minimize,
+headerbar button.titlebutton.maximize,
+headerbar button.titlebutton.restore {
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background-image: none;
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+  color: #ffffff;
+}
+
+headerbar button.titlebutton image {
+  -gtk-icon-size: 12px;
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background-image: none;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+headerbar button.titlebutton.minimize:hover image,
+headerbar button.titlebutton.maximize:hover image,
+headerbar button.titlebutton.restore:hover image {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+headerbar button.titlebutton.close:hover image {
+  background-color: #c42b1c;
+  color: #ffffff;
+}
+
+headerbar button.titlebutton.close:active image {
+  background-color: #b22a1b;
+}

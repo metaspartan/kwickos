@@ -22,3 +22,4 @@ org.gnome.shell.extensions.dash-to-panel group-apps true
 org.gnome.shell.extensions.dash-to-panel isolate-workspaces false
 org.gnome.shell.extensions.dash-to-panel intellihide false
 org.gnome.desktop.interface icon-theme 'KwickOS-Fluent'
+org.gnome.shell.extensions.dash-to-panel show-apps-icon-file '/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-start-fluent.svg'

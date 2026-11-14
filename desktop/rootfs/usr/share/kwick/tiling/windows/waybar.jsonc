@@ -24,23 +24,22 @@
     "tooltip-format": "<tt>{calendar}</tt>"
   },
   "network": {
-    "format-wifi": "",
-    "format-ethernet": "",
-    "format-disconnected": "",
+    "format": " ",
+    "format-wifi": " ",
+    "format-ethernet": " ",
+    "format-disconnected": " ",
     "tooltip-format": "{ifname} {ipaddr} {essid}",
     "on-click": "foot nmtui"
   },
   "pulseaudio": {
-    "format": "{icon}",
-    "format-muted": "",
-    "format-icons": { "default": ["", ""] },
+    "format": " ",
+    "format-muted": " ",
     "on-click": "pavucontrol",
     "scroll-step": 5
   },
   "battery": {
-    "format": "{icon}",
-    "format-charging": "",
-    "format-icons": ["", "", "", "", ""],
+    "format": " ",
+    "format-charging": " ",
     "tooltip-format": "{capacity}%",
     "states": { "warning": 25, "critical": 12 }
   },

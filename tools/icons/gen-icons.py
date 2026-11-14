@@ -6,6 +6,11 @@ settings pages, a folder body for places and bare strokes for actions.
 """
 import math, os, re, shutil, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import icondesign as ID
+import placeicons as PI
+import freeicons as FI
+
 ROOT = sys.argv[1]
 SQ = None
 
@@ -211,6 +216,42 @@ G["history"] = P("M4 12a8 8 0 1 0 2.5-5.8") + P("M4.2 3.6v4.2h4.2M12 8v4.4l3 1.8
 G["lockscreen"] = R(4.8, 10.4, 14.4, 10.2, 2.8) + P("M8 10.4V8a4 4 0 0 1 8 0v2.4")
 G["gift"] = R(3.6, 8.6, 16.8, 4.2, 1.4) + P("M5 12.8v6.2a1.6 1.6 0 0 0 1.6 1.6h10.8a1.6 1.6 0 0 0 1.6-1.6v-6.2M12 8.6v12M12 8.6C9.8 8.6 8 7.6 8 6a2 2 0 0 1 2-2c1.2 0 2 1.8 2 4.6zM12 8.6c2.2 0 4-1 4-2.6a2 2 0 0 0-2-2c-1.2 0-2 1.8-2 4.6z")
 
+DEEP = {
+    "graphite": ("#5a5a60", "#2a2a2e"),
+    "gray": ("#6a6a70", "#34343a"),
+    "slate": ("#4a4a52", "#232328"),
+    "night": ("#3a3a40", "#1c1c1e"),
+    "blue": ("#2f7be8", "#0e47a3"),
+    "sky": ("#3f8fe6", "#1450a8"),
+    "indigo": ("#5b4fc9", "#33288f"),
+    "violet": ("#8a4cc2", "#592a86"),
+    "teal": ("#1f8f8a", "#0b5c5a"),
+    "green": ("#2f9a58", "#1d6a3a"),
+    "lime": ("#3f9a45", "#24692a"),
+    "red": ("#cc2b43", "#9c1428"),
+    "pink": ("#c23468", "#8e1d4a"),
+    "orange": ("#e0701f", "#b8400b"),
+    "yellow": ("#dc9a22", "#a8640a"),
+}
+
+TOKYO_DEEP = {
+    "graphite": ("#5d6180", "#2a2d42"),
+    "gray": ("#6a6f90", "#343850"),
+    "slate": ("#4c5070", "#24263a"),
+    "night": ("#3c4060", "#1a1b2a"),
+    "blue": ("#6b8ff0", "#34509e"),
+    "sky": ("#58a6e0", "#25689a"),
+    "indigo": ("#8084ec", "#4048a8"),
+    "violet": ("#a47ae6", "#68449e"),
+    "teal": ("#45b4a0", "#1e7266"),
+    "green": ("#7eb85a", "#427a2a"),
+    "lime": ("#8cbc5c", "#4c7a2e"),
+    "red": ("#e0647c", "#a03450"),
+    "pink": ("#d878b0", "#8e3c72"),
+    "orange": ("#ee8a56", "#b8582a"),
+    "yellow": ("#d8a458", "#9c6a22"),
+}
+
 PAL = {
     "gray": ("#9a9ca6", "#5a5c66"),
     "graphite": ("#6b6f7d", "#363944"),
@@ -253,7 +294,7 @@ SQM = squircle(512, 512, 412, 5.0, 220, 1)
 SQM_IN = squircle(512, 512, 407, 5.0, 220, 1)
 DEFAULT_TEXT = "#e4e7f0"
 MONO_RE = re.compile(r"^(network-|audio-|battery|bluetooth|redshift|night-light|input-|media-|drive-|printer|phone$|smartphone|avatar-|user-identity|system-users|system-log-out|system-run|video-display|help-|software-update|system-software-update|dialog-|wifi$|xorg$|emblem-)")
-PLAIN_PLACES = {"user-trash", "user-trash-symbolic", "user-trash-full", "network-workgroup", "network-server"}
+PLAIN_PLACES = {"user-trash", "user-trash-symbolic", "user-trash-full"}
 
 
 def glyph_markup(name, color, scale=1):
@@ -277,176 +318,6 @@ def inner_svg(outer, inner, cy, scale, sw, osw, default, cls="ColorScheme-Text")
 '''
 
 
-def old_app(glyph, pal, dark, colors, brand):
-    c1, c2 = colors[pal]
-    gcol = "url(#k)" if dark else "#ffffff"
-    g = glyph_markup(glyph, gcol)
-    gs = glyph_markup(glyph, "#000000")
-    kdef = f'<linearGradient id="k" gradientUnits="userSpaceOnUse" x1="3" y1="3" x2="21" y2="21"><stop offset="0" stop-color="{brand[0]}"/><stop offset="1" stop-color="{brand[1]}"/></linearGradient>' if dark else ""
-    tr = 'transform="translate(64 64) scale(3.45) translate(-12 -12)"'
-    tr2 = 'transform="translate(64 66.2) scale(3.45) translate(-12 -12)"'
-    gattr = 'fill="none" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"'
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
-<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.32"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/></linearGradient>
-<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.5"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.05"/><stop offset="1" stop-color="#000" stop-opacity="0.25"/></linearGradient>
-<filter id="s" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#000" flood-opacity="0.4"/></filter>
-{kdef}
-</defs>
-<path d="{SQ}" fill="url(#b)" filter="url(#s)"/>
-<path d="{SQ}" fill="url(#h)"/>
-<path d="{SQ_IN}" fill="none" stroke="url(#e)" stroke-width="1"/>
-<g {tr2} {gattr} stroke="#000" opacity="0.22">{gs.replace('fill="#000000"', 'fill="#000"')}</g>
-<g {tr} {gattr} stroke="{gcol}">{g}</g>
-</svg>
-'''
-
-
-def old_folder(glyph, pal, colors):
-    c1, c2 = colors[pal]
-    gl = ""
-    if glyph:
-        g = glyph_markup(glyph, "#ffffff")
-        gl = f'<g transform="translate(64 78) scale(2.35) translate(-12 -12)" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" opacity="0.9">{g}</g>'
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c2}"/><stop offset="1" stop-color="{c2}" stop-opacity="0.85"/></linearGradient>
-<linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
-<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/></linearGradient>
-<filter id="s" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity="0.4"/></filter>
-</defs>
-<g filter="url(#s)">
-<path d="M10 30a10 10 0 0 1 10-10h27a10 10 0 0 1 7.4 3.3l5.2 5.7H108a10 10 0 0 1 10 10v54a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#bk)"/>
-<path d="M10 44a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#fr)"/>
-<path d="M10 44a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#h)"/>
-<path d="M20 34.6h88" stroke="#fff" stroke-opacity="0.55" stroke-width="1" stroke-linecap="round" transform="translate(0 0.5)"/>
-</g>
-{gl}
-</svg>
-'''
-
-
-def old_page(glyph, pal, colors):
-    c1, c2 = colors[pal]
-    g = glyph_markup(glyph, c2)
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfcff"/><stop offset="1" stop-color="#c9d0e2"/></linearGradient>
-<linearGradient id="f" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#aab3cb"/></linearGradient>
-<linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
-<filter id="s" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity="0.4"/></filter>
-</defs>
-<g filter="url(#s)">
-<path d="M26 12a8 8 0 0 1 8-8h40l28 28v84a8 8 0 0 1-8 8H34a8 8 0 0 1-8-8z" fill="url(#p)"/>
-<path d="M74 4l28 28H82a8 8 0 0 1-8-8z" fill="url(#f)"/>
-</g>
-<path d="M26 98h76v18a8 8 0 0 1-8 8H34a8 8 0 0 1-8-8z" fill="url(#a)"/>
-<g transform="translate(64 66) scale(2.5) translate(-12 -12)" fill="none" stroke="{c2}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{g}</g>
-</svg>
-'''
-
-
-def mac_app(glyph, pal, dark=False):
-    c1, c2 = PAL[pal]
-    gfill = "url(#gk)" if dark else "url(#gw)"
-    g = glyph_markup(glyph, gfill)
-    gb = glyph_markup(glyph, "#000")
-    gdef = f'<linearGradient id="gk" gradientUnits="userSpaceOnUse" x1="3" y1="3" x2="21" y2="21"><stop offset="0" stop-color="{BRAND[0]}"/><stop offset="1" stop-color="{BRAND[1]}"/></linearGradient>' if dark else '<linearGradient id="gw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6eeff" stop-opacity="0.93"/></linearGradient>'
-    shadows = "".join(
-        f'<use xlink:href="#sq" transform="translate(512 {512 + dy}) scale({s}) translate(-512 -512)" fill="#000" fill-opacity="{o}"/>'
-        for s, dy, o in ((1.035, 30, 0.04), (1.02, 24, 0.05), (1.008, 18, 0.07), (1.0, 12, 0.1), (0.992, 6, 0.14)))
-    ga = 'fill="none" stroke-linecap="round" stroke-linejoin="round"'
-    gt = 'transform="translate(512 512) scale(17.6) translate(-12 -12)"'
-    gt1 = 'transform="translate(512 528) scale(17.6) translate(-12 -12)"'
-    gt2 = 'transform="translate(512 542) scale(17.6) translate(-12 -12)"'
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
-<defs>
-<path id="sq" d="{SQM}"/>
-<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
-<linearGradient id="d" x1="0" y1="0" x2="0" y2="1"><stop offset="0.5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.24"/></linearGradient>
-<radialGradient id="r" cx="0.28" cy="0.06" r="0.9"><stop offset="0" stop-color="#fff" stop-opacity="0.42"/><stop offset="0.6" stop-color="#fff" stop-opacity="0.06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="0.42" stop-color="#fff" stop-opacity="0"/></linearGradient>
-<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.85"/><stop offset="0.3" stop-color="#fff" stop-opacity="0.12"/><stop offset="0.75" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0.3"/></linearGradient>
-{gdef}
-</defs>
-{shadows}
-<use xlink:href="#sq" fill="url(#b)"/>
-<use xlink:href="#sq" fill="url(#d)"/>
-<use xlink:href="#sq" fill="url(#r)"/>
-<use xlink:href="#sq" fill="url(#h)"/>
-<path d="{SQM_IN}" fill="none" stroke="url(#e)" stroke-width="7"/>
-<use xlink:href="#sq" fill="none" stroke="#000" stroke-opacity="0.28" stroke-width="3"/>
-<g {gt2} {ga} stroke="#000" stroke-opacity="0.1" stroke-width="2.4">{gb}</g>
-<g {gt1} {ga} stroke="#000" stroke-opacity="0.2" stroke-width="2">{gb}</g>
-<g {gt} {ga} stroke="{gfill}" stroke-width="1.9">{g}</g>
-</svg>
-'''
-
-
-def mac_folder(glyph=None, name=""):
-    gl = ""
-    if glyph:
-        g = glyph_markup(glyph, "#2c78cc")
-        gh = glyph_markup(glyph, "#ffffff")
-        ga = 'fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9"'
-        gl = f'<g transform="translate(64 76.4) scale(2.3) translate(-12 -12)" {ga} stroke="#fff" stroke-opacity="0.7">{gh}</g><g transform="translate(64 75) scale(2.3) translate(-12 -12)" {ga} stroke="#2c78cc" stroke-opacity="0.92">{g}</g>'
-    shadows = "".join(
-        f'<rect x="{10 - e}" y="{26 - e + dy}" width="{108 + 2 * e}" height="{80 + 2 * e}" rx="{12 + e}" fill="#000" fill-opacity="{o}"/>'
-        for e, dy, o in ((5, 8, 0.04), (3, 6, 0.06), (1.5, 4, 0.1), (0, 2, 0.14)))
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4aa0ec"/><stop offset="1" stop-color="#2c74c6"/></linearGradient>
-<linearGradient id="pp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9e3f1"/></linearGradient>
-<linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a6e0ff"/><stop offset="0.55" stop-color="#63c0fb"/><stop offset="1" stop-color="#46a6f2"/></linearGradient>
-<linearGradient id="hl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.45"/><stop offset="0.3" stop-color="#fff" stop-opacity="0"/></linearGradient>
-</defs>
-{shadows}
-<path d="M10 34a10 10 0 0 1 10-10h24a10 10 0 0 1 7.6 3.5l4.6 5.5H108a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#bk)"/>
-<rect x="17" y="31" width="94" height="40" rx="4" fill="url(#pp)"/>
-<path d="M10 52a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#fr)"/>
-<path d="M10 52a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v44a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z" fill="url(#hl)"/>
-<path d="M19 42.7h90" stroke="#fff" stroke-opacity="0.75" stroke-width="1.4" stroke-linecap="round"/>
-<path d="M20 105.4h88" stroke="#1f5fae" stroke-opacity="0.3" stroke-width="1.2" stroke-linecap="round"/>
-{gl}
-</svg>
-'''
-
-
-def fluent_tile(glyph, pal, dark=False):
-    c1, c2 = PAL[pal]
-    if dark:
-        c1, c2 = "#4a4a52", "#26262c"
-    g = glyph_markup(glyph, "#ffffff")
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>
-<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.38"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient>
-</defs>
-<rect x="9" y="12" width="110" height="110" rx="28" fill="#000" fill-opacity="0.12"/>
-<rect x="9" y="10" width="110" height="110" rx="28" fill="#000" fill-opacity="0.16"/>
-<rect x="8" y="8" width="112" height="112" rx="28" fill="url(#b)"/>
-<rect x="8.5" y="8.5" width="111" height="111" rx="27.5" fill="none" stroke="url(#e)" stroke-width="1"/>
-<g transform="translate(64 64) scale(3.3) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{g}</g>
-</svg>
-'''
-
-
-def fluent_explorer():
-    return '''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9a521"/><stop offset="1" stop-color="#c98a10"/></linearGradient>
-<linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe38a"/><stop offset="1" stop-color="#ffc83d"/></linearGradient>
-<linearGradient id="bl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb4ff"/><stop offset="1" stop-color="#1f74e0"/></linearGradient>
-</defs>
-<path d="M12 34a10 10 0 0 1 10-10h24a10 10 0 0 1 7.6 3.5l5 5.5H106a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H22a10 10 0 0 1-10-10z" fill="url(#bk)"/>
-<rect x="12" y="44" width="104" height="62" rx="9" fill="url(#fr)"/>
-<path d="M12 90h104v7a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#bl)"/>
-<path d="M20 45.6h88" stroke="#fff" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round"/>
-</svg>
-'''
-
-
 class Style:
     suffix = ""
 
@@ -456,6 +327,10 @@ class Style:
             write(sub, n + "-symbolic", svg)
 
     def app(self, names, glyph, pal, sub, dark):
+        if "kwick-start" in names.split():
+            for n in ("kwick-start", "kwick-start-fluent"):
+                write("apps", n, kmark())
+            return
         svg = self.tile(glyph, pal, dark)
         for n in names.split():
             write(sub, n, svg)
@@ -486,69 +361,74 @@ class Style:
             write("places", n, svg)
 
 
-class Mac(Style):
-    name = "KwickOS"
-    comment = "KwickOS macOS-style icon set: squircle apps, light-blue folders, accent-blue sidebar glyphs"
-    inherits = "Papirus-Dark,breeze-dark,hicolor"
+class Glass(Style):
+    colors = DEEP
+    brand = BRAND
     sw = 1.75
+    text = "#e8ebf4"
+    accent = "#0a84ff"
 
     def tile(self, glyph, pal, dark):
-        if dark and glyph == "folder":
-            return mac_app("folderfill", "sky", False)
-        return mac_app(glyph, pal, dark)
+        return FI.free_icon(glyph, self.colors, pal, glyph_markup, ID.DV)
+
+    def folder_cols(self, pal):
+        return None
 
     def folder_svg(self, glyph, pal):
-        return mac_folder(glyph)
+        return ID.folder_svg("mac", glyph, glyph_markup, self.folder_cols(pal))
 
     def folder(self, names, glyph, pal):
         for n in names.split():
             if n.startswith("user-trash"):
-                write("places", n, mac_app("trash", "red" if n.endswith("full") else "gray"))
+                write("places", n, self.tile("trash", "red" if n.endswith("full") else "gray", False))
+            elif n in PI.PLACE_OBJ:
+                key, pl = PI.PLACE_OBJ[n]
+                c1, c2 = self.colors[pl]
+                write("places", n, PI.place_svg(key, c1, c2, ID.DV))
             else:
-                write("places", n, mac_folder(glyph))
+                write("places", n, self.folder_svg(None, pal))
 
     def page_svg(self, glyph, pal):
-        return old_page(glyph, pal, PAL)
+        c1, c2 = self.colors[pal]
+        return ID.page_svg(glyph, c1, c2, glyph_markup)
 
     def plain(self, glyph, color):
-        return plain_svg(glyph, self.sw, "#e8ebf4", color)
+        return plain_svg(glyph, self.sw, self.text, color)
 
     def side_svg(self, glyph):
-        return plain_svg(glyph, 1.8, "#0a84ff", None, "ColorScheme-Highlight")
+        return plain_svg(glyph, 1.8, self.accent, None, "ColorScheme-Highlight")
 
 
-class Linux(Style):
+class Mac(Glass):
+    name = "KwickOS"
+    comment = "KwickOS macOS-style icon set: Liquid Glass squircle apps, blue folders, accent-blue sidebar glyphs"
+    inherits = "Papirus-Dark,breeze-dark,hicolor"
+
+
+class Linux(Glass):
     name = "KwickOS-Linux"
-    comment = "KwickOS Linux variant: Tokyo Night squircles and folders"
+    comment = "KwickOS Linux variant: Tokyo Night glass squircles and folders"
     inherits = "KwickOS,Papirus-Dark,breeze-dark,hicolor"
-    sw = 1.75
+    colors = TOKYO_DEEP
+    brand = BRAND_TOKYO
+    text = "#c0caf5"
+    accent = "#7aa2f7"
 
-    def tile(self, glyph, pal, dark):
-        return old_app(glyph, pal, dark, TOKYO, BRAND_TOKYO)
-
-    def folder_svg(self, glyph, pal):
-        return old_folder(glyph, pal, TOKYO)
-
-    def page_svg(self, glyph, pal):
-        return old_page(glyph, pal, TOKYO)
-
-    def plain(self, glyph, color):
-        return plain_svg(glyph, self.sw, "#c0caf5", color)
-
-    def side_svg(self, glyph):
-        return plain_svg(glyph, 1.8, "#7aa2f7", None, "ColorScheme-Highlight")
+    def folder_cols(self, pal):
+        c1, c2 = TOKYO_DEEP[pal]
+        return ID.tint_folder(c1, c2)
 
 
 class Fluent(Style):
     name = "KwickOS-Fluent"
-    comment = "KwickOS Windows layout icons: white line glyphs, flat Fluent app tiles"
+    comment = "KwickOS Windows layout icons: Fluent shapes for apps and folders, white line glyphs for the interface"
     inherits = "KwickOS,breeze-dark,hicolor"
     sw = 1.6
 
     def tile(self, glyph, pal, dark):
-        if dark and glyph == "folder":
-            return fluent_explorer()
-        return fluent_tile(glyph, pal, dark)
+        if glyph == "folder":
+            return ID.folder_svg("fluent", None, glyph_markup)
+        return FI.free_icon(glyph, DEEP, pal, glyph_markup, ID.DD)
 
     def plain(self, glyph, color):
         return plain_svg(glyph, self.sw, "#ffffff", color)
@@ -563,13 +443,12 @@ class Fluent(Style):
 
     def app(self, names, glyph, pal, sub, dark):
         ns = names.split()
-        if sub in ("devices", "categories"):
+        if sub == "categories":
             self.mono(ns, glyph, sub)
             return
         if "kwick-start" in ns:
-            svg = self.plain("start", None)
             for n in ("kwick-start", "kwick-start-fluent"):
-                write("apps", n, svg)
+                write("apps", n, kmark())
             return
         if sub == "preferences":
             mono = [n for n in ns if MONO_RE.match(n)]
@@ -583,8 +462,12 @@ class Fluent(Style):
         for n in names.split():
             if n in PLAIN_PLACES:
                 self.write_sym("places", n, self.plain("trashfull" if n == "user-trash-full" else glyph or "folder", None))
+            elif n in PI.PLACE_OBJ:
+                key, pl = PI.PLACE_OBJ[n]
+                c1, c2 = DEEP[pl]
+                write("places", n, PI.place_svg(key, c1, c2, ID.DD))
             else:
-                write("places", n, inner_svg(P(FOLDER_TALL), glyph, 13.7, 0.44, 3.4, self.sw, "#ffffff"))
+                write("places", n, ID.folder_svg("fluent", None, glyph_markup))
 
     def page(self, names, glyph, pal):
         direct = glyph in ("page", "text", "file")
@@ -596,6 +479,11 @@ class Fluent(Style):
 STYLES = {"macos": Mac, "linux": Linux, "windows": Fluent}
 STYLE = None
 OUT = None
+
+
+def kmark():
+    src = open(os.path.join(ROOT, "desktop/rootfs/usr/share/icons/hicolor/scalable/apps/kwickos-symbolic.svg"), encoding="utf-8").read()
+    return re.sub(r"<svg[^>]*>", '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-18.5 0 272 272">', src, count=1)
 
 
 def write(sub, name, text):
@@ -707,7 +595,7 @@ def build():
     pref("preferences-system-hotcorners", "windows", "teal")
     pref("preferences-system-services preferences-system-background-services preferences-system-kded", "wrench", "gray")
 
-    app("system-file-manager org.kde.dolphin dolphin kwick-files org.gnome.Nautilus nautilus org.gnome.Files folder-manager", "folder", "night", dark=True)
+    app("system-file-manager org.kde.dolphin dolphin kwick-files org.gnome.Nautilus nautilus org.gnome.Files folder-manager", "folder", "blue")
     app("utilities-terminal org.kde.konsole konsole kwick-terminal org.gnome.Terminal org.gnome.Console gnome-terminal foot utilities-terminal-symbolic", "terminal", "night", dark=True)
     app("accessories-text-editor kwick-editor org.kde.kate kate org.gnome.TextEditor org.kde.kwrite kwrite gedit text-editor", "pencilpage", "orange")
     app("org.kde.discover kwick-software plasmadiscover system-software-install org.gnome.Software gnome-software discover org.kde.discover.notifier", "bag", "blue")
@@ -917,6 +805,8 @@ def build():
     side("folder-pictures-symbolic", "image")
     side("folder-music-symbolic", "music")
     side("folder-video-symbolic folder-videos-symbolic", "video")
+    side("user-trash-symbolic", "trash")
+    side("user-trash-full-symbolic", "trashfull")
     side("folder-network-symbolic network-workgroup-symbolic folder-remote-symbolic", "globe")
     side("folder-recent-symbolic", "recent")
     side("drive-harddisk-symbolic", "harddisk")

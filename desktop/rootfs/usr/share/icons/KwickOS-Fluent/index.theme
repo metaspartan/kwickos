@@ -1,6 +1,6 @@
 [Icon Theme]
 Name=KwickOS-Fluent
-Comment=KwickOS Windows layout icons: white line glyphs, flat Fluent app tiles
+Comment=KwickOS Windows layout icons: Fluent shapes for apps and folders, white line glyphs for the interface
 Inherits=KwickOS,breeze-dark,hicolor
 Example=folder
 DesktopDefault=48

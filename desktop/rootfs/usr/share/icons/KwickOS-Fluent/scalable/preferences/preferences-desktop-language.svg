@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#56b0ff"/><stop offset="1" stop-color="#1d63ec"/></linearGradient>
-<linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.38"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient>
-</defs>
-<rect x="9" y="12" width="110" height="110" rx="28" fill="#000" fill-opacity="0.12"/>
-<rect x="9" y="10" width="110" height="110" rx="28" fill="#000" fill-opacity="0.16"/>
-<rect x="8" y="8" width="112" height="112" rx="28" fill="url(#b)"/>
-<rect x="8.5" y="8.5" width="111" height="111" rx="27.5" fill="none" stroke="url(#e)" stroke-width="1"/>
-<g transform="translate(64 64) scale(3.3) translate(-12 -12)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3c3.2 3 3.2 15 0 18" /><path d="M12 3c-3.2 3-3.2 15 0 18" /></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="128" height="128" viewBox="0 0 128 128"><defs><radialGradient id="o1" cx="0.35" cy="0.3" r="0.85" ><stop offset="0" stop-color="#8fd3ff"/><stop offset="0.6" stop-color="#2f8cf0"/><stop offset="1" stop-color="#1649b5"/></radialGradient><radialGradient id="o2" cx="0.3" cy="0.2" r="0.5" ><stop offset="0" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><g transform="translate(-9.68 -10.68) scale(1.474)"><g transform="translate(0 7)"><circle cx="50" cy="50" r="38" fill="#000" fill-opacity="0.06"/></g><g transform="translate(0 5)"><circle cx="50" cy="50" r="38" fill="#000" fill-opacity="0.08"/></g><g transform="translate(0 3)"><circle cx="50" cy="50" r="38" fill="#000" fill-opacity="0.12"/></g><g transform="translate(0 1.5)"><circle cx="50" cy="50" r="38" fill="#000" fill-opacity="0.16"/></g><circle cx="50" cy="50" r="38" fill="url(#o1)"/><path d="M50 12c-18 20-18 56 0 76M50 12c18 20 18 56 0 76M12 50h76M18 30h64M18 70h64" fill="none" stroke="#fff" stroke-opacity="0.65" stroke-width="2.4"/><circle cx="50" cy="50" r="38" fill="url(#o2)"/><circle cx="50" cy="50" r="37.5" fill="none" stroke="#fff" stroke-opacity="0.5"/></g></svg>

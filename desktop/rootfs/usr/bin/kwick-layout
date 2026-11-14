@@ -17,10 +17,37 @@ kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
 icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
 
+gtklayout() { case $want in macos) echo 'close,minimize,maximize:' ;; *) echo ':minimize,maximize,close' ;; esac; }
+
+gtkstyle() {
+  GC=${XDG_CONFIG_HOME:-$HOME/.config}
+  for v in gtk-3.0 gtk-4.0; do
+    mkdir -p "$GC/$v"
+    t=/usr/share/kwick/gtk/$want/$v.css
+    if [ -f "$t" ]; then
+      cp "$t" "$GC/$v/gtk.css"
+    elif [ -f "$GC/$v/gtk.css" ]; then
+      for o in /usr/share/kwick/gtk/*/$v.css; do cmp -s "$o" "$GC/$v/gtk.css" && rm -f "$GC/$v/gtk.css"; done
+    fi
+  done
+}
+
 refresh_icons() {
   for g in 0 1 2 3 4 5; do
     dbus-send --session --type=signal /KIconLoader org.kde.KIconLoader.iconChanged int32:$g >/dev/null 2>&1 || true
+    dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.notifyChange int32:4 int32:$g >/dev/null 2>&1 || true
   done
+  (
+    for wait in 5 8; do
+      sleep $wait
+      for svc in $(qdbus6 2>/dev/null | tr -d ' ' | grep '^org.kde.dolphin-'); do
+        for path in $(qdbus6 "$svc" 2>/dev/null | grep '^/dolphin/Dolphin_[0-9]*/actions/show_hidden_files$'); do
+          qdbus6 "$svc" "$path" trigger >/dev/null 2>&1
+          qdbus6 "$svc" "$path" trigger >/dev/null 2>&1
+        done
+      done
+    done
+  ) >/dev/null 2>&1 &
 }
 
 fontset() { UI=$(kwick-fonts names "$want" | sed -n 1p),10; MONO=$(kwick-fonts names "$want" | sed -n 2p),10; }
@@ -51,6 +78,7 @@ kde() {
   files
   gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null || true
   gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
+  gtkstyle
   refresh_icons
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   js=/usr/share/kwick/plasma/$want.js
@@ -85,6 +113,7 @@ files() {
 
 gnome() {
   fontset
+  gtkstyle
   G=/usr/share/kwick/gnome
   GSETTINGS_SCHEMA_DIR=$(ls -d /usr/share/gnome-shell/extensions/*/schemas 2>/dev/null | tr "
 " ":"); export GSETTINGS_SCHEMA_DIR
@@ -109,8 +138,11 @@ tiling() {
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$C/$v"
     sed "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
+    echo "gtk-decoration-layout=$(gtklayout)" >> "$C/$v/settings.ini"
   done
+  gtkstyle
   gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
+  gsettings set org.gnome.desktop.wm.preferences button-layout "$(gtklayout)" 2>/dev/null || true
   mkdir -p "$C/hypr" "$C/sway" "$C/waybar" "$C/mako" "$C/fuzzel" "$C/foot" "$C/swaylock"
   ln -sf "/usr/share/wallpapers/$wp/contents/images/2560x1440.png" "$cfg/wallpaper"
   sub hyprland "$T/common/hyprland.conf" > "$C/hypr/hyprland.conf"

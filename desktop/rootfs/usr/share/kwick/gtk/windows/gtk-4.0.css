@@ -1,0 +1,46 @@
+windowcontrols {
+  margin: 0;
+}
+
+windowcontrols button.close,
+windowcontrols button.minimize,
+windowcontrols button.maximize,
+windowcontrols button.restore {
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background-image: none;
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+  color: #ffffff;
+}
+
+windowcontrols button image {
+  -gtk-icon-size: 12px;
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background-image: none;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+windowcontrols button.minimize:hover image,
+windowcontrols button.maximize:hover image,
+windowcontrols button.restore:hover image {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+windowcontrols button.close:hover image {
+  background-color: #c42b1c;
+  color: #ffffff;
+}
+
+windowcontrols button.close:active image {
+  background-color: #b22a1b;
+}

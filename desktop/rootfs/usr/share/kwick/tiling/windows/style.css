@@ -81,6 +81,45 @@ window#waybar {
   font-size: 14px;
 }
 
+#network,
+#pulseaudio,
+#battery {
+  min-width: 22px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+}
+
+#network {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/status/network-wireless-connected-100.svg");
+}
+
+#network.ethernet {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/status/network-wired.svg");
+}
+
+#network.disconnected {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/status/network-wired.svg");
+  opacity: 0.45;
+}
+
+#pulseaudio {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/audio-volume-high.svg");
+}
+
+#pulseaudio.muted {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/audio-volume-muted.svg");
+}
+
+#battery {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/battery-full.svg");
+}
+
+#battery.warning,
+#battery.critical {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/battery-low.svg");
+}
+
 #clock {
   padding: 0 14px 0 8px;
   font-size: 12px;
