@@ -72,34 +72,44 @@ def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
 def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, btn_h, spacing, margin_top,
             align, text_a, text_i):
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">']
-    pad = 10
+    pt, ps, pb = 6, 10, 14
     defs = ""
+    q = ((0, 0.0), (0.3, 0.12), (0.6, 0.42), (1, 1.0))
+    T = title_h
     for pi, (prefix, y, bar) in enumerate((("decoration", 0, bar_a), ("decoration-inactive", 60, bar_i))):
         col, op = bar
-        a = 0.26 if pi == 0 else 0.14
         k = f"{pi}"
+        a = 0.15 if pi == 0 else 0.08
+
+        def stops(rev=False):
+            pts = [(1 - o, v) for o, v in reversed(q)] if rev else list(q)
+            return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * v:.4f}"/>' for o, v in pts)
+
+        def rstops():
+            pts = [(1 - o, v) for o, v in reversed(q)]
+            return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * v:.4f}"/>' for o, v in pts)
+
         defs += (
-            f'<linearGradient id="gl{k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="{a}"/></linearGradient>'
-            f'<linearGradient id="gr{k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="{a}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>'
-            f'<linearGradient id="gt{k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="{a}"/></linearGradient>'
-            f'<linearGradient id="gb{k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="{a}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>'
+            f'<linearGradient id="gl{k}" x1="0" y1="0" x2="1" y2="0">{stops()}</linearGradient>'
+            f'<linearGradient id="gr{k}" x1="0" y1="0" x2="1" y2="0">{stops(True)}</linearGradient>'
+            f'<linearGradient id="gt{k}" x1="0" y1="0" x2="0" y2="1">{stops()}</linearGradient>'
+            f'<linearGradient id="gb{k}" x1="0" y1="0" x2="0" y2="1">{stops(True)}</linearGradient>'
         )
-        for nm, cx, cy in (("rtl", pad, pad), ("rtr", 0, pad), ("rbl", pad, 0), ("rbr", 0, 0)):
-            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="{cx}" cy="{cy}" r="{pad}"><stop offset="0" stop-color="#000" stop-opacity="{a}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>'
-        T = title_h
-        tl = f'<rect x="0" y="0" width="{pad}" height="{pad}" fill="url(#rtl{k})"/><rect x="0" y="{pad}" width="{pad}" height="{T}" fill="url(#gl{k})"/>'
-        tp = f'<rect x="0" y="0" width="8" height="{pad}" fill="url(#gt{k})"/>{svg_rect_path(0, pad, 8, T, fill=col, op=op)}'
-        tr = f'<rect x="0" y="0" width="{pad}" height="{pad}" fill="url(#rtr{k})"/><rect x="0" y="{pad}" width="{pad}" height="{T}" fill="url(#gr{k})"/>'
+        for nm, cx, cy, sx, sy in (("rtl", ps, pt, ps, pt), ("rtr", 0, pt, ps, pt), ("rbl", ps, 0, ps, pb), ("rbr", 0, 0, ps, pb)):
+            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({cx} {cy}) scale({sx} {sy})">{rstops()}</radialGradient>'
+        tl = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtl{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gl{k})"/>'
+        tp = f'<rect x="0" y="0" width="8" height="{pt}" fill="url(#gt{k})"/>{svg_rect_path(0, pt, 8, T + 1, fill=col, op=op)}'
+        tr = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtr{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gr{k})"/>'
         pieces = {
             "topleft": (0, tl),
             "top": (30, tp),
             "topright": (60, tr),
-            "left": (90, f'<rect width="{pad}" height="8" fill="url(#gl{k})"/>'),
+            "left": (90, f'<rect width="{ps}" height="8" fill="url(#gl{k})"/>'),
             "center": (110, '<rect width="8" height="8" fill="#000" fill-opacity="0"/>'),
-            "right": (130, f'<rect width="{pad}" height="8" fill="url(#gr{k})"/>'),
-            "bottomleft": (150, f'<rect width="{pad}" height="{pad}" fill="url(#rbl{k})"/>'),
-            "bottom": (170, f'<rect width="8" height="{pad}" fill="url(#gb{k})"/>'),
-            "bottomright": (190, f'<g><rect width="{pad}" height="{pad}" fill="url(#rbr{k})"/></g>'),
+            "right": (130, f'<rect width="{ps}" height="8" fill="url(#gr{k})"/>'),
+            "bottomleft": (150, f'<rect width="{ps}" height="{pb}" fill="url(#rbl{k})"/>'),
+            "bottom": (170, f'<rect width="8" height="{pb}" fill="url(#gb{k})"/>'),
+            "bottomright": (190, f'<rect width="{ps}" height="{pb}" fill="url(#rbr{k})"/>'),
         }
         for nm, (x, body) in pieces.items():
             parts.append(f'<g id="{prefix}-{nm}"><g transform="translate({x},{y})">{body}</g></g>')
@@ -145,10 +155,10 @@ ButtonHeight={btn_h}
 ButtonSpacing={spacing}
 ButtonMarginTop={margin_top}
 ExplicitButtonSpacer=6
-PaddingTop={pad}
-PaddingLeft={pad}
-PaddingRight={pad}
-PaddingBottom={pad}
+PaddingTop={pt}
+PaddingLeft={ps}
+PaddingRight={ps}
+PaddingBottom={pb}
 """)
     w(f"{d}/metadata.json", json.dumps({"KPlugin": {"Id": name, "Name": name, "Description": "KwickOS window decoration",
                                                       "Authors": [{"Name": "KwickOS"}], "License": "MIT"}}, indent=2) + "\n")
