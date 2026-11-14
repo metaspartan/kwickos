@@ -10,8 +10,9 @@ kwick-effects: window effects for KDE Plasma, GNOME and Hyprland.
   kwick-effects status                    one line per effect: name on|off|na
   kwick-effects wobbly AMOUNT CURVE       wobble amount and sway, each 1-10 (no argument: fluid preset)
   kwick-effects param wobbly              print the wobble amount and sway
-  kwick-effects flame-style [NAME]        flame look: classic|inferno|ember|blue (no name: print)
+  kwick-effects flame-style [NAME]        flame look: classic|inferno|ember|blue|legacy (no name: print)
   kwick-effects flame-height [50-200]     how high the flames rise, in percent (no value: print)
+  kwick-effects param depth [0-10]        how far windows lift off the cube faces (no value: print)
   kwick-effects param flip [STYLE]        3D open/close style: flip|door|tilt (no style: print)
   kwick-effects set NAME on|off           toggle one effect (preset becomes "custom")
   kwick-effects switch [slide|fade|cube|none]    desktop switch animation
@@ -95,7 +96,11 @@ oc_now() {
   done
   echo none
 }
-lamp() { pl magiclamp "$1"; pl squash "$([ "$1" = 1 ] && echo 0 || echo 1)"; }
+lamp() {
+  pl magiclamp "$1"; pl squash "$([ "$1" = 1 ] && echo 0 || echo 1)"
+  [ "$1" = 1 ] && kw kwinrc Effect-magiclamp AnimationDuration 650
+  return 0
+}
 blurfx() { pl blur "$1"; pl contrast "$1"; }
 popups() { pl slidingpopups "$1"; pl fadingpopups "$1"; }
 helpers() { for id in maximize login logout sessionquit dialogparent; do pl $id "$1"; done; }
@@ -128,10 +133,20 @@ gnome_wobbly_apply() {
   gsettings --schemadir "$d" set $sc x-tiles "$((8 + c * 2))" 2>/dev/null || true
   gsettings --schemadir "$d" set $sc y-tiles "$((8 + c * 2))" 2>/dev/null || true
 }
-flame_style_get() { case $(kreadconfig6 --file kwinrc --group Effect-kwick_flame --key Style --default 0) in 1) echo inferno ;; 2) echo ember ;; 3) echo blue ;; *) echo classic ;; esac; }
+flame_style_get() { case $(kreadconfig6 --file kwinrc --group Effect-kwick_flame --key Style --default 0) in 1) echo inferno ;; 2) echo ember ;; 3) echo blue ;; 4) echo legacy ;; *) echo classic ;; esac; }
 flame_style_set() {
-  case "$1" in classic) n=0 ;; inferno) n=1 ;; ember) n=2 ;; blue) n=3 ;; *) echo "style: classic|inferno|ember|blue" >&2; return 1 ;; esac
+  case "$1" in classic) n=0 ;; inferno) n=1 ;; ember) n=2 ;; blue) n=3 ;; legacy) n=4 ;; *) echo "style: classic|inferno|ember|blue|legacy" >&2; return 1 ;; esac
   kw kwinrc Effect-kwick_flame Style $n
+}
+depth_get() {
+  v=$(kreadconfig6 --file kwinrc --group Effect-kwick_cubeslide --key WindowLift --default 100)
+  v=${v%.*}
+  echo $(( (v + 10) / 20 ))
+}
+depth_set() {
+  case "$1" in ''|*[!0-9]*) echo "depth: 0-10" >&2; return 1 ;; esac
+  v=$1; [ "$v" -gt 10 ] && v=10
+  kw kwinrc Effect-kwick_cubeslide WindowLift $((v * 20))
 }
 flame_height_get() { kreadconfig6 --file kwinrc --group Effect-kwick_flame --key Height --default 100; }
 flame_height_set() {
@@ -446,6 +461,7 @@ case "$p" in
   param)
     case "${2:-}" in
       wobbly) echo "$(wob_amount) $(wob_curve)"; exit 0 ;;
+      depth) if [ $# -ge 3 ]; then [ "$be" = kde ] || { echo "window depth is KDE only" >&2; exit 1; }; depth_set "$3" || exit 1; rcfg kwick_cubeslide; echo "window depth: $3"; else depth_get; fi; exit 0 ;;
       flip) if [ $# -ge 3 ]; then [ "$be" = kde ] || { echo "flip styles are KDE only" >&2; exit 1; }; flip_style_set "$3" || exit 1; rcfg kwick_flip; echo "flip style: $3"; else flip_style_get; fi; exit 0 ;;
       *) usage; exit 1 ;;
     esac ;;

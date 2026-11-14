@@ -6,13 +6,13 @@
             <default>680</default>
         </entry>
         <entry name="WindowLift" type="Double">
-            <default>70</default>
+            <default>100</default>
         </entry>
         <entry name="PullBack" type="Double">
             <default>0.5</default>
         </entry>
         <entry name="Reflection" type="Double">
-            <default>0.3</default>
+            <default>0.5</default>
         </entry>
         <entry name="BackgroundColor" type="Color">
             <default>#0b0b12</default>

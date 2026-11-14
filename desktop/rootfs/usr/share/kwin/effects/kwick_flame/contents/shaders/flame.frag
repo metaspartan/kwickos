@@ -82,17 +82,24 @@ float sparkLayer(vec2 pos, float scale, float speed, float seed, float t, float 
     return smoothstep(0.2, 0.02, d) * step(0.78, h) * (1.0 - life) * zone;
 }
 
+vec3 legacyRamp(float a) {
+    vec3 c = mix(vec3(1.0, 0.86, 0.38), vec3(1.0, 0.46, 0.08), smoothstep(0.0, 0.32, a));
+    c = mix(c, vec3(0.62, 0.08, 0.02), smoothstep(0.35, 0.78, a));
+    return mix(c, vec3(0.15, 0.02, 0.01), smoothstep(0.78, 1.0, a));
+}
+
 void main() {
     vec2 size = vec2(float(textureWidth), float(textureHeight));
     float hs = max(uHeight, 0.3);
     float styleId = floor(uStyle + 0.5);
     float inferno = float(styleId > 0.5 && styleId < 1.5);
-    vec2 mg = vec2(clamp(0.3 * size.x, 90.0, 340.0), clamp(0.85 * size.y, 220.0, 560.0)) * hs * (1.0 + 0.3 * inferno);
+    float legacy = float(styleId > 3.5);
+    vec2 mg = vec2(clamp(0.3 * size.x, 90.0, 340.0), clamp(1.1 * size.y, 280.0, 700.0)) * hs * (1.0 + 0.3 * inferno + 0.1 * legacy);
     vec2 S = 1.0 + 2.0 * mg / size;
     vec2 tc = (texcoord0 - 0.5) * S + 0.5;
     vec2 pxp = (tc - 0.5) * size;
     float ember = float(styleId > 1.5 && styleId < 2.5);
-    float blue = float(styleId > 2.5);
+    float blue = float(styleId > 2.5 && styleId < 3.5);
     float plumeAmt = mix(mix(1.0, 1.25, inferno), 0.3, ember);
     float flareW = mix(mix(0.24, 0.55, inferno), 0.06, ember);
     float densGain = mix(mix(1.0, 1.35, inferno), 0.55, ember);
@@ -129,6 +136,58 @@ void main() {
     float a0 = src.a;
     vec3 base = src.rgb;
 
+    if (legacy > 0.5) {
+        float lp = clamp(uProgress, 0.0, 1.0);
+        float frontL = mix(-0.04, 1.04, lp);
+        float wob = (fbm3(vec2(tc.x * size.x / 90.0, t * 0.8 + uSeed)) - 0.5) * 0.03;
+        float dl = tc.y - frontL - wob;
+        float aliveL = smoothstep(-0.003, 0.012, dl) * inside;
+        vec4 srcL = texture2D(sampler, clamp(tc, 0.001, 0.999)) * inside;
+        vec3 rgbL = srcL.rgb * aliveL;
+        float aL = srcL.a * aliveL;
+        float hot = exp(-pow((dl - 0.004) / 0.012, 2.0)) * inside * step(0.01, lp) * step(lp, 0.99);
+        rgbL += vec3(1.0, 0.8, 0.35) * hot * 0.9 * srcL.a;
+        aL = max(aL, hot * 0.6 * srcL.a);
+        vec2 P = tc * size;
+        vec3 acc = vec3(0.0);
+        float accA = 0.0;
+        float cell = 9.0;
+        float life = 0.42;
+        float dtE = life / 8.0;
+        float col0 = floor(P.x / cell);
+        float riseMax = mg.y * 1.0;
+        for (int sl = 0; sl < 8; sl++) {
+            float m = floor(lp / dtE) - float(sl);
+            for (int dc = -2; dc <= 2; dc++) {
+                float c = col0 + float(dc);
+                float h1 = hash(vec2(c, m) + uSeed);
+                float h2 = hash(vec2(c * 1.3, m * 0.7) + 5.0 + uSeed);
+                float h3 = hash(vec2(m, c) + 9.0);
+                float te = (m + h1) * dtE;
+                float a = (lp - te) / life;
+                float x0 = (c + h2) * cell;
+                if (te < 0.0 || te > 1.0 || a < 0.0 || a > 1.0 || x0 < -cell || x0 > size.x + cell) {
+                    continue;
+                }
+                float y0 = mix(-0.04, 1.04, te) * size.y;
+                float rise = pow(a, 0.8) * riseMax * (0.55 + 0.9 * h3);
+                vec2 pos = vec2(x0 + sin(a * 5.0 + h1 * 6.28) * 16.0 * a, y0 + rise);
+                float rad = cell * (0.8 + 1.0 * h3) * (1.0 - 0.5 * a);
+                float dd = length(P - pos) / rad;
+                float w = exp(-dd * dd * 1.8) * pow(1.0 - a, 1.3);
+                acc += legacyRamp(a) * w;
+                accA += w;
+            }
+        }
+        vec3 rgbF = rgbL * (1.0 - clamp(accA * 0.35, 0.0, 0.7)) + acc * 0.7;
+        float aF = max(aL, clamp(accA * 0.8, 0.0, 1.0));
+        vec4 oc = vec4(min(rgbF, vec3(aF + 0.7)), clamp(aF, 0.0, 1.0));
+        gl_FragColor = oc;
+        fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
+        fragColor = nitsToDestinationEncoding(fragColor);
+        return;
+    }
+
     float alive = smoothstep(-0.012, 0.02, d);
     float charZone = smoothstep(0.1, 0.0, d);
     float charT = smoothstep(0.075, 0.012, d) * 0.88;
@@ -147,18 +206,20 @@ void main() {
     float colN2 = fbm3(vec2(np.x * 3.1, uSeed + 4.0));
     float frontCol = clamp(front, -0.05, 1.05) + (0.5 - colN) * 0.34 + (0.5 - colN2) * 0.08;
     float act = smoothstep(0.02, 0.14, p) * (1.0 - smoothstep(0.88, 1.0, p));
-    float plumeH = (0.4 + 1.45 * pow(sin(3.14159 * p), 0.7)) * plumeAmt * hs;
+    float plumeH = (0.5 + 1.7 * pow(sin(3.14159 * p), 0.7)) * plumeAmt * hs;
     float hAF = height - frontCol;
     float qq = hAF / max(plumeH, 0.05);
     float side = outDist / flareW;
     vec2 pl = vec2(tc.x * size.x / size.y * 2.4 * tongueScale, hAF * 1.1);
     float tongue = fbm(pl * vec2(1.0, 0.75) * 1.6 + vec2(warp.x * 2.2, -t * 5.4 + uSeed));
     float lick = fbm3(pl * vec2(2.4, 1.3) + vec2(warp.y * 2.0, -t * 8.0));
-    float dens = clamp((tongue * 1.75 + lick * 0.4 - 0.12) * densGain - qq * 0.85 - side * 1.0, 0.0, 1.0);
+    float dens = clamp((tongue * 1.75 + lick * 0.4 - 0.12) * densGain - qq * 0.62 - side * 1.0, 0.0, 1.0);
     dens *= step(0.0, hAF) * smoothstep(0.0, 0.03, hAF + 0.03);
     float topDist = max(tc.y - 1.0, 0.0) * size.y / max(mg.y, 1.0);
     float sideDist = max(max(-tc.x, tc.x - 1.0), 0.0) * size.x / max(mg.x, 1.0);
-    float edgeFade = (1.0 - smoothstep(0.7, 1.0, topDist)) * (1.0 - smoothstep(0.7, 1.0, sideDist));
+    float topFade = 1.0 - smoothstep(0.2 + 0.35 * n2, 0.95, topDist);
+    float sideFade = 1.0 - smoothstep(0.25 + 0.3 * n2, 0.95, sideDist);
+    float edgeFade = topFade * topFade * sideFade * sideFade;
     dens *= edgeFade * act;
     float colH = clamp(qq * 0.85 + (1.0 - dens) * 0.45 + (0.5 - n2) * 0.22 + side * 0.3, 0.0, 1.0);
     vec3 flameCol = fireRamp(colH, blue);
@@ -176,7 +237,7 @@ void main() {
     vec3 smokeCol = mix(vec3(0.13, 0.1, 0.09), vec3(0.08, 0.1, 0.16), blue);
 
     float sz = smoothstep(-0.5, 0.0, d) * (1.0 - smoothstep(plumeH * 0.4, plumeH * 1.6, hAF)) * (1.0 - min(side, 1.0) * 0.35);
-    sz *= (1.0 - smoothstep(0.7, 1.0, topDist)) * (1.0 - smoothstep(0.7, 1.0, sideDist)) * smoothstep(0.03, 0.14, p) * (1.0 - smoothstep(0.9, 0.99, p));
+    sz *= (1.0 - smoothstep(0.85, 1.0, topDist)) * (1.0 - smoothstep(0.85, 1.0, sideDist)) * smoothstep(0.03, 0.14, p) * (1.0 - smoothstep(0.9, 0.99, p));
     float sp = sparkLayer(pxp, 9.0, 130.0 * (1.0 + p), uSeed, t * 3.0, sz);
     sp += sparkLayer(pxp, 15.0, 200.0, uSeed + 9.0, t * 3.4, sz) * 0.8;
     sp += sparkLayer(pxp, 22.0, 290.0, uSeed + 21.0, t * 2.6, sz) * 0.7 * sparkGain;

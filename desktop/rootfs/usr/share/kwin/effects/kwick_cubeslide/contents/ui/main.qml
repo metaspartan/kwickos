@@ -43,12 +43,34 @@ KWinComponents.SceneEffect {
 
     Component.onCompleted: {
         lastDesktop = currentDesktop;
+        warmShow.start();
         if (screenComponent.status === Component.Error) {
             console.log("kwick_cubeslide:", screenComponent.errorString());
         }
     }
 
     onCurrentDesktopChanged: begin(currentDesktop)
+
+    Timer {
+        id: warmShow
+        interval: 900
+        onTriggered: {
+            if (!effect.visible && effect.progress === 0) {
+                effect.visible = true;
+                warmHide.start();
+            }
+        }
+    }
+
+    Timer {
+        id: warmHide
+        interval: 500
+        onTriggered: {
+            if (effect.progress === 0 && !run.running) {
+                effect.visible = false;
+            }
+        }
+    }
 
     NumberAnimation {
         id: run

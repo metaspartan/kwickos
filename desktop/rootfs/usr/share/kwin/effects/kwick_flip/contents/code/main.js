@@ -23,7 +23,8 @@ class KwickFlipEffect {
         this.duration = animationTime(effect.readConfig("Duration", 700));
         this.opening = effect.readConfig("Opening", true);
         this.seeded = false;
-        effect.setUniform(this.shader, "uStyle", effect.readConfig("Style", 0));
+        this.styleId = effect.readConfig("Style", 0);
+        effect.setUniform(this.shader, "uStyle", this.styleId);
     }
 
     static wanted(w) {
@@ -47,6 +48,30 @@ class KwickFlipEffect {
     release(w) {
         w.setData(Effect.WindowForceBackgroundContrastRole, null);
         w.setData(Effect.WindowForceBlurRole, null);
+    }
+
+    openNative(w) {
+        this.hold(w);
+        const dur = this.duration;
+        return animate({
+            window: w,
+            duration: dur,
+            curve: QEasingCurve.OutCubic,
+            animations: [{
+                type: Effect.Rotation,
+                axis: this.styleId === 2 ? Effect.XAxis : Effect.YAxis,
+                from: this.styleId === 1 ? 72 : (this.styleId === 2 ? 62 : -72),
+                to: 0
+            }, {
+                type: Effect.Opacity,
+                from: 0.0,
+                to: 1.0
+            }, {
+                type: Effect.Scale,
+                from: 0.7,
+                to: 1.0
+            }]
+        });
     }
 
     run(w, opening) {
@@ -83,7 +108,7 @@ class KwickFlipEffect {
         if (effect.isGrabbed(w, Effect.WindowAddedGrabRole)) {
             return;
         }
-        w.KwickFlipIn = this.run(w, true);
+        w.KwickFlipIn = this.openNative(w);
     }
 
     onWindowClosed(w) {

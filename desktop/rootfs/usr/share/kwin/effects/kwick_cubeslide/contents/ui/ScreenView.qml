@@ -16,7 +16,7 @@ Item {
     readonly property real tilt: Math.atan2(cameraHeight, cameraRadius) * 180 / Math.PI
     readonly property real floorY: -height / 2 - 14
     readonly property real lift: effect.configuration.WindowLift
-    readonly property real reflect: effect.configuration.Reflection === undefined ? 0.3 : effect.configuration.Reflection
+    readonly property real reflect: effect.configuration.Reflection === undefined ? 0.5 : effect.configuration.Reflection
 
     Texture {
         id: wallTex
@@ -25,10 +25,18 @@ Item {
             height: root.height
             Rectangle {
                 anchors.fill: parent
-                color: effect.configuration.BackgroundColor
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#26305c" }
+                    GradientStop { position: 1.0; color: "#0c0f1f" }
+                }
             }
             Repeater {
-                model: KWinComponents.WindowModel {}
+                model: KWinComponents.WindowFilterModel {
+                    activity: KWinComponents.Workspace.currentActivity
+                    desktop: KWinComponents.Workspace.currentDesktop
+                    screenName: root.targetScreen.name
+                    windowModel: KWinComponents.WindowModel {}
+                }
                 delegate: KWinComponents.WindowThumbnail {
                     required property var model
                     visible: model.window.desktopWindow
@@ -71,9 +79,9 @@ Item {
                 const c = getContext("2d");
                 c.reset();
                 const g = c.createRadialGradient(256, 256, 20, 256, 256, 256);
-                g.addColorStop(0, "rgba(40,48,70,0.7)");
-                g.addColorStop(0.6, "rgba(22,28,44,0.5)");
-                g.addColorStop(1, "rgba(8,9,14,0)");
+                g.addColorStop(0, "rgba(120,150,210,0.55)");
+                g.addColorStop(0.5, "rgba(70,95,150,0.4)");
+                g.addColorStop(1, "rgba(30,45,80,0)");
                 c.fillStyle = g;
                 c.fillRect(0, 0, 512, 512);
             }
@@ -154,9 +162,9 @@ Item {
                 const c = getContext("2d");
                 c.reset();
                 const g = c.createLinearGradient(0, 256, 0, 0);
-                g.addColorStop(0, "rgba(9,10,15,0.0)");
-                g.addColorStop(0.55, "rgba(9,10,15,0.75)");
-                g.addColorStop(1, "rgba(9,10,15,1)");
+                g.addColorStop(0, "rgba(20,30,55,0.0)");
+                g.addColorStop(0.6, "rgba(20,30,55,0.7)");
+                g.addColorStop(1, "rgba(20,30,55,0.95)");
                 c.fillStyle = g;
                 c.fillRect(0, 0, 8, 256);
             }
@@ -167,7 +175,7 @@ Item {
     function faceBrightness(index) {
         let d = Math.abs(((effect.azimuth - angleTick * index) % 360 + 540) % 360 - 180);
         const k = Math.max(0, Math.cos(d * Math.PI / 180));
-        return 0.36 + 0.64 * Math.pow(k, 0.8);
+        return 0.62 + 0.38 * Math.pow(k, 0.8);
     }
 
     Component {
@@ -212,7 +220,7 @@ Item {
                         required property var model
                         readonly property QtObject w: model.window
                         readonly property bool plain: w.desktopWindow || w.dock
-                        readonly property real z0: plain ? (w.dock ? root.lift * 0.4 : 0) : root.lift * (0.6 + 0.4 * Math.min(8, Math.max(0, w.stackingOrder)) / 8) * (1 + root.pull * 0.8)
+                        readonly property real z0: plain ? (w.dock ? root.lift * 0.5 * root.pull : 0) : root.lift * root.pull * (0.55 + 0.45 * Math.min(8, Math.max(0, w.stackingOrder)) / 8) * 1.4
                         readonly property real cx: w.x - root.targetScreen.geometry.x + w.width / 2 - root.width / 2
                         readonly property real cy: root.height / 2 - (w.y - root.targetScreen.geometry.y + w.height / 2)
                         visible: !w.minimized
@@ -252,6 +260,20 @@ Item {
                                 }
                             }
                         }
+                    }
+                }
+
+                Model {
+                    visible: !world.mirror && root.faceCount === 4 && face.index === 0
+                    source: "#Rectangle"
+                    eulerRotation.x: -90
+                    position: Qt.vector3d(0, root.height / 2 + 1, -root.faceDistance)
+                    scale: Qt.vector3d(root.width / 100, root.width / 100, 1)
+                    materials: PrincipledMaterial {
+                        lighting: PrincipledMaterial.NoLighting
+                        cullMode: Material.NoCulling
+                        alphaMode: PrincipledMaterial.Blend
+                        baseColor: Qt.rgba(0.35, 0.5, 0.85, 0.22 * root.pull)
                     }
                 }
 

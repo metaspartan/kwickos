@@ -52,6 +52,10 @@ class KwickDissolveEffect {
     run(w, opening) {
         this.loadConfig();
         this.hold(w);
+        const mx = Math.min(Math.max(0.25 * w.width, 80), 280);
+        const my = Math.min(Math.max(0.6 * w.height, 160), 460);
+        const sx = 1 + 2 * mx / Math.max(1, w.width);
+        const sy = 1 + 2 * my / Math.max(1, w.height);
         if (this.seeded) {
             effect.setUniform(this.shader, "uSeed", Math.random() * 64.0);
         }
@@ -72,6 +76,11 @@ class KwickDissolveEffect {
                 curve: QEasingCurve.Linear,
                 from: 0.0,
                 to: this.duration * 0.001
+            }, {
+                type: Effect.Scale,
+                curve: QEasingCurve.Linear,
+                from: { value1: sx, value2: sy },
+                to: { value1: sx, value2: sy }
             }]
         });
     }

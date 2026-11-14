@@ -38,11 +38,15 @@ ColumnLayout {
         })
         Sys.run("kwick-effects flame-style", function (out) {
             var v = String(out).trim()
-            if (v === "classic" || v === "inferno" || v === "ember" || v === "blue") page.flameStyle = v
+            if (v === "classic" || v === "inferno" || v === "ember" || v === "blue" || v === "legacy") page.flameStyle = v
         })
         Sys.run("kwick-effects flame-height", function (out) {
             var v = parseInt(String(out).trim())
             if (v >= 50 && v <= 200) page.flameHeight = v
+        })
+        Sys.run("kwick-effects param depth", function (out) {
+            var v = parseInt(String(out).trim())
+            if (v >= 0 && v <= 10) page.windowDepth = v
         })
         Sys.run("kwick-effects param flip", function (out) {
             var v = String(out).trim()
@@ -52,6 +56,7 @@ ColumnLayout {
     property string flipStyle: "flip"
     property string flameStyle: "classic"
     property int flameHeight: 100
+    property int windowDepth: 5
     function applyWobble() {
         Sys.run("kwick-effects wobbly " + page.wobble + " " + page.sway)
     }
@@ -202,9 +207,9 @@ ColumnLayout {
         Cell {
             visible: Sys.backend === "kde"
             title: "Flame style"
-            subtitle: "Classic rises above the window, Inferno flares out wide, Ember is a subtle burn with sparks, Blue is a gas flame"
+            subtitle: "Classic rises above the window, Inferno flares out wide, Ember is a subtle burn with sparks, Blue is a gas flame, Legacy is the classic particle burn"
             Seg {
-                options: [{ id: "classic", label: "Classic" }, { id: "inferno", label: "Inferno" }, { id: "ember", label: "Ember" }, { id: "blue", label: "Blue" }]
+                options: [{ id: "classic", label: "Classic" }, { id: "inferno", label: "Inferno" }, { id: "ember", label: "Ember" }, { id: "blue", label: "Blue" }, { id: "legacy", label: "Legacy" }]
                 current: page.flameStyle
                 onPicked: (id) => { page.flameStyle = id; Sys.run("kwick-effects flame-style " + id) }
             }
@@ -223,6 +228,21 @@ ColumnLayout {
                 onReleased: (v) => { page.flameHeight = v; Sys.run("kwick-effects flame-height " + v) }
             }
             Text { Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight; text: page.flameHeight + "%"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
+        }
+        Cell {
+            visible: Sys.backend === "kde"
+            title: "Window depth"
+            subtitle: "How far windows float off the cube faces while it turns"
+            Sld {
+                implicitWidth: 220
+                from: 0
+                to: 10
+                step: 1
+                value: page.windowDepth
+                onValueChanged: if (pressed) page.windowDepth = value
+                onReleased: (v) => { page.windowDepth = v; Sys.run("kwick-effects param depth " + v) }
+            }
+            Text { Layout.preferredWidth: 22; horizontalAlignment: Text.AlignRight; text: page.windowDepth; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
         }
         Cell {
             visible: Sys.backend === "kde"
