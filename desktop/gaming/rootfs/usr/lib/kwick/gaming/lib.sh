@@ -49,7 +49,7 @@ mark() { mkdir -p "$STATE_DIR" && : > "$STATE_DIR/$1"; }
 unmark() { rm -f "$STATE_DIR/$1"; }
 marked() { [ -e "$STATE_DIR/$1" ]; }
 
-pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q '^install ok installed'; }
+pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'; }
 
 pkgs_state() {
   have=0; total=0

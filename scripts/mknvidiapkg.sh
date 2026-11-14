@@ -42,7 +42,7 @@ for k in $KOS; do
   cp "$k" "$P/lib/modules/$KREL/updates/nvidia/"
   "${CROSS}strip" --strip-debug "$P/lib/modules/$KREL/updates/nvidia/$(basename "$k")" 2>/dev/null || true
 done
-xz -T0 -6 "$P"/lib/modules/"$KREL"/updates/nvidia/*.ko
+xz --check=crc32 -T0 -6 "$P"/lib/modules/"$KREL"/updates/nvidia/*.ko
 cat > "$P/etc/modprobe.d/kwick-nvidia.conf" <<EOT
 blacklist nouveau
 options nouveau modeset=0

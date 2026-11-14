@@ -74,7 +74,7 @@ EOF
   return 0
 }
 
-pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q '^install ok installed'; }
+pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'; }
 
 apt_ready() {
   [ -n "$APT_READY" ] && return 0
