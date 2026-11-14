@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KwickOS</title>
+<meta name="description" content="KwickOS: tiny, fast, Debian 13 compatible Linux for every architecture. A 5.5 MB base that installs software like Debian, with an optional desktop in macOS, Windows or Linux style.">
+<meta name="theme-color" content="#070a1a">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="KwickOS">
+<meta property="og:description" content="Tiny, fast, Debian 13 compatible Linux for every architecture.">
+<meta property="og:image" content="img/desktop.png">
+<link rel="icon" href="img/kwickos-logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <div class="nav-inner">
+    <a class="brand" href="#top" aria-label="KwickOS home">
+      <img src="img/kwickos-logo.svg" alt="" width="22" height="25">
+      <span>KwickOS</span>
+    </a>
+    <nav aria-label="Sections">
+      <ul class="nav-links">
+        <li><a href="#desktop">Desktop</a></li>
+        <li><a href="#effects">Effects</a></li>
+        <li><a href="#performance">Performance</a></li>
+        <li><a href="#hardware">Hardware</a></li>
+        <li><a href="#install">Install</a></li>
+      </ul>
+    </nav>
+    <a class="btn btn-sm" href="#download">Download</a>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-inner">
+    <img class="hero-logo" src="img/kwickos-logo.svg" alt="KwickOS logo" width="120" height="139">
+    <h1>KwickOS</h1>
+    <p class="tagline">Tiny, fast, Debian&nbsp;13 compatible Linux for every architecture.</p>
+    <p class="lede">A 5.5&nbsp;MB base that installs software like Debian, with an optional desktop that looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso">Download desktop ISO</a>
+      <a class="btn btn-ghost" href="#download">All downloads <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    <p class="fine">amd64 desktop ISO boots in UEFI and BIOS. arm64, riscv64 and headless images below.</p>
+  </div>
+  <div class="wrap-wide reveal">
+    <figure class="shot shot-hero">
+      <img src="img/desktop.png" alt="KwickOS desktop in the macOS layout with Terminal and Files open" width="1600" height="900" fetchpriority="high">
+    </figure>
+  </div>
+</section>
+
+<section class="stats" aria-label="Key numbers">
+  <div class="wrap">
+    <ul class="stat-grid">
+      <li class="reveal"><strong>5.5<small>&nbsp;MB</small></strong><span>base system</span></li>
+      <li class="reveal"><strong>1.17<small>&nbsp;s</small></strong><span>VM boot to shell</span></li>
+      <li class="reveal"><strong>38.3<small>&nbsp;MiB</small></strong><span>memory after boot</span></li>
+      <li class="reveal"><strong>24<small>&nbsp;MB</small></strong><span>live ISO</span></li>
+      <li class="reveal"><strong>~69k</strong><span>Debian 13 packages</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="desktop">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">The desktop</p>
+      <h2>Three layouts.<br>One command.</h2>
+      <p class="sub"><code>kwick-layout macos|windows|linux</code> switches the whole look at once: window buttons, panel or dock position, fonts, icons, wallpaper and the Files sidebar. Every layout is dark.</p>
+    </header>
+
+    <div class="switcher reveal" data-switcher>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Layout">
+          <button type="button" data-layout="macos" aria-pressed="true">macOS</button>
+          <button type="button" data-layout="windows" aria-pressed="false">Windows</button>
+          <button type="button" data-layout="linux" aria-pressed="false">Linux</button>
+        </div>
+        <div class="seg" role="group" aria-label="Desktop">
+          <button type="button" data-de="kde" aria-pressed="true">KDE Plasma</button>
+          <button type="button" data-de="gnome" aria-pressed="false">GNOME</button>
+          <button type="button" data-de="hypr" aria-pressed="false">Hyprland</button>
+        </div>
+      </div>
+      <figure class="shot">
+        <img data-view src="img/layout-macos.png" alt="KDE Plasma in the macOS layout" width="1600" height="900" loading="lazy">
+      </figure>
+      <p class="caption" data-caption aria-live="polite">KDE Plasma, macOS layout</p>
+    </div>
+
+    <div class="cards three">
+      <article class="card reveal">
+        <h3>macOS</h3>
+        <p>The default. A full-width menu bar with a white KwickOS mark and a compact clock, a floating dock with 48&nbsp;px icons, and traffic-light buttons at the top left of every window.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Windows&nbsp;11</h3>
+        <p>A 48&nbsp;px centered taskbar with the KwickOS start icon, a small padded clock and Fluent caption buttons on the right.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Linux</h3>
+        <p>A thin top bar with launcher, centered clock and tray, and a floating dock on the left.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="desktops">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">KDE, GNOME and Hyprland</p>
+      <h2>Your desktop.<br>Same layouts.</h2>
+      <p class="sub">KDE Plasma&nbsp;6 is the default. The same three layouts apply to GNOME and to Hyprland, which comes with a waybar per layout through the <code>kwick-hyprland</code> package.</p>
+    </header>
+    <div class="trio">
+      <figure class="tile reveal">
+        <img src="img/layout-windows.png" alt="KDE Plasma in the Windows layout" width="1600" height="900" loading="lazy">
+        <figcaption><strong>KDE Plasma&nbsp;6</strong> Windows layout, the default desktop.</figcaption>
+      </figure>
+      <figure class="tile reveal">
+        <img src="img/vm-gnome-macos.png" alt="GNOME in the macOS layout with GNOME Text Editor open" width="1600" height="900" loading="lazy">
+        <figcaption><strong>GNOME</strong> macOS layout, GNOME Text Editor open.</figcaption>
+      </figure>
+      <figure class="tile reveal">
+        <img src="img/vm-tiling-linux.png" alt="Hyprland in the Linux layout with waybar" width="1600" height="900" loading="lazy">
+        <figcaption><strong>Hyprland</strong> Linux layout with its waybar.</figcaption>
+      </figure>
+    </div>
+    <p class="note reveal">Other desktops install with <code>kwick-desktop install xfce|cinnamon|mate|lxqt</code> and are chosen with <code>kwick-desktop switch</code>.</p>
+  </div>
+</section>
+
+<section class="section" id="effects">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">Kwick Effects</p>
+      <h2>Motion with<br>personality.</h2>
+      <p class="sub">Native effects that run as KWin effects on KDE, GNOME Shell extensions on GNOME and animations on Hyprland. Pick a preset with <code>kwick-effects off|subtle|fluid|full</code>, or switch them one at a time.</p>
+    </header>
+
+    <ol class="presets reveal">
+      <li><span>off</span>No animations.</li>
+      <li><span>subtle</span>Fades, blur, sliding popups, magic lamp.</li>
+      <li><span>fluid</span>Plus curvy wobbly windows, sheets and the 3D flip open and close.</li>
+      <li><span>full</span>Plus flame open and close, translucency, dimmed inactive windows, the lit 3D desktop cube and Cover Flow Alt+Tab.</li>
+    </ol>
+
+    <div class="gallery">
+      <figure class="gif reveal wide">
+        <img src="img/effects-wobbly.gif" alt="Wobbly windows stretching while dragged" width="640" height="360" loading="lazy">
+        <figcaption><strong>Wobbly</strong> Windows stretch like jelly while you drag them. Wobble and Sway are adjustable from 1 to 10.</figcaption>
+      </figure>
+      <figure class="gif reveal wide">
+        <img src="img/effects-cube.gif" alt="The 3D desktop cube" width="640" height="360" loading="lazy">
+        <figcaption><strong>Desktop cube</strong> Meta+C shows the desktops as a lit cube. The desktop switch can be a cube too.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-dissolve.gif" alt="A closing window dissolving into dust" width="560" height="436" loading="lazy">
+        <figcaption><strong>Dissolve</strong> Closing windows crumble into glowing dust.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-3dopen.gif" alt="A window flipping open in 3D" width="560" height="436" loading="lazy">
+        <figcaption><strong>3D flip</strong> Windows swing in and out in perspective with lighting.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-3dopen-door.gif" alt="A window opening like a door" width="560" height="436" loading="lazy">
+        <figcaption><strong>Door</strong> The same 3D open and close, hinged like a door.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-3dopen-tilt.gif" alt="A window tilting open" width="560" height="436" loading="lazy">
+        <figcaption><strong>Tilt</strong> A gentle tilt in and out.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-flame.gif" alt="A window burning away with classic flames" width="600" height="400" loading="lazy">
+        <figcaption><strong>Flame: classic</strong> Tall orange fire rising above the window.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-flame-inferno.gif" alt="A window burning with the inferno flame style" width="600" height="400" loading="lazy">
+        <figcaption><strong>Flame: inferno</strong> Wide, flaring out at the sides.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-flame-ember.gif" alt="A window burning with the ember flame style" width="600" height="400" loading="lazy">
+        <figcaption><strong>Flame: ember</strong> A subtle burn edge with drifting sparks.</figcaption>
+      </figure>
+      <figure class="gif reveal">
+        <img src="img/effects-flame-blue.gif" alt="A window burning with the blue flame style" width="600" height="400" loading="lazy">
+        <figcaption><strong>Flame: blue</strong> A hot gas flame.</figcaption>
+      </figure>
+      <figure class="gif reveal wide">
+        <img src="img/effects-magiclamp.gif" alt="A window minimizing into the dock with the magic lamp effect" width="800" height="450" loading="lazy">
+        <figcaption><strong>Magic lamp</strong> Minimize into the dock.</figcaption>
+      </figure>
+      <figure class="gif reveal wide">
+        <img src="img/glass-blur.png" alt="Terminal with the glass profile on the macOS layout" width="1600" height="900" loading="lazy">
+        <figcaption><strong>Glass</strong> The Terminal glass profile, with blur and translucency.</figcaption>
+      </figure>
+    </div>
+    <p class="note reveal">Captured in a KVM guest with a virgl GPU. The capture path drops frames, so the GIFs are jumpier than the real thing. Effects need a GPU compositor.</p>
+  </div>
+</section>
+
+<section class="section alt" id="settings">
+  <div class="wrap">
+    <div class="split">
+      <header class="head left reveal">
+        <p class="eyebrow">KwickOS Settings</p>
+        <h2>Everything,<br>one place.</h2>
+        <p class="sub"><code>kwick-settings</code> has pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, GPU and Gaming. It tells you when no GPU compositor is running and offers to install <code>kwick-gpu</code>.</p>
+      </header>
+      <figure class="shot reveal">
+        <img src="img/settings.png" alt="KwickOS Settings, Appearance page" width="1600" height="900" loading="lazy">
+      </figure>
+    </div>
+    <div class="duo">
+      <figure class="tile reveal">
+        <img src="img/settings-dock.png" alt="KwickOS Settings, Dock page" width="1600" height="900" loading="lazy">
+        <figcaption><strong>Dock</strong> Position, icon size, autohide, floating and pinned apps, also available as <code>kwick-dock</code>.</figcaption>
+      </figure>
+      <figure class="tile reveal">
+        <img src="img/settings-effects.png" alt="KwickOS Settings, Effects page" width="1600" height="900" loading="lazy">
+        <figcaption><strong>Effects</strong> Presets, per-effect toggles and the Wobble and Sway sliders.</figcaption>
+      </figure>
+    </div>
+    <div class="duo">
+      <figure class="tile contain reveal">
+        <img src="img/icons.png" alt="The three KwickOS icon themes side by side" width="2943" height="1207" loading="lazy">
+        <figcaption><strong>Icons</strong> A generated SVG icon theme per layout: KwickOS, KwickOS-Fluent and KwickOS-Linux.</figcaption>
+      </figure>
+      <figure class="tile reveal">
+        <img src="img/fonts.png" alt="Per-layout fonts" width="1600" height="900" loading="lazy">
+        <figcaption><strong>Fonts</strong> Inter and JetBrains Mono, Selawik and Cascadia Code, or Ubuntu Sans, per layout.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="gaming">
+  <div class="wrap">
+    <div class="split rev">
+      <header class="head left reveal">
+        <p class="eyebrow">Gaming</p>
+        <h2>Native Steam.</h2>
+        <p class="sub"><code>steam</code> enables the i386 architecture through kpkg multiarch, installs Debian&rsquo;s <code>steam-installer</code>, downloads the client and runs it. If the native install fails, it falls back to the Flathub build.</p>
+        <p class="sub"><code>kwick-gaming</code> adds Proton-GE, Heroic, Lutris, GameMode and MangoHud from Flathub, with a gaming sysctl preset.</p>
+      </header>
+      <figure class="shot reveal">
+        <img src="img/steam.png" alt="Steam running on KwickOS" width="1600" height="900" loading="lazy">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="gpu">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">GPU support</p>
+      <h2>Drivers, detected.</h2>
+      <p class="sub"><code>apt install kwick-gpu</code> detects your GPUs and installs the matching drivers and firmware. It also runs after <code>apt install kwick-desktop</code>, and <code>kwick-gpu</code> alone shows the plan.</p>
+    </header>
+    <div class="cards two">
+      <article class="card reveal">
+        <h3>AMD and Intel</h3>
+        <p>In-kernel amdgpu, i915 and xe with Mesa (RADV, radeonsi, iris, ANV) and firmware.</p>
+      </article>
+      <article class="card reveal">
+        <h3>NVIDIA Turing and newer</h3>
+        <p>NVIDIA open kernel modules, pinned, plus userspace from NVIDIA&rsquo;s Debian&nbsp;13 repository. Older cards use nouveau with Mesa NVK.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Apple Silicon</h3>
+        <p>The Asahi kernel variant, <code>kwick-kernel-asahi</code>, with Mesa asahi and honeykrisp.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Virtual machines</h3>
+        <p>virtio, QXL, Bochs, VMware and Hyper-V through in-tree DRM drivers with Mesa virgl or llvmpipe.</p>
+      </article>
+    </div>
+    <p class="note reveal">Every kernel flavor ships a matching headers package for DKMS. What was run on real hardware and what was only built is listed per entry in <a href="https://github.com/metaspartan/kwickos/blob/main/docs/HARDWARE.md">docs/HARDWARE.md</a>.</p>
+  </div>
+</section>
+
+<section class="section" id="debian">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">apt and Debian compatibility</p>
+      <h2>Small like Alpine.<br>Installs like Debian.</h2>
+      <p class="sub"><code>apt install</code> runs against the unmodified Debian&nbsp;13 &ldquo;trixie&rdquo; archive, about 69,000 packages with glibc pulled in only when something needs it.</p>
+    </header>
+    <div class="term reveal" role="group" aria-label="Example session">
+      <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+<pre><code><span class="p">$</span> docker run --rm -it ghcr.io/metaspartan/kwickos
+<span class="p">root@kwick:/#</span> apt update &amp;&amp; apt install -y nginx python3
+<span class="p">root@kwick:/#</span> systemctl enable --now nginx</code></pre>
+    </div>
+    <div class="cards three">
+      <article class="card reveal">
+        <h3>kpkg</h3>
+        <p>An apt and dpkg compatible package manager that uses Debian&rsquo;s own repositories, with multiarch for foreign architectures.</p>
+      </article>
+      <article class="card reveal">
+        <h3>kinit</h3>
+        <p>A 120&nbsp;KB PID&nbsp;1 that runs systemd unit files, so <code>apt install nginx</code> gets you a running, enabled, supervised service.</p>
+      </article>
+      <article class="card reveal">
+        <h3>No boot chain</h3>
+        <p>The kernel is a UEFI app with an embedded root finder. Kernel updates copy one EFI file and keep the previous one for rollback.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Essential, virtually</h3>
+        <p>BusyBox satisfies the Debian Essential packages, so real Debian packages install unmodified on a 5&nbsp;MB system.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Self-healing</h3>
+        <p>If a maintainer script trips over a BusyBox difference, kpkg installs the GNU tool from Debian and retries.</p>
+      </article>
+      <article class="card reveal">
+        <h3>31 of 31 pass</h3>
+        <p>PostgreSQL&nbsp;17, MariaDB&nbsp;11.8, Docker, OpenJDK&nbsp;21, Go, gcc, Node.js, Python, PHP, Ruby, Redis, nginx, Apache, OpenSSH and more.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="hardware">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">Every architecture</p>
+      <h2>amd64. arm64.<br>riscv64.</h2>
+      <p class="sub">The same base boots as a container, a microVM, a cloud or VM disk, or a live ISO, on all three architectures.</p>
+    </header>
+    <div class="cards three">
+      <article class="card reveal">
+        <h3>Apple Silicon</h3>
+        <p>Run the arm64 qcow2 or ISO in UTM, Lima, Parallels or any Virtualization.framework VM. Bare-metal M1 and M2 support through Asahi is built and waiting for first boots.</p>
+      </article>
+      <article class="card reveal">
+        <h3>NVIDIA DGX Spark</h3>
+        <p>A <code>gb10</code> kernel flavor with NVIDIA open modules for arm64, built for Grace-Blackwell systems.</p>
+      </article>
+      <article class="card reveal">
+        <h3>riscv64</h3>
+        <p>Headless images for QEMU virt with OpenSBI and UEFI, boot-tested in CI under emulation.</p>
+      </article>
+    </div>
+    <div class="arch reveal">
+      <div><span>virt</span>tiny VM and microVM kernel</div>
+      <div><span>generic</span>broad bare-metal hardware</div>
+      <div><span>apple</span>Asahi tree, 16K pages</div>
+      <div><span>gb10</span>DGX Spark, ACPI, SMMUv3, NUMA</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="performance">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">Size and speed</p>
+      <h2>Smaller than Alpine.<br>Faster to boot.</h2>
+      <p class="sub">Measured against Alpine&nbsp;3.24.4, Debian&nbsp;13 slim and Ubuntu&nbsp;24.04. Lower is better.</p>
+    </header>
+    <figure class="shot reveal">
+      <img src="img/comparison.png" alt="Bar charts comparing KwickOS with Alpine, Debian slim and Ubuntu on image size, pull size, shell memory, VM boot time, memory after boot and ISO size" width="3000" height="1720" loading="lazy">
+    </figure>
+    <div class="table reveal">
+      <table>
+        <caption>KwickOS against Alpine 3.24.4</caption>
+        <thead><tr><th scope="col"></th><th scope="col">Alpine</th><th scope="col">KwickOS</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Container image, uncompressed / gzip</th><td>8.43 / 3.72 MB</td><td>5.53 / 2.60 MB</td></tr>
+          <tr><th scope="row">Memory of a <code>sh</code> in a container</th><td>88 KiB</td><td>56 KiB</td></tr>
+          <tr><th scope="row">VM boot to shell prompt</th><td>3.73 s</td><td>1.17 s</td></tr>
+          <tr><th scope="row">Guest boot time at shell</th><td>3.10 s</td><td>0.75 s <small>(0.22 s as microVM)</small></td></tr>
+          <tr><th scope="row">Memory in use after boot</th><td>69.7 MiB</td><td>38.3 MiB</td></tr>
+          <tr><th scope="row">Live ISO</th><td>70 MB</td><td>24 MB</td></tr>
+          <tr><th scope="row">Packages available</th><td>~20k (musl)</td><td>~69k (Debian 13, glibc)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note reveal">Method and full results in <a href="https://github.com/metaspartan/kwickos/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a>.</p>
+  </div>
+</section>
+
+<section class="section alt" id="download">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">Download</p>
+      <h2>Get KwickOS.</h2>
+      <p class="sub">Built, boot-tested and CVE-scanned by CI for every release.</p>
+    </header>
+    <div class="dl">
+      <article class="dl-card feature reveal">
+        <h3>Desktop</h3>
+        <p>KDE Plasma&nbsp;6 live ISO. amd64 boots in UEFI and BIOS, arm64 in UEFI.</p>
+        <div class="dl-links">
+          <a class="btn" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso">amd64 ISO</a>
+          <a class="btn btn-ghost" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64-desktop.iso">arm64 ISO</a>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <h3>Headless live ISO</h3>
+        <p>UEFI, generic kernel, broad hardware. Runs from RAM.</p>
+        <div class="chips">
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64.iso">amd64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64.iso">arm64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-riscv64.iso">riscv64</a>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <h3>VM and cloud disk</h3>
+        <p>qcow2 with an ESP and a 1&nbsp;GiB ext4 root.</p>
+        <div class="chips">
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64.qcow2">amd64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64.qcow2">arm64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-riscv64.qcow2">riscv64</a>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <h3>Raw disk image</h3>
+        <p>The same disk as a zstd-compressed raw image.</p>
+        <div class="chips">
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64.img.zst">amd64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64.img.zst">arm64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-riscv64.img.zst">riscv64</a>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <h3>Kernel</h3>
+        <p>The virt kernel as a UEFI app and <code>-kernel</code> image for QEMU and Firecracker.</p>
+        <div class="chips">
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64.efi">amd64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64.efi">arm64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-riscv64.efi">riscv64</a>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <h3>Initramfs</h3>
+        <p>The whole OS as an initramfs, for microVMs and CI sandboxes.</p>
+        <div class="chips">
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-initramfs.cpio.zst">amd64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64-initramfs.cpio.zst">arm64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-riscv64-initramfs.cpio.zst">riscv64</a>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <h3>Root filesystem</h3>
+        <p>A tarball for containers, chroots and WSL.</p>
+        <div class="chips">
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-rootfs-amd64.tar.gz">amd64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-rootfs-arm64.tar.gz">arm64</a>
+          <a href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-rootfs-riscv64.tar.gz">riscv64</a>
+        </div>
+      </article>
+      <article class="dl-card full reveal">
+        <h3>Container</h3>
+        <p>A multi-arch image on ghcr.io.</p>
+        <pre class="mini"><code>docker run --rm -it ghcr.io/metaspartan/kwickos</code></pre>
+      </article>
+    </div>
+    <p class="note reveal"><a href="https://github.com/metaspartan/kwickos/releases/latest/download/SHA256SUMS">SHA256SUMS</a> &middot; <a href="https://github.com/metaspartan/kwickos/releases">All releases</a></p>
+  </div>
+</section>
+
+<section class="section" id="install">
+  <div class="wrap narrow">
+    <header class="head reveal">
+      <p class="eyebrow">Signed apt repository</p>
+      <h2>Already running<br>KwickOS?</h2>
+      <p class="sub">This site is the signed apt repository for KwickOS kernels and the desktop edition. The repository is preconfigured. Upgrade to the desktop edition with:</p>
+    </header>
+    <div class="code reveal">
+      <div class="code-bar"><span>Desktop edition</span><button type="button" class="copy" data-copy="c1">Copy</button></div>
+<pre id="c1"><code>apt update && apt install kwick-desktop</code></pre>
+    </div>
+    <p class="sub center reveal">Manual setup:</p>
+    <div class="code reveal">
+      <div class="code-bar"><span>Add the repository</span><button type="button" class="copy" data-copy="c2">Copy</button></div>
+<pre id="c2"><code>curl -fsSL https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc -o /usr/share/keyrings/kwickos-archive-keyring.asc
+printf 'Types: deb\nURIs: https://metaspartan.github.io/kwickos\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' &gt; /etc/apt/sources.list.d/kwickos.sources</code></pre>
+    </div>
+    <p class="note reveal">Kernel updates arrive with <code>apt update &amp;&amp; apt upgrade</code>. <code>kwick-kernel-install --list | --rollback</code> manages kernels.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="img/kwickos-logo.svg" alt="" width="28" height="32">
+      <div>
+        <strong>KwickOS</strong>
+        <p>MIT-licensed sources. Images also contain GPL-2.0 software such as Linux and BusyBox.</p>
+      </div>
+    </div>
+    <ul class="foot-links">
+      <li><a href="https://github.com/metaspartan/kwickos">GitHub</a></li>
+      <li><a href="https://github.com/metaspartan/kwickos/releases">Releases</a></li>
+      <li><a href="https://github.com/metaspartan/kwickos/blob/main/docs/ARCHITECTURE.md">Architecture</a></li>
+      <li><a href="https://github.com/metaspartan/kwickos/blob/main/docs/HARDWARE.md">Hardware</a></li>
+      <li><a href="https://github.com/metaspartan/kwickos/blob/main/docs/VERIFICATION.md">Verification</a></li>
+      <li><a href="https://github.com/metaspartan/kwickos/blob/main/LICENSE">License</a></li>
+    </ul>
+    <p class="foot-fine">No cookies, no analytics, no tracking.</p>
+  </div>
+</footer>
+
+<script src="site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/img/**'
+      - 'README.md'
+      - 'scripts/mksite.sh'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: bash scripts/mksite.sh _site
+
+      - name: Mirror the live signed apt repository
+        run: bash scripts/mksite.sh --mirror https://metaspartan.github.io/kwickos _site
+
+      - name: Check the artifact carries the repository
+        run: |
+          for f in index.html 404.html kwickos-archive-keyring.asc dists/stable/InRelease dists/stable/Release dists/stable/Release.gpg; do
+            test -s "_site/$f" || { echo "missing $f"; exit 1; }
+          done
+          n=$(find _site/pool -name '*.deb' | wc -l)
+          test "$n" -gt 0 || { echo "no packages in pool"; exit 1; }
+          du -sh _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
