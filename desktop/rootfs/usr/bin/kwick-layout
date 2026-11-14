@@ -60,6 +60,9 @@ gtkstyle() {
       rm -f "$GC/$v/gtk.css"
     fi
   done
+  for p in $(pgrep -f '[g]nome-terminal-server' 2>/dev/null); do
+    [ -z "$(pgrep -P "$p" 2>/dev/null)" ] && kill "$p" 2>/dev/null
+  done
 }
 
 refresh_icons() {

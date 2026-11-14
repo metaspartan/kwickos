@@ -16,3 +16,4 @@ org.gnome.shell.extensions.dash-to-dock show-mounts false
 org.gnome.shell.extensions.dash-to-dock multi-monitor false
 org.gnome.shell.extensions.dash-to-dock hot-keys false
 org.gnome.shell.extensions.dash-to-dock isolate-workspaces false
+org.gnome.desktop.interface clock-format '24h'

@@ -1,0 +1,7 @@
+{
+  "uuid": "kwick-menubar@kwickos.org",
+  "name": "KwickOS Menu Bar",
+  "description": "macOS style top bar: white K in place of Activities, clock on the right",
+  "shell-version": ["46", "47", "48", "49"],
+  "version": 1
+}

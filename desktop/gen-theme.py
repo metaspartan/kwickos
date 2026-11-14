@@ -70,7 +70,7 @@ def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
 
 
 def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, btn_h, spacing, margin_top,
-            align, text_a, text_i):
+            align, text_a, text_i, rc_title_h=None):
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">']
     pt, ps, pb = 6, 10, 14
     defs = ""
@@ -149,7 +149,7 @@ TitleEdgeLeft=12
 TitleEdgeRight=12
 TitleBorderLeft=0
 TitleBorderRight=0
-TitleHeight={title_h}
+TitleHeight={rc_title_h or title_h}
 ButtonWidth={btn_w}
 ButtonHeight={btn_h}
 ButtonSpacing={spacing}
@@ -175,7 +175,7 @@ def mac_buttons(kind, st):
              "maximize": "M7,3.5 L7,10.5 M3.5,7 L10.5,7", "restore": "M7,3.5 L7,10.5 M3.5,7 L10.5,7"}.get(kind, "")
         glyph = f'<path d="{g}" stroke="#2b1a18" stroke-width="1.5" stroke-linecap="round" fill="none"/>'
     shade = ' opacity="0.8"' if st == "pressed" else ""
-    return f'<circle cx="7" cy="7" r="6.5" fill="{col}"{shade}/><circle cx="7" cy="7" r="6.5" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="0.6"/>{glyph}'
+    return f'<circle cx="7" cy="7" r="5.8" fill="{col}"{shade}/><circle cx="7" cy="7" r="5.8" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="0.6"/>{glyph}'
 
 
 def win_buttons(kind, st):
@@ -193,7 +193,7 @@ def win_buttons(kind, st):
 
 
 aurorae("KwickGlass", 34, 1, 12, ("#1d1e24", 1), ("#1d1e24", 1), ("#1d1e24", 1),
-        mac_buttons, 14, 14, 8, 10, "Center", "235,235,245", "130,130,145")
+        mac_buttons, 14, 14, 5, 7, "Center", "235,235,245", "130,130,145", 28)
 aurorae("KwickFluent", 32, 1, 8, ("#202020", 1), ("#202020", 1), ("#202020", 1),
         win_buttons, 46, 32, 0, 0, "Left", "255,255,255", "140,140,140")
 

@@ -1,0 +1,17 @@
+#panel {
+  height: 26px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+#panel .panel-button {
+  padding: 0 8px;
+}
+
+#panel .panel-button#panelActivities {
+  padding: 0 6px 0 10px;
+}
+
+#panel .panel-button .system-status-icon {
+  icon-size: 16px;
+}

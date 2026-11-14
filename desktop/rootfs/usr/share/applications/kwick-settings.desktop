@@ -7,7 +7,7 @@ Icon=kwick-settings
 Exec=kwick-settings
 Categories=Settings;DesktopSettings;Qt;
 Keywords=layout;theme;effects;animation;wobbly;cube;dock;fonts;gpu;steam;
-StartupWMClass=qml6
+StartupWMClass=org.qt-project.qml
 Terminal=false
 Actions=Appearance;Dock;Effects;
 
