@@ -224,7 +224,7 @@ def o_calc(tone, c1, c2, d):
 
 def o_monitor(tone, c1, c2, d, pulse=True):
     defs = (
-        lg("o1", [(0, "#5a5f70"), (1, "#1f222c")], d)
+        lg("o1", [(0, "#eef1f7"), (1, "#a3abbb")], d)
         + lg("o2", [(0, mix(c1, "#ffffff", 0.2)), (1, c2)])
         + lg("o3", [(0, "#fff", 0.5), (0.5, "#fff", 0)], DD)
         + lg("o4", [(0, "#d3d8e2"), (1, "#8a92a3")])
@@ -242,7 +242,7 @@ def o_monitor(tone, c1, c2, d, pulse=True):
         '<rect x="13" y="19" width="74" height="46" rx="4" fill="url(#o3)"/>'
         + inner
     )
-    return defs, body, '<rect x="8" y="14" width="84" height="69" rx="8" fill="S"/>'
+    return defs, body, '<rect x="8" y="14" width="84" height="56" rx="8" fill="S"/><rect x="37" y="66" width="26" height="12" fill="S"/><rect x="26" y="76" width="48" height="7" rx="3.5" fill="S"/>'
 
 
 def o_display(tone, c1, c2, d):

@@ -72,17 +72,38 @@ def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
 def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, btn_h, spacing, margin_top,
             align, text_a, text_i):
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">']
-    for prefix, y, bar in (("decoration", 0, bar_a), ("decoration-inactive", 60, bar_i)):
+    pad = 10
+    defs = ""
+    for pi, (prefix, y, bar) in enumerate((("decoration", 0, bar_a), ("decoration-inactive", 60, bar_i))):
         col, op = bar
-        parts.append(f'<g id="{prefix}-topleft"><g transform="translate(0,{y})">{svg_rect_path(0, 0, radius, title_h, rtl=radius, fill=col, op=op)}</g></g>')
-        parts.append(f'<g id="{prefix}-top"><g transform="translate(30,{y})">{svg_rect_path(0, 0, 8, title_h, fill=col, op=op)}</g></g>')
-        parts.append(f'<g id="{prefix}-topright"><g transform="translate(60,{y})">{svg_rect_path(0, 0, radius, title_h, rtr=radius, fill=col, op=op)}</g></g>')
-        parts.append(f'<g id="{prefix}-left"><g transform="translate(90,{y})"><rect width="{border}" height="8" fill="{edge[0]}" fill-opacity="{edge[1]}"/></g></g>')
-        parts.append(f'<g id="{prefix}-center"><g transform="translate(110,{y})"><rect width="8" height="8" fill="#000" fill-opacity="0"/></g></g>')
-        parts.append(f'<g id="{prefix}-right"><g transform="translate(130,{y})"><rect width="{border}" height="8" fill="{edge[0]}" fill-opacity="{edge[1]}"/></g></g>')
-        parts.append(f'<g id="{prefix}-bottomleft"><g transform="translate(150,{y})"><rect width="{border}" height="{border}" fill="{edge[0]}" fill-opacity="{edge[1]}"/></g></g>')
-        parts.append(f'<g id="{prefix}-bottom"><g transform="translate(170,{y})"><rect width="8" height="{border}" fill="{edge[0]}" fill-opacity="{edge[1]}"/></g></g>')
-        parts.append(f'<g id="{prefix}-bottomright"><g transform="translate(190,{y})"><rect width="{border}" height="{border}" fill="{edge[0]}" fill-opacity="{edge[1]}"/></g></g>')
+        a = 0.26 if pi == 0 else 0.14
+        k = f"{pi}"
+        defs += (
+            f'<linearGradient id="gl{k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="{a}"/></linearGradient>'
+            f'<linearGradient id="gr{k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="{a}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>'
+            f'<linearGradient id="gt{k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="{a}"/></linearGradient>'
+            f'<linearGradient id="gb{k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="{a}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>'
+        )
+        for nm, cx, cy in (("rtl", pad, pad), ("rtr", 0, pad), ("rbl", pad, 0), ("rbr", 0, 0)):
+            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="{cx}" cy="{cy}" r="{pad}"><stop offset="0" stop-color="#000" stop-opacity="{a}"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>'
+        T = title_h
+        tl = f'<rect x="0" y="0" width="{pad}" height="{pad}" fill="url(#rtl{k})"/><rect x="0" y="{pad}" width="{pad}" height="{T}" fill="url(#gl{k})"/>'
+        tp = f'<rect x="0" y="0" width="8" height="{pad}" fill="url(#gt{k})"/>{svg_rect_path(0, pad, 8, T, fill=col, op=op)}'
+        tr = f'<rect x="0" y="0" width="{pad}" height="{pad}" fill="url(#rtr{k})"/><rect x="0" y="{pad}" width="{pad}" height="{T}" fill="url(#gr{k})"/>'
+        pieces = {
+            "topleft": (0, tl),
+            "top": (30, tp),
+            "topright": (60, tr),
+            "left": (90, f'<rect width="{pad}" height="8" fill="url(#gl{k})"/>'),
+            "center": (110, '<rect width="8" height="8" fill="#000" fill-opacity="0"/>'),
+            "right": (130, f'<rect width="{pad}" height="8" fill="url(#gr{k})"/>'),
+            "bottomleft": (150, f'<rect width="{pad}" height="{pad}" fill="url(#rbl{k})"/>'),
+            "bottom": (170, f'<rect width="8" height="{pad}" fill="url(#gb{k})"/>'),
+            "bottomright": (190, f'<g><rect width="{pad}" height="{pad}" fill="url(#rbr{k})"/></g>'),
+        }
+        for nm, (x, body) in pieces.items():
+            parts.append(f'<g id="{prefix}-{nm}"><g transform="translate({x},{y})">{body}</g></g>')
+    parts.insert(1, f"<defs>{defs}</defs>")
     y = 130
     for kind in ("close", "minimize", "maximize", "restore", "alldesktops", "keepabove", "keepbelow", "shade", "help"):
         x = 0
@@ -109,9 +130,9 @@ TitleVerticalAlignment=Center
 UseTextShadow=false
 
 [Layout]
-BorderLeft={border}
-BorderRight={border}
-BorderBottom={border}
+BorderLeft=0
+BorderRight=0
+BorderBottom=0
 TitleEdgeTop=0
 TitleEdgeBottom=0
 TitleEdgeLeft=12
@@ -124,10 +145,10 @@ ButtonHeight={btn_h}
 ButtonSpacing={spacing}
 ButtonMarginTop={margin_top}
 ExplicitButtonSpacer=6
-PaddingTop=0
-PaddingLeft=0
-PaddingRight=0
-PaddingBottom=0
+PaddingTop={pad}
+PaddingLeft={pad}
+PaddingRight={pad}
+PaddingBottom={pad}
 """)
     w(f"{d}/metadata.json", json.dumps({"KPlugin": {"Id": name, "Name": name, "Description": "KwickOS window decoration",
                                                       "Authors": [{"Name": "KwickOS"}], "License": "MIT"}}, indent=2) + "\n")
@@ -161,9 +182,9 @@ def win_buttons(kind, st):
     return f'{bg}<path d="{g}" stroke="{fg}" stroke-width="1" fill="none" stroke-linecap="square"/>'
 
 
-aurorae("KwickGlass", 34, 1, 12, ("#262730", 0.80), ("#202129", 0.70), ("#ffffff", 0.10),
+aurorae("KwickGlass", 34, 1, 12, ("#1d1e24", 1), ("#1d1e24", 1), ("#1d1e24", 1),
         mac_buttons, 14, 14, 8, 10, "Center", "235,235,245", "130,130,145")
-aurorae("KwickFluent", 32, 1, 8, ("#202020", 0.98), ("#202020", 0.98), ("#ffffff", 0.08),
+aurorae("KwickFluent", 32, 1, 8, ("#202020", 1), ("#202020", 1), ("#202020", 1),
         win_buttons, 46, 32, 0, 0, "Left", "255,255,255", "140,140,140")
 
 

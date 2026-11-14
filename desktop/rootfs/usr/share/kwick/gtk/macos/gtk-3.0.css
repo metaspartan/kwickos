@@ -60,3 +60,7 @@ placessidebar image,
 .sidebar image {
   color: #0a84ff;
 }
+
+window.csd decoration {
+  border-radius: @RADIUS@px @RADIUS@px 0 0;
+}

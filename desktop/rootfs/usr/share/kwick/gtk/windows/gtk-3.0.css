@@ -44,3 +44,7 @@ headerbar button.titlebutton.close:hover image {
 headerbar button.titlebutton.close:active image {
   background-color: #b22a1b;
 }
+
+window.csd decoration {
+  border-radius: @RADIUS@px @RADIUS@px 0 0;
+}

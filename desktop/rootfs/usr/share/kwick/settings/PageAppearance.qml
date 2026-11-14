@@ -89,6 +89,37 @@ ColumnLayout {
         }
     }
 
+    SectionTitle { text: "WINDOWS" }
+    Card {
+        Cell {
+            title: "Window corner radius"
+            subtitle: Sys.radius + " px" + (Sys.radius === Sys.radiusDefault ? " (layout default)" : "")
+            last: true
+            Row {
+                spacing: 14
+                Sld {
+                    anchors.verticalCenter: parent.verticalCenter
+                    implicitWidth: 220
+                    from: 0
+                    to: 24
+                    step: 1
+                    value: Sys.radius
+                    onValueChanged: if (pressed) Sys.radius = value
+                    onReleased: (v) => Sys.setRadius(v)
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: Sys.radius !== Sys.radiusDefault
+                    text: "Reset"
+                    color: Theme.accent
+                    font.family: Theme.sans
+                    font.pixelSize: 13
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Sys.resetRadius() }
+                }
+            }
+        }
+    }
+
     Card {
         Cell {
             title: "Appearance"

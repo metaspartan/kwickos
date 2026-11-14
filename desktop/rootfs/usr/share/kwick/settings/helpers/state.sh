@@ -15,6 +15,8 @@ echo "[check]"
 kwick-effects check 2>/dev/null
 echo "[type]"
 qdbus6 org.kde.KWin /Compositor org.kde.kwin.Compositing.compositingType 2>/dev/null
+echo "[radius]"
+kwick-layout radius 2>/dev/null
 echo "[accent]"
 kreadconfig6 --file kdeglobals --group General --key AccentColor 2>/dev/null
 echo "[gpu]"

@@ -44,15 +44,16 @@ def o_palette(tone, c1, c2, d):
 
 
 def o_fontblock(tone, c1, c2, d):
-    defs = lg("f1", [(0, mix(c1, "#ffffff", 0.2)), (1, c2)], d) + lg("f2", [(0, "#fff", 0.4), (0.4, "#fff", 0)])
+    defs = lg("f1", [(0, mix(c1, "#ffffff", 0.35)), (1, c2)], d) + lg("f2", [(0, "#fff", 0.45), (0.5, "#fff", 0)])
+    big = "M10 82L36 16h8l26 66"
+    bar = "M20 60h40"
     body = (
-        '<rect x="10" y="14" width="80" height="72" rx="14" fill="url(#f1)"/><rect x="10" y="14" width="80" height="72" rx="14" fill="url(#f2)"/>'
-        '<path d="M24 72L40 28h6l16 44" fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" transform="translate(0 1.6)"/>'
-        '<path d="M24 72L40 28h6l16 44M30 58h26" fill="none" stroke="#fff" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>'
-        '<circle cx="73" cy="62" r="8" fill="none" stroke="#fff" stroke-width="6"/><path d="M81 54v18" stroke="#fff" stroke-width="6" stroke-linecap="round"/>'
-        '<rect x="10.5" y="14.5" width="79" height="71" rx="13.5" fill="none" stroke="#fff" stroke-opacity="0.4"/>'
+        f'<path d="{big}{bar}" fill="none" stroke="url(#f1)" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>'
+        f'<path d="{big}{bar}" fill="none" stroke="url(#f2)" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>'
+        f'<circle cx="82" cy="66" r="12" fill="none" stroke="url(#f1)" stroke-width="9"/><path d="M94 52v28" stroke="url(#f1)" stroke-width="9" stroke-linecap="round"/>'
     )
-    return defs, body, '<rect x="10" y="14" width="80" height="72" rx="14" fill="S"/>'
+    return defs, body, f'<path d="{big}{bar}" fill="none" stroke="S" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/><circle cx="82" cy="66" r="12" fill="none" stroke="S" stroke-width="9"/>'
+
 
 
 def o_bell(tone, c1, c2, d):
@@ -118,38 +119,36 @@ def o_lock(tone, c1, c2, d):
 
 
 def o_chip(tone, c1, c2, d):
-    pins = "".join(f'<rect x="{x}" y="8" width="5" height="12" rx="1.5" fill="#d6b560"/><rect x="{x}" y="80" width="5" height="12" rx="1.5" fill="#d6b560"/><rect x="8" y="{x}" width="12" height="5" rx="1.5" fill="#d6b560"/><rect x="80" y="{x}" width="12" height="5" rx="1.5" fill="#d6b560"/>' for x in (28, 38, 48, 58, 68))
-    defs = lg("h1", [(0, "#54565e"), (1, "#202226")], d) + lg("h2", [(0, mix(c1, "#ffffff", 0.2)), (1, c2)], d) + lg("h3", [(0, "#fff", 0.35), (0.5, "#fff", 0)])
+    pins = "".join(f'<rect x="{x}" y="8" width="5" height="12" rx="2" fill="url(#h4)"/><rect x="{x}" y="80" width="5" height="12" rx="2" fill="url(#h4)"/><rect x="8" y="{x}" width="12" height="5" rx="2" fill="url(#h4)"/><rect x="80" y="{x}" width="12" height="5" rx="2" fill="url(#h4)"/>' for x in (28, 38, 48, 58, 68))
+    defs = lg("h1", [(0, mix(c1, "#ffffff", 0.3)), (1, c2)], d) + lg("h2", [(0, "#f4f6fa"), (1, "#aab2c2")], d) + lg("h3", [(0, "#fff", 0.45), (0.5, "#fff", 0)]) + lg("h4", [(0, "#f1d98a"), (1, "#c49a3a")], "x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"")
     body = (
-        pins + '<rect x="18" y="18" width="64" height="64" rx="9" fill="url(#h1)"/><rect x="18" y="18" width="64" height="64" rx="9" fill="url(#h3)"/>'
-        '<rect x="32" y="32" width="36" height="36" rx="5" fill="url(#h2)"/><rect x="32.5" y="32.5" width="35" height="35" rx="4.5" fill="none" stroke="#fff" stroke-opacity="0.5"/>'
-        '<rect x="18.5" y="18.5" width="63" height="63" rx="8.5" fill="none" stroke="#fff" stroke-opacity="0.3"/>'
+        pins + '<rect x="18" y="18" width="64" height="64" rx="10" fill="url(#h1)"/><rect x="18" y="18" width="64" height="64" rx="10" fill="url(#h3)"/>'
+        '<rect x="32" y="32" width="36" height="36" rx="6" fill="url(#h2)"/><rect x="38" y="38" width="24" height="24" rx="4" fill="none" stroke="#fff" stroke-opacity="0.8" stroke-width="2"/>'
+        '<rect x="18.5" y="18.5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity="0.45"/>'
     )
-    return defs, body, '<rect x="8" y="8" width="84" height="84" rx="9" fill="S"/>'
+    return defs, body, '<rect x="18" y="18" width="64" height="64" rx="10" fill="S"/>'
+
 
 
 def o_layout(tone, c1, c2, d):
-    defs = lg("w1", [(0, "#4a4d58"), (1, "#202228")], d) + lg("w2", [(0, mix(c1, "#ffffff", 0.2)), (1, c2)], d) + lg("w3", [(0, "#9aa1b2"), (1, "#5e6474")])
+    defs = lg("w2", [(0, mix(c1, "#ffffff", 0.3)), (1, c2)], d) + lg("w3", [(0, "#f1f3f8"), (1, "#a9b1c2")], d) + lg("w4", [(0, "#fff", 0.45), (0.5, "#fff", 0)])
     body = (
-        '<rect x="8" y="14" width="84" height="72" rx="10" fill="url(#w1)"/>'
-        '<rect x="14" y="26" width="34" height="54" rx="4" fill="url(#w2)"/><rect x="52" y="26" width="34" height="24" rx="4" fill="url(#w3)"/><rect x="52" y="54" width="34" height="26" rx="4" fill="url(#w3)"/>'
-        '<circle cx="17" cy="20" r="2" fill="#fff" fill-opacity="0.4"/><circle cx="24" cy="20" r="2" fill="#fff" fill-opacity="0.4"/>'
-        '<rect x="8.5" y="14.5" width="83" height="71" rx="9.5" fill="none" stroke="#fff" stroke-opacity="0.3"/>'
+        '<rect x="8" y="16" width="40" height="68" rx="8" fill="url(#w2)"/><rect x="8" y="16" width="40" height="68" rx="8" fill="url(#w4)"/>'
+        '<rect x="54" y="16" width="38" height="31" rx="8" fill="url(#w3)"/><rect x="54" y="53" width="38" height="31" rx="8" fill="url(#w3)"/>'
+        '<rect x="8.5" y="16.5" width="39" height="67" rx="7.5" fill="none" stroke="#fff" stroke-opacity="0.5"/>'
     )
-    return defs, body, '<rect x="8" y="14" width="84" height="72" rx="10" fill="S"/>'
+    return defs, body, '<rect x="8" y="16" width="40" height="68" rx="8" fill="S"/><rect x="54" y="16" width="38" height="31" rx="8" fill="S"/><rect x="54" y="53" width="38" height="31" rx="8" fill="S"/>'
+
 
 
 def o_dock(tone, c1, c2, d):
-    cols = ("#2f7be8", "#e0701f", "#2f9a58", "#8a4cc2")
-    icons = "".join(f'<rect x="{18 + i * 17}" y="38" width="14" height="14" rx="4" fill="{c}"/>' for i, c in enumerate(cols))
-    defs = lg("k1", [(0, "#6a6d7a"), (1, "#2a2c34")], d) + lg("k2", [(0, "#fff", 0.3), (0.5, "#fff", 0)])
-    body = (
-        '<rect x="8" y="30" width="84" height="32" rx="12" fill="url(#k1)"/><rect x="8" y="30" width="84" height="32" rx="12" fill="url(#k2)"/>'
-        + icons
-        + '<rect x="8.5" y="30.5" width="83" height="31" rx="11.5" fill="none" stroke="#fff" stroke-opacity="0.35"/><rect x="30" y="68" width="40" height="5" rx="2.5" fill="#fff" fill-opacity="0.18"/>'
-    )
-    return defs, body, '<rect x="8" y="30" width="84" height="44" rx="12" fill="S"/>'
-
+    cols = (("#5aa2ff", "#1f5fd0"), ("#ffa24a", "#d6561a"), ("#5fd08a", "#1f8a48"), ("#b97af0", "#7a3cc2"))
+    pos = ((10, 12), (54, 12), (10, 56), (54, 56))
+    defs = lg("k2", [(0, "#fff", 0.45), (0.5, "#fff", 0)])
+    for i, (a, b) in enumerate(cols):
+        defs += lg(f"kc{i}", [(0, a), (1, b)], d)
+    body = "".join(f'<rect x="{x}" y="{y}" width="36" height="36" rx="11" fill="url(#kc{i})"/><rect x="{x}" y="{y}" width="36" height="36" rx="11" fill="url(#k2)"/><rect x="{x + 0.5}" y="{y + 0.5}" width="35" height="35" rx="10.5" fill="none" stroke="#fff" stroke-opacity="0.45"/>' for i, (x, y) in enumerate(pos))
+    return defs, body, "".join(f'<rect x="{x}" y="{y}" width="36" height="36" rx="11" fill="S"/>' for x, y in pos)
 
 def o_keyboard(tone, c1, c2, d):
     keys = "".join(f'<rect x="{14 + c * 13}" y="{32 + r * 13}" width="10" height="9" rx="2.5" fill="url(#y2)"/>' for r in range(3) for c in range(6))
@@ -226,9 +225,9 @@ OBJECTS.update({"flame": o_flame, "effects": o_flame,
 
 BOX = {
     "flame": (20, 8, 80, 92), "effects": (20, 8, 80, 92),
-    "palette": (8, 10, 92, 90), "font": (10, 14, 90, 86), "bell": (12, 10, 88, 92), "moon": (8, 8, 90, 92), "nightlight": (8, 8, 90, 92),
+    "palette": (8, 10, 92, 90), "font": (8, 12, 96, 90), "bell": (12, 10, 88, 92), "moon": (8, 8, 90, 92), "nightlight": (8, 8, 90, 92),
     "wifi": (8, 8, 92, 92), "clock": (8, 8, 92, 92), "battery": (8, 28, 93, 72), "access": (8, 8, 92, 92), "lock": (16, 8, 84, 90),
-    "lockscreen": (16, 8, 84, 90), "chip": (8, 8, 92, 92), "layout": (8, 14, 92, 86), "dock": (8, 30, 92, 74), "keyboard": (6, 24, 94, 78),
+    "lockscreen": (16, 8, 84, 90), "chip": (8, 8, 92, 92), "layout": (8, 16, 92, 84), "dock": (10, 12, 90, 92), "keyboard": (6, 24, 94, 78),
     "mouse": (26, 8, 74, 92), "speaker": (22, 8, 78, 92), "printer": (8, 10, 92, 90), "phone": (26, 6, 74, 94), "gamepad": (4, 22, 96, 78),
     "harddisk": (8, 26, 92, 74), "users": (8, 18, 92, 88), "accounts": (8, 18, 92, 88), "user": (8, 18, 92, 88),
 }

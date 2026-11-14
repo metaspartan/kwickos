@@ -24,9 +24,9 @@ def fit(box):
     return sc, tx, ty
 
 
-def free_icon(glyph, colors, pal, markup, d):
+def free_icon(glyph, colors, pal, markup, d, shadow=True):
     c1, c2 = colors[pal]
-    offs = ((7, 0.06, 0), (5, 0.08, 0), (3, 0.12, 0), (1.5, 0.16, 0))
+    offs = ((7, 0.06, 0), (5, 0.08, 0), (3, 0.12, 0), (1.5, 0.16, 0)) if shadow else ()
     if glyph in OBJECTS:
         defs, body, sil = OBJECTS[glyph]("color", mix(c1, "#ffffff", 0.08), c2, d)
         sh = shadow_stack(sil, offs)

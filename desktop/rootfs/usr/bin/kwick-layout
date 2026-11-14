@@ -4,30 +4,60 @@ usage() {
 usage: kwick-layout [macos|windows|linux]
   with a name: apply that layout to the running session and remember it for new logins
   without:     print the current layout
+usage: kwick-layout radius [0-24|default]
+  set the window corner radius for the current layout, or print "current default"
 USAGE
 }
 set -u
 cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
 want=${1:-}
 if [ -z "$want" ]; then cat "$cfg/layout" 2>/dev/null || echo macos; exit 0; fi
-case "$want" in linux|windows|macos) ;; *) usage >&2; exit 1;; esac
-echo "$want" > "$cfg/layout"
+rcmd=
+if [ "$want" = radius ]; then
+  rcmd=${2:-query}
+  want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
+else
+  case "$want" in linux|windows|macos) ;; *) usage >&2; exit 1;; esac
+  echo "$want" > "$cfg/layout"
+fi
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
 icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
 
+defrad() { if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprdef "$@"; return; fi; case ${1:-$want} in macos) echo 12 ;; *) echo 8 ;; esac; }
+
+hyprdef() { case ${1:-$want} in macos) echo 16 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
+
+curradius() {
+  r=$(cat "$cfg/radius" 2>/dev/null)
+  case $r in ''|*[!0-9]*) echo "" ;; *) echo "$r" ;; esac
+}
+
 gtklayout() { case $want in macos) echo 'close,minimize,maximize:' ;; *) echo ':minimize,maximize,close' ;; esac; }
 
 gtkstyle() {
   GC=${XDG_CONFIG_HOME:-$HOME/.config}
+  rad=$(curradius); [ -n "$rad" ] || rad=$(defrad)
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$GC/$v"
     t=/usr/share/kwick/gtk/$want/$v.css
     if [ -f "$t" ]; then
-      cp "$t" "$GC/$v/gtk.css"
-    elif [ -f "$GC/$v/gtk.css" ]; then
-      for o in /usr/share/kwick/gtk/*/$v.css; do cmp -s "$o" "$GC/$v/gtk.css" && rm -f "$GC/$v/gtk.css"; done
+      sed "s/@RADIUS@/$rad/g" "$t" > "$GC/$v/gtk.css"
+    elif [ -n "$(curradius)" ]; then
+      if [ "$v" = gtk-3.0 ]; then
+        printf 'window.csd decoration {
+  border-radius: %spx %spx 0 0;
+}
+' "$rad" "$rad" > "$GC/$v/gtk.css"
+      else
+        printf 'window.csd:not(.maximized):not(.fullscreen):not(.tiled) {
+  border-radius: %spx;
+}
+' "$rad" > "$GC/$v/gtk.css"
+      fi
+    elif [ -f "$GC/$v/gtk.css" ] && grep -q -e 'window.csd' -e 'button.close' -e 'titlebutton.close' "$GC/$v/gtk.css"; then
+      rm -f "$GC/$v/gtk.css"
     fi
   done
 }
@@ -71,6 +101,8 @@ kde() {
   kw kdeglobals WM activeFont "$UI,-1,5,600,0,0,0,0,0,0,0,0,0,0,1"
   kw kwinrc org.kde.kdecoration2 library "$LIB"
   kw kwinrc org.kde.kdecoration2 theme "$DECO"
+  kw kwinrc org.kde.kdecoration2 BorderSize None
+  kw kwinrc org.kde.kdecoration2 BorderSizeAuto false
   kw kwinrc org.kde.kdecoration2 ButtonsOnLeft "$L"
   kw kwinrc org.kde.kdecoration2 ButtonsOnRight "$R"
   kw plasmarc Theme name default
@@ -87,14 +119,22 @@ kde() {
 }
 
 corners() {
-  case $want in macos) rad=12 ;; *) rad=8 ;; esac
+  rad=$(curradius); [ -n "$rad" ] || rad=$(defrad)
+  g=Round-Corners
   kw kwinrc Plugins kwin4_effect_shapecornersEnabled true
-  kw kwinrc Effect-kwin4_effect_shapecorners Size "$rad"
-  kw kwinrc Effect-kwin4_effect_shapecorners InactiveCornerRadius "$rad"
-  kw kwinrc Effect-kwin4_effect_shapecorners OutlineThickness 1
-  kw kwinrc Effect-kwin4_effect_shapecorners ActiveOutlineAlpha 40
-  kw kwinrc Effect-kwin4_effect_shapecorners InactiveOutlineAlpha 25
-  kw kwinrc Effect-kwin4_effect_shapecorners SecondOutlineThickness 0
+  kw kwinrc $g Size "$rad"
+  kw kwinrc $g InactiveCornerRadius "$rad"
+  kw kwinrc $g OutlineThickness 0
+  kw kwinrc $g InactiveOutlineThickness 0
+  kw kwinrc $g DisableRoundTile false
+  kw kwinrc $g DisableOutlineTile false
+  kw kwinrc $g SecondOutlineThickness 1
+  kw kwinrc $g InactiveSecondOutlineThickness 1
+  kw kwinrc $g SecondOutlineColor 255,255,255
+  kw kwinrc $g InactiveSecondOutlineColor 255,255,255
+  kw kwinrc $g ActiveSecondOutlineAlpha 34
+  kw kwinrc $g InactiveSecondOutlineAlpha 18
+  qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwin4_effect_shapecorners >/dev/null 2>&1 || true
 }
 
 files() {
@@ -147,6 +187,10 @@ tiling() {
   ln -sf "/usr/share/wallpapers/$wp/contents/images/2560x1440.png" "$cfg/wallpaper"
   sub hyprland "$T/common/hyprland.conf" > "$C/hypr/hyprland.conf"
   cp "$T/$want/hyprland.conf" "$C/hypr/kwick-layout.conf"
+  [ -n "$(curradius)" ] && printf 'decoration {
+  rounding = %s
+}
+' "$(curradius)" >> "$C/hypr/kwick-layout.conf"
   [ -f "$C/hypr/kwick-effects.conf" ] || : > "$C/hypr/kwick-effects.conf"
   if [ -f "$T/$want/hyprbars.conf" ]; then cp "$T/$want/hyprbars.conf" "$C/hypr/kwick-bars.conf"; else : > "$C/hypr/kwick-bars.conf"; fi
   sub sway "$T/common/sway.conf" > "$C/sway/config"
@@ -181,6 +225,34 @@ tiling() {
 }
 
 [ -n "${SWAYSOCK:-}${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && de=sway
+
+radius_main() {
+  case $rcmd in
+    query) r=$(curradius); echo "${r:-$(defrad)} $(defrad)"; return 0 ;;
+    default) rm -f "$cfg/radius" ;;
+    ''|*[!0-9]*) usage >&2; return 1 ;;
+    *) [ "$rcmd" -le 24 ] || { usage >&2; return 1; }; echo "$rcmd" > "$cfg/radius" ;;
+  esac
+  r=$(curradius)
+  case $de in
+    *kde*) corners; gtkstyle; qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true ;;
+    *gnome*) gtkstyle ;;
+    *hyprland*|*sway*)
+      gtkstyle
+      if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then
+        C=${XDG_CONFIG_HOME:-$HOME/.config}; T=/usr/share/kwick/tiling
+        cp "$T/$want/hyprland.conf" "$C/hypr/kwick-layout.conf"
+        [ -n "$r" ] && printf 'decoration {
+  rounding = %s
+}
+' "$r" >> "$C/hypr/kwick-layout.conf"
+        hyprctl keyword decoration:rounding "${r:-$(hyprdef)}" >/dev/null 2>&1
+      fi ;;
+  esac
+  echo "radius: ${r:-default}"
+}
+
+if [ -n "$rcmd" ]; then radius_main; exit $?; fi
 case $de in
   *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) tiling ;;
   *) echo "Layout '$want' saved; it is applied at your next desktop login." ;;

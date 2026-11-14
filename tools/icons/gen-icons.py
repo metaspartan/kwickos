@@ -399,10 +399,23 @@ class Glass(Style):
         return plain_svg(glyph, 1.8, self.accent, None, "ColorScheme-Highlight")
 
 
+TRAY_RE = re.compile(r"^(network-|audio-volume|audio-input|audio-card|battery|bluetooth|redshift|night-light|avatar-|user-identity|system-users|system-switch-user|video-display|printer|smartphone|drive-removable|media-removable|kdeconnect|klipper|color-picker|kcolorchooser|notification|preferences-system-notifications|ac-adapter|input-)")
+
+
 class Mac(Glass):
+    text = "#ffffff"
     name = "KwickOS"
     comment = "KwickOS macOS-style icon set: Liquid Glass squircle apps, blue folders, accent-blue sidebar glyphs"
     inherits = "Papirus-Dark,breeze-dark,hicolor"
+
+    def app(self, names, glyph, pal, sub, dark):
+        ns = names.split()
+        mono = [n for n in ns if TRAY_RE.match(n)]
+        for n in mono:
+            self.write_sym("status", n, self.plain(glyph, None))
+        rest = [n for n in ns if n not in mono]
+        if rest:
+            Glass.app(self, " ".join(rest), glyph, pal, sub, dark)
 
 
 class Linux(Glass):
@@ -798,6 +811,35 @@ def build():
     stat("emblem-shared", "share")
     stat("starred-symbolic", "star")
 
+    def tray(names, glyph):
+        act(names, glyph)
+        for n in names.split():
+            if n.endswith("-symbolic"):
+                continue
+            STYLE.write_sym("status", n, STYLE.plain(glyph, None))
+
+    tray("audio-volume-muted audio-volume-muted-blocking audio-volume-zero audio-volume-off", "volumeoff")
+    tray("audio-volume-low audio-volume-medium audio-volume-high audio-volume-overamplified audio-card", "speaker")
+    tray("audio-input-microphone audio-input-microphone-low audio-input-microphone-medium audio-input-microphone-high microphone-sensitivity-low microphone-sensitivity-medium microphone-sensitivity-muted", "mic")
+    tray("audio-input-microphone-muted", "mic")
+    tray(" ".join(f"network-wireless-{k}" for k in ("connected", "disconnected", "offline", "acquiring", "disabled", "hotspot", "signal-excellent", "signal-weak", "signal-none", "connected-100", "connected-80", "connected-60", "connected-40", "connected-20", "connected-00", "100", "80", "60", "40", "20", "0", "00", "secure", "secure-connected", "no-route")), "wifi")
+    tray("network-wired-activated network-wired-disconnected network-wired-unavailable network-wired-no-route network-idle network-transmit network-receive network-transmit-receive network-offline network-disconnect network-wireless-off network-mobile network-vpn network-vpn-acquiring network-workgroup", "ethernet")
+    tray("bluetooth bluetooth-disabled bluetooth-inactive bluetooth-connected bluetooth-paired bluetooth-offline", "bluetooth")
+    tray(" ".join(f"battery-{k}" for k in ("000", "010", "020", "030", "040", "050", "060", "070", "080", "090", "100", "empty", "missing", "full-charged", "full-charging", "good-charging", "low-charging", "caution-charging", "000-charging", "010-charging", "020-charging", "030-charging", "040-charging", "050-charging", "060-charging", "070-charging", "080-charging", "090-charging", "100-charging", "level-0-symbolic", "level-10-symbolic", "level-20-symbolic", "level-30-symbolic", "level-40-symbolic", "level-50-symbolic", "level-60-symbolic", "level-70-symbolic", "level-80-symbolic", "level-90-symbolic", "level-100-symbolic", "level-100-charged-symbolic")) + " ac-adapter battery-profile-performance battery-profile-balanced battery-profile-power-saver battery-profile-performance-symbolic battery-profile-balanced-symbolic battery-profile-power-saver-symbolic", "battery")
+    tray("preferences-system-notifications notifications notifications-disabled notification-inactive notification-disabled preferences-desktop-notification", "bell")
+    tray("klipper edit-paste-symbolic clipboard", "clipboard")
+    tray("color-picker kcolorchooser color-management preferences-desktop-color", "palette")
+    tray("redshift-status-on redshift-status-off night-light night-light-disabled night-light-symbolic preferences-system-night-light preferences-desktop-nightlight", "nightlight")
+    tray("user-identity avatar-default system-users system-switch-user kuser user-available user-offline user-away user-busy preferences-desktop-user preferences-desktop-user-password", "user")
+    tray("arrow-down arrow-down-double go-down-skip", "arrowd")
+    tray("arrow-up arrow-up-double go-up-skip", "arrowu")
+    tray("arrow-left arrow-left-double", "arrowl")
+    tray("arrow-right arrow-right-double", "arrowr")
+    tray("drive-removable-media media-removable drive-removable-media-usb device-notifier", "usb")
+    tray("kdeconnect-tray kdeconnect smartphone phone", "phone")
+    tray("printer printer-printing printer-error", "printer")
+    tray("video-display video-display-brightness display-brightness screen-brightness", "display")
+
     side("user-home-symbolic folder-home-symbolic", "home")
     side("user-desktop-symbolic folder-desktop-symbolic", "desktop")
     side("folder-documents-symbolic", "text")
@@ -836,7 +878,7 @@ def build():
         for nm, gl, pl in (("layout", "layout", "blue"), ("dock", "dock", "indigo"), ("effects", "flame", "orange"), ("fonts", "font", "indigo"), ("desktop", "display", "blue"), ("gpu", "chip", "green"), ("gaming", "gamepad", "violet")):
             sp = os.path.join(ROOT, "desktop/rootfs/usr/share/kwick/settings/icons", "obj-" + nm + ".svg")
             with open(sp, "w", newline="\n") as f:
-                f.write(STYLE.tile(gl, pl, False))
+                f.write(FI.free_icon(gl, STYLE.colors, pl, glyph_markup, ID.DV, shadow=False))
     print(STYLE.name, names)
 
 

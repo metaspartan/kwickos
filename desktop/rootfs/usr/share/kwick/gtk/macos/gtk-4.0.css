@@ -59,3 +59,7 @@ placessidebar image,
 .sidebar image {
   color: #0a84ff;
 }
+
+window.csd:not(.maximized):not(.fullscreen):not(.tiled) {
+  border-radius: @RADIUS@px;
+}

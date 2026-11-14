@@ -44,3 +44,7 @@ windowcontrols button.close:hover image {
 windowcontrols button.close:active image {
   background-color: #b22a1b;
 }
+
+window.csd:not(.maximized):not(.fullscreen):not(.tiled) {
+  border-radius: @RADIUS@px;
+}

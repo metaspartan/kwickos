@@ -23,6 +23,8 @@ QtObject {
     property var apps: []
     property var gaming: ({})
     property string accentName: "blue"
+    property int radius: 12
+    property int radiusDefault: 12
 
     property bool dockAvailable: false
     property bool dockFloatingSupported: false
@@ -107,6 +109,13 @@ QtObject {
             if (p.length >= 2) ss[p[0]] = p.slice(1).join(" ")
         })
         sys.sessions = ss
+        if (s.radius && s.radius.length) {
+            var rp = s.radius[0].trim().split(/\s+/)
+            if (rp.length === 2) {
+                sys.radius = parseInt(rp[0])
+                sys.radiusDefault = parseInt(rp[1])
+            }
+        }
         if (s.accent && s.accent.length) {
             var rgb = s.accent[0].trim()
             for (var i = 0; i < sys.accents.length; i++) {
@@ -181,6 +190,15 @@ QtObject {
     function setLayout(l) {
         sys.layout = l
         run("kwick-layout " + l, refresh)
+    }
+
+    function setRadius(n) {
+        sys.radius = n
+        run("kwick-layout radius " + n, refresh)
+    }
+
+    function resetRadius() {
+        run("kwick-layout radius default", refresh)
     }
 
     function setAccent(a) {
