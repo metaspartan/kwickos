@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Metasploit Console
+Comment=Metasploit Framework console
+Exec=msfconsole
+TryExec=msfconsole
+Icon=utilities-terminal
+Terminal=true
+Categories=System;X-KwickSecurity;
+Keywords=security;exploit;metasploit;

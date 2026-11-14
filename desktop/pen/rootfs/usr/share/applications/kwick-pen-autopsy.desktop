@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Autopsy
+Comment=Digital forensics browser (opens a local web UI)
+Exec=autopsy
+TryExec=autopsy
+Icon=utilities-terminal
+Terminal=true
+Categories=System;X-KwickSecurity;
+Keywords=security;forensics;sleuthkit;

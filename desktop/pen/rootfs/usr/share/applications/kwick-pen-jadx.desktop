@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=JADX
+Comment=Android APK decompiler
+Exec=jadx-gui %f
+TryExec=jadx-gui
+Icon=applications-development
+Terminal=false
+Categories=Development;X-KwickSecurity;
+Keywords=security;android;apk;decompiler;
+MimeType=application/vnd.android.package-archive;

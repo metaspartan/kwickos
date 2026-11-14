@@ -1,0 +1,252 @@
+#!/bin/sh
+SELF=$(readlink -f "$0")
+LIBDIR=/usr/lib/kwick/pen
+. "$LIBDIR/lib.sh"
+. "$LIBDIR/tools.sh"
+. "$LIBDIR/modules.sh"
+
+fn() { echo "$1" | tr - _; }
+
+valid() {
+  case " $MODULES " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+usage() {
+  cat <<EOF
+usage: $PROG <command>
+  list [module]              modules and what they provide, or one module's tools
+  status [--machine]         installed state of every module
+  install [--yes] <module...>
+                             install modules
+  remove <module...>         remove modules
+  all [--yes]                install every module this machine supports
+modules: $MODULES
+Debian 13 packages are used first, then Flathub, vendor repos and pinned
+upstream releases. Kali repositories are never added: mixing Kali and Debian
+archives breaks systems.
+For authorized security testing only.
+EOF
+}
+
+specs() {
+  f=$(fn "$1")
+  "${f}_items" | tr ' ' '\n' | grep -v '^$'
+}
+
+item_kind() { echo "${1%%:*}"; }
+item_id() { echo "${1#*:}"; }
+
+item_arch() {
+  case $(item_kind "$1") in
+    apt) echo "$ALL_ARCHES" ;;
+    fp) echo "$GO_ARCHES" ;;
+    pin) "pin_$(fn "$(item_id "$1")")_arch" ;;
+  esac
+}
+
+item_src() {
+  case $(item_kind "$1") in
+    apt) echo "Debian 13" ;;
+    fp) echo "Flathub" ;;
+    pin) "pin_$(fn "$(item_id "$1")")_src" ;;
+  esac
+}
+
+item_supported() { has_arch "$(item_arch "$1")"; }
+
+item_state() {
+  id=$(item_id "$1")
+  case $(item_kind "$1") in
+    apt) if pkg_installed "$id"; then echo yes; else echo no; fi ;;
+    fp) if fp_have "$id"; then echo yes; else echo no; fi ;;
+    pin) if marked "tool-$id"; then echo yes; else echo no; fi ;;
+  esac
+}
+
+mod_counts() {
+  have=0
+  total=0
+  for s in $(specs "$1"); do
+    item_supported "$s" || continue
+    total=$((total + 1))
+    [ "$(item_state "$s")" = yes ] && have=$((have + 1))
+  done
+  echo "$have $total"
+}
+
+mod_state() {
+  read -r have total <<EOF
+$(mod_counts "$1")
+EOF
+  if [ "$total" -eq 0 ]; then echo "na|no tool in this module is available on $ARCH"; return 0; fi
+  if [ "$have" -eq "$total" ]; then echo "yes|"; elif [ "$have" -gt 0 ]; then echo "part|$have of $total tools"; else echo "no|"; fi
+}
+
+state_label() {
+  case $1 in
+    yes) echo installed ;;
+    part) echo partial ;;
+    no) echo - ;;
+    na) echo unavailable ;;
+  esac
+}
+
+cmd_list() {
+  if [ -n "${1:-}" ]; then
+    valid "$1" || die "unknown module '$1' (see: $PROG list)"
+    for s in $(specs "$1"); do
+      if item_supported "$s"; then note=""; else note=" (not on $ARCH)"; fi
+      printf '%-18s %-9s %s%s\n' "$(item_id "$s")" "$(item_kind "$s" | sed 's/^apt$/deb/; s/^fp$/flatpak/; s/^pin$/pinned/')" "$(item_src "$s")" "$note"
+    done
+    return 0
+  fi
+  for m in $MODULES; do
+    f=$(fn "$m")
+    read -r have total <<EOF
+$(mod_counts "$m")
+EOF
+    printf '%-11s %-9s %s\n' "$m" "$total tools" "$(${f}_desc)"
+  done
+}
+
+cmd_status() {
+  machine=""
+  [ "${1:-}" = --machine ] && machine=1
+  for m in $MODULES; do
+    f=$(fn "$m")
+    IFS='|' read -r st note <<EOF
+$(mod_state "$m")
+EOF
+    if [ -n "$machine" ]; then
+      printf '%s|%s|%s|%s\n' "$m" "$st" "$(${f}_desc)" "$note"
+    else
+      printf '%-11s %-12s %s\n' "$m" "$(state_label "$st")" "${note:-$(${f}_desc)}"
+    fi
+  done
+}
+
+install_module() {
+  m=$1
+  apts=""
+  rc=0
+  for s in $(specs "$m"); do
+    if ! item_supported "$s"; then
+      warn "$(item_id "$s") is not available on $ARCH, skipped"
+      continue
+    fi
+    [ "$(item_kind "$s")" = apt ] && apts="$apts $(item_id "$s")"
+  done
+  if [ -n "$apts" ]; then
+    say "-- Debian packages"
+    apt_get $apts || rc=1
+  fi
+  for s in $(specs "$m"); do
+    item_supported "$s" || continue
+    id=$(item_id "$s")
+    case $(item_kind "$s") in
+      fp)
+        say "-- $id (Flathub)"
+        fp_install "$id" || { warn "$id: failed"; rc=1; }
+        ;;
+      pin)
+        if [ "$(item_state "$s")" = yes ]; then continue; fi
+        say "-- $id"
+        if "pin_$(fn "$id")_install"; then mark "tool-$id"; else warn "$id: failed"; rc=1; fi
+        ;;
+    esac
+  done
+  return $rc
+}
+
+remove_module() {
+  m=$1
+  apts=""
+  for s in $(specs "$m"); do
+    item_supported "$s" || continue
+    id=$(item_id "$s")
+    case $(item_kind "$s") in
+      apt) apts="$apts $id" ;;
+      fp) fp_remove "$id" ;;
+      pin)
+        "pin_$(fn "$id")_remove"
+        unmark "tool-$id"
+        ;;
+    esac
+  done
+  [ -n "$apts" ] && apt_remove $apts
+  return 0
+}
+
+parse_flags() {
+  rest=""
+  for a; do
+    case $a in
+      -y|--yes) ASSUME_YES=1 ;;
+      *) rest="$rest $a" ;;
+    esac
+  done
+  REST=${rest# }
+}
+
+cmd_install() {
+  parse_flags "$@"
+  set -- $REST
+  [ $# -gt 0 ] || { usage; exit 2; }
+  for m; do valid "$m" || die "unknown module '$m' (see: $PROG list)"; done
+  need_root install ${ASSUME_YES:+--yes} "$@"
+  rc=0
+  for m; do
+    read -r have total <<EOF
+$(mod_counts "$m")
+EOF
+    if [ "$total" -eq 0 ]; then
+      warn "$m has nothing available on $ARCH"
+      rc=1
+      continue
+    fi
+    say "== $m"
+    if install_module "$m"; then say "$m: done"; else warn "$m: some tools failed"; rc=1; fi
+  done
+  exit $rc
+}
+
+cmd_remove() {
+  [ $# -gt 0 ] || { usage; exit 2; }
+  for m; do valid "$m" || die "unknown module '$m' (see: $PROG list)"; done
+  need_root remove "$@"
+  for m; do
+    say "== $m"
+    remove_module "$m"
+    say "$m: removed"
+  done
+  exit 0
+}
+
+cmd_all() {
+  parse_flags "$@"
+  list=""
+  for m in $MODULES; do
+    IFS='|' read -r st _ <<EOF
+$(mod_state "$m")
+EOF
+    [ "$st" = na ] && continue
+    list="$list $m"
+  done
+  [ -n "$list" ] || die "no module is available on this machine"
+  need_root all ${ASSUME_YES:+--yes}
+  cmd_install ${ASSUME_YES:+--yes} $list
+}
+
+cmd=${1:-}
+[ $# -gt 0 ] && shift
+show_notice
+case $cmd in
+  ""|help|-h|--help) usage; echo; cmd_status ;;
+  list) cmd_list "$@" ;;
+  status) cmd_status "$@" ;;
+  install) cmd_install "$@" ;;
+  remove) cmd_remove "$@" ;;
+  all) cmd_all "$@" ;;
+  *) usage; exit 2 ;;
+esac

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Wireshark (Security)
+Comment=Network protocol analyzer
+Exec=wireshark %f
+TryExec=wireshark
+Icon=wireshark
+Terminal=false
+Categories=Network;X-KwickSecurity;
+Keywords=security;network;packets;pcap;

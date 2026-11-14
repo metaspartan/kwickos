@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Burp Suite
+Comment=Web application security testing proxy
+Exec=burpsuite
+TryExec=burpsuite
+Icon=security-medium
+Terminal=false
+Categories=Network;X-KwickSecurity;
+Keywords=security;web;proxy;pentest;

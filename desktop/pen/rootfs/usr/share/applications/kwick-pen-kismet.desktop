@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kismet
+Comment=Wireless network detector (web UI on http://localhost:2501)
+Exec=kismet
+TryExec=kismet
+Icon=network-wireless
+Terminal=true
+Categories=Network;X-KwickSecurity;
+Keywords=security;wifi;wireless;bluetooth;

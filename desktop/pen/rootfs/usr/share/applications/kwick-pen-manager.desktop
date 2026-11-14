@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Security Toolkit
+Comment=Install and remove security tool modules (authorized testing only)
+Exec=sh -c 'kwick-pen status; echo; echo "Install a module with: kwick-pen install <module>"; exec "${SHELL:-sh}"'
+Icon=security-medium
+Terminal=true
+Categories=System;X-KwickSecurity;
+Keywords=security;pentest;kali;hacking;

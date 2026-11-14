@@ -169,6 +169,8 @@ jobs:
           done
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkgpupkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkgamingpkg.sh
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkpenpkg.sh
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkagentspkg.sh
           for a in amd64 arm64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
           . config/darling.env; mkdir -p out/repo/pool/main

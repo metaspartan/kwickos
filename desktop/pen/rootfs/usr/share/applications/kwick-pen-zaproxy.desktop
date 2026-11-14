@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=OWASP ZAP
+Comment=Web application security scanner
+Exec=flatpak run org.zaproxy.ZAP
+TryExec=/var/lib/flatpak/exports/bin/org.zaproxy.ZAP
+Icon=security-medium
+Terminal=false
+Categories=Network;X-KwickSecurity;
+Keywords=security;web;scanner;proxy;pentest;
