@@ -76,6 +76,16 @@ jobs:
       - name: Kernel (generic)
         if: matrix.arch != 'riscv64' || inputs.release
         run: make kernel-generic ARCH=$ARCH KVER=${{ steps.kver.outputs.kver }}
+      - name: OpenZFS modules for the generic kernel
+        id: zfs
+        if: matrix.arch != 'riscv64' || inputs.release
+        continue-on-error: true
+        run: |
+          make zfs ARCH=$ARCH
+          ls -l out/repo/pool/main/kwick-zfs*_$ARCH.deb
+      - name: OpenZFS build report
+        if: steps.zfs.outcome == 'failure'
+        run: echo "::warning::no OpenZFS modules for $ARCH kernel $(cat KERNEL_VERSION), see the OpenZFS step (supported kernel range in config/zfs.env)" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Archive public key (release builds)
         if: inputs.release
         env:
@@ -126,4 +136,11 @@ jobs:
             out/${{ matrix.arch }}/kernel-*/config
             out/${{ matrix.arch }}/kernel-*/vmlinuz*
             out/${{ matrix.arch }}/kernel-*/modules.tar.zst
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: steps.zfs.outcome == 'success'
+        with:
+          name: kwickos-zfs-${{ matrix.arch }}
+          path: out/repo/pool/main/kwick-zfs*.deb
           retention-days: 14

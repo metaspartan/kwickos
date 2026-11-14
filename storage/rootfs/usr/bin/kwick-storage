@@ -1,0 +1,225 @@
+#!/bin/sh
+SELF=$(readlink -f "$0")
+LIBDIR=${KWICK_STORAGE_LIB:-/usr/lib/kwick/storage}
+. "$LIBDIR/lib.sh"
+
+MODULES="zfs raid btrfs array shares iscsi smart ups containers vms webui"
+for m in $MODULES; do . "$LIBDIR/$m.sh"; done
+
+fn() { echo "$1" | tr - _; }
+
+valid() {
+  case " $MODULES " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+usage() {
+  cat <<EOF
+usage: $PROG <command>
+  list                          modules and what they provide
+  status [--machine]            installed state of every module
+  install <module...>           install modules
+  remove <module...>            remove modules
+  all                           install every module this machine supports
+  overview [--machine]          disks, pools, arrays, shares and the web console
+  disks [--machine]             disks with size, model and what uses them
+  pool list|status|create|scrub|snapshot|snapshots|rollback|auto-snapshot
+                                ZFS pools, snapshots and schedules
+  raid list|create              mdadm arrays
+  array status|setup|sync|scrub|fix|teardown
+                                mergerfs + SnapRAID parity array
+  share list|add|remove|user    SMB and NFS shares
+  smart status|email|log|spindown
+  ups setup|status
+  webui                         print the Cockpit address
+  schedules                     scrub, sync and snapshot jobs
+modules: $MODULES
+EOF
+}
+
+mod_state() {
+  f=$(fn "$1")
+  s=$("${f}_state")
+  if [ "$s" = na ] && type "${f}_why" >/dev/null 2>&1; then echo "na|$("${f}_why")"; else echo "$s|"; fi
+}
+
+state_label() {
+  case $1 in
+    yes) echo installed ;;
+    part) echo partial ;;
+    no) echo - ;;
+    na) echo unavailable ;;
+  esac
+}
+
+cmd_list() {
+  for m in $MODULES; do
+    f=$(fn "$m")
+    printf '%-12s %s\n' "$m" "$("${f}_desc")"
+  done
+}
+
+cmd_status() {
+  machine=""
+  [ "${1:-}" = --machine ] && machine=1
+  for m in $MODULES; do
+    f=$(fn "$m")
+    IFS='|' read -r st note <<EOF
+$(mod_state "$m")
+EOF
+    if [ -n "$machine" ]; then
+      printf '%s|%s|%s|%s\n' "$m" "$st" "$("${f}_desc")" "$note"
+    else
+      printf '%-12s %-12s %s\n' "$m" "$(state_label "$st")" "${note:-$("${f}_desc")}"
+    fi
+  done
+}
+
+cmd_install() {
+  [ $# -gt 0 ] || { usage; exit 2; }
+  for m; do valid "$m" || die "unknown module '$m' (see: $PROG list)"; done
+  need_root install "$@"
+  mkdir -p "$STATE_DIR" "$CONF_DIR"
+  fails=0
+  for m; do
+    f=$(fn "$m")
+    say "== $m"
+    if "${f}_install"; then say "$m: done"; else warn "$m: failed"; fails=1; fi
+  done
+  exit $fails
+}
+
+cmd_remove() {
+  [ $# -gt 0 ] || { usage; exit 2; }
+  for m; do valid "$m" || die "unknown module '$m' (see: $PROG list)"; done
+  need_root remove "$@"
+  fails=0
+  for m; do
+    f=$(fn "$m")
+    say "== $m"
+    if "${f}_remove"; then say "$m: removed"; else warn "$m: failed"; fails=1; fi
+  done
+  exit $fails
+}
+
+cmd_all() {
+  set --
+  for m in $MODULES; do
+    IFS='|' read -r st _ <<EOF
+$(mod_state "$m")
+EOF
+    [ "$st" = na ] && continue
+    set -- "$@" "$m"
+  done
+  [ $# -gt 0 ] || die "no module is available on this machine"
+  need_root all
+  cmd_install "$@"
+}
+
+disk_usage() {
+  n=$1
+  u=""
+  if have zpool && [ -e /dev/zfs ]; then
+    zp=$(zpool list -vHP 2>/dev/null | awk -F '\t' '$1 != "" { p = $1 } $2 ~ /^\// { print p, $2 }' | while read -r p d; do
+      case $(readlink -f "$d") in /dev/"$n" | /dev/"$n"[0-9]* | /dev/"$n"p[0-9]*) echo "$p" ;; esac
+    done | head -n 1)
+    [ -n "$zp" ] && { echo "zfs $zp"; return 0; }
+  fi
+  for p in /dev/"$n" /dev/"$n"[0-9]* /dev/"$n"p[0-9]*; do
+    [ -b "$p" ] || continue
+    mp=$(awk -v d="$p" '$1 == d { print $2; exit }' /proc/mounts)
+    if [ -n "$mp" ]; then u="$u${u:+, }$mp"; continue; fi
+    t=$(blkid "$p" 2>/dev/null | sed -n 's/.* TYPE="\([^"]*\)".*/\1/p')
+    l=$(blkid "$p" 2>/dev/null | sed -n 's/.* LABEL="\([^"]*\)".*/\1/p')
+    case $t in
+      zfs_member) u="$u${u:+, }zfs ${l:-pool}" ;;
+      linux_raid_member) u="$u${u:+, }md ${l:-member}" ;;
+      LVM2_member) u="$u${u:+, }lvm" ;;
+      crypto_LUKS) u="$u${u:+, }luks" ;;
+      swap) u="$u${u:+, }swap" ;;
+      "") ;;
+      *) u="$u${u:+, }$t" ;;
+    esac
+  done
+  if [ -z "$u" ]; then
+    for p in /sys/block/"$n"/"$n"*; do [ -e "$p/partition" ] && u=partitioned && break; done
+  fi
+  echo "${u:-empty}"
+}
+
+cmd_disks() {
+  machine=${1:-}
+  for s in /sys/block/*; do
+    n=${s##*/}
+    case $n in loop* | ram* | zram* | dm-* | md* | sr* | fd* | nbd* | zd* | mtd* | *boot[0-9] | *rpmb) continue ;; esac
+    sz=$(($(cat "$s/size" 2>/dev/null || echo 0) * 512))
+    [ "$sz" -gt 0 ] || continue
+    model=$(sed 's/ *$//' "$s/device/model" 2>/dev/null)
+    [ -n "$model" ] || model=$(cat "$s/device/name" 2>/dev/null)
+    case $(readlink -f "$s") in *virtio*) [ -n "$model" ] || model="Virtio disk" ;; esac
+    rota=$(cat "$s/queue/rotational" 2>/dev/null || echo 0)
+    kind=ssd
+    case $n in nvme*) kind=nvme ;; *) [ "$rota" = 1 ] && kind=hdd ;; esac
+    use=$(disk_usage "$n")
+    if [ "$machine" = --machine ]; then
+      printf 'disk|%s|%s|%s|%s|%s\n' "$n" "$(human "$sz")" "${model:-Disk}" "$kind" "$use"
+    else
+      printf '%-10s %8s  %-5s %-28s %s\n' "$n" "$(human "$sz")" "$kind" "${model:-Disk}" "$use"
+    fi
+  done
+}
+
+cmd_overview() {
+  machine=${1:-}
+  if [ "$machine" != --machine ]; then
+    say "DISKS"; cmd_disks
+    if have zpool && [ -e /dev/zfs ]; then echo; say "ZFS POOLS"; zpool list 2>/dev/null; fi
+    if grep -q '^md' /proc/mdstat 2>/dev/null; then echo; say "MD ARRAYS"; grep '^md' /proc/mdstat; fi
+    if [ -f "$ARRAY_CONF" ]; then echo; say "PARITY ARRAY"; df -h "$(sed -n 's/^MOUNT=//p' "$ARRAY_CONF")" | tail -n 1; fi
+    s=$(share_list); [ -n "$s" ] && { echo; say "SHARES"; echo "$s"; }
+    pkg_installed cockpit && { echo; say "WEB CONSOLE  $(webui_url)"; }
+    return 0
+  fi
+  cmd_disks --machine
+  if have zpool && [ -e /dev/zfs ]; then
+    zpool list -H -o name,size,alloc,health 2>/dev/null | while IFS="$(printf '\t')" read -r n sz al h; do
+      printf 'zpool|%s|%s|%s|%s\n' "$n" "$sz" "$al" "$h"
+    done
+  fi
+  awk '/^md/ { n = $1; st = $3; lv = $4; getline; printf "md|%s|%s|%s|%s\n", n, lv, st, $1 }' /proc/mdstat 2>/dev/null
+  if [ -f "$ARRAY_CONF" ]; then
+    m=$(sed -n 's/^MOUNT=//p' "$ARRAY_CONF")
+    nd=$(sed -n 's/^DATA=//p' "$ARRAY_CONF" | wc -w | tr -d ' ')
+    np=$(sed -n 's/^PARITY=//p' "$ARRAY_CONF" | wc -w | tr -d ' ')
+    df -kP "$m" 2>/dev/null | awk -v m="$m" -v d="$nd" -v p="$np" 'NR == 2 { printf "array|%s|%.1fG|%.1fG|%s|%s\n", m, $2 / 1048576, $3 / 1048576, d, p }'
+  fi
+  share_list --machine
+  if pkg_installed cockpit; then
+    st=inactive
+    if svc_active cockpit.socket || svc_active kwick-cockpit-tls; then st=active; fi
+    printf 'console|%s|%s\n' "$(webui_url)" "$st"
+  fi
+  return 0
+}
+
+cmd=${1:-}
+[ $# -gt 0 ] && shift
+case $cmd in
+  list) cmd_list ;;
+  status) cmd_status "$@" ;;
+  install) cmd_install "$@" ;;
+  remove) cmd_remove "$@" ;;
+  all) cmd_all ;;
+  overview) cmd_overview "$@" ;;
+  disks) cmd_disks "$@" ;;
+  pool | pools) cmd_pool "$@" ;;
+  raid) cmd_raid "$@" ;;
+  array) cmd_array "$@" ;;
+  share | shares) cmd_share "$@" ;;
+  smart) cmd_smart "$@" ;;
+  ups) cmd_ups "$@" ;;
+  webui) webui_url ;;
+  schedules) schedule_list ;;
+  "" | help | -h | --help) usage; echo; cmd_status ;;
+  *) usage; exit 2 ;;
+esac
