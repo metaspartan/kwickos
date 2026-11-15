@@ -1,4 +1,10 @@
 ARG BASE=kwickos:dev
+
+FROM debian:trixie AS kwinflip
+COPY --from=kwinflipsrc . /flip/src/kwin-flip
+COPY --from=kwickscripts mkflippkg.sh /flip/scripts/mkflippkg.sh
+RUN bash /flip/scripts/mkflippkg.sh /flip/out
+
 FROM ${BASE}
 SHELL ["/bin/sh", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,6 +17,7 @@ RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firm
 
 COPY rootfs/ /
 COPY gaming/rootfs/ /
+COPY --from=kwinflip /flip/out/ /
 RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen; locale-gen && update-locale LANG=en_US.UTF-8
 RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all
 RUN set -e; \

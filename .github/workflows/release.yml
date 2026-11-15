@@ -152,6 +152,11 @@ jobs:
           done
           docker buildx imagetools create -t "$REPO:$VERSION" -t "$REPO:$TAG" -t "$REPO:latest" $refs
 
+      - name: Set up QEMU user emulation (arm64 KWin plugin build)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Kernel packages + signed apt repository
         env:
           KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
@@ -173,6 +178,7 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkagentspkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkstoragepkg.sh
           cp dl/kwickos-zfs-*/kwick-zfs*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no OpenZFS module packages in this release"
+          docker run --rm --platform linux/arm64 -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash /src/scripts/mkflippkg.sh /out/kwin-flip-arm64
           for a in amd64 arm64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
           . config/darling.env; mkdir -p out/repo/pool/main

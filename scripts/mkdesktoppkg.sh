@@ -8,6 +8,11 @@ find "$P" -type f \( -path '*/usr/lib/kwick/*' -o -path '*/usr/bin/kwick-*' \) -
 chmod 755 "$P/usr/lib/kwick/fetch-fonts"
 "$P/usr/lib/kwick/fetch-fonts" "$P" all
 "$SRC/scripts/mkroundedpkg.sh" "$P"
+if [ -d "$OUT/kwin-flip-$ARCH/usr" ]; then
+  cp -r --no-preserve=ownership "$OUT/kwin-flip-$ARCH/." "$P/"
+else
+  bash "$SRC/scripts/mkflippkg.sh" "$P"
+fi
 chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 "$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
