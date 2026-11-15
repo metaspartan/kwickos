@@ -313,8 +313,14 @@ FlipEffect::Pose FlipEffect::pose(EffectWindow *w, const Animation &animation, d
 {
     Pose result;
     const qreal t = animation.started ? std::clamp(animation.timeLine.value(), 0.0, 1.0) : 0.0;
-    result.progress = animation.closing ? t * t : (1.0 - t) * (1.0 - t);
-    result.eased = result.progress * result.progress * (3.0 - 2.0 * result.progress);
+    if (animation.closing) {
+        result.progress = t * t;
+        result.eased = t * t * (3.0 - 2.0 * t);
+    } else {
+        const qreal r = 1.0 - t;
+        result.progress = r * r * r;
+        result.eased = result.progress;
+    }
 
     const QRectF frame = snapToPixels(w->frameGeometry(), scale);
     result.half = frame.size() / 2.0;
@@ -363,7 +369,11 @@ FlipEffect::Pose FlipEffect::pose(EffectWindow *w, const Animation &animation, d
                                  0.0f, float(-distance), float(-cy), float(cy * distance),
                                  0.0f, 0.0f, 0.0f, 0.0f,
                                  0.0f, 0.0f, -1.0f, float(distance));
-    result.transform = perspective * model * toCentered;
+    result.perspective = perspective;
+    result.world = model * toCentered;
+    result.transform = perspective * result.world;
+    result.distance = distance;
+    result.depthShift = big;
     result.valid = true;
     return result;
 }
@@ -396,7 +406,8 @@ QRect FlipEffect::bounds(EffectWindow *w, const Animation &animation) const
         right = std::max(right, x);
         bottom = std::max(bottom, y);
     }
-    return QRectF(QPointF(left, top), QPointF(right, bottom)).toAlignedRect().adjusted(-4, -4, 4, 4);
+    const int margin = int(0.2 * std::max(ps.half.width(), ps.half.height()) * 2.0) + 6;
+    return QRectF(QPointF(left, top), QPointF(right, bottom)).toAlignedRect().adjusted(-margin, -margin, margin, margin);
 }
 
 void FlipEffect::scheduleRepaint(EffectWindow *w, const Animation &animation) const
@@ -446,13 +457,13 @@ void FlipEffect::paintFlipped(const RenderTarget &renderTarget, const RenderView
 
     ShaderBinder binder(m_shader.get());
     GLShader *shader = binder.shader();
-    shader->setUniform("uMvp", mvp);
     shader->setUniform("uHalf", QVector2D(float(half.width()), float(half.height())));
     shader->setUniform("uNormal", ps.normal);
     shader->setUniform("uEased", float(e));
     shader->setUniform("uProgress", float(p));
     shader->setUniform("uClock", float(animation.timeLine.elapsed().count() * 0.001));
     shader->setUniform("uOpacity", float(data.opacity()));
+    shader->setUniform("uDistance", float(ps.distance));
     shader->setUniform("sampler", 0);
     shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
 
@@ -466,7 +477,22 @@ void FlipEffect::paintFlipped(const RenderTarget &renderTarget, const RenderView
 
     vbo->bindArrays();
     animation.texture->bind();
+
+    if (e > 0.01) {
+        QMatrix4x4 drop;
+        drop.translate(float(-0.035 * ps.depthShift * e), float(-0.075 * ps.depthShift * e), float(-0.22 * ps.depthShift * e));
+        const QMatrix4x4 shadowWorld = drop * ps.world;
+        shader->setUniform("uMvp", viewport.projectionMatrix() * device * ps.perspective * shadowWorld);
+        shader->setUniform("uWorld", shadowWorld);
+        shader->setUniform("uPass", 1);
+        vbo->draw(clipRegion, GL_TRIANGLES, 0, vertices.size(), clipping);
+    }
+
+    shader->setUniform("uMvp", mvp);
+    shader->setUniform("uWorld", ps.world);
+    shader->setUniform("uPass", 0);
     vbo->draw(clipRegion, GL_TRIANGLES, 0, vertices.size(), clipping);
+
     animation.texture->unbind();
     vbo->unbindArrays();
 

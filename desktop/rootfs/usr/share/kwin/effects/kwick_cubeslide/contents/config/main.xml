@@ -3,13 +3,22 @@
     <kcfgfile name=""/>
     <group name="">
         <entry name="Duration" type="Int">
-            <default>680</default>
+            <default>1000</default>
+        </entry>
+        <entry name="Scrub" type="Double">
+            <default>-1</default>
+        </entry>
+        <entry name="ScrubFrom" type="Double">
+            <default>0</default>
+        </entry>
+        <entry name="ScrubTo" type="Double">
+            <default>90</default>
         </entry>
         <entry name="WindowLift" type="Double">
             <default>100</default>
         </entry>
         <entry name="PullBack" type="Double">
-            <default>0.5</default>
+            <default>0.72</default>
         </entry>
         <entry name="Reflection" type="Double">
             <default>0.5</default>

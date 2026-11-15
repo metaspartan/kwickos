@@ -95,7 +95,7 @@ void main() {
     float styleId = floor(uStyle + 0.5);
     float inferno = float(styleId > 0.5 && styleId < 1.5);
     float legacy = float(styleId > 3.5);
-    vec2 mg = vec2(clamp(0.3 * size.x, 90.0, 340.0), clamp(1.1 * size.y, 280.0, 700.0)) * hs * (1.0 + 0.3 * inferno + 0.1 * legacy);
+    vec2 mg = vec2(clamp(0.09 * size.x, 28.0, 110.0), clamp(0.27 * size.y, 64.0, 250.0)) * hs * (1.0 + 0.15 * inferno);
     vec2 S = 1.0 + 2.0 * mg / size;
     vec2 tc = (texcoord0 - 0.5) * S + 0.5;
     vec2 pxp = (tc - 0.5) * size;
@@ -159,7 +159,7 @@ void main() {
         float life = 0.62;
         float dtE = life / 12.0;
         float col0 = floor(P.x / cell);
-        float riseMax = min(size.y * 1.7, mg.y * 0.99);
+        float riseMax = min(size.y * 0.5 * hs, mg.y * 2.4);
         for (int sl = 0; sl < 12; sl++) {
             float m = floor(lp / dtE) - float(sl);
             for (int dc = -3; dc <= 3; dc++) {
@@ -216,7 +216,7 @@ void main() {
     float colN2 = fbm3(vec2(np.x * 3.1, uSeed + 4.0));
     float frontCol = clamp(front, -0.05, 1.05) + (0.5 - colN) * 0.34 + (0.5 - colN2) * 0.08;
     float act = smoothstep(0.02, 0.14, p) * (1.0 - smoothstep(0.88, 1.0, p));
-    float plumeH = (0.5 + 1.7 * pow(sin(3.14159 * p), 0.7)) * plumeAmt * hs;
+    float plumeH = (0.18 + 0.5 * pow(sin(3.14159 * p), 0.7)) * plumeAmt * hs;
     float hAF = height - frontCol;
     float qq = hAF / max(plumeH, 0.05);
     float side = outDist / flareW;

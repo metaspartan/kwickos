@@ -20,7 +20,7 @@ class KwickFlameEffect {
     }
 
     loadConfig() {
-        this.duration = animationTime(effect.readConfig("Style", 0) === 4 ? 1000 : effect.readConfig("Duration", 1100));
+        this.duration = animationTime(effect.readConfig("Style", 0) === 4 ? effect.readConfig("LegacyDuration", 1000) : effect.readConfig("Duration", 1100));
         this.opening = effect.readConfig("Opening", true);
         this.seeded = true;
         this.style = effect.readConfig("Style", 0);
@@ -57,9 +57,9 @@ class KwickFlameEffect {
         this.loadConfig();
         this.hold(w);
         const hs = Math.max(0.3, this.heightScale);
-        const sf = this.style === 1 ? 1.3 : (this.style === 4 ? 1.1 : 1.0);
-        const mx = Math.min(Math.max(0.3 * w.width, 90), 340) * hs * sf;
-        const my = Math.min(Math.max(1.1 * w.height, 280), 700) * hs * sf;
+        const sf = this.style === 1 ? 1.15 : 1.0;
+        const mx = Math.min(Math.max(0.09 * w.width, 28), 110) * hs * sf;
+        const my = Math.min(Math.max(0.27 * w.height, 64), 250) * hs * sf;
         const sx = 1 + 2 * mx / Math.max(1, w.width);
         const sy = 1 + 2 * my / Math.max(1, w.height);
         if (this.seeded) {

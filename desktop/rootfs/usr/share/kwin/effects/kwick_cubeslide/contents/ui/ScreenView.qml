@@ -12,7 +12,9 @@ Item {
     readonly property real viewDistance: 0.5 * height / Math.tan(0.5 * camera.fieldOfView * Math.PI / 180)
     readonly property real pull: effect.pull
     readonly property real cameraRadius: faceDistance + viewDistance + pull * effect.configuration.PullBack * (faceDistance + viewDistance) * 1.1
-    readonly property real cameraHeight: pull * height * 0.34
+    readonly property real blur: effect.blur
+    readonly property real trail: effect.trail
+    readonly property real cameraHeight: pull * height * 0.46
     readonly property real tilt: Math.atan2(cameraHeight, cameraRadius) * 180 / Math.PI
     readonly property real floorY: -height / 2 - 14
     readonly property real lift: effect.configuration.WindowLift
@@ -46,19 +48,25 @@ Item {
             }
             Rectangle {
                 anchors.fill: parent
-                color: "#000000"
-                opacity: 0.18
+                color: "#060916"
+                opacity: 0.74
             }
             Canvas {
                 anchors.fill: parent
                 renderTarget: Canvas.Image
-            renderStrategy: Canvas.Immediate
+                renderStrategy: Canvas.Immediate
                 onPaint: {
                     const c = getContext("2d");
                     c.reset();
-                    const g = c.createRadialGradient(width / 2, height * 0.46, height * 0.1, width / 2, height * 0.5, Math.max(width, height) * 0.75);
+                    const glow = c.createRadialGradient(width / 2, height * 0.5, 0, width / 2, height * 0.5, Math.max(width, height) * 0.55);
+                    glow.addColorStop(0, "rgba(96,128,214,0.46)");
+                    glow.addColorStop(0.45, "rgba(52,74,150,0.2)");
+                    glow.addColorStop(1, "rgba(20,30,70,0)");
+                    c.fillStyle = glow;
+                    c.fillRect(0, 0, width, height);
+                    const g = c.createRadialGradient(width / 2, height * 0.46, height * 0.3, width / 2, height * 0.5, Math.max(width, height) * 0.8);
                     g.addColorStop(0, "rgba(0,0,0,0)");
-                    g.addColorStop(1, "rgba(0,0,0,0.5)");
+                    g.addColorStop(1, "rgba(0,0,0,0.55)");
                     c.fillStyle = g;
                     c.fillRect(0, 0, width, height);
                 }
@@ -110,6 +118,25 @@ Item {
         }
     }
 
+    function softBox(c, size, margin, peak, power) {
+        const img = c.createImageData(size, size);
+        const half = size / 2 - margin;
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const dx = Math.max(0, Math.abs(x + 0.5 - size / 2) - half + margin * 0.5);
+                const dy = Math.max(0, Math.abs(y + 0.5 - size / 2) - half + margin * 0.5);
+                const d = Math.sqrt(dx * dx + dy * dy) / (margin * 0.5);
+                const a = Math.pow(Math.max(0, 1 - d), power) * peak;
+                const i = (y * size + x) * 4;
+                img.data[i] = 0;
+                img.data[i + 1] = 0;
+                img.data[i + 2] = 4;
+                img.data[i + 3] = Math.round(255 * a);
+            }
+        }
+        c.putImageData(img, 0, 0);
+    }
+
     Texture {
         id: shadowTex
         sourceItem: Canvas {
@@ -120,10 +147,82 @@ Item {
             onPaint: {
                 const c = getContext("2d");
                 c.reset();
-                for (let i = 0; i < 40; i++) {
-                    c.fillStyle = "rgba(0,0,0," + (0.05 + 0.0008 * i) + ")";
-                    c.fillRect(i, i, 128 - 2 * i, 128 - 2 * i);
+                root.softBox(c, 128, 44, 0.62, 1.7);
+            }
+            Component.onCompleted: requestPaint()
+        }
+    }
+
+    Texture {
+        id: contactTex2
+        sourceItem: Canvas {
+            width: 128
+            height: 128
+            renderTarget: Canvas.Image
+            renderStrategy: Canvas.Immediate
+            onPaint: {
+                const c = getContext("2d");
+                c.reset();
+                root.softBox(c, 128, 16, 0.85, 2.2);
+            }
+            Component.onCompleted: requestPaint()
+        }
+    }
+
+    Texture {
+        id: edgeTex
+        generateMipmaps: true
+        mipFilter: Texture.Linear
+        sourceItem: Canvas {
+            width: 1024
+            height: 576
+            renderTarget: Canvas.Image
+            renderStrategy: Canvas.Immediate
+            onPaint: {
+                const c = getContext("2d");
+                c.reset();
+                const g = c.createLinearGradient(0, 0, 0, height);
+                g.addColorStop(0, "rgba(150,185,255,0.10)");
+                g.addColorStop(0.5, "rgba(150,185,255,0.0)");
+                g.addColorStop(1, "rgba(150,185,255,0.05)");
+                c.fillStyle = g;
+                c.fillRect(0, 0, width, height);
+                c.lineWidth = 12;
+                c.strokeStyle = "rgba(140,175,255,0.16)";
+                c.strokeRect(7, 7, width - 14, height - 14);
+                c.lineWidth = 3;
+                c.strokeStyle = "rgba(225,238,255,0.92)";
+                c.strokeRect(1.5, 1.5, width - 3, height - 3);
+            }
+            Component.onCompleted: requestPaint()
+        }
+    }
+
+    Texture {
+        id: glintTex
+        sourceItem: Canvas {
+            width: 128
+            height: 128
+            renderTarget: Canvas.Image
+            renderStrategy: Canvas.Immediate
+            onPaint: {
+                const c = getContext("2d");
+                c.reset();
+                const img = c.createImageData(128, 128);
+                for (let y = 0; y < 128; y++) {
+                    for (let x = 0; x < 128; x++) {
+                        const u = (x + 0.5) / 128 * 2 - 1;
+                        const v = (y + 0.5) / 128 * 2 - 1;
+                        const band = Math.pow(Math.max(0, 1 - Math.abs(u)), 2.4);
+                        const fall = Math.pow(Math.max(0, 1 - Math.abs(v)), 0.7);
+                        const i = (y * 128 + x) * 4;
+                        img.data[i] = 255;
+                        img.data[i + 1] = 255;
+                        img.data[i + 2] = 255;
+                        img.data[i + 3] = Math.round(255 * band * fall);
+                    }
                 }
+                c.putImageData(img, 0, 0);
             }
             Component.onCompleted: requestPaint()
         }
@@ -162,9 +261,10 @@ Item {
                 const c = getContext("2d");
                 c.reset();
                 const g = c.createLinearGradient(0, 256, 0, 0);
-                g.addColorStop(0, "rgba(20,30,55,0.0)");
-                g.addColorStop(0.6, "rgba(20,30,55,0.7)");
-                g.addColorStop(1, "rgba(20,30,55,0.95)");
+                g.addColorStop(0, "rgba(14,20,44,0.0)");
+                g.addColorStop(0.2, "rgba(14,20,44,0.42)");
+                g.addColorStop(0.55, "rgba(14,20,44,0.86)");
+                g.addColorStop(1, "rgba(14,20,44,1.0)");
                 c.fillStyle = g;
                 c.fillRect(0, 0, 8, 256);
             }
@@ -192,6 +292,11 @@ Item {
                 required property int index
                 readonly property real bright: root.faceBrightness(index)
                 readonly property real a: root.angleTick * index * Math.PI / 180
+                readonly property real rel: ((effect.azimuth - root.angleTick * index) % 360 + 540) % 360 - 180
+                readonly property real facing: Math.max(0, Math.cos(rel * Math.PI / 180))
+                readonly property real rim: Math.min(1, 0.2 + 2.4 * (1 - facing))
+                readonly property real glintU: Math.max(-1, Math.min(1, rel / 42))
+                readonly property real glintGain: facing * Math.max(0, 1 - Math.pow(Math.abs(glintU), 3))
 
                 visible: root.cameraRadius * Math.cos((effect.azimuth - root.angleTick * index) * Math.PI / 180) - root.faceDistance > 0
                 eulerRotation.y: root.angleTick * index
@@ -234,8 +339,22 @@ Item {
                                 lighting: PrincipledMaterial.NoLighting
                                 cullMode: Material.NoCulling
                                 alphaMode: PrincipledMaterial.Blend
-                                baseColor: Qt.rgba(1, 1, 1, 0.6 + 0.4 * root.pull)
+                                baseColor: Qt.rgba(1, 1, 1, 0.55 + 0.45 * root.pull)
                                 baseColorMap: shadowTex
+                            }
+                        }
+
+                        Model {
+                            visible: !slot.plain && !slot.w.minimized && root.pull > 0.12
+                            source: "#Rectangle"
+                            scale: Qt.vector3d((Math.max(1, slot.w.width) + 22 + 0.1 * slot.z0) / 100, (Math.max(1, slot.w.height) + 22 + 0.1 * slot.z0) / 100, 1)
+                            position: Qt.vector3d(slot.cx + 0.03 * slot.z0, slot.cy - 0.05 * slot.z0, 1.5)
+                            materials: PrincipledMaterial {
+                                lighting: PrincipledMaterial.NoLighting
+                                cullMode: Material.NoCulling
+                                alphaMode: PrincipledMaterial.Blend
+                                baseColor: Qt.rgba(1, 1, 1, Math.min(1, root.pull * 1.6))
+                                baseColorMap: contactTex2
                             }
                         }
 
@@ -260,6 +379,68 @@ Item {
                                 }
                             }
                         }
+
+                        Model {
+                            visible: !world.mirror && !slot.plain && !slot.w.minimized && root.pull > 0.12
+                            source: "#Rectangle"
+                            scale: Qt.vector3d(Math.max(1, slot.w.width) / 100, Math.max(1, slot.w.height) / 100, 1)
+                            position: Qt.vector3d(slot.cx, slot.cy, slot.z0 + 0.6)
+                            materials: PrincipledMaterial {
+                                lighting: PrincipledMaterial.NoLighting
+                                cullMode: Material.NoCulling
+                                alphaMode: PrincipledMaterial.Blend
+                                baseColor: Qt.rgba(1, 1, 1, Math.min(1, root.pull * 1.4) * (0.45 + 0.55 * face.rim))
+                                baseColorMap: Texture {
+                                    generateMipmaps: true
+                                    mipFilter: Texture.Linear
+                                    sourceItem: Canvas {
+                                        width: Math.max(8, slot.w.width)
+                                        height: Math.max(8, slot.w.height)
+                                        renderTarget: Canvas.Image
+                                        renderStrategy: Canvas.Immediate
+                                        onWidthChanged: requestPaint()
+                                        onHeightChanged: requestPaint()
+                                        onPaint: {
+                                            const c = getContext("2d");
+                                            c.reset();
+                                            const r = 11;
+                                            const rr = function (inset) {
+                                                c.beginPath();
+                                                c.moveTo(inset + r, inset);
+                                                c.arcTo(width - inset, inset, width - inset, height - inset, r);
+                                                c.arcTo(width - inset, height - inset, inset, height - inset, r);
+                                                c.arcTo(inset, height - inset, inset, inset, r);
+                                                c.arcTo(inset, inset, width - inset, inset, r);
+                                                c.closePath();
+                                            };
+                                            c.lineWidth = 7;
+                                            c.strokeStyle = "rgba(160,195,255,0.13)";
+                                            rr(4);
+                                            c.stroke();
+                                            c.lineWidth = 1.6;
+                                            c.strokeStyle = "rgba(235,244,255,0.85)";
+                                            rr(0.8);
+                                            c.stroke();
+                                        }
+                                        Component.onCompleted: requestPaint()
+                                    }
+                                }
+                            }
+                        }
+
+                        Model {
+                            visible: !world.mirror && !slot.plain && !slot.w.minimized && root.pull > 0.12
+                            source: "#Rectangle"
+                            scale: Qt.vector3d(Math.max(1, slot.w.width) * 0.34 / 100, Math.max(1, slot.w.height) / 100, 1)
+                            position: Qt.vector3d(slot.cx + face.glintU * Math.max(1, slot.w.width) * 0.42, slot.cy, slot.z0 + 1.2)
+                            materials: PrincipledMaterial {
+                                lighting: PrincipledMaterial.NoLighting
+                                cullMode: Material.NoCulling
+                                alphaMode: PrincipledMaterial.Blend
+                                baseColor: Qt.rgba(1, 1, 1, 0.3 * root.pull * face.glintGain)
+                                baseColorMap: glintTex
+                            }
+                        }
                     }
                 }
 
@@ -273,7 +454,36 @@ Item {
                         lighting: PrincipledMaterial.NoLighting
                         cullMode: Material.NoCulling
                         alphaMode: PrincipledMaterial.Blend
-                        baseColor: Qt.rgba(0.35, 0.5, 0.85, 0.22 * root.pull)
+                        baseColor: Qt.rgba(0.4, 0.55, 0.95, 0.34 * root.pull)
+                        baseColorMap: edgeTex
+                    }
+                }
+
+                Model {
+                    visible: !world.mirror && root.pull > 0.04
+                    source: "#Rectangle"
+                    scale: Qt.vector3d(root.width / 100, root.height / 100, 1)
+                    position: Qt.vector3d(0, 0, 4)
+                    materials: PrincipledMaterial {
+                        lighting: PrincipledMaterial.NoLighting
+                        cullMode: Material.NoCulling
+                        alphaMode: PrincipledMaterial.Blend
+                        baseColor: Qt.rgba(1, 1, 1, Math.min(1, root.pull * 1.5) * (0.5 + 0.5 * face.rim))
+                        baseColorMap: edgeTex
+                    }
+                }
+
+                Model {
+                    visible: !world.mirror && root.pull > 0.08
+                    source: "#Rectangle"
+                    scale: Qt.vector3d(root.width * 0.3 / 100, root.height / 100, 1)
+                    position: Qt.vector3d(face.glintU * root.width * 0.34, 0, root.lift * 1.7 + 6)
+                    materials: PrincipledMaterial {
+                        lighting: PrincipledMaterial.NoLighting
+                        cullMode: Material.NoCulling
+                        alphaMode: PrincipledMaterial.Blend
+                        baseColor: Qt.rgba(1, 1, 1, 0.34 * root.pull * face.glintGain)
+                        baseColorMap: glintTex
                     }
                 }
 
@@ -281,12 +491,12 @@ Item {
                     visible: !world.mirror && root.pull > 0.12
                     source: "#Rectangle"
                     scale: Qt.vector3d(root.width / 100, root.height / 100, 1)
-                    position: Qt.vector3d(0, 0, root.lift * 1.7 + 6)
+                    position: Qt.vector3d(0, 0, root.lift * 1.7 + 5)
                     materials: PrincipledMaterial {
                         lighting: PrincipledMaterial.NoLighting
                         cullMode: Material.NoCulling
                         alphaMode: PrincipledMaterial.Blend
-                        baseColor: Qt.rgba(1, 1, 1, 0.9 * root.pull * (1 - 0.5 * (1 - face.bright)))
+                        baseColor: Qt.rgba(1, 1, 1, 0.5 * root.pull * (1 - 0.5 * (1 - face.bright)))
                         baseColorMap: sheenTex
                     }
                 }
@@ -324,7 +534,7 @@ Item {
             id: camera
             clipNear: 10.0
             clipFar: 100000.0
-            fieldOfView: 45
+            fieldOfView: 40
             eulerRotation.y: effect.azimuth
             eulerRotation.x: -root.tilt
             position: {
@@ -389,6 +599,14 @@ Item {
 
             Loader3D {
                 sourceComponent: worldC
+            }
+
+            Loader3D {
+                sourceComponent: worldC
+                active: root.blur > 0.03
+                visible: root.blur > 0.03
+                opacity: Math.min(0.34, root.blur * 0.4)
+                eulerRotation.y: root.trail
             }
         }
     }

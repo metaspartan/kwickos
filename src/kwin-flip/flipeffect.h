@@ -59,7 +59,11 @@ private:
     struct Pose
     {
         QMatrix4x4 transform;
+        QMatrix4x4 perspective;
+        QMatrix4x4 world;
         QVector3D normal;
+        qreal distance = 1.0;
+        qreal depthShift = 0.0;
         QSizeF half;
         qreal progress = 0.0;
         qreal eased = 0.0;
