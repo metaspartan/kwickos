@@ -101,7 +101,7 @@ ColumnLayout {
                     anchors.verticalCenter: parent.verticalCenter
                     implicitWidth: 220
                     from: 0
-                    to: 24
+                    to: 32
                     step: 1
                     value: Sys.radius
                     onValueChanged: if (pressed) Sys.radius = value

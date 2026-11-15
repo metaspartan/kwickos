@@ -152,10 +152,10 @@ jobs:
           done
           docker buildx imagetools create -t "$REPO:$VERSION" -t "$REPO:$TAG" -t "$REPO:latest" $refs
 
-      - name: Set up QEMU user emulation (arm64 KWin plugin build)
+      - name: Set up QEMU user emulation (arm64 and riscv64 KWin plugin builds)
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: arm64
+          platforms: arm64,riscv64
 
       - name: Kernel packages + signed apt repository
         env:
@@ -165,7 +165,7 @@ jobs:
           docker build -t kwick-builder -f docker/Dockerfile.builder docker
           mkdir -p out
           for a in amd64 arm64 riscv64; do
-            for f in virt generic; do
+            for f in virt generic k1; do
               d=dl/kwickos-$a/kernel-$f
               [ -f "$d/version" ] || continue
               mkdir -p out/$a/kernel-$f && cp -r $d/. out/$a/kernel-$f/
@@ -179,8 +179,8 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkagentspkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkstoragepkg.sh
           cp dl/kwickos-zfs-*/kwick-zfs*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no OpenZFS module packages in this release"
-          docker run --rm --platform linux/arm64 -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-arm64 && bash /src/scripts/mkglasspkg.sh /out/kwin-liquidglass-arm64 && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-arm64"
-          for a in amd64 arm64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
+          for a in arm64 riscv64; do docker run --rm --platform linux/$a -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-$a && bash /src/scripts/mkglasspkg.sh /out/kwin-liquidglass-$a && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-$a"; done
+          for a in amd64 arm64 riscv64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
           . config/darling.env; mkdir -p out/repo/pool/main
           GH_TOKEN=${{ secrets.GITHUB_TOKEN }} gh release download "darling-${DARLING_TAG#v}-${DARLING_PKG_REVISION}" -p 'kwick-darling_*.deb' -D out/repo/pool/main || true

@@ -40,8 +40,8 @@ for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dp
          dpkg-statoverride dpkg-architecture update-alternatives apk; do ln -sf kpkg usr/bin/$l; done
 
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
-find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb
+find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" "$R/usr/sbin/kwick-kernel" "$R/usr/bin/kwick-shell" "$R/usr/sbin/add-shell" "$R/usr/sbin/remove-shell" "$R/usr/share/kwick/zsh" -type f -exec sed -i 's/\r$//' {} +
+chmod 0755 usr/bin/kwick-shell usr/sbin/add-shell usr/sbin/remove-shell usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-kernel usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd
@@ -130,7 +130,7 @@ t:1700000000
 p:busybox=1.38.0-r0 busybox-binsh=1.38.0-r0 /bin/sh cmd:sh alpine-baselayout=3.7.2-r1 alpine-baselayout-data=3.7.2-r1 alpine-release=3.24.4-r0 alpine-keys=2.6-r0 apk-tools=3.0.9-r0 ssl_client=1.38.0-r0
 
 EOF
-for u in networking syslog kwick-boot-ok; do ln -sf /usr/lib/systemd/system/$u.service etc/systemd/system/multi-user.target.wants/$u.service; done
+for u in networking syslog kwick-boot-ok kwick-kernel-confirm; do ln -sf /usr/lib/systemd/system/$u.service etc/systemd/system/multi-user.target.wants/$u.service; done
 
 PROVIDES="base-files (= 13.8), base-passwd (= 3.6.7), bash (= 5.2.37-2), bsdutils (= 1:2.41-5), coreutils (= 9.7-3), \
 dash (= 0.5.12-12), debianutils (= 5.23.2), diffutils (= 1:3.10-4), dpkg (= $(grep -o 'dpkgCompatVersion = "[^"]*' $SRC/src/kpkg/main.go | cut -d'"' -f2)), \

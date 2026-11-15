@@ -3,13 +3,15 @@ set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}
 OUT=${OUT:-/out}; K="$OUT/$ARCH/kernel-$FLAVOR"
 KREL=$(cat "$K/version")
-KVER=${KREL%-kwick}
+KVER=${KREL%%-kwick*}
 P=$(mktemp -d)
 mkdir -p "$P/DEBIAN" "$P/usr/lib/kwick/kernels/$KREL"
 cp "$K/vmlinuz" "$K/config" "$P/usr/lib/kwick/kernels/$KREL/"
 [ -f "$K/vmlinuz.efi" ] && cp "$K/vmlinuz.efi" "$P/usr/lib/kwick/kernels/$KREL/"
 [ -d "$K/dtbs" ] && cp -r "$K/dtbs" "$P/usr/lib/kwick/kernels/$KREL/"
+for f in Image.itb initrd.img load-address; do [ -f "$K/$f" ] && cp "$K/$f" "$P/usr/lib/kwick/kernels/$KREL/"; done
 if [ -f "$K/modules.tar.zst" ]; then zstd -dc "$K/modules.tar.zst" | tar -C "$P/usr" -x; fi
+echo "$FLAVOR" > "$P/usr/lib/kwick/kernels/$KREL/flavor"
 SIZE=$(du -sk "$P" | cut -f1)
 cat > "$P/DEBIAN/control" <<EOF
 Package: linux-image-kwick-$FLAVOR
@@ -23,8 +25,16 @@ Provides: linux-image, linux-image-$KREL
 Description: Linux $KVER kernel for KwickOS ($FLAVOR flavor)
  Self-contained UEFI kernel image with the kinit root finder embedded.
  Installing it makes it the next boot kernel; the previous one is kept
- for rollback (kwick-kernel-install --rollback).
+ for rollback and can be chosen again (kwick-kernel list, default, try, rollback).
 EOF
+cat > "$P/DEBIAN/preinst" <<EOF
+#!/bin/sh
+set -e
+if [ -x /usr/sbin/kwick-kernel ]; then
+	/usr/sbin/kwick-kernel _retain || true
+fi
+EOF
+chmod 755 "$P/DEBIAN/preinst"
 cat > "$P/DEBIAN/postinst" <<EOF
 #!/bin/sh
 set -e

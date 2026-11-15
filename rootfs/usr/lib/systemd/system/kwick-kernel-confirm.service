@@ -1,0 +1,10 @@
+[Unit]
+Description=Confirm the booted kernel and settle a one-shot kernel trial
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/kwick-kernel confirm --wait
+
+[Install]
+WantedBy=multi-user.target

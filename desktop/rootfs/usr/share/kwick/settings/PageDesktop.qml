@@ -70,4 +70,18 @@ ColumnLayout {
         font.family: Theme.sans
         font.pixelSize: 12
     }
+
+    SectionTitle { text: "LOGIN SHELL" }
+    Card {
+        Cell {
+            last: true
+            title: "Terminal shell"
+            subtitle: "zsh is the default, like on macOS. A shell that is not installed yet is downloaded first. Applies to new terminals after you log out and back in."
+            Seg {
+                options: [{ id: "zsh", label: "zsh" }, { id: "bash", label: "bash" }, { id: "fish", label: "fish" }]
+                current: Sys.loginShell
+                onPicked: (id) => { Sys.loginShell = id; Sys.setLoginShell(id) }
+            }
+        }
+    }
 }

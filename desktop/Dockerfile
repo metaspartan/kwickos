@@ -34,7 +34,8 @@ RUN set -e; \
       f=$(ls /usr/lib/systemd/system/$u.service 2>/dev/null || true); \
       if [ -n "$f" ]; then ln -sf $f $W/$u.service; else echo "note: no unit $u"; fi; \
     done; \
-    adduser --disabled-password --gecos "KwickOS Live" kwick 2>/dev/null || adduser -D -g "KwickOS Live" kwick; \
+    kwick-shell --default zsh; \
+    adduser --disabled-password --gecos "KwickOS Live" --shell /bin/zsh kwick 2>/dev/null || adduser -D -g "KwickOS Live" -s /bin/zsh kwick; \
     for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done; \
     passwd -d kwick >/dev/null 2>&1 || true; \
     echo 'kwick ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/kwick-live; chmod 440 /etc/sudoers.d/kwick-live; \

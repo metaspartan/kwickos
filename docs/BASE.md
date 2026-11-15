@@ -37,7 +37,7 @@ build-essential and similar) in one step.
 | HTTPS downloads | `wget` with TLS (no certificate validation, see below) | `ca-certificates` (42 MB with its dependencies) and `curl` (60 MB) for validated TLS |
 | remote access | `nc`, `telnet`, `ssl_client` | `openssh-client` (61 MB), `openssh-server` (89 MB), `rsync` (28 MB) |
 | time zones and keymaps | `TZ=` with POSIX rules (`TZ=CET-1CEST,M3.5.0,M10.5.0/3`), clock via `hwclock` | `tzdata` (31 MB), `kbd` (18 MB) for `loadkeys` |
-| editors, pager, shell | `vi`, `less`, `ash` (history, line editing), `watch` | `nano` (21 MB), `bash` (fetched when something needs it) and `bash-completion` |
+| editors, pager, shell | `vi`, `less`, `ash` (history, line editing, coloured `user@host:dir$` prompt), `watch`, `kwick-shell` | `nano` (21 MB), `bash` (fetched when something needs it) and `bash-completion`, `zsh` (about 19 MB installed, 5 MB download), `fish` |
 | users and privilege | `adduser`, `addgroup`, `passwd`, `su`, `chpasswd` | `sudo` (51 MB) |
 | scheduling and logs | `crond`, `crontab`, `syslogd`, `logread`, `dmesg` | `rsyslog`, `logrotate` |
 | disks | `fdisk`, `mkfs.ext2`, `mkfs.vfat`, `mkswap`, `mount` (loop, CIFS; vfat, ext4, `ntfs3` and `exfat` in the kernel), `lsblk`, `blkid`, `losetup`, `fsck` | `e2fsprogs` (19 MB), `parted` (21 MB), `exfatprogs` (17 MB), `ntfs-3g` (57 MB), `xfsprogs`, `btrfs-progs` |
@@ -49,6 +49,34 @@ build-essential and similar) in one step.
 `wget` in the base uses BusyBox's built-in TLS client, which encrypts but does not validate certificates. Install `ca-certificates`
 and `curl` when that matters. The base has no `sudo`: log in as root or install it. Enabling anything at boot is left to you, so the
 base starts only `networking` and `syslog`.
+
+## Shells
+
+The headless base keeps BusyBox `ash` as the login shell, so it carries no shell package. Debian's `zsh` and `zsh-common` need about
+19 MB installed, three times the base, which would end the size lead over Alpine. The desktop edition ships zsh as the default, like
+macOS, and either edition can switch with `kwick-shell`.
+
+```
+kwick-shell                       current shell, the default for new users, and what is installed
+kwick-shell zsh|bash|ash|fish     change your login shell, installing the package first when it is missing
+kwick-shell --user NAME zsh       change another user's shell (root)
+kwick-shell --default zsh         change the shell given to users created from now on (root)
+```
+
+* `kwick-shell` is a 5 KB POSIX script. It installs with `apt`, adds the shell to `/etc/shells`, and changes the login shell with
+  `chsh` or `usermod`, or edits `/etc/passwd` itself when the base has neither. As a normal user it runs the change through `sudo`.
+  `--default` writes `SHELL=` to `/etc/default/useradd` (what `useradd` reads) and `DSHELL` in `/etc/adduser.conf` when that exists.
+* A change applies at the next login. `exec zsh` switches the current terminal at once.
+* The desktop picks zsh for the live user, for `useradd` and `adduser` defaults and for the account `kwick-install` creates.
+  `kwick-install --shell zsh|bash|ash|fish` overrides that. The Settings app has the same choice under Desktop Session, Login shell.
+* The zsh setup is one file, `/usr/share/kwick/zsh/kwick.zsh`, loaded from `/etc/zsh/zshrc` and from `~/.zshrc` in `/etc/skel`. It
+  gives a Terminal-style `user@host dir %` prompt whose directory colour follows the layout (blue for macOS, Fluent blue for
+  Windows, indigo for Linux), history shared between sessions, `compinit` with a cached dump and a selectable completion menu,
+  Home, End, Delete, Ctrl and Alt arrow keys, `ls` colours, and Debian's `zsh-autosuggestions` and `zsh-syntax-highlighting`. There is
+  no framework, and `zsh -i -c exit` takes about 30 ms.
+* `ash` reads `/etc/profile` as a login shell and `/etc/ashrc` (set as `ENV`) in nested shells, so the prompt and aliases (`ls`, `ll`,
+  `la`, `grep`, `..`, `df -h`) are the same either way. The prompt is `user@host:dir$`, red for root, and plain without a colour
+  terminal or with `NO_COLOR`.
 
 ## kfetch
 

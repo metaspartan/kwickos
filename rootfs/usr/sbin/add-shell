@@ -1,0 +1,6 @@
+#!/bin/sh
+[ $# -gt 0 ] || { echo "usage: add-shell shell..." >&2; exit 1; }
+touch /etc/shells
+for s in "$@"; do
+	grep -qx "$s" /etc/shells || echo "$s" >>/etc/shells
+done

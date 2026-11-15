@@ -1,0 +1,29 @@
+case $- in
+*i*)
+	kc=
+	if [ -n "${TERM:-}" ] && [ "$TERM" != dumb ] && [ -z "${NO_COLOR:-}" ]; then kc=1; fi
+	if [ -n "$kc" ]; then
+		if [ "$(id -u)" -eq 0 ]; then ku='1;31'; else ku='1;32'; fi
+		PS1='\[\e['$ku'm\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
+		alias ls='ls --color=auto'
+		alias grep='grep --color=auto'
+	else
+		PS1='\u@\h:\w\$ '
+	fi
+	export PS1
+	unset kc ku
+	alias ll='ls -alF'
+	alias la='ls -A'
+	alias l='ls -CF'
+	alias ..='cd ..'
+	alias ...='cd ../..'
+	alias df='df -h'
+	alias du='du -h'
+	alias free='free -m'
+	if [ -z "${BASH_VERSION:-}${ZSH_VERSION:-}" ]; then
+		HISTSIZE=5000
+		HISTFILE="${HISTFILE:-$HOME/.ash_history}"
+		export HISTSIZE HISTFILE
+	fi
+	;;
+esac

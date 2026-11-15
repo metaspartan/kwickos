@@ -44,7 +44,8 @@ curl -fsSL https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc -o 
 printf 'Types: deb\nURIs: https://metaspartan.github.io/kwickos\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' > /etc/apt/sources.list.d/kwickos.sources
 ```
 
-Kernel updates arrive with `apt update && apt upgrade`. `kwick-kernel-install --list | --rollback` manages kernels.
+Kernel updates arrive with `apt update && apt upgrade`. `kwick-kernel` lists, installs, switches, trials and rolls back
+kernels ([KERNELS](KERNELS.md)); `kwick-kernel-install --list | --rollback` still works.
 
 ## Graphical installer
 

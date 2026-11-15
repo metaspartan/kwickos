@@ -11,6 +11,14 @@
 #   kwick-kernel-install --rollback         boot the previous kernel again
 #   kwick-kernel-install --list             show installed kernels
 set -eu
+if [ -x /usr/sbin/kwick-kernel ] && [ -z "${KWICK_KERNEL_LEGACY:-}" ]; then
+	case "${1:-}" in
+		--list) exec /usr/sbin/kwick-kernel list ;;
+		--rollback) exec /usr/sbin/kwick-kernel rollback ;;
+		""|-h|--help) ;;
+		*) exec /usr/sbin/kwick-kernel _register "$1" ;;
+	esac
+fi
 ESP=${KWICK_ESP:-/boot/efi}
 KDIR=/usr/lib/kwick/kernels
 
@@ -74,6 +82,9 @@ if managed_by >/dev/null; then
 fi
 REL=$1
 SRC="$KDIR/$REL"
+if [ -f "$SRC/Image.itb" ] && [ -x /usr/sbin/kwick-bootctl ] && /usr/sbin/kwick-bootctl status >/dev/null 2>&1; then
+	exec /usr/sbin/kwick-bootctl set-kernel "$REL"
+fi
 IMG="$SRC/vmlinuz.efi"; [ -f "$IMG" ] || IMG="$SRC/vmlinuz"
 [ -f "$IMG" ] || { echo "kwick-kernel-install: $IMG not found" >&2; exit 1; }
 if ! mount_esp; then
@@ -91,6 +102,9 @@ if [ -f "$ESP/Image" ] && [ -f "$SRC/vmlinuz" ]; then
 	cmp -s "$ESP/Image" "$SRC/vmlinuz" || cp "$ESP/Image" "$ESP/EFI/kwick/previous.Image"
 	cp "$SRC/vmlinuz" "$ESP/Image.new"
 	mv "$ESP/Image.new" "$ESP/Image"
+	if [ -d "$SRC/dtbs" ] && [ -d "$ESP/dtb" ]; then
+		cp -r "$SRC/dtbs/." "$ESP/dtb/"
+	fi
 fi
 echo "$REL" > "$ESP/EFI/kwick/current"
 sync

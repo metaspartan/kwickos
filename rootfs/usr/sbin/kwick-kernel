@@ -1,0 +1,1453 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+KDIR=${KWICK_KDIR:-/usr/lib/kwick/kernels}
+MDIR=${KWICK_MDIR:-/usr/lib/modules}
+KS=${KWICK_KSTORE:-/var/lib/kwick/kernels}
+ST=${KWICK_KSTATE:-/var/lib/kwick/kernel-state}
+KCONF=${KWICK_KCONF:-/etc/kwick/kernel.conf}
+ICONF=${KWICK_ICONF:-/etc/kwick/install.conf}
+ESP=${KWICK_ESP:-/boot/efi}
+KEEPFLAG=${KWICK_KEEPFLAG:-/run/kwick-kernel.keep}
+MARK=.kwick-retained
+
+KEEP=3
+CONFIRM_DELAY=30
+[ -f "$KCONF" ] && . "$KCONF"
+
+JSON=0
+YES=0
+NODEFAULT=0
+PROMOTE=0
+REBOOT=0
+NOUPDATE=0
+CANCEL=0
+FLAVOR_OPT=""
+
+usage() {
+	cat <<'EOF'
+usage: kwick-kernel <command> [options]
+
+  list [--json]                  installed kernels and the ones the apt repository offers
+  status [--json]                boot path, running, default and previous kernel, pending trial
+  install latest|VERSION|FLAVOR  install through apt and make it the default boot kernel
+          [--flavor F] [--no-default] [--no-update]
+  default VERSION                boot this kernel from now on
+  try VERSION [--promote]        boot it once; the default boots again unless this boot is confirmed
+  try --cancel                   drop a pending one-shot trial
+  rollback                       go back to the previous default
+  remove VERSION                 delete a retained kernel (never the running or default one)
+  keep N                         keep the running, default and newest N kernels per flavor
+  prune                          apply the keep policy now
+  mainline [VERSION]             versions and flavors the KwickOS repository publishes
+  sync                           rewrite boot entries from the installed kernels
+  confirm [--wait]               confirm the running kernel (run at boot by kwick-kernel-confirm.service)
+
+VERSION is 7.3.4, generic-7.3.4, 7.3.4:generic or a kernel release. FLAVOR is generic, virt, k1, gb10, apple.
+EOF
+}
+
+say() { printf '%s\n' "$*"; }
+warn() { printf 'kwick-kernel: %s\n' "$*" >&2; }
+
+die() {
+	if [ "$JSON" = 1 ]; then
+		printf '{"ok":false,"error":"%s"}\n' "$(jstr "$*")"
+	else
+		warn "$*"
+	fi
+	exit 1
+}
+
+jstr() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
+jbool() { if [ "$1" = 1 ]; then echo true; else echo false; fi; }
+
+need_root() { [ "$(id -u)" = 0 ] || die "$1 needs root (try sudo)"; }
+
+human_kb() {
+	awk -v k="$1" 'BEGIN { if (k >= 1048576) printf "%.1fG", k / 1048576; else if (k >= 1024) printf "%.0fM", k / 1024; else printf "%dK", k }'
+}
+
+st_get() { cat "$ST/$1" 2>/dev/null | head -n 1; }
+
+st_set() {
+	mkdir -p "$ST"
+	chmod 755 "$ST" 2>/dev/null
+	printf '%s\n' "$2" >"$ST/$1.new" && mv "$ST/$1.new" "$ST/$1"
+	chmod 644 "$ST/$1" 2>/dev/null
+	return 0
+}
+
+st_del() { rm -f "$ST/$1"; }
+
+running_rel() { echo "${KWICK_RUNNING_REL:-$(uname -r)}"; }
+
+flavor_hint() {
+	case $1 in
+	*-gb10-kwick*) echo gb10 ;;
+	*-asahi-kwick*) echo apple ;;
+	*-kwick-k1*) echo k1 ;;
+	*) return 1 ;;
+	esac
+}
+
+running_flavor() {
+	local rel fl
+	rel=$(running_rel)
+	if fl=$(flavor_hint "$rel"); then
+		echo "$fl"
+	elif [ -n "${KWICK_RUNNING_FLAVOR:-}" ]; then
+		echo "$KWICK_RUNNING_FLAVOR"
+	elif [ -e /proc/modules ]; then
+		echo generic
+	else
+		echo virt
+	fi
+}
+
+running_id() {
+	local rel
+	rel=$(running_rel)
+	echo "$(running_flavor)-${rel%%-*}"
+}
+
+infer_flavor() {
+	local dir rel
+	dir=$1
+	rel=$2
+	if [ -f "$dir/flavor" ]; then
+		head -n 1 "$dir/flavor"
+		return 0
+	fi
+	flavor_hint "$rel" && return 0
+	if [ -f "$dir/config" ]; then
+		if grep -q '^CONFIG_MODULES=y' "$dir/config"; then echo generic; else echo virt; fi
+		return 0
+	fi
+	if [ "$rel" = "$(running_rel)" ]; then
+		running_flavor
+	elif [ -d "$MDIR/$rel" ]; then
+		echo generic
+	else
+		echo virt
+	fi
+}
+
+has_kernel_files() {
+	[ -f "$1/vmlinuz" ] || [ -f "$1/vmlinuz.efi" ] || [ -f "$1/Image.itb" ]
+}
+
+scan_package() {
+	local d rel fl ver
+	for d in "$KDIR"/*/; do
+		d=${d%/}
+		[ -d "$d" ] || continue
+		[ -e "$d/$MARK" ] && continue
+		has_kernel_files "$d" || continue
+		rel=${d##*/}
+		fl=$(infer_flavor "$d" "$rel")
+		ver=${rel%%-*}
+		echo "$fl-$ver|$fl|$ver|$rel|$d|package"
+	done
+}
+
+scan_retained() {
+	local d rel fl id
+	for d in "$KS"/*/; do
+		d=${d%/}
+		[ -d "$d" ] || continue
+		[ -f "$d/.complete" ] && [ -f "$d/release" ] && [ -f "$d/flavor" ] || continue
+		id=${d##*/}
+		rel=$(head -n 1 "$d/release")
+		fl=$(head -n 1 "$d/flavor")
+		echo "$id|$fl|${rel%%-*}|$rel|$d|retained"
+	done
+	for d in "$KDIR"/*/; do
+		d=${d%/}
+		[ -e "$d/$MARK" ] || continue
+		has_kernel_files "$d" || continue
+		rel=${d##*/}
+		fl=$(infer_flavor "$d" "$rel")
+		id=$fl-${rel%%-*}
+		[ -f "$KS/$id/.complete" ] && continue
+		echo "$id|$fl|${rel%%-*}|$rel|$d|retained"
+	done
+}
+
+sorted() {
+	if [ -n "${SC:-}" ]; then
+		printf '%s\n' "$SC"
+	else
+		sorted_raw
+	fi
+}
+
+sorted_raw() {
+	{ scan_package; scan_retained; } | awk -F'|' '
+		!seen[$1]++ {
+			n = split($3, a, /[^0-9]+/)
+			k = ""
+			for (i = 1; i <= n; i++) k = k sprintf("%08d", a[i] + 0)
+			print k "|" $0
+		}' | sort -r | cut -d'|' -f2-
+}
+
+entry_field() {
+	sorted | awk -F'|' -v i="$1" -v n="$2" '$1 == i { print $n; exit }'
+}
+
+entry_dir() { entry_field "$1" 5; }
+entry_rel() { entry_field "$1" 4; }
+entry_flavor() { entry_field "$1" 2; }
+entry_ver() { entry_field "$1" 3; }
+entry_origin() { entry_field "$1" 6; }
+
+id_for_rel() {
+	want=$1
+	cand=$(sorted | awk -F'|' -v r="$want" '$4 == r && $6 == "package" { print $1 }')
+	[ -n "$cand" ] || cand=$(sorted | awk -F'|' -v r="$want" '$4 == r { print $1 }')
+	[ -n "$cand" ] || return 1
+	for c in $cand; do
+		[ "$c" = "$(running_id)" ] && { echo "$c"; return 0; }
+	done
+	echo "$cand" | head -n 1
+}
+
+resolve_id() {
+	spec=$1
+	all=$(sorted)
+	[ -n "$all" ] || return 1
+	hit=$(printf '%s\n' "$all" | awk -F'|' -v s="$spec" '$1 == s { print $1 }')
+	if [ -z "$hit" ]; then hit=$(printf '%s\n' "$all" | awk -F'|' -v s="$spec" '$4 == s { print $1 }'); fi
+	if [ -z "$hit" ]; then hit=$(printf '%s\n' "$all" | awk -F'|' -v s="$spec" '$3 == s { print $1 }'); fi
+	if [ -z "$hit" ]; then
+		case $spec in
+		*:*)
+			a=${spec%%:*}
+			b=${spec#*:}
+			hit=$(printf '%s\n' "$all" | awk -F'|' -v a="$a" -v b="$b" '($2 == a && $3 == b) || ($2 == b && $3 == a) { print $1 }')
+			;;
+		esac
+	fi
+	[ -n "$hit" ] || return 1
+	n=$(printf '%s\n' "$hit" | wc -l)
+	if [ "$n" -gt 1 ]; then
+		for c in $hit; do
+			[ "$c" = "$(running_id)" ] && { echo "$c"; return 0; }
+		done
+		for c in $hit; do
+			[ "${c%%-*}" = "$(running_flavor)" ] && { echo "$c"; return 0; }
+		done
+		warn "$spec is ambiguous: $(echo $hit | tr ' ' ',')"
+		return 2
+	fi
+	echo "$hit"
+}
+
+need_id() {
+	rid=$(resolve_id "$1")
+	rc=$?
+	if [ $rc -ne 0 ] || [ -z "$rid" ]; then
+		[ $rc -eq 2 ] && exit 1
+		die "no installed kernel matches '$1' (see: kwick-kernel list)"
+	fi
+	echo "$rid"
+}
+
+kernel_kb() {
+	local d o rel kb mk
+	d=$1
+	o=$2
+	rel=$3
+	kb=$(du -sk "$d" 2>/dev/null | cut -f1)
+	[ -n "$kb" ] || kb=0
+	if [ "$o" = package ] && [ -d "$MDIR/$rel" ]; then
+		mk=$(du -sk "$MDIR/$rel" 2>/dev/null | cut -f1)
+		kb=$((kb + ${mk:-0}))
+	fi
+	echo "$kb"
+}
+
+image_of() {
+	if [ -f "$1/vmlinuz.efi" ]; then echo "$1/vmlinuz.efi"; elif [ -f "$1/vmlinuz" ]; then echo "$1/vmlinuz"; fi
+}
+
+boot_image_of() {
+	if [ -f "$1/vmlinuz" ]; then echo "$1/vmlinuz"; elif [ -f "$1/vmlinuz.efi" ]; then echo "$1/vmlinuz.efi"; fi
+}
+
+copy_tree() {
+	mkdir -p "$2"
+	cp -al "$1/." "$2/" 2>/dev/null || cp -a "$1/." "$2/"
+}
+
+ingest() {
+	[ "$(id -u)" = 0 ] || return 0
+	mkdir -p "$KS"
+	scan_package | while IFS='|' read -r id fl ver rel dir origin; do
+		d=$KS/$id
+		img=$(image_of "$dir")
+		if [ -f "$d/.complete" ] && [ -n "$img" ] && cmp -s "$img" "$(image_of "$d")" 2>/dev/null; then continue; fi
+		rm -rf "$d.new"
+		copy_tree "$dir" "$d.new"
+		if [ -d "$MDIR/$rel" ] && [ ! -e "$MDIR/$rel/$MARK" ]; then copy_tree "$MDIR/$rel" "$d.new/modules"; fi
+		printf '%s\n' "$rel" >"$d.new/release"
+		printf '%s\n' "$fl" >"$d.new/flavor"
+		: >"$d.new/.complete"
+		rm -rf "$d"
+		mv "$d.new" "$d"
+	done
+	return 0
+}
+
+activate() {
+	local id d rel
+	id=$1
+	d=$(entry_dir "$id")
+	rel=$(entry_rel "$id")
+	if [ -d "$KS/$id/modules" ] && [ ! -d "$MDIR/$rel" ]; then
+		copy_tree "$KS/$id/modules" "$MDIR/$rel"
+		: >"$MDIR/$rel/$MARK"
+	fi
+	return 0
+}
+
+materialize() {
+	local id rel
+	id=$1
+	rel=$(entry_rel "$id")
+	[ -d "$KDIR/$rel" ] && return 0
+	[ -d "$KS/$id" ] || return 1
+	copy_tree "$KS/$id" "$KDIR/$rel"
+	rm -rf "$KDIR/$rel/modules" "$KDIR/$rel/.complete" "$KDIR/$rel/release"
+	: >"$KDIR/$rel/$MARK"
+}
+
+flavor_of_pkg() {
+	case $1 in
+	linux-image-kwick-*) echo "${1#linux-image-kwick-}" ;;
+	kwick-kernel-asahi) echo apple ;;
+	esac
+}
+
+repo_pkgs() {
+	command -v apt-cache >/dev/null 2>&1 || return 0
+	apt-cache pkgnames linux-image-kwick- 2>/dev/null | grep '^linux-image-kwick-'
+	apt-cache pkgnames kwick-kernel-asahi 2>/dev/null | grep -x 'kwick-kernel-asahi'
+}
+
+pkg_versions() {
+	m=$(apt-cache madison "$1" 2>/dev/null)
+	case $m in
+	*'|'*) printf '%s\n' "$m" | awk -F'|' 'NF >= 2 { v = $2; gsub(/[ \t]/, "", v); if (v != "") print v }' ;;
+	*) apt-cache policy "$1" 2>/dev/null | awk '/Version table:/ { t = 1; next } t && /^ +(\*\*\* )?[^ ]+ +[0-9]+$/ { print $(NF - 1) }' ;;
+	esac
+}
+
+repo_versions() {
+	for p in $(repo_pkgs); do
+		fl=$(flavor_of_pkg "$p")
+		pkg_versions "$p" | awk -v p="$p" -v f="$fl" '{ print p "|" $1 "|" f }'
+	done | awk -F'|' '!seen[$1 "|" $2]++' | awk -F'|' '
+		{
+			v = $2
+			sub(/-.*/, "", v)
+			n = split(v, a, /[^0-9]+/)
+			k = ""
+			for (i = 1; i <= n; i++) k = k sprintf("%08d", a[i] + 0)
+			print k "|" $0
+		}' | sort -r | cut -d'|' -f2-
+}
+
+find_esp() {
+	for u in /sys/class/block/*/uevent; do
+		grep -q '^PARTNAME=EFI System$' "$u" 2>/dev/null || continue
+		echo "/dev/$(sed -n 's/^DEVNAME=//p' "$u")"
+		return 0
+	done
+	if command -v findfs >/dev/null 2>&1; then
+		for l in KWICKESP KWICK-ESP; do
+			findfs "LABEL=$l" 2>/dev/null && return 0
+		done
+	fi
+	return 1
+}
+
+mount_esp() {
+	[ -n "${KWICK_NOMOUNT:-}" ] && return 0
+	grep -q " $ESP " /proc/mounts 2>/dev/null && return 0
+	dev=$(find_esp) || return 1
+	mkdir -p "$ESP"
+	mount -t vfat "$dev" "$ESP"
+}
+
+bootname() {
+	case "${KWICK_ARCH:-$(uname -m)}" in
+	x86_64) echo BOOTX64.EFI ;;
+	aarch64) echo BOOTAA64.EFI ;;
+	riscv64) echo BOOTRISCV64.EFI ;;
+	*) die "unsupported architecture $(uname -m)" ;;
+	esac
+}
+
+boot_path() {
+	if [ -n "${KWICK_BOOT_PATH:-}" ]; then
+		echo "$KWICK_BOOT_PATH"
+		return 0
+	fi
+	if [ -x /usr/sbin/kwick-apple-boot ] && [ -r /proc/device-tree/chosen/asahi,efi-system-partition ]; then
+		echo apple
+		return 0
+	fi
+	if [ -x /usr/sbin/kwick-bootctl ] && grep -qs spacemit /proc/device-tree/compatible 2>/dev/null; then
+		echo uboot
+		return 0
+	fi
+	b=$(sed -n 's/^BOOTLOADER=//p' "$ICONF" 2>/dev/null)
+	case $b in
+	grub | systemd-boot | efistub)
+		echo "$b"
+		return 0
+		;;
+	esac
+	if find_esp >/dev/null 2>&1; then
+		echo efistub
+		return 0
+	fi
+	echo none
+}
+
+iconf() { sed -n "s/^$1=//p" "$ICONF" 2>/dev/null | head -n 1; }
+
+es_prepare() {
+	mount_esp || die "no EFI System Partition found"
+	mkdir -p "$ESP/EFI/BOOT" "$ESP/EFI/kwick"
+}
+
+es_add() {
+	local img
+	img=$(image_of "$(entry_dir "$1")")
+	[ -n "$img" ] || die "kernel $1 has no bootable image"
+	es_prepare
+}
+
+es_copy() {
+	local src dst
+	src=$1
+	dst=$2
+	if cp "$src" "$dst.new" 2>/dev/null; then
+		mv "$dst.new" "$dst"
+		return 0
+	fi
+	rm -f "$dst.new" "$ESP/EFI/kwick/rollback-from.efi"
+	if cp "$src" "$dst.new" 2>/dev/null; then
+		mv "$dst.new" "$dst"
+		return 0
+	fi
+	rm -f "$dst.new" "$ESP/EFI/kwick/previous.efi"
+	cp "$src" "$dst.new" || { rm -f "$dst.new"; die "cannot write $dst: the EFI System Partition is full"; }
+	mv "$dst.new" "$dst"
+}
+
+es_default() {
+	local id d img boot
+	id=$1
+	es_add "$id"
+	d=$(entry_dir "$id")
+	img=$(image_of "$d")
+	boot=$ESP/EFI/BOOT/$(bootname)
+	if [ -f "$boot" ] && ! cmp -s "$boot" "$img"; then
+		cp "$boot" "$ESP/EFI/kwick/previous.efi.new" 2>/dev/null && mv "$ESP/EFI/kwick/previous.efi.new" "$ESP/EFI/kwick/previous.efi" || rm -f "$ESP/EFI/kwick/previous.efi.new"
+	fi
+	cmp -s "$boot" "$img" 2>/dev/null || es_copy "$img" "$boot"
+	if [ -f "$ESP/Image" ] && [ -f "$d/vmlinuz" ]; then
+		cmp -s "$ESP/Image" "$d/vmlinuz" || cp "$ESP/Image" "$ESP/EFI/kwick/previous.Image"
+		cp "$d/vmlinuz" "$ESP/Image.new" && mv "$ESP/Image.new" "$ESP/Image"
+		if [ -d "$d/dtbs" ] && [ -d "$ESP/dtb" ]; then cp -r "$d/dtbs/." "$ESP/dtb/"; fi
+	fi
+	printf '%s\n' "$id" >"$ESP/EFI/kwick/default"
+	printf '%s\n' "$(entry_rel "$id")" >"$ESP/EFI/kwick/current"
+	sync
+}
+
+es_remove() { return 0; }
+
+es_detect() {
+	local boot eid img
+	mount_esp 2>/dev/null || return 1
+	[ -f "$ESP/EFI/kwick/default" ] && { head -n 1 "$ESP/EFI/kwick/default"; return 0; }
+	boot=$ESP/EFI/BOOT/$(bootname)
+	[ -f "$boot" ] || return 1
+	for eid in $(sorted | cut -d'|' -f1); do
+		img=$(image_of "$(entry_dir "$eid")")
+		[ -n "$img" ] && cmp -s "$boot" "$img" && { echo "$eid"; return 0; }
+	done
+	return 1
+}
+
+es_disk_part() {
+	local dev n part p disk
+	dev=$(find_esp) || return 1
+	n=${dev#/dev/}
+	part=$(cat "/sys/class/block/$n/partition" 2>/dev/null) || return 1
+	p=$(readlink -f "/sys/class/block/$n")
+	disk=/dev/$(basename "$(dirname "$p")")
+	printf '%s %s\n' "$disk" "$part"
+}
+
+es_trial_entries() {
+	efibootmgr 2>/dev/null | sed -n 's/^Boot\([0-9A-Fa-f]\{4\}\)\*\{0,1\} KwickOS trial .*/\1/p'
+}
+
+es_untry() {
+	local n
+	if mount_esp 2>/dev/null; then rm -f "$ESP/EFI/kwick/trial.efi"; fi
+	command -v efibootmgr >/dev/null 2>&1 || return 0
+	[ -d /sys/firmware/efi ] || return 0
+	efibootmgr -N >/dev/null 2>&1
+	for n in $(es_trial_entries); do efibootmgr -B -b "$n" >/dev/null 2>&1; done
+	return 0
+}
+
+es_try() {
+	local id dp disk part out num
+	id=$1
+	[ -d /sys/firmware/efi ] || die "this system was not booted through UEFI, a one-shot boot is not possible"
+	if ! command -v efibootmgr >/dev/null 2>&1; then
+		say "efibootmgr is needed for one-shot boots, installing it"
+		apt-get install -y efibootmgr >/dev/null 2>&1 || die "could not install efibootmgr (apt-get install efibootmgr)"
+	fi
+	grep -q ' efivarfs ' /proc/mounts || mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
+	es_add "$id"
+	dp=$(es_disk_part) || die "cannot work out the disk of the EFI System Partition"
+	set -- $dp
+	disk=$1
+	part=$2
+	es_untry
+	es_copy "$(image_of "$(entry_dir "$id")")" "$ESP/EFI/kwick/trial.efi"
+	out=$(efibootmgr -C -d "$disk" -p "$part" -L "KwickOS trial $id" -l '\EFI\kwick\trial.efi' 2>&1) || die "efibootmgr could not create the boot entry: $out"
+	num=$(printf '%s\n' "$out" | sed -n "s/^Boot\([0-9A-Fa-f]\{4\}\)\*\{0,1\} KwickOS trial .*/\1/p" | head -n 1)
+	[ -n "$num" ] || die "efibootmgr did not report the new boot entry"
+	efibootmgr -n "$num" >/dev/null 2>&1 || die "efibootmgr could not set BootNext"
+	st_set trialentry "$num"
+}
+
+gr_setup() {
+	FW=$(iconf FIRMWARE)
+	[ -n "$FW" ] || { [ -d /sys/firmware/efi ] && FW=uefi || FW=bios; }
+	if [ "$FW" = uefi ]; then
+		mount_esp || die "no EFI System Partition found"
+		BOOTDIR=$ESP/EFI/kwick
+		BREL=/EFI/kwick
+		FSU=$(iconf ESP_UUID)
+		ESPDIR=$ESP
+		GCFG=$BOOTDIR/grub/grub.cfg
+		GENV=$BOOTDIR/grub/grubenv
+	else
+		BOOT_UUID=$(iconf BOOT_UUID)
+		if [ -n "$BOOT_UUID" ]; then
+			grep -q ' /boot ' /proc/mounts || mount /boot 2>/dev/null
+			BREL=""
+		else
+			BREL=/boot
+		fi
+		BOOTDIR=/boot
+		FSU=${BOOT_UUID:-$(iconf ROOT_UUID)}
+		ESPDIR=""
+		GCFG=/boot/grub/grub.cfg
+		GENV=/boot/grub/grubenv
+	fi
+	mkdir -p "$BOOTDIR/k"
+}
+
+boot_cmdline() {
+	local fs enc root luks zp
+	fs=$(iconf FS)
+	[ -n "$fs" ] || fs=ext4
+	enc=$(iconf ENCRYPT)
+	root=$(iconf ROOT_UUID)
+	luks=$(iconf LUKS_UUID)
+	zp=$(iconf ZPOOL)
+	[ -n "$zp" ] || zp=kwickpool
+	if [ "$fs" = zfs ]; then
+		if [ "$enc" = 1 ]; then echo "root=ZFS=$zp/ROOT/kwick rootfstype=zfs kwick.luks=$luks"; else echo "root=ZFS=$zp/ROOT/kwick rootfstype=zfs"; fi
+	elif [ "$enc" = 1 ]; then
+		echo "root=UUID=$root rootfstype=$fs kwick.luks=$luks"
+	elif [ "$fs" != ext4 ]; then
+		echo "root=UUID=$root rootfstype=$fs"
+	else
+		echo "root=UUID=$root"
+	fi
+}
+
+need_initrd() {
+	local fs
+	fs=$(iconf FS)
+	[ -n "$fs" ] || fs=ext4
+	if [ "$fs" != ext4 ] || [ "$(iconf ENCRYPT)" = 1 ]; then echo 1; else echo 0; fi
+}
+
+entry_files() {
+	local id d rel img dest
+	id=$1
+	d=$(entry_dir "$id")
+	rel=$(entry_rel "$id")
+	img=$(boot_image_of "$d")
+	[ -n "$img" ] || die "kernel $id has no bootable image"
+	dest=$BOOTDIR/k/$id
+	mkdir -p "$dest"
+	if ! cmp -s "$img" "$dest/vmlinuz" 2>/dev/null; then
+		cp "$img" "$dest/vmlinuz.new" || { rm -f "$dest/vmlinuz.new"; die "cannot write $dest (no space left on the boot partition?)"; }
+		mv "$dest/vmlinuz.new" "$dest/vmlinuz"
+	fi
+	if [ "$(need_initrd)" = 1 ]; then
+		activate "$id"
+		/usr/sbin/kwick-install initrd "$rel" "$dest/initrd.img.new" >/dev/null 2>&1 || { rm -f "$dest/initrd.img.new"; die "could not build the initramfs for $id (kwick-install initrd)"; }
+		mv "$dest/initrd.img.new" "$dest/initrd.img"
+	else
+		rm -f "$dest/initrd.img"
+	fi
+}
+
+genv_set() {
+	local f k v n
+	f=$1
+	k=$2
+	v=$3
+	mkdir -p "$(dirname "$f")"
+	{
+		printf '# GRUB Environment Block\n'
+		[ -f "$f" ] && grep -E '^[A-Za-z0-9_]+=' "$f" | grep -v "^$k="
+		[ -n "$v" ] && printf '%s=%s\n' "$k" "$v"
+		true
+	} >"$f.new"
+	n=$(wc -c <"$f.new")
+	[ "$n" -le 1024 ] || { rm -f "$f.new"; die "grubenv overflow"; }
+	head -c $((1024 - n)) /dev/zero | tr '\0' '#' >>"$f.new"
+	mv "$f.new" "$f"
+}
+
+genv_get() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
+
+gr_write_cfg() {
+	local cl def eid ini
+	cl=$(boot_cmdline)
+	def=${CFGDEF:-$(st_get default)}
+	mkdir -p "$(dirname "$GCFG")"
+	{
+		printf 'set timeout=3\nset saved_entry=0\nload_env\n'
+		printf 'if [ "${next_entry}" ] ; then\n\tset default="${next_entry}"\n\tset next_entry=\n\tsave_env next_entry\nelse\n\tset default="${saved_entry}"\nfi\n'
+		printf 'insmod part_gpt\ninsmod part_msdos\ninsmod fat\ninsmod ext2\ninsmod btrfs\ninsmod xfs\ninsmod gzio\n'
+		printf 'search --no-floppy --fs-uuid --set=root %s\n' "$FSU"
+		for eid in $(sorted | cut -d'|' -f1); do
+			[ -f "$BOOTDIR/k/$eid/vmlinuz" ] || continue
+			ini=""
+			[ -f "$BOOTDIR/k/$eid/initrd.img" ] && ini="\tinitrd $BREL/k/$eid/initrd.img\n"
+			printf 'menuentry "KwickOS %s (%s)" --id kwick-%s {\n\tlinux %s/k/%s/vmlinuz %s\n%b}\n' "${eid#*-}" "${eid%%-*}" "$eid" "$BREL" "$eid" "$cl" "$ini"
+			if [ "$eid" = "$def" ]; then
+				printf 'menuentry "KwickOS %s (%s, safe graphics)" --id kwick-safe {\n\tlinux %s/k/%s/vmlinuz %s nomodeset\n%b}\n' "${eid#*-}" "${eid%%-*}" "$BREL" "$eid" "$cl" "$ini"
+			fi
+		done
+	} >"$GCFG.new"
+	mv "$GCFG.new" "$GCFG"
+}
+
+gr_keep_default() {
+	local d
+	d=$(st_get default)
+	[ -n "$d" ] && [ -n "$(entry_dir "$d")" ] || return 0
+	[ -f "$BOOTDIR/k/$d/vmlinuz" ] || entry_files "$d"
+	[ -n "$(genv_get "$GENV" saved_entry)" ] || genv_set "$GENV" saved_entry "kwick-$d"
+}
+
+gr_add() {
+	gr_setup
+	gr_keep_default
+	entry_files "$1"
+	gr_write_cfg
+	sync
+}
+
+gr_default() {
+	gr_setup
+	entry_files "$1"
+	CFGDEF=$1
+	gr_write_cfg
+	genv_set "$GENV" saved_entry "kwick-$1"
+	genv_set "$GENV" next_entry ""
+	rm -f "$BOOTDIR/vmlinuz" "$BOOTDIR/initrd.img"
+	sync
+}
+
+gr_try() {
+	gr_setup
+	gr_keep_default
+	entry_files "$1"
+	gr_write_cfg
+	genv_set "$GENV" next_entry "kwick-$1"
+	sync
+}
+
+gr_untry() {
+	gr_setup 2>/dev/null || return 0
+	[ -f "$GENV" ] && genv_set "$GENV" next_entry ""
+	return 0
+}
+
+gr_remove() {
+	gr_setup
+	rm -rf "$BOOTDIR/k/$1"
+	gr_write_cfg
+	sync
+}
+
+gr_detect() {
+	gr_setup 2>/dev/null || return 1
+	s=$(genv_get "$GENV" saved_entry)
+	[ -n "$s" ] && { echo "${s#kwick-}"; return 0; }
+	[ -f "$BOOTDIR/current" ] && id_for_rel "$(head -n 1 "$BOOTDIR/current")" && return 0
+	return 1
+}
+
+sd_setup() {
+	mount_esp || die "no EFI System Partition found"
+	ESPDIR=$ESP
+	BOOTDIR=$ESP/EFI/kwick
+	BREL=/EFI/kwick
+	mkdir -p "$BOOTDIR/k" "$ESP/loader/entries"
+}
+
+sd_write_entries() {
+	local cl eid
+	cl=$(boot_cmdline)
+	rm -f "$ESP"/loader/entries/kwick-*.conf
+	for eid in $(sorted | cut -d'|' -f1); do
+		[ -f "$BOOTDIR/k/$eid/vmlinuz" ] || continue
+		{
+			printf 'title KwickOS %s (%s)\n' "${eid#*-}" "${eid%%-*}"
+			printf 'version %s\n' "${eid#*-}"
+			printf 'linux %s/k/%s/vmlinuz\n' "$BREL" "$eid"
+			[ -f "$BOOTDIR/k/$eid/initrd.img" ] && printf 'initrd %s/k/%s/initrd.img\n' "$BREL" "$eid"
+			printf 'options %s\n' "$cl"
+		} >"$ESP/loader/entries/kwick-$eid.conf"
+	done
+}
+
+sd_write_loader() {
+	printf 'default kwick-%s.conf\ntimeout 3\nconsole-mode keep\n' "$1" >"$ESP/loader/loader.conf"
+}
+
+sd_keep_default() {
+	local d
+	d=$(st_get default)
+	[ -n "$d" ] && [ -n "$(entry_dir "$d")" ] || return 0
+	[ -f "$BOOTDIR/k/$d/vmlinuz" ] || entry_files "$d"
+	grep -q '^default kwick-' "$ESP/loader/loader.conf" 2>/dev/null || sd_write_loader "$d"
+}
+
+sd_add() {
+	sd_setup
+	sd_keep_default
+	entry_files "$1"
+	sd_write_entries
+	sync
+}
+
+sd_default() {
+	sd_setup
+	entry_files "$1"
+	sd_write_entries
+	sd_write_loader "$1"
+	rm -f "$ESP/loader/entries/kwickos.conf" "$ESP/loader/entries/kwickos-safe.conf" "$BOOTDIR/vmlinuz" "$BOOTDIR/initrd.img"
+	if command -v bootctl >/dev/null 2>&1 && [ -d /sys/firmware/efi ]; then
+		bootctl --esp-path="$ESP" set-default "kwick-$1.conf" >/dev/null 2>&1
+	fi
+	sync
+}
+
+utf16le_hex() {
+	printf '%s' "$1" | awk 'BEGIN { for (i = 1; i < 256; i++) ord[sprintf("%c", i)] = i }
+		{ for (i = 1; i <= length($0); i++) printf "\\%03o\\000", ord[substr($0, i, 1)]; printf "\\000\\000" }'
+}
+
+sd_try() {
+	sd_setup
+	sd_keep_default
+	entry_files "$1"
+	sd_write_entries
+	if command -v bootctl >/dev/null 2>&1; then
+		bootctl --esp-path="$ESP" set-oneshot "kwick-$1.conf" >/dev/null 2>&1 && { sync; return 0; }
+	fi
+	[ -d /sys/firmware/efi ] || die "this system was not booted through UEFI, a one-shot boot is not possible"
+	grep -q ' efivarfs ' /proc/mounts || mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
+	v=/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+	[ -e "$v" ] && chattr -i "$v" 2>/dev/null && rm -f "$v"
+	printf "\\007\\000\\000\\000$(utf16le_hex "kwick-$1.conf")" >"$v" || die "could not set LoaderEntryOneShot"
+	sync
+}
+
+sd_untry() {
+	command -v bootctl >/dev/null 2>&1 && bootctl set-oneshot '' >/dev/null 2>&1
+	v=/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+	[ -e "$v" ] && chattr -i "$v" 2>/dev/null && rm -f "$v"
+	return 0
+}
+
+sd_remove() {
+	sd_setup
+	rm -rf "$BOOTDIR/k/$1"
+	sd_write_entries
+	sync
+}
+
+sd_detect() {
+	mount_esp 2>/dev/null || return 1
+	s=$(sed -n 's/^default kwick-\(.*\)\.conf$/\1/p' "$ESP/loader/loader.conf" 2>/dev/null | head -n 1)
+	[ -n "$s" ] && { echo "$s"; return 0; }
+	[ -f "$ESP/EFI/kwick/current" ] && id_for_rel "$(head -n 1 "$ESP/EFI/kwick/current")" && return 0
+	return 1
+}
+
+ub_default() {
+	materialize "$1" || die "kernel $1 is not available for kwick-bootctl"
+	/usr/sbin/kwick-bootctl set-kernel "$(entry_rel "$1")" || die "kwick-bootctl set-kernel failed"
+}
+
+ap_default() {
+	materialize "$1" || die "kernel $1 is not available for kwick-apple-boot"
+	/usr/sbin/kwick-apple-boot install "$(entry_rel "$1")" || die "kwick-apple-boot install failed"
+}
+
+bp_supports_try() {
+	case $1 in
+	efistub | grub | systemd-boot | uboot) return 0 ;;
+	esac
+	return 1
+}
+
+bp_add() {
+	case $BP in
+	efistub) es_add "$1" ;;
+	grub) gr_add "$1" ;;
+	systemd-boot) sd_add "$1" ;;
+	uboot) materialize "$1" ;;
+	apple) materialize "$1" ;;
+	esac
+}
+
+bp_default() {
+	case $BP in
+	efistub) es_default "$1" ;;
+	grub) gr_default "$1" ;;
+	systemd-boot) sd_default "$1" ;;
+	uboot) ub_default "$1" ;;
+	apple) ap_default "$1" ;;
+	*) die "no supported boot path on this machine (container or direct kernel boot): the kernel is stored under $KDIR" ;;
+	esac
+}
+
+bp_try() {
+	case $BP in
+	efistub) es_try "$1" ;;
+	grub) gr_try "$1" ;;
+	systemd-boot) sd_try "$1" ;;
+	uboot) ub_default "$1" ;;
+	*) die "one-shot boots are not supported on boot path '$BP'" ;;
+	esac
+}
+
+bp_untry() {
+	case $BP in
+	efistub) es_untry ;;
+	grub) gr_untry ;;
+	systemd-boot) sd_untry ;;
+	esac
+}
+
+bp_remove() {
+	case $BP in
+	efistub) es_remove "$1" ;;
+	grub) gr_remove "$1" ;;
+	systemd-boot) sd_remove "$1" ;;
+	esac
+}
+
+detect_default() {
+	case $BP in
+	efistub) es_detect ;;
+	grub) gr_detect ;;
+	systemd-boot) sd_detect ;;
+	uboot | apple) running_id ;;
+	*) return 1 ;;
+	esac
+}
+
+adopt_state() {
+	local d
+	[ -n "$(st_get default)" ] && return 0
+	d=$(detect_default 2>/dev/null)
+	if [ -n "$d" ] && [ -n "$(entry_dir "$d")" ]; then st_set default "$d"; fi
+	return 0
+}
+
+set_default() {
+	local id cur
+	id=$1
+	activate "$id"
+	bp_default "$id"
+	cur=$(st_get default)
+	if [ -n "$cur" ] && [ "$cur" != "$id" ]; then st_set previous "$cur"; fi
+	st_set default "$id"
+	st_set changed "$(date +%s)"
+	return 0
+}
+
+trial_id() { st_get trial | awk '{ print $1 }'; }
+trial_mode() { st_get trial | awk '{ print $2 }'; }
+
+protected() {
+	[ "$1" = "$(running_id)" ] && return 0
+	[ "$1" = "$(st_get default)" ] && return 0
+	[ "$1" = "$(trial_id)" ] && return 0
+	return 1
+}
+
+remove_kernel() {
+	local id rel
+	id=$1
+	rel=$(entry_rel "$id")
+	bp_remove "$id"
+	rm -rf "${KS:?}/$id"
+	if [ -e "$MDIR/$rel/$MARK" ]; then rm -rf "$MDIR/$rel"; fi
+	if [ -e "$KDIR/$rel/$MARK" ]; then rm -rf "$KDIR/$rel"; fi
+	[ "$(st_get previous)" = "$id" ] && st_del previous
+	return 0
+}
+
+prune() {
+	local n removed pfl pid i
+	n=$1
+	removed=0
+	for pfl in $(sorted | cut -d'|' -f2 | sort -u); do
+		i=0
+		for pid in $(sorted | awk -F'|' -v f="$pfl" '$2 == f { print $1 }'); do
+			i=$((i + 1))
+			[ "$i" -le "$n" ] && continue
+			protected "$pid" && continue
+			[ "$(entry_origin "$pid")" = retained ] || continue
+			say "removing $pid"
+			remove_kernel "$pid"
+			removed=$((removed + 1))
+		done
+	done
+	[ "$removed" -gt 0 ] && say "removed $removed kernel(s), keeping the running, default and newest $n per flavor"
+	return 0
+}
+
+parse() {
+	POS=""
+	while [ $# -gt 0 ]; do
+		case $1 in
+		--json) JSON=1 ;;
+		--yes | -y) YES=1 ;;
+		--no-default | --keep-default) NODEFAULT=1 ;;
+		--promote) PROMOTE=1 ;;
+		--reboot) REBOOT=1 ;;
+		--no-update) NOUPDATE=1 ;;
+		--cancel) CANCEL=1 ;;
+		--flavor)
+			FLAVOR_OPT=${2:-}
+			shift
+			;;
+		-h | --help) usage; exit 0 ;;
+		*) POS="$POS $1" ;;
+		esac
+		shift
+	done
+}
+
+fmt_flags() {
+	id=$1
+	f=""
+	[ "$id" = "$RUNID" ] && f="$f running"
+	[ "$id" = "$DEFID" ] && f="$f default"
+	[ "$id" = "$PREVID" ] && f="$f previous"
+	[ "$id" = "$TRIALID" ] && f="$f trial"
+	echo "$f" | sed 's/^ //'
+}
+
+load_header() {
+	BP=$(boot_path)
+	RUNID=$(running_id)
+	DEFID=$(st_get default)
+	if [ -z "$DEFID" ] && [ "$(id -u)" = 0 ]; then
+		adopt_state
+		DEFID=$(st_get default)
+	fi
+	PREVID=$(st_get previous)
+	TRIALID=$(trial_id)
+	TRIALMODE=$(trial_mode)
+	LASTRESULT=$(st_get result)
+}
+
+installed_version_of_flavor() {
+	sorted | awk -F'|' -v f="$1" '$2 == f { print $3; exit }'
+}
+
+repo_is_newer() {
+	fl=$1
+	kv=$2
+	cur=$(installed_version_of_flavor "$fl")
+	[ -n "$cur" ] || return 1
+	[ "$cur" = "$kv" ] && return 1
+	top=$(printf '%s\n%s\n' "$cur" "$kv" | awk '{ n = split($0, a, /[^0-9]+/); k = ""; for (i = 1; i <= n; i++) k = k sprintf("%08d", a[i] + 0); print k "|" $0 }' | sort -r | head -n 1 | cut -d'|' -f2)
+	[ "$top" = "$kv" ]
+}
+
+cmd_list() {
+	ingest
+	SC=$(sorted_raw)
+	load_header
+	inst=$(sorted)
+	avail=$(repo_versions)
+	if [ "$JSON" = 1 ]; then
+		printf '{"ok":true,"boot":"%s","running":"%s","default":"%s","previous":"%s","trial":"%s","trial_mode":"%s","last_result":"%s","keep":%s,"installed":[' \
+			"$BP" "$RUNID" "$DEFID" "$PREVID" "$TRIALID" "$TRIALMODE" "$(jstr "$LASTRESULT")" "$KEEP"
+		first=1
+		printf '%s\n' "$inst" | while IFS='|' read -r id fl ver rel dir origin; do
+			[ -n "$id" ] || continue
+			[ $first = 1 ] || printf ','
+			first=0
+			printf '{"id":"%s","version":"%s","flavor":"%s","release":"%s","size_kb":%s,"origin":"%s","running":%s,"default":%s,"previous":%s,"trial":%s,"removable":%s}' \
+				"$id" "$ver" "$fl" "$(jstr "$rel")" "$(kernel_kb "$dir" "$origin" "$rel")" "$origin" \
+				"$([ "$id" = "$RUNID" ] && echo true || echo false)" "$([ "$id" = "$DEFID" ] && echo true || echo false)" \
+				"$([ "$id" = "$PREVID" ] && echo true || echo false)" "$([ -n "$TRIALID" ] && [ "$id" = "$TRIALID" ] && echo true || echo false)" \
+				"$(if [ "$origin" = retained ] && ! protected "$id"; then echo true; else echo false; fi)"
+		done
+		printf '],"available":['
+		first=1
+		printf '%s\n' "$avail" | while IFS='|' read -r p v fl; do
+			[ -n "$p" ] || continue
+			kv=${v%%-*}
+			have=0
+			[ -n "$(entry_dir "$fl-$kv")" ] && have=1
+			nw=0
+			repo_is_newer "$fl" "$kv" && nw=1
+			[ $first = 1 ] || printf ','
+			first=0
+			printf '{"package":"%s","package_version":"%s","version":"%s","flavor":"%s","installed":%s,"newer":%s}' "$p" "$v" "$kv" "$fl" "$(jbool $have)" "$(jbool $nw)"
+		done
+		printf ']}\n'
+		return 0
+	fi
+	printf 'boot path: %s    running: %s    default: %s\n\n' "$BP" "$RUNID" "${DEFID:-unknown}"
+	printf '%-22s %-24s %7s  %s\n' KERNEL RELEASE SIZE STATE
+	if [ -z "$inst" ]; then
+		say "(no kernels registered under $KDIR)"
+	else
+		printf '%s\n' "$inst" | while IFS='|' read -r id fl ver rel dir origin; do
+			[ -n "$id" ] || continue
+			fl_=$(fmt_flags "$id")
+			printf '%-22s %-24s %7s  %s\n' "$id" "$rel" "$(human_kb "$(kernel_kb "$dir" "$origin" "$rel")")" "${fl_:+$fl_, }$origin"
+		done
+	fi
+	new=""
+	while IFS='|' read -r p v fl; do
+		[ -n "$p" ] || continue
+		kv=${v%%-*}
+		[ -n "$(entry_dir "$fl-$kv")" ] && continue
+		mark=""
+		repo_is_newer "$fl" "$kv" && mark="  newer"
+		new="$new$(printf '%-22s %-24s %s%s' "$fl-$kv" "$p=$v" "(repository)" "$mark")
+"
+	done <<EOF
+$avail
+EOF
+	if [ -n "$new" ]; then
+		printf '\nAvailable in the repository (kwick-kernel install ID):\n%s' "$new"
+	fi
+	if [ -n "$TRIALID" ]; then printf '\nOne-shot trial pending: %s%s. Reboot to run it.\n' "$TRIALID" "$([ "$TRIALMODE" = promote ] && echo ' (becomes the default once the boot is confirmed)')"; fi
+	return 0
+}
+
+cmd_status() {
+	ingest
+	SC=$(sorted_raw)
+	load_header
+	latest=""
+	fl=$(running_flavor)
+	l=$(repo_versions | awk -F'|' -v f="$fl" '$3 == f { print $2; exit }')
+	[ -n "$l" ] && latest=${l%%-*}
+	upd=0
+	[ -n "$latest" ] && repo_is_newer "$fl" "$latest" && upd=1
+	if [ "$JSON" = 1 ]; then
+		printf '{"ok":true,"boot":"%s","running":"%s","release":"%s","default":"%s","previous":"%s","trial":"%s","trial_mode":"%s","last_result":"%s","keep":%s,"flavor":"%s","latest":"%s","update_available":%s}\n' \
+			"$BP" "$RUNID" "$(jstr "$(running_rel)")" "$DEFID" "$PREVID" "$TRIALID" "$TRIALMODE" "$(jstr "$LASTRESULT")" "$KEEP" "$fl" "$latest" "$(jbool $upd)"
+		return 0
+	fi
+	printf 'boot path      %s\n' "$BP"
+	printf 'running        %s (%s)\n' "$RUNID" "$(running_rel)"
+	printf 'default        %s\n' "${DEFID:-unknown}"
+	printf 'previous       %s\n' "${PREVID:-none}"
+	if [ -n "$TRIALID" ]; then printf 'pending trial  %s%s\n' "$TRIALID" "$([ "$TRIALMODE" = promote ] && echo ' (promote on confirm)')"; fi
+	[ -n "$LASTRESULT" ] && printf 'last trial     %s\n' "$LASTRESULT"
+	printf 'keep           newest %s per flavor\n' "$KEEP"
+	if [ -n "$latest" ]; then
+		if [ $upd = 1 ]; then printf 'update         %s %s is available (kwick-kernel install latest)\n' "$fl" "$latest"; else printf 'update         %s %s is the newest in the repository\n' "$fl" "$latest"; fi
+	fi
+	return 0
+}
+
+resolve_install() {
+	spec=$1
+	rv=$(repo_versions)
+	[ -n "$rv" ] || die "the repository offers no linux-image-kwick packages (run apt update, check /etc/apt/sources.list.d)"
+	rf=${FLAVOR_OPT:-$(running_flavor)}
+	pick=""
+	case $spec in
+	latest)
+		pick=$(printf '%s\n' "$rv" | awk -F'|' -v f="$rf" '$3 == f { print; exit }')
+		[ -n "$pick" ] || die "the repository has no kernel of flavor $rf (flavors: $(printf '%s\n' "$rv" | cut -d'|' -f3 | sort -u | tr '\n' ' '))"
+		;;
+	*)
+		if printf '%s\n' "$rv" | cut -d'|' -f3 | grep -qx "$spec"; then
+			pick=$(printf '%s\n' "$rv" | awk -F'|' -v f="$spec" '$3 == f { print; exit }')
+		else
+			fl=""
+			ver=$spec
+			case $spec in
+			*:*)
+				a=${spec%%:*}
+				b=${spec#*:}
+				if printf '%s\n' "$rv" | cut -d'|' -f3 | grep -qx "$a"; then fl=$a; ver=$b; else fl=$b; ver=$a; fi
+				;;
+			*-*)
+				a=${spec%%-*}
+				if printf '%s\n' "$rv" | cut -d'|' -f3 | grep -qx "$a"; then fl=$a; ver=${spec#*-}; fi
+				;;
+			esac
+			if [ -n "$fl" ]; then
+				pick=$(printf '%s\n' "$rv" | awk -F'|' -v f="$fl" -v v="$ver" '{ k = $2; sub(/-.*/, "", k) } $3 == f && (k == v || $2 == v || index(k, v ".") == 1) { print; exit }')
+			else
+				pick=$(printf '%s\n' "$rv" | awk -F'|' -v f="$rf" -v v="$ver" '{ k = $2; sub(/-.*/, "", k) } $3 == f && (k == v || $2 == v || index(k, v ".") == 1) { print; exit }')
+				if [ -z "$pick" ]; then
+					any=$(printf '%s\n' "$rv" | awk -F'|' -v v="$ver" '{ k = $2; sub(/-.*/, "", k) } (k == v || $2 == v || index(k, v ".") == 1) { print }')
+					n=$(printf '%s\n' "$any" | grep -c .)
+					if [ "$n" = 1 ]; then pick=$any; elif [ "$n" -gt 1 ]; then die "$spec exists for several flavors ($(printf '%s\n' "$any" | cut -d'|' -f3 | sort -u | tr '\n' ' ')): use FLAVOR:$spec"; fi
+				fi
+			fi
+		fi
+		[ -n "$pick" ] || die "the repository does not publish '$spec' (see: kwick-kernel mainline)"
+		;;
+	esac
+	echo "$pick"
+}
+
+cmd_install() {
+	need_root install
+	command -v apt-get >/dev/null 2>&1 || die "apt-get is not available"
+	spec=${1:-latest}
+	if [ "$NOUPDATE" != 1 ]; then
+		say "refreshing package lists"
+		apt-get update >/dev/null 2>&1 || warn "apt-get update failed, using the cached package lists"
+	fi
+	line=$(resolve_install "$spec") || exit 1
+	pkg=${line%%|*}
+	rest=${line#*|}
+	pv=${rest%%|*}
+	fl=${rest#*|}
+	kv=${pv%%-*}
+	id=$fl-$kv
+	ingest
+	BP=$(boot_path)
+	adopt_state
+	if [ -n "$(entry_dir "$id")" ]; then
+		say "$id is already installed ($(entry_origin "$id")); use 'kwick-kernel default $id' or 'kwick-kernel try $id'"
+		exit 0
+	fi
+	say "installing $pkg=$pv"
+	st_del registered
+	if [ "$NODEFAULT" = 1 ]; then printf '%s\n' "$(st_get default)" >"$KEEPFLAG"; fi
+	if ! apt-get install -y --allow-downgrades "$pkg=$pv"; then
+		rm -f "$KEEPFLAG"
+		die "apt-get could not install $pkg=$pv"
+	fi
+	ingest
+	rel=$(entry_rel "$id")
+	if [ -z "$rel" ]; then
+		rm -f "$KEEPFLAG"
+		die "$pkg installed but no kernel $id appeared under $KDIR"
+	fi
+	rc=0
+	if [ "$(st_get registered)" != "$id" ]; then
+		if [ -x /usr/sbin/kwick-kernel-install ]; then /usr/sbin/kwick-kernel-install "$rel"; else cmd_register "$rel"; fi
+		rc=$?
+	fi
+	rm -f "$KEEPFLAG"
+	[ $rc -eq 0 ] || exit $rc
+	return 0
+}
+
+cmd_register() {
+	need_root "kernel registration"
+	rel=${1:-}
+	[ -n "$rel" ] || die "usage: kwick-kernel _register RELEASE"
+	ingest
+	id=$(id_for_rel "$rel") || die "no kernel with release $rel under $KDIR"
+	BP=$(boot_path)
+	if [ "$BP" = none ]; then
+		say "kwick-kernel: no UEFI/bootloader boot path (direct-kernel boot or container)."
+		say "  Kernel stored in $(entry_dir "$id"); point your hypervisor at it."
+		return 0
+	fi
+	adopt_state
+	activate "$id"
+	if [ -f "$KEEPFLAG" ]; then
+		bp_add "$id"
+		say "kwick-kernel: $id installed; the default stays $(st_get default) (try it with: kwick-kernel try $id)"
+	else
+		set_default "$id"
+		say "kwick-kernel-install: $id is now the boot kernel (previous kept for rollback)"
+	fi
+	st_set registered "$id"
+	prune "$KEEP"
+	return 0
+}
+
+cmd_default() {
+	need_root default
+	[ -n "${1:-}" ] || die "usage: kwick-kernel default VERSION"
+	ingest
+	id=$(need_id "$1") || exit 1
+	BP=$(boot_path)
+	adopt_state
+	if [ "$id" = "$(st_get default)" ] && [ -z "$(trial_id)" ]; then
+		say "$id is already the default"
+		return 0
+	fi
+	[ -n "$(trial_id)" ] && { bp_untry; st_del trial; st_del trialentry; }
+	set_default "$id"
+	say "default kernel is now $id (boot path $BP). Reboot to use it."
+	[ "$REBOOT" = 1 ] && exec reboot
+	return 0
+}
+
+cmd_try() {
+	need_root try
+	BP=$(boot_path)
+	if [ "$CANCEL" = 1 ]; then
+		bp_untry
+		st_del trial
+		st_del trialentry
+		say "one-shot trial cancelled"
+		return 0
+	fi
+	[ -n "${1:-}" ] || die "usage: kwick-kernel try VERSION [--promote]"
+	ingest
+	id=$(need_id "$1") || exit 1
+	bp_supports_try "$BP" || die "one-shot boots are not supported on boot path '$BP'"
+	adopt_state
+	[ "$id" = "$(st_get default)" ] && die "$id is already the default kernel"
+	[ -n "$(trial_id)" ] && { bp_untry; st_del trial; st_del trialentry; }
+	activate "$id"
+	if [ "$BP" = uboot ]; then
+		prev=$(st_get default)
+		[ -n "$prev" ] && st_set trialfallback "$prev"
+	fi
+	bp_try "$id"
+	mode=keep
+	[ "$PROMOTE" = 1 ] && mode=promote
+	st_set trial "$id $mode $(date +%s) $(cat /proc/sys/kernel/random/boot_id 2>/dev/null)"
+	st_del result
+	case $BP in
+	uboot) say "kernel $id is selected for the next boot; an unconfirmed boot falls back to the previous system (kwick-bootctl)" ;;
+	*) say "$id will boot once on the next reboot; if that boot does not come up, the default ($(st_get default)) boots again" ;;
+	esac
+	[ "$mode" = promote ] && say "it becomes the default when the boot is confirmed"
+	[ "$REBOOT" = 1 ] && exec reboot
+	return 0
+}
+
+cmd_rollback() {
+	need_root rollback
+	ingest
+	BP=$(boot_path)
+	adopt_state
+	prev=$(st_get previous)
+	if [ -z "$prev" ] && [ "$BP" = efistub ] && mount_esp 2>/dev/null && [ -f "$ESP/EFI/kwick/previous.efi" ]; then
+		name=$(bootname)
+		cp "$ESP/EFI/BOOT/$name" "$ESP/EFI/kwick/rollback-from.efi" 2>/dev/null
+		cp "$ESP/EFI/kwick/previous.efi" "$ESP/EFI/BOOT/$name.new" && mv "$ESP/EFI/BOOT/$name.new" "$ESP/EFI/BOOT/$name"
+		sync
+		say "Rolled back to the previous boot image. Reboot to use it."
+		return 0
+	fi
+	[ -n "$prev" ] || die "no previous kernel recorded"
+	[ -n "$(entry_dir "$prev")" ] || die "the previous kernel $prev is no longer installed"
+	cur=$(st_get default)
+	[ -n "$(trial_id)" ] && { bp_untry; st_del trial; st_del trialentry; }
+	set_default "$prev"
+	say "rolled back from ${cur:-?} to $prev. Reboot to use it."
+	[ "$REBOOT" = 1 ] && exec reboot
+	return 0
+}
+
+cmd_remove() {
+	need_root remove
+	[ -n "${1:-}" ] || die "usage: kwick-kernel remove VERSION"
+	ingest
+	id=$(need_id "$1") || exit 1
+	BP=$(boot_path)
+	adopt_state
+	[ "$id" = "$(running_id)" ] && die "$id is the running kernel and cannot be removed"
+	[ "$id" = "$(st_get default)" ] && die "$id is the default kernel, choose another default first"
+	[ "$id" = "$(trial_id)" ] && die "$id has a pending trial, cancel it first (kwick-kernel try --cancel)"
+	if [ "$(entry_origin "$id")" = package ]; then
+		die "$id belongs to an installed package; install a different version of that flavor and it becomes removable (or apt remove it)"
+	fi
+	remove_kernel "$id"
+	say "removed $id"
+}
+
+cmd_keep() {
+	need_root keep
+	n=${1:-}
+	case $n in
+	'' | *[!0-9]*) die "usage: kwick-kernel keep N (N >= 1)" ;;
+	esac
+	[ "$n" -ge 1 ] || die "N must be at least 1"
+	mkdir -p "$(dirname "$KCONF")"
+	{
+		[ -f "$KCONF" ] && grep -v '^KEEP=' "$KCONF"
+		printf 'KEEP=%s\n' "$n"
+	} >"$KCONF.new"
+	mv "$KCONF.new" "$KCONF"
+	KEEP=$n
+	say "keeping the running, default and newest $n kernel(s) per flavor"
+	cmd_prune
+}
+
+cmd_prune() {
+	need_root prune
+	ingest
+	BP=$(boot_path)
+	adopt_state
+	prune "$KEEP"
+	return 0
+}
+
+cmd_mainline() {
+	cat <<'EOF'
+KwickOS builds the newest kernel.org stable release in CI (the kernel-watch workflow bumps KERNEL_VERSION,
+release.yml builds every flavor and publishes it to the signed apt repository). Kernels are not built on
+the device. These are the versions and flavors the repository publishes:
+EOF
+	say ""
+	rv=$(repo_versions)
+	if [ -z "$rv" ]; then
+		say "(no kernel packages in the apt lists, run: apt update)"
+		return 0
+	fi
+	printf '%s\n' "$rv" | while IFS='|' read -r p v fl; do
+		kv=${v%%-*}
+		have=""
+		[ -n "$(entry_dir "$fl-$kv")" ] && have="  installed"
+		printf '%-10s %-10s %s=%s%s\n' "$fl" "$kv" "$p" "$v" "$have"
+	done
+	if [ -n "${1:-}" ]; then
+		say ""
+		cmd_install "$1"
+		return $?
+	fi
+	say ""
+	say "Install one with: kwick-kernel install VERSION   (or FLAVOR:VERSION)"
+	return 0
+}
+
+cmd_sync() {
+	need_root sync
+	ingest
+	BP=$(boot_path)
+	adopt_state
+	[ "$BP" = none ] && die "no supported boot path"
+	def=$(st_get default)
+	for sid in $(sorted | cut -d'|' -f1); do
+		activate "$sid"
+		bp_add "$sid"
+	done
+	if [ -n "$def" ] && [ -n "$(entry_dir "$def")" ]; then bp_default "$def"; fi
+	say "boot entries are up to date ($BP)"
+}
+
+cmd_confirm() {
+	need_root confirm
+	[ "${1:-}" = --wait ] && sleep "$CONFIRM_DELAY"
+	BP=$(boot_path)
+	ingest
+	run=$(running_id)
+	t=$(st_get trial)
+	if [ -n "$t" ]; then
+		set -- $t
+		tid=$1
+		mode=${2:-keep}
+		armed_boot=${4:-}
+		now_boot=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+		if [ -n "$armed_boot" ] && [ "$armed_boot" = "$now_boot" ]; then
+			say "trial $tid is armed, reboot to run it"
+			return 0
+		fi
+		bp_untry
+		[ "$BP" = uboot ] && mode=promote
+		if [ "$tid" = "$run" ]; then
+			st_set result "ok $tid confirmed $(date '+%Y-%m-%d %H:%M:%S')"
+			st_del trial
+			st_del trialentry
+			say "trial of $tid confirmed"
+			if [ "$mode" = promote ]; then
+				adopt_state
+				set_default "$tid"
+				say "$tid is now the default kernel"
+			fi
+		else
+			st_set result "failed $tid did not boot, ran $run $(date '+%Y-%m-%d %H:%M:%S')"
+			st_del trial
+			st_del trialentry
+			warn "trial of $tid did not boot; the default kernel was used ($run)"
+			if [ "$BP" = uboot ] && [ -n "$(st_get trialfallback)" ]; then
+				fb=$(st_get trialfallback)
+				[ -n "$(entry_dir "$fb")" ] && ub_default "$fb"
+			fi
+		fi
+		st_del trialfallback
+	fi
+	st_set booted "$run"
+	return 0
+}
+
+parse "$@"
+set -- $POS
+CMD=${1:-list}
+[ $# -gt 0 ] && shift
+
+case $CMD in
+list) cmd_list ;;
+status) cmd_status ;;
+install) cmd_install "$@" ;;
+default | set-default) cmd_default "$@" ;;
+try) cmd_try "$@" ;;
+rollback) cmd_rollback ;;
+remove | rm) cmd_remove "$@" ;;
+keep) cmd_keep "$@" ;;
+prune) cmd_prune ;;
+mainline) cmd_mainline "$@" ;;
+sync | repair) cmd_sync ;;
+confirm) cmd_confirm "$@" ;;
+_register) cmd_register "$@" ;;
+_retain) ingest ;;
+help | -h | --help) usage ;;
+*)
+	usage >&2
+	exit 1
+	;;
+esac

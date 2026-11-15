@@ -144,6 +144,7 @@ Nothing below is in the base image. Each one is a small package or command that 
 | `kwick-storage`, `kwick-zfs` | NAS modules: prebuilt OpenZFS, RAID, SnapRAID arrays, SMB and NFS shares, Cockpit | `apt install kwick-storage`, then `kwick-storage install zfs` | [STORAGE](docs/STORAGE.md) |
 | `kwick-vpn` | import WireGuard and OpenVPN profiles, add Tailscale, Mullvad, Proton, ZeroTier or NetBird | in the base: `kwick-vpn install tailscale` | [VPN](docs/VPN.md) |
 | `kwick-brew` | Homebrew (Linuxbrew) with the official installer, amd64 and arm64 | in the base: `kwick-brew install` | [BASE](docs/BASE.md#homebrew) |
+| `kwick-shell` | switches the login shell between zsh, bash, ash and fish, zsh is the desktop default | in the base: `kwick-shell zsh` | [BASE](docs/BASE.md#shells) |
 | `kwick-gpu` | detects GPUs and installs AMD, Intel or NVIDIA drivers and firmware | `apt install kwick-gpu` (included with the desktop) | [HARDWARE](docs/HARDWARE.md) |
 | `kwick-darling` | runs macOS command-line programs with Darling (amd64) | `apt install kwick-darling` | [DARLING](docs/DARLING.md) |
 
@@ -210,6 +211,7 @@ Cross builds, the source tree, releases and CI: [docs/BUILDING.md](docs/BUILDING
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | kinit, kpkg, the boot path, limitations |
 | [BENCHMARKS](docs/BENCHMARKS.md) and [COMPATIBILITY](docs/COMPATIBILITY.md) | measurements and the package matrix |
 | [HARDWARE](docs/HARDWARE.md) | kernel flavors, GPUs, Apple Silicon, GB10, riscv64 boards |
+| [KERNELS](docs/KERNELS.md) | `kwick-kernel`: install, switch, try once and roll back kernels |
 | [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md) | optional packages |
 | [BUILDING](docs/BUILDING.md) and [VERIFICATION](docs/VERIFICATION.md) | building from source, CI, and what was tested |
 

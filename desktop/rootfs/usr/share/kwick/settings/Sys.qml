@@ -22,9 +22,10 @@ QtObject {
     property var fonts: []
     property var apps: []
     property var gaming: ({})
+    property string loginShell: "zsh"
     property string accentName: "blue"
-    property int radius: 12
-    property int radiusDefault: 12
+    property int radius: 26
+    property int radiusDefault: 26
 
     property bool dockAvailable: false
     property bool dockFloatingSupported: false
@@ -32,6 +33,7 @@ QtObject {
     property int dockSize: 56
     property bool dockAutohide: false
     property bool dockFloating: true
+    property bool dockMagnify: true
     property var pinned: []
 
     readonly property var accents: [
@@ -68,8 +70,8 @@ QtObject {
         return "sudo -n " + cmd + " 2>&1 || pkexec " + cmd
     }
 
-    function terminal(cmd) {
-        run("kwick-terminal -e sh -c '" + (cmd + "; echo; printf \"Press Enter to close\"; read -r _").replace(/'/g, "'\\''") + "'")
+    function terminal(cmd, cb) {
+        run("kwick-terminal -e sh -c '" + (cmd + "; echo; printf \"Press Enter to close\"; read -r _").replace(/'/g, "'\\''") + "'", cb)
     }
 
     function sections(text) {
@@ -109,6 +111,7 @@ QtObject {
             if (p.length >= 2) ss[p[0]] = p.slice(1).join(" ")
         })
         sys.sessions = ss
+        if (s.shell && s.shell.length) sys.loginShell = s.shell[0].trim()
         if (s.radius && s.radius.length) {
             var rp = s.radius[0].trim().split(/\s+/)
             if (rp.length === 2) {
@@ -141,6 +144,7 @@ QtObject {
             else if (k === "size") sys.dockSize = parseInt(v) || 56
             else if (k === "autohide") sys.dockAutohide = /^(on|true|1|yes)$/i.test(v)
             else if (k === "floating") { sys.dockFloating = /^(on|true|1|yes)$/i.test(v); sys.dockFloatingSupported = true }
+            else if (k === "magnify") sys.dockMagnify = /^(on|true|1|yes)$/i.test(v)
         })
         var ids = (s.list || []).join(" ").match(/[A-Za-z0-9_.\-]+\.desktop/g)
         sys.pinned = ids ? ids : []
@@ -243,6 +247,7 @@ QtObject {
     function setDockSize(n) { sys.dockSize = n; dockRun("size " + n) }
     function setDockAutohide(on) { sys.dockAutohide = on; dockRun("autohide " + (on ? "on" : "off")) }
     function setDockFloating(on) { sys.dockFloating = on; dockRun("floating " + (on ? "on" : "off")) }
+    function setDockMagnify(on) { sys.dockMagnify = on; dockRun("magnify " + (on ? "on" : "off")) }
     function pin(id) {
         if (sys.pinned.indexOf(id) < 0) sys.pinned = sys.pinned.concat([id])
         dockRun("pin " + id)
@@ -266,6 +271,10 @@ QtObject {
         for (var i = 0; i < sys.apps.length; i++)
             if (sys.apps[i].id === id) return sys.apps[i]
         return { id: id, name: id.replace(/\.desktop$/, ""), icon: "" }
+    }
+
+    function setLoginShell(name) {
+        terminal("kwick-shell " + name, refresh)
     }
 
     function setDefaultSession(d) {

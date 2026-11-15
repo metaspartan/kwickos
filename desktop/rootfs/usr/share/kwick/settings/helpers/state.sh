@@ -23,3 +23,5 @@ echo "[gpu]"
 kwick-gpu 2>&1 | head -6
 echo "[sessions]"
 sudo -n kwick-desktop list 2>/dev/null
+echo "[shell]"
+kwick-shell --current 2>/dev/null

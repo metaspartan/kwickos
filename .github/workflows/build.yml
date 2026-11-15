@@ -76,6 +76,9 @@ jobs:
       - name: Kernel (generic)
         if: matrix.arch != 'riscv64' || inputs.release
         run: make kernel-generic ARCH=$ARCH KVER=${{ steps.kver.outputs.kver }}
+      - name: Kernel (k1, SpacemiT vendor BSP for the Banana Pi BPI-F3)
+        if: matrix.arch == 'riscv64' && inputs.release
+        run: docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache kwick-builder bash /src/scripts/build-kernel-variant.sh riscv64 k1
       - name: OpenZFS modules for the generic kernel
         id: zfs
         if: matrix.arch != 'riscv64' || inputs.release
@@ -136,6 +139,10 @@ jobs:
             out/${{ matrix.arch }}/kernel-*/config
             out/${{ matrix.arch }}/kernel-*/vmlinuz*
             out/${{ matrix.arch }}/kernel-*/modules.tar.zst
+            out/${{ matrix.arch }}/kernel-*/dtbs
+            out/${{ matrix.arch }}/kernel-*/Image.itb
+            out/${{ matrix.arch }}/kernel-*/initrd.img
+            out/${{ matrix.arch }}/kernel-*/load-address
           retention-days: 14
 
       - uses: actions/upload-artifact@v4

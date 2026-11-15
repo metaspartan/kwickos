@@ -1,0 +1,226 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+say() { printf 'kwick-shell: %s\n' "$*"; }
+die() { printf 'kwick-shell: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+usage() {
+	cat <<'EOF'
+usage: kwick-shell                       show the current shell and the available ones
+       kwick-shell zsh|bash|ash|fish     use that login shell (installs it if missing)
+       kwick-shell --user NAME SHELL     change the login shell of NAME (root)
+       kwick-shell --default SHELL       shell for users created from now on (root)
+       kwick-shell --current             print the name of your login shell
+EOF
+}
+
+shell_path() {
+	case $1 in
+	ash) echo /bin/sh ;;
+	zsh | bash | fish) echo "/bin/$1" ;;
+	*) return 1 ;;
+	esac
+}
+
+shell_name() {
+	case ${1##*/} in
+	sh | ash | busybox | dash) echo ash ;;
+	*) echo "${1##*/}" ;;
+	esac
+}
+
+is_installed() {
+	case $1 in
+	ash) return 0 ;;
+	bash)
+		[ -x /usr/bin/bash ] || return 1
+		! grep -q 'KwickOS on-demand bash' /usr/bin/bash 2>/dev/null
+		;;
+	*) [ -x "/usr/bin/$1" ] ;;
+	esac
+}
+
+pw_field() {
+	awk -F: -v u="$1" -v n="$2" '$1 == u { print $n; exit }' /etc/passwd 2>/dev/null
+}
+
+user_exists() {
+	awk -F: -v u="$1" '$1 == u { f = 1 } END { exit !f }' /etc/passwd 2>/dev/null
+}
+
+default_path() {
+	d=""
+	[ -r /etc/default/useradd ] && d=$(sed -n 's/^SHELL=//p' /etc/default/useradd | tail -n 1)
+	echo "${d:-/bin/sh}"
+}
+
+show() {
+	me=$(id -un 2>/dev/null)
+	cur=$(pw_field "$me" 7)
+	[ -n "$cur" ] || cur=/bin/sh
+	printf 'login shell for %s: %s (%s)\n' "$me" "$(shell_name "$cur")" "$cur"
+	dp=$(default_path)
+	printf 'default for new users: %s (%s)\n' "$(shell_name "$dp")" "$dp"
+	printf 'available:\n'
+	for s in ash bash zsh fish; do
+		if is_installed "$s"; then st=installed; else st="not installed, kwick-shell $s installs it"; fi
+		printf '  %-5s %s\n' "$s" "$st"
+	done
+}
+
+ensure_root() {
+	[ "$(id -u)" -eq 0 ] && return 0
+	have sudo || die "this needs root and sudo is not installed"
+	exec sudo "$0" "$@"
+}
+
+add_shells() {
+	touch /etc/shells
+	for sp in "/bin/$1" "/usr/bin/$1"; do
+		grep -qx "$sp" /etc/shells 2>/dev/null || echo "$sp" >>/etc/shells
+	done
+}
+
+wire_zsh() {
+	[ -d /etc/zsh ] || return 0
+	[ -f /etc/zsh/zshrc ] || : >/etc/zsh/zshrc
+	grep -q 'kwick/zsh/kwick.zsh' /etc/zsh/zshrc 2>/dev/null ||
+		printf '[ -r /usr/share/kwick/zsh/kwick.zsh ] && . /usr/share/kwick/zsh/kwick.zsh\n' >>/etc/zsh/zshrc
+}
+
+compile_zsh() {
+	for d in /usr/share/zsh-syntax-highlighting /usr/share/zsh-autosuggestions /usr/share/kwick/zsh; do
+		[ -d "$d" ] || continue
+		find "$d" -name '*.zsh' | while read -r f; do zsh -fc "zcompile -U '$f'" >/dev/null 2>&1; done
+	done
+	return 0
+}
+
+install_shell() {
+	is_installed "$1" && { add_shells "$1"; return 0; }
+	have apt-get || die "$1 is not installed and there is no package manager"
+	pk=$1
+	[ "$1" = zsh ] && pk="zsh zsh-autosuggestions zsh-syntax-highlighting"
+	say "installing $pk"
+	if ! apt-get install -y -q --no-install-recommends $pk </dev/null >/dev/null 2>&1; then
+		apt-get update -q </dev/null >/dev/null 2>&1
+		apt-get install -y -q --no-install-recommends $pk </dev/null >/dev/null 2>&1 ||
+			die "could not install $pk, check the network connection"
+	fi
+	is_installed "$1" || die "$1 is still missing after the install"
+	add_shells "$1"
+}
+
+prepare() {
+	install_shell "$1"
+	if [ "$1" = zsh ]; then
+		wire_zsh
+		compile_zsh
+	fi
+	return 0
+}
+
+set_passwd_shell() {
+	u=$1
+	p=$2
+	if have chsh && chsh -s "$p" "$u" >/dev/null 2>&1; then return 0; fi
+	if have usermod && usermod -s "$p" "$u" >/dev/null 2>&1; then return 0; fi
+	tmp=$(mktemp /etc/passwd.XXXXXX) || return 1
+	if awk -F: -v OFS=: -v u="$u" -v s="$p" '$1 == u { $7 = s } { print }' /etc/passwd >"$tmp"; then
+		chmod 644 "$tmp"
+		mv "$tmp" /etc/passwd
+	else
+		rm -f "$tmp"
+		return 1
+	fi
+}
+
+seed_zshrc() {
+	home=$(pw_field "$1" 6)
+	[ -d "$home" ] && [ ! -e "$home/.zshrc" ] && [ -r /etc/skel/.zshrc ] || return 0
+	cp /etc/skel/.zshrc "$home/.zshrc"
+	chown "$(pw_field "$1" 3):$(pw_field "$1" 4)" "$home/.zshrc" 2>/dev/null
+	return 0
+}
+
+set_key() {
+	f=$1
+	k=$2
+	v=$3
+	[ -f "$f" ] || : >"$f"
+	if grep -q "^$k=" "$f"; then
+		sed -i "s|^$k=.*|$k=$v|" "$f"
+	else
+		printf '%s=%s\n' "$k" "$v" >>"$f"
+	fi
+}
+
+cmd_user() {
+	u=$1
+	name=$2
+	p=$(shell_path "$name") || die "unknown shell: $name (use zsh, bash, ash or fish)"
+	user_exists "$u" || die "no such user: $u"
+	prepare "$name"
+	set_passwd_shell "$u" "$p" || die "could not change the login shell of $u"
+	[ "$name" = zsh ] && seed_zshrc "$u"
+	say "login shell of $u is now $name ($p); log out and back in, or run: exec $name"
+}
+
+cmd_default() {
+	name=$1
+	p=$(shell_path "$name") || die "unknown shell: $name (use zsh, bash, ash or fish)"
+	prepare "$name"
+	mkdir -p /etc/default
+	have useradd && useradd -D -s "$p" >/dev/null 2>&1
+	set_key /etc/default/useradd SHELL "$p"
+	[ -f /etc/adduser.conf ] && set_key /etc/adduser.conf DSHELL "$p"
+	say "new users will get $name ($p)"
+}
+
+MODE=user
+TARGET=""
+WANT=""
+while [ $# -gt 0 ]; do
+	case $1 in
+	-h | --help) usage; exit 0 ;;
+	--current)
+		cur=$(pw_field "$(id -un)" 7)
+		shell_name "${cur:-/bin/sh}"
+		exit 0
+		;;
+	--user)
+		[ $# -ge 2 ] || die "--user needs a name"
+		TARGET=$2
+		shift 2
+		;;
+	--default)
+		MODE=default
+		shift
+		;;
+	-*) usage >&2; exit 1 ;;
+	*)
+		[ -z "$WANT" ] || die "one shell at a time"
+		WANT=$1
+		shift
+		;;
+	esac
+done
+
+if [ -z "$WANT" ]; then
+	[ "$MODE" = default ] && die "--default needs a shell name"
+	show
+	exit 0
+fi
+
+shell_path "$WANT" >/dev/null || die "unknown shell: $WANT (use zsh, bash, ash or fish)"
+
+if [ "$MODE" = default ]; then
+	ensure_root --default "$WANT"
+	cmd_default "$WANT"
+else
+	[ -n "$TARGET" ] || TARGET=$(id -un)
+	ensure_root --user "$TARGET" "$WANT"
+	cmd_user "$TARGET" "$WANT"
+fi

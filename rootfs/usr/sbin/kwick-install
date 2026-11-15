@@ -44,6 +44,7 @@ EFI_PART=""
 HOME_PART=""
 BOOT_PART=""
 KEEP_HOME=0
+SHELL_CHOICE=""
 BGPID=""
 CURSTEP=""
 
@@ -557,6 +558,7 @@ commands
   run [options] --yes          perform the installation, emit machine lines on stdout
   timezones | locales | keymaps [--names]
   refresh-boot [release]       reinstall kernel files and boot entries on an installed system
+  initrd <release> <output>    build the boot initramfs for a kernel (exit 3 when this install needs none)
 
 options
   --disk /dev/X                target disk (erase mode)
@@ -572,6 +574,7 @@ options
   --edition desktop|headless
   --layout macos|windows|linux
   --swap none|zram|file:<size>
+  --shell zsh|bash|ash|fish    login shell of the new user (default: zsh on desktop, bash or ash otherwise)
   --dry-run --yes
 
 run output lines: PROGRESS <0-100> <message>, STEP <id> <title>, LOG <text>, ERROR <message>, DONE
@@ -609,6 +612,7 @@ parse_opts() {
 		--edition) EDITION=$2 ;;
 		--layout) LAYOUT=$2 ;;
 		--swap) SWAP=$2 ;;
+		--shell) SHELL_CHOICE=$2 ;;
 		--root-part) ROOT_PART=$2 ;;
 		--efi-part) EFI_PART=$2 ;;
 		--boot-part) BOOT_PART=$2 ;;
@@ -648,6 +652,7 @@ validate_common() {
 		[ -n "$HOME_PART" ] && bad "a ZFS root keeps /home as a dataset in the pool, drop --home-part"
 	fi
 	case $AUTOLOGIN in yes | no) ;; *) bad "--autologin takes yes or no" ;; esac
+	case $SHELL_CHOICE in '' | zsh | bash | ash | fish) ;; *) bad "--shell takes zsh, bash, ash or fish" ;; esac
 	case $LAYOUT in macos | windows | linux) ;; *) bad "unknown layout: $LAYOUT" ;; esac
 	case $SWAP in
 	none | zram) ;;
@@ -1310,6 +1315,19 @@ cfg_users() {
 	rm -f "$T/etc/sudoers.d/kwick-live"
 	sh_=/bin/bash
 	if [ ! -e "$T/usr/bin/bash" ] || cmp -s "$T/usr/bin/bash" "$T/usr/lib/kwick/bash-on-demand" 2>/dev/null; then sh_=/bin/sh; fi
+	want_sh=$SHELL_CHOICE
+	[ -n "$want_sh" ] || [ "$EDITION" != desktop ] || want_sh=zsh
+	case $want_sh in
+	ash) sh_=/bin/sh ;;
+	zsh | bash | fish)
+		if [ -x "$T/usr/bin/$want_sh" ] && ! cmp -s "$T/usr/bin/$want_sh" "$T/usr/lib/kwick/bash-on-demand" 2>/dev/null; then
+			sh_=/bin/$want_sh
+			grep -qx "$sh_" "$T/etc/shells" 2>/dev/null || echo "$sh_" >>"$T/etc/shells"
+		else
+			log "$want_sh is not installed in the target, the account gets $sh_"
+		fi
+		;;
+	esac
 	gecos=$(printf '%s' "$FULLNAME" | tr -d ':\n\r')
 	if ! grep -q "^$USERN:" "$T/etc/passwd"; then
 		uid=$(next_free_id)
@@ -1990,6 +2008,22 @@ cmd_refresh() {
 	echo "kwick-install: $REL is now the boot kernel ($BL)"
 }
 
+cmd_initrd() {
+	[ -f "$CONF" ] || { echo "kwick-install: $CONF not found, this system was not installed by kwick-install" >&2; exit 1; }
+	. "$CONF"
+	ZROOT=$ZPOOL/ROOT/kwick
+	T=""
+	W=/run/kwick-initrd
+	LOGF=/var/log/kwick-install.log
+	ARCHN=$(archname)
+	[ -n "${1:-}" ] && [ -n "${2:-}" ] || { echo "usage: kwick-install initrd <release> <output>" >&2; exit 1; }
+	if [ "$(need_initrd)" != 1 ]; then exit 3; fi
+	mkdir -p "$W"
+	[ "$ENCRYPT" = 1 ] && pick_cipher
+	make_initrd "$2" "$1"
+	rm -rf "$W"
+}
+
 CMD=${1:-}
 [ $# -gt 0 ] && shift
 case $CMD in
@@ -2014,6 +2048,9 @@ timezones | locales | keymaps)
 	;;
 refresh-boot)
 	cmd_refresh "$@"
+	;;
+initrd)
+	cmd_initrd "$@"
 	;;
 "" | -h | --help | help)
 	usage

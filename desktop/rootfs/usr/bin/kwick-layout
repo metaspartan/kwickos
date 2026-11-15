@@ -4,7 +4,7 @@ usage() {
 usage: kwick-layout [macos|windows|linux]
   with a name: apply that layout to the running session and remember it for new logins
   without:     print the current layout
-usage: kwick-layout radius [0-24|default]
+usage: kwick-layout radius [0-32|default]
   set the window corner radius for the current layout, or print "current default"
 USAGE
 }
@@ -25,9 +25,9 @@ kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
 icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
 
-defrad() { if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprdef "$@"; return; fi; case ${1:-$want} in macos) echo 12 ;; *) echo 8 ;; esac; }
+defrad() { if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprdef "$@"; return; fi; case ${1:-$want} in macos) echo 26 ;; *) echo 8 ;; esac; }
 
-hyprdef() { case ${1:-$want} in macos) echo 12 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
+hyprdef() { case ${1:-$want} in macos) echo 26 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
 
 curradius() {
   r=$(cat "$cfg/radius" 2>/dev/null)
@@ -179,12 +179,16 @@ corners() {
   kw kwinrc Plugins kwin4_effect_shapecornersEnabled true
   kw kwinrc $g Size "$rad"
   kw kwinrc $g InactiveCornerRadius "$rad"
-  kw kwinrc $g OutlineThickness 0
-  kw kwinrc $g InactiveOutlineThickness 0
+  kw kwinrc $g OutlineThickness 1
+  kw kwinrc $g InactiveOutlineThickness 1
+  kw kwinrc $g OutlineColor 255,255,255
+  kw kwinrc $g InactiveOutlineColor 255,255,255
+  kw kwinrc $g ActiveOutlineAlpha 36
+  kw kwinrc $g InactiveOutlineAlpha 20
   kw kwinrc $g DisableRoundTile false
   kw kwinrc $g DisableOutlineTile false
-  kw kwinrc $g SecondOutlineThickness 1
-  kw kwinrc $g InactiveSecondOutlineThickness 1
+  kw kwinrc $g SecondOutlineThickness 0
+  kw kwinrc $g InactiveSecondOutlineThickness 0
   kw kwinrc $g SecondOutlineColor 255,255,255
   kw kwinrc $g InactiveSecondOutlineColor 255,255,255
   kw kwinrc $g ActiveSecondOutlineAlpha 34
@@ -292,7 +296,7 @@ radius_main() {
     query) r=$(curradius); echo "${r:-$(defrad)} $(defrad)"; return 0 ;;
     default) rm -f "$cfg/radius" ;;
     ''|*[!0-9]*) usage >&2; return 1 ;;
-    *) [ "$rcmd" -le 24 ] || { usage >&2; return 1; }; echo "$rcmd" > "$cfg/radius" ;;
+    *) [ "$rcmd" -le 32 ] || { usage >&2; return 1; }; echo "$rcmd" > "$cfg/radius" ;;
   esac
   r=$(curradius)
   case $de in

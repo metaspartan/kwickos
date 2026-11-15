@@ -4,12 +4,27 @@ ARCH=${1:?arch}; FLAVOR=${2:?variant}; KVER=${3:-${KVER:-}}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
 mkdir -p "$BUILD" "$CACHE"
 [ -f "$SRC/config/kernel/$FLAVOR.config" ] || { echo "no config/kernel/$FLAVOR.config"; exit 1; }
+GIT=; COMMIT=; DEFCONFIG=defconfig; DTBS=
+if [ -f "$SRC/config/kernel/$FLAVOR.source" ]; then
+  . <(sed 's/\r$//' "$SRC/config/kernel/$FLAVOR.source")
+  KVER=${COMMIT:0:12}
+fi
 [ -n "$KVER" ] || KVER=$(tr -d '\r\n' < "$SRC/KERNEL_VERSION")
 MAJOR=${KVER%%.*}
 echo ">> kernel $KVER ($ARCH/$FLAVOR)"
 
 TARBALL="$CACHE/linux-$KVER.tar.xz"
-if [ ! -f "$TARBALL" ]; then
+if [ -n "$GIT" ]; then
+  KSRC="$BUILD/src/$FLAVOR-$KVER"
+  if [ ! -f "$KSRC/Makefile" ]; then
+    rm -rf "$KSRC.part"; mkdir -p "$KSRC.part"
+    git -C "$KSRC.part" init -q
+    git -C "$KSRC.part" fetch -q --depth 1 "$GIT" "$COMMIT"
+    git -C "$KSRC.part" checkout -q FETCH_HEAD
+    [ "$(git -C "$KSRC.part" rev-parse HEAD)" = "$COMMIT" ] || { echo "commit mismatch for $GIT"; exit 1; }
+    rm -rf "$KSRC.part/.git"; mv "$KSRC.part" "$KSRC"
+  fi
+elif [ ! -f "$TARBALL" ]; then
   curl -fL --retry 3 -o "$TARBALL.part" "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/linux-$KVER.tar.xz"
   curl -fsSL "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/sha256sums.asc" -o "$CACHE/sha256sums-v$MAJOR.asc"
   want=$(grep " linux-$KVER.tar.xz\$" "$CACHE/sha256sums-v$MAJOR.asc" | awk '{print $1}')
@@ -17,7 +32,7 @@ if [ ! -f "$TARBALL" ]; then
   [ -n "$want" ] && [ "$want" = "$got" ] || { echo "sha256 mismatch for linux-$KVER"; exit 1; }
   mv "$TARBALL.part" "$TARBALL"
 fi
-KSRC="$BUILD/src/linux-$KVER"
+[ -n "$GIT" ] || KSRC="$BUILD/src/linux-$KVER"
 if [ ! -f "$KSRC/Makefile" ]; then
   mkdir -p "$BUILD/src"; tar -C "$BUILD/src" -xf "$TARBALL"
 fi
@@ -25,18 +40,24 @@ fi
 case "$ARCH" in
   arm64)   KARCH=arm64; HOSTM=aarch64; CROSS=aarch64-linux-gnu-; IMG=arch/arm64/boot/Image; FRAG=arm64 ;;
   amd64)   KARCH=x86_64; HOSTM=x86_64; CROSS=; IMG=arch/x86/boot/bzImage; FRAG=x86_64 ;;
+  riscv64) KARCH=riscv; HOSTM=riscv64; CROSS=riscv64-linux-gnu-; IMG=arch/riscv/boot/Image; FRAG=riscv64 ;;
   *) echo "unsupported arch $ARCH"; exit 1 ;;
 esac
 [ "$(uname -m)" = "$HOSTM" ] && CROSS=
 O="$BUILD/kernel-$ARCH-$FLAVOR"
+[ -n "$GIT" ] && O="$KSRC"
 mkdir -p "$O"
 M=(make -C "$KSRC" O="$O" ARCH="$KARCH" CROSS_COMPILE="$CROSS" -j"$(nproc)" KBUILD_BUILD_USER=kwick KBUILD_BUILD_HOST=kwickos)
 
 FR="$O/fragments"; mkdir -p "$FR"
-FILES="common $FRAG"
-[ -f "$SRC/config/kernel/generic.config" ] && FILES="$FILES generic"
-[ -f "$SRC/config/kernel/generic-$FRAG.config" ] && FILES="$FILES generic-$FRAG"
-FILES="$FILES $FLAVOR"
+if [ -n "$GIT" ]; then
+  FILES="$FLAVOR"
+else
+  FILES="common $FRAG"
+  [ -f "$SRC/config/kernel/generic.config" ] && FILES="$FILES generic"
+  [ -f "$SRC/config/kernel/generic-$FRAG.config" ] && FILES="$FILES generic-$FRAG"
+  FILES="$FILES $FLAVOR"
+fi
 for f in $FILES; do sed 's/\r$//' "$SRC/config/kernel/$f.config" > "$FR/$f.config"; done
 
 KINIT="$OUT/$ARCH/userland/kinit"
@@ -52,7 +73,7 @@ file /init $KINIT 0755 0 0
 EOT
 echo "CONFIG_INITRAMFS_SOURCE=\"$O/initramfs.list\"" > "$FR/initramfs.config"
 
-"${M[@]}" defconfig >/dev/null
+"${M[@]}" "$DEFCONFIG" >/dev/null
 FRLIST=""
 for f in $FILES; do FRLIST="$FRLIST $FR/$f.config"; done
 "$KSRC/scripts/kconfig/merge_config.sh" -m -O "$O" "$O/.config" $FRLIST "$FR/initramfs.config" >/dev/null
@@ -82,6 +103,7 @@ fi
 T0=$(date +%s)
 TARGETS="$(basename $IMG) modules"
 [ "$ARCH" = arm64 ] && TARGETS="$TARGETS vmlinuz.efi"
+[ -n "$DTBS" ] && TARGETS="$TARGETS $DTBS"
 "${M[@]}" $TARGETS > "$O/build.log" 2>&1 || { tail -40 "$O/build.log"; exit 1; }
 echo ">> built in $(( $(date +%s) - T0 ))s"
 
@@ -90,8 +112,74 @@ rm -rf "$D"; mkdir -p "$D"
 cp "$O/$IMG" "$D/vmlinuz"
 [ -f "$O/arch/$KARCH/boot/vmlinuz.efi" ] && cp "$O/arch/$KARCH/boot/vmlinuz.efi" "$D/vmlinuz.efi"
 cp "$O/.config" "$D/config"
+for t in $DTBS; do mkdir -p "$D/dtbs/$(dirname "$t")"; cp "$O/arch/$KARCH/boot/dts/$t" "$D/dtbs/$t"; done
 KREL=$(cat "$O/include/config/kernel.release")
 echo "$KREL" > "$D/version"
+DTC="$O/scripts/dtc/dtc"
+if [ -n "${DT_ENABLE:-}" ]; then
+  for t in $DTBS; do
+    "$DTC" -q -I dtb -O dts "$D/dtbs/$t" > "$O/board.dts"
+    for n in $DT_ENABLE; do
+      awk -v n="$n" '
+        $0 ~ "^\t+" n " \\{$" { inn = 1 }
+        inn && /spa,wdt-disabled;/ { next }
+        inn && /status = "disabled";/ { sub(/"disabled"/, "\"okay\"") }
+        inn && /^\t+\};$/ { inn = 0 }
+        { print }' "$O/board.dts" > "$O/board.dts.new"
+      mv "$O/board.dts.new" "$O/board.dts"
+    done
+    "$DTC" -q -I dts -O dtb -o "$D/dtbs/$t" "$O/board.dts"
+  done
+fi
+if [ -n "${FIT_LOAD:-}" ]; then
+  cp "$O/$IMG" "$O/fit-Image"
+  cat > "$O/fit.its" <<EOT
+/dts-v1/;
+/ {
+	description = "Linux $KREL";
+	#address-cells = <1>;
+	images {
+		kernel {
+			description = "Linux $KREL";
+			data = /incbin/("fit-Image");
+			type = "kernel";
+			arch = "riscv";
+			os = "linux";
+			compression = "none";
+			load = <$FIT_LOAD>;
+			entry = <$FIT_LOAD>;
+		};
+	};
+	configurations {
+		default = "conf-default";
+		conf-default {
+			description = "Linux $KREL";
+			kernel = "kernel";
+		};
+	};
+};
+EOT
+  (cd "$O" && "$DTC" -q -I dts -O dtb -o "$D/Image.itb" fit.its)
+  echo "$FIT_LOAD" > "$D/load-address"
+fi
+if [ -n "${FW_URL:-}" ]; then
+  FW="$CACHE/$FLAVOR-$(basename "$FW_URL")-${FW_SHA256:0:12}"
+  [ -f "$FW" ] || curl -fsSL --retry 3 -o "$FW" "$FW_URL"
+  echo "$FW_SHA256  $FW" | sha256sum -c --quiet || { rm -f "$FW"; echo "firmware sha256 mismatch"; exit 1; }
+  cat > "$O/initrd.list" <<EOT
+dir /dev 0755 0 0
+nod /dev/console 0600 0 0 c 5 1
+dir /proc 0755 0 0
+dir /sys 0755 0 0
+dir /run 0755 0 0
+dir /newroot 0755 0 0
+dir /lib 0755 0 0
+dir /lib/firmware 0755 0 0
+file /lib/firmware/$(basename "$FW_URL") $FW 0644 0 0
+file /init $KINIT 0755 0 0
+EOT
+  "$O/usr/gen_init_cpio" "$O/initrd.list" | gzip -9n > "$D/initrd.img"
+fi
 MD="$O/modroot"; rm -rf "$MD"
 "${M[@]}" INSTALL_MOD_PATH="$MD" INSTALL_MOD_STRIP=1 modules_install >/dev/null
 rm -f "$MD/lib/modules/$KREL/build" "$MD/lib/modules/$KREL/source"

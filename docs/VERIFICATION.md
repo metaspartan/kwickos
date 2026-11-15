@@ -130,6 +130,22 @@ rate of the capture path is the limit. Capturing with `AnimationDurationFactor` 
    The Windows-layout GNOME shot shows a "Dash to Panel has been updated" toast on first start, and the GNOME macOS dock lists gedit twice
    (a pinned and a running entry).
 
+## kwick-kernel (kernel switching)
+
+`tests/kernel-switch.sh efistub` and `grub` run on amd64 under QEMU with OVMF (TCG, no KVM) against the shipped
+`kwickos-amd64.img`. A signed test repository holds `linux-image-kwick-virt` 7.3.3 (built for this test), virt 7.3.4 and generic
+7.3.4. Nine boots per boot path (ten for efistub): install both virt versions through apt, one-shot trial that boots the older
+kernel and is confirmed, `default`, `rollback`, `try --promote` (the default changes only after confirmation), a trial that
+boots but is not confirmed (recorded as failed, default boots again), on efistub also a trial image the firmware cannot load,
+a switch to the generic flavor (modules loaded), `keep` removing a stale retained kernel, and `remove` refusing the running
+kernel. Result: 21 of 21 checks pass on efistub and 19 of 19 on grub. The GRUB image is a layout equivalent to what
+`kwick-install` writes (grub-mkimage core image, a single-kernel `grub.cfg`, `install.conf`) and exercises the adoption of that
+layout; it was not produced by `kwick-install run`.
+
+Not verified for `kwick-kernel`: systemd-boot (the `loader/entries` and `bootctl set-oneshot` code is untested), the U-Boot
+(BPI-F3) and Apple paths, BIOS GRUB, installs that need a generated initramfs (btrfs, xfs, ZFS, LUKS), arm64 and riscv64,
+the Settings page in a running KDE session, and `kwick-kernel-confirm.service` under real systemd (kinit ran it).
+
 ## Not verified
 
 * Steam client window or login screen (blocked by bug 4).

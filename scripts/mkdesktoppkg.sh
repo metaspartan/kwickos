@@ -52,8 +52,9 @@ for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profi
   mkdir -p /etc/systemd/system/$u.service.d
   printf '[Service]\nExecStartPre=/usr/lib/kwick/wait-for dbus\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf
 done
+command -v kwick-shell >/dev/null && kwick-shell --default zsh >/dev/null 2>&1 || true
 if ! id kwick >/dev/null 2>&1; then
-  adduser --disabled-password --gecos "KwickOS" kwick >/dev/null 2>&1 || true
+  adduser --disabled-password --gecos "KwickOS" --shell /bin/zsh kwick >/dev/null 2>&1 || true
   for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done
   echo "kwick: set a password with 'passwd kwick' (no password = no login except autologin)"
 fi
