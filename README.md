@@ -166,7 +166,7 @@ Details, flags and all downloads: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## kfetch
 
-`kfetch` is a 6 KB shell script that prints a system summary in about 15 ms, with `--small` and `--json` modes.
+`kfetch` is a 10 KB shell script that prints a system summary in about 15 ms, with `--small` and `--json` modes.
 [More](docs/BASE.md#kfetch).
 
 <img src="docs/img/kfetch.png" width="640" alt="kfetch output">

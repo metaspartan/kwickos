@@ -52,11 +52,11 @@ base starts only `networking` and `syslog`.
 
 ## kfetch
 
-`kfetch` prints a system summary with the K logo in the cyan-to-violet brand gradient, on both editions: OS and edition, kernel, host
+`kfetch` prints a system summary with a bold K in the cyan-to-violet brand gradient, on both editions: OS and edition, kernel, host
 or board model, uptime, package counts (dpkg and apk), shell, init, terminal, CPU, GPU, memory, disk, local IP and, on the desktop,
 the session, layout and theme.
 
-* It is a 6 KB POSIX shell script that runs under BusyBox `ash`, takes about 15 ms, reads `/proc` and `/sys` directly and skips
+* It is a 10 KB POSIX shell script that runs under BusyBox `ash`, takes about 15 ms, reads `/proc` and `/sys` directly and skips
   whatever a machine does not have.
 * `kfetch --small` is a compact version, `kfetch --json` prints one JSON object and `--no-logo` drops the logo.
 * Colour is off when `NO_COLOR` is set, and the logo is dropped when stdout is not a terminal.
