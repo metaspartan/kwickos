@@ -175,6 +175,7 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkgpupkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkgamingpkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkpenpkg.sh
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkessentialspkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkagentspkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkstoragepkg.sh
           cp dl/kwickos-zfs-*/kwick-zfs*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no OpenZFS module packages in this release"

@@ -13,6 +13,7 @@ for f in virt generic; do bash "$SRC/scripts/mkkernelpkg.sh" amd64 $f; done
 cp ${EXTRA_DEBS:-/dev/null} "$OUT/repo/pool/main/" 2>/dev/null || true
 bash "$SRC/scripts/mkgpupkg.sh"
 bash "$SRC/scripts/mkgamingpkg.sh"
+bash "$SRC/scripts/mkessentialspkg.sh"
 bash "$SRC/scripts/mkdesktoppkg.sh" amd64
 bash "$SRC/scripts/mkrepo.sh" stable
 G="git -c safe.directory=$GITSRC -C $GITSRC"

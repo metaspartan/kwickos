@@ -207,11 +207,13 @@ EOF
 fi
 
 if [ -n "$S" ]; then
-	l1='█ ▄▀' l2='██▀ ' l3='█ ▀▄'
-	w=4
+	l1='██ ▄▀' l2='███▄ ' l3='██ ▀█'
+	w=5 nr=3 st=4
 else
-	l1='██    ██ ' l2='██   ██  ' l3='██  ██   ' l4='████     ' l5='██  ██   ' l6='██   ██  ' l7='██    ██ '
-	w=9
+	l1='████       ▄████▀' l2='████     ▄████▀  ' l3='████   ▄████▀    '
+	l4='████ ▄████▀      ' l5='█████████        ' l6='████ ▀████▄      '
+	l7='████  ▄█████▄▄▄▄▄' l8='████   ▀████▄    ' l9='████     ▀████▄  '
+	w=17 nr=9 st=1
 fi
 
 if [ -n "$C" ]; then
@@ -226,16 +228,18 @@ fi
 col() {
 	[ -n "$C" ] || return 0
 	if [ -n "$tc" ]; then
-		printf '\033[38;2;%d;%d;%dm' $((0 + 139 * $1 / 6)) $((229 - 137 * $1 / 6)) $((255 - 9 * $1 / 6))
+		printf '\033[38;2;%d;%d;%dm' $((139 * $1 / 8)) $((229 - 137 * $1 / 8)) $((255 - 9 * $1 / 8))
 	else
 		case $1 in
 		0) printf '\033[38;5;51m' ;;
 		1) printf '\033[38;5;45m' ;;
 		2) printf '\033[38;5;39m' ;;
 		3) printf '\033[38;5;75m' ;;
-		4) printf '\033[38;5;105m' ;;
-		5) printf '\033[38;5;141m' ;;
-		*) printf '\033[38;5;177m' ;;
+		4) printf '\033[38;5;69m' ;;
+		5) printf '\033[38;5;105m' ;;
+		6) printf '\033[38;5;99m' ;;
+		7) printf '\033[38;5;135m' ;;
+		*) printf '\033[38;5;141m' ;;
 		esac
 	fi
 }
@@ -249,8 +253,7 @@ while IFS='|' read -r k lb v; do
 		eval "g=\${l$((i + 1)):-}"
 		if [ -n "$g" ]; then
 			if [ -n "$C" ]; then
-				[ -n "$S" ] && ci=$((i * 3)) || ci=$i
-				col $ci
+				col $((i * st))
 				printf '%s%s  ' "$g" "$R"
 			else
 				printf '%s  ' "$g"
@@ -260,7 +263,7 @@ while IFS='|' read -r k lb v; do
 		fi
 	fi
 	if [ -n "$C" ]; then
-		col 1
+		col 2
 		printf '\033[1m%s\033[0m: %s\n' "$lb" "$v"
 	else
 		printf '%s: %s\n' "$lb" "$v"
@@ -270,11 +273,9 @@ done <<EOF
 $L
 EOF
 if [ -z "$NL" ]; then
-	[ -n "$S" ] && nr=3 || nr=7
 	while [ $i -lt $nr ]; do
 		eval "g=\$l$((i + 1))"
-		[ -n "$S" ] && ci=$((i * 3)) || ci=$i
-		col $ci
+		col $((i * st))
 		printf '%s%s\n' "$g" "${R:-}"
 		i=$((i + 1))
 	done
