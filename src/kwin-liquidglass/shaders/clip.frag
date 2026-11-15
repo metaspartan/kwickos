@@ -4,7 +4,7 @@ uniform sampler2D uTex;
 uniform vec4 uRect;
 uniform float uRadius;
 uniform vec3 uShadow;
-uniform float uStroke;
+uniform vec2 uStroke;
 uniform float uScale;
 
 in vec2 vUv;
@@ -16,6 +16,11 @@ float sdRound(vec2 p, vec2 b, float r)
 {
     vec2 q = abs(p) - b + vec2(r);
     return min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - r;
+}
+
+float band(float d, float lo, float hi)
+{
+    return clamp(min(d - lo + 0.5, hi - d + 0.5), 0.0, 1.0);
 }
 
 void main()
@@ -30,10 +35,12 @@ void main()
     if (uShadow.x > 0.0 && cover < 1.0) {
         float sigma = max(uShadow.z, 1.0);
         float s = sdRound(p - vec2(0.0, uShadow.y), b, r);
-        float t = clamp((s + sigma * 0.6) / (sigma * 3.2), 0.0, 1.0);
+        float t = clamp((s + sigma * 0.5) / (sigma * 3.0), 0.0, 1.0);
         float soft = (1.0 - t) * (1.0 - t) * (1.0 - t);
-        float contact = 1.0 - smoothstep(0.0, 4.0 * uScale, d);
-        shadow = uShadow.x * (soft + 0.12 * contact);
+        float ambient = exp(-max(d, 0.0) / (5.0 * uScale));
+        shadow = uShadow.x * soft + uShadow.x * 0.45 * ambient;
+        shadow += uStroke.y * band(d, 0.0, uScale);
+        shadow = min(shadow, 0.95);
     }
 
     if (cover <= 0.0 && shadow < 0.002) {
@@ -41,9 +48,9 @@ void main()
     }
 
     vec4 win = texture(uTex, vUv) * cover;
-    if (uStroke > 0.0) {
-        float line = clamp(1.0 - abs(d + 0.5 * uScale) / (0.75 * uScale), 0.0, 1.0) * cover;
-        win.rgb = mix(win.rgb, vec3(win.a), uStroke * line);
+    if (uStroke.x > 0.0) {
+        float line = band(d, -uScale, 0.0) * cover;
+        win.rgb = mix(win.rgb, vec3(win.a), uStroke.x * line);
     }
     fragColor = win + vec4(0.0, 0.0, 0.0, shadow * (1.0 - win.a));
 }

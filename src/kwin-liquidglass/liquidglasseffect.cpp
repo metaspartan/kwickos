@@ -176,7 +176,8 @@ LiquidGlassEffect::Kind LiquidGlassEffect::classify(EffectWindow *w) const
     if (m_titleBars && w->hasDecoration() && w->decorationHasAlpha() && !w->isFullScreen()) {
         return Kind::Frame;
     }
-    if (m_roundWindows && w->hasDecoration() && (w->isNormalWindow() || w->isDialog()) && !w->isFullScreen()) {
+    const bool csd = !w->hasDecoration() && w->expandedGeometry().width() > w->frameGeometry().width() + 4.0;
+    if (m_roundWindows && (w->hasDecoration() || csd) && (w->isNormalWindow() || w->isDialog()) && !w->isFullScreen()) {
         return Kind::Window;
     }
     return Kind::None;
@@ -197,6 +198,10 @@ void LiquidGlassEffect::slotWindowAdded(EffectWindow *w)
     });
     connect(w, &EffectWindow::windowFrameGeometryChanged, this, [this, w]() {
         auto it = m_windows.find(w);
+        if (it == m_windows.end() && m_roundWindows && !w->hasDecoration() && (w->isNormalWindow() || w->isDialog())) {
+            updateWindow(w);
+            it = m_windows.find(w);
+        }
         if (it != m_windows.end()) {
             for (auto &[output, render] : it->second.render) {
                 render.dirty = true;
@@ -381,13 +386,13 @@ LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
         look = {0.55f, 0.6f, 10.0f, 3, 3.0f, 1.0f};
         break;
     case Kind::Menu:
-        look = {0.45f, 1.0f, 10.0f, 4, 3.4f, 1.0f, 0.38f, 0.56f, 0.68f};
+        look = {0.45f, 1.0f, 10.0f, 4, 3.4f, 1.0f, 0.06f, 0.64f, 0.74f, 0.0f};
         break;
     case Kind::Popup:
-        look = {0.6f, 1.0f, 14.0f, 4, 3.4f, 1.0f, 0.4f, 0.52f, 0.64f};
+        look = {0.6f, 1.0f, 14.0f, 4, 3.4f, 1.0f, 0.3f, 0.56f, 0.68f, 0.0f};
         break;
     case Kind::Notification:
-        look = {0.6f, 0.95f, 14.0f, 4, 3.2f, 1.0f, 0.35f, 0.5f, 0.62f};
+        look = {0.6f, 0.9f, 14.0f, 4, 3.2f, 1.0f, 1.4f, 0.27f, 0.38f, 1.0f, 0.15f};
         break;
     case Kind::Tooltip:
         look = {0.5f, 0.95f, 9.0f, 3, 2.5f, 1.0f, 0.4f, 0.5f, 0.62f};
@@ -791,12 +796,18 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     shader->setUniform("uSpec", float(kind == Kind::Window ? 0.0 : (kind == Kind::Bar ? m_specular * 0.35 : m_specular)));
     shader->setUniform("uSat", look.sat);
     shader->setUniform("uDark", QVector2D(look.darkMin, look.darkMax));
+    shader->setUniform("uMul", look.mul);
     shader->setUniform("uTint", look.tint);
     shader->setUniform("uStyle", float(m_style));
     shader->setUniform("uOpacity", opacity);
     shader->setUniform("uScale", float(scale));
     shader->setUniform("uLight", light);
-    shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 0.0f : 0.32f);
+    const QRectF room(QPointF(0.0, 0.0), QSizeF(device.size()));
+    const QRectF shapeLocal = shapeDevice.translated(-origin);
+    const double margin = std::min({shapeLocal.left() - room.left(), shapeLocal.top() - room.top(), room.right() - shapeLocal.right(), room.bottom() - shapeLocal.bottom()});
+    const float shadowRoom = float(std::clamp(margin / (10.0 * scale), 0.0, 1.0));
+    shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 0.0f : 0.32f * shadowRoom * shadowRoom);
+    shader->setUniform("uVeil", look.veil);
     shader->setUniform("uPointer",QVector3D(float(pointer.x()), float(pointer.y()), float(m_interactive && kind != Kind::Window ? glass.hover : 0.0)));
 
     glActiveTexture(GL_TEXTURE2);
@@ -834,6 +845,22 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
     const bool forced = w->data(WindowForceBlurRole).toBool();
     const bool scaled = !qFuzzyCompare(data.xScale(), 1.0) || !qFuzzyCompare(data.yScale(), 1.0);
     const bool translated = data.xTranslation() || data.yTranslation();
+    if (it->second.kind == Kind::Window) {
+        const bool moved = scaled || translated || data.rotationAngle() != 0.0;
+        const bool deformed = (mask & PAINT_WINDOW_TRANSFORMED) && !moved;
+        if (!deformed && !effects->activeFullScreenEffect() && roundable(w)) {
+            const bool painted = moved ? false : paintGlass(renderTarget, viewport, w, it->second, region, data);
+            Q_UNUSED(painted)
+            const bool rigid = !scaled && data.rotationAngle() == 0.0;
+            it->second.clipShape = rigid ? w->frameGeometry().translated(data.xTranslation(), data.yTranslation()) : w->frameGeometry();
+            it->second.clipRadius = m_radius;
+            if (drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
+                return;
+            }
+        }
+        effects->drawWindow(renderTarget, viewport, w, mask, region, data);
+        return;
+    }
     if ((effects->activeFullScreenEffect() && !forced) || scaled || ((translated || (mask & PAINT_WINDOW_TRANSFORMED)) && !forced) || w->isDesktop()) {
         effects->drawWindow(renderTarget, viewport, w, mask, region, data);
         return;
@@ -871,17 +898,6 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
         painted = paintGlass(renderTarget, viewport, w, it->second, region, data);
     }
     const Kind kind = it->second.kind;
-    if (kind == Kind::Window) {
-        if (roundable(w)) {
-            it->second.clipShape = w->frameGeometry();
-            it->second.clipRadius = m_radius;
-            if (drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
-                return;
-            }
-        }
-        effects->drawWindow(renderTarget, viewport, w, painted ? (mask | PAINT_WINDOW_TRANSFORMED) : mask, region, data);
-        return;
-    }
     const bool clipKind = kind == Kind::Menu || kind == Kind::Popup || kind == Kind::Notification || kind == Kind::Osd || kind == Kind::Tooltip;
     if (painted && clipKind && it->second.clipRadius > 0.5 && drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
         return;
@@ -942,7 +958,15 @@ bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const Rend
         GLFramebuffer::popFramebuffer();
     }
 
-    const QPointF shift(data.xTranslation(), data.yTranslation());
+    const bool transformed = !qFuzzyCompare(data.xScale(), 1.0) || !qFuzzyCompare(data.yScale(), 1.0) || data.rotationAngle() != 0.0;
+    const QPointF shift = transformed ? QPointF() : QPointF(data.xTranslation(), data.yTranslation());
+    QMatrix4x4 model;
+    if (transformed) {
+        const QPointF origin = w->pos() * scale;
+        model.translate(float(origin.x()), float(origin.y()));
+        model *= data.toMatrix(scale);
+        model.translate(float(-origin.x()), float(-origin.y()));
+    }
     const QRect device = snapToPixelGrid(scaledRect(geometry.translated(shift), scale));
     const QRectF shapeDevice = scaledRect(glass.clipShape, scale);
     const QMatrix4x4 texMatrix = glass.clipTexture->matrix(NormalizedCoordinates);
@@ -975,16 +999,17 @@ bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const Rend
     ShaderBinder binder(m_clipShader.get());
     GLShader *shader = binder.shader();
     shader->setUniform("uMvp", viewport.projectionMatrix());
+    shader->setUniform("uModel", model);
     shader->setUniform("uTex", 0);
     shader->setUniform("uRect", QVector4D(float(shapeDevice.center().x()), float(shapeDevice.center().y()), float(shapeDevice.width() / 2.0), float(shapeDevice.height() / 2.0)));
     shader->setUniform("uRadius", float(glass.clipRadius * scale));
     const bool window = glass.kind == Kind::Window;
     const bool active = w == effects->activeWindow();
-    shader->setUniform("uShadow", window ? QVector3D(active ? 0.42f : 0.22f, float((active ? 12.0 : 7.0) * scale), float((active ? 15.0 : 10.0) * scale)) : QVector3D(0.0f, 0.0f, 1.0f));
-    shader->setUniform("uStroke", window ? (active ? 0.13f : 0.07f) : 0.0f);
+    shader->setUniform("uShadow", window ? QVector3D(active ? 0.62f : 0.42f, float((active ? 14.0 : 8.0) * scale), float((active ? 17.0 : 12.0) * scale)) : QVector3D(0.0f, 0.0f, 1.0f));
+    shader->setUniform("uStroke", window ? QVector2D(active ? 0.09f : 0.05f, active ? 0.38f : 0.26f) : QVector2D(0.0f, 0.0f));
     shader->setUniform("uScale", float(scale));
 
-    const QRegion logicalClip = region == infiniteRegion() ? QRegion(geometry.translated(shift).toAlignedRect()) : region;
+    const QRegion logicalClip = region == infiniteRegion() ? QRegion(transformed ? viewport.renderRect().toAlignedRect() : geometry.translated(shift).toAlignedRect()) : region;
     const QRegion clipRegion = viewport.mapToRenderTarget(logicalClip);
     glEnable(GL_SCISSOR_TEST);
     glEnable(GL_BLEND);

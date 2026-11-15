@@ -136,7 +136,7 @@ def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
 
 
 def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, btn_h, spacing, margin_top,
-            align, text_a, text_i, rc_title_h=None, shadow=(6, 10, 14, 0.15, 0.08), sides=(1.0, 1.0, 1.0)):
+            align, text_a, text_i, rc_title_h=None, shadow=(6, 10, 14, 0.15, 0.08), sides=(1.0, 1.0, 1.0), cr=0):
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">']
     pt, ps, pb, sa, si = shadow
     ov = 1 if pt > 6 else 0
@@ -155,8 +155,10 @@ def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, b
             pts = [(1 - o, v) for o, v in reversed(q)] if rev else list(q)
             return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * f * v:.4f}"/>' for o, v in pts)
 
-        def rstops(f=1.0):
+        def rstops(f=1.0, inner=0.0):
             pts = [(1 - o, v) for o, v in reversed(q)]
+            if inner > 0:
+                pts = [(0, pts[0][1])] + [(round(inner + o * (1 - inner), 4), v) for o, v in pts]
             return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * f * v:.4f}"/>' for o, v in pts)
 
         defs += (
@@ -165,9 +167,10 @@ def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, b
             f'<linearGradient id="gt{k}" x1="0" y1="0" x2="0" y2="1">{stops(f=ft)}</linearGradient>'
             f'<linearGradient id="gb{k}" x1="0" y1="0" x2="0" y2="1">{stops(True, fb)}</linearGradient>'
         )
-        for nm, cx, cy, sx, sy, f in (("rtl", ps, pt, ps, pt, (ft + fs) / 2), ("rtr", 0, pt, ps, pt, (ft + fs) / 2),
-                                      ("rbl", ps, 0, ps, pb, (fb + fs) / 2), ("rbr", 0, 0, ps, pb, (fb + fs) / 2)):
-            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({cx} {cy}) scale({sx} {sy})">{rstops(f)}</radialGradient>'
+        for nm, cx, cy, sx, sy, f in (("rtl", ps + cr, pt + cr, ps, pt, (ft + fs) / 2), ("rtr", -cr, pt + cr, ps, pt, (ft + fs) / 2),
+                                      ("rbl", ps + cr, -cr, ps, pb, (fb + fs) / 2), ("rbr", -cr, -cr, ps, pb, (fb + fs) / 2)):
+            inner = cr / ((sx + sy) / 2 + cr) if cr else 0.0
+            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({cx} {cy}) scale({sx + cr} {sy + cr})">{rstops(f, inner)}</radialGradient>'
         tl = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtl{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gl{k})"/>'
         tp = f'<rect x="0" y="0" width="8" height="{pt}" fill="url(#gt{k})"/>{svg_rect_path(0, pt, 8, T + 1, fill=col, op=op)}'
         tr = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtr{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gr{k})"/>'
@@ -265,7 +268,7 @@ def win_buttons(kind, st):
 
 aurorae("KwickGlass", 34, 1, 10, ("#323232", 1), ("#282828", 1), ("#323232", 1),
         mac_buttons, 14, 14, 5, 7, "Center", grey(over(MAC["label"], MAC["window"])),
-        grey(over(MAC["tertiary"], MAC["under"])), 28, shadow=(24, 36, 54, 0.40, 0.20))
+        grey(over(MAC["tertiary"], MAC["under"])), 28, shadow=(30, 46, 64, 0.40, 0.20), cr=10)
 aurorae("KwickFluent", 32, 1, 8, ("#202020", 1), ("#202020", 1), ("#202020", 1),
         win_buttons, 46, 32, 0, 0, "Left", "255,255,255", grey(over(FLU["text3"], FLU["base"])))
 

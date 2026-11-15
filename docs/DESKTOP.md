@@ -13,7 +13,9 @@ is dark.
 * **macOS** (default): a full-width menu bar flush to the screen edges with a white KwickOS mark and a one-line clock
   ("Sun Nov 15  9:41 AM", the `org.kwickos.clock` applet with a calendar popup), a floating dock with 48 px icons, and
   traffic-light buttons at the top left of windows with 10 px corners, a hairline edge and a large soft shadow, and
-  macOS menus from the `KwickMac` widget style. The dock is the `org.kwickos.dock`
+  macOS menus from the `KwickMac` widget style. Firefox ESR ships with `browser.tabs.inTitlebar` off
+  (`/usr/lib/firefox-esr/defaults/pref/kwick.js`), so it gets the same title bar, corners and shadow as every other window
+  instead of drawing its own tab strip in the title bar. The dock is the `org.kwickos.dock`
   applet: pinned and running apps with a white dot under running ones, no hover or active boxes, a name label in a glass capsule
   above the hovered icon, a gentle magnification (`kwick-dock magnify on|off`, also in Settings), a bounce while an app launches or
   asks for attention, a darker icon while pressed, a thin separator and the Trash (drop files on it, right-click to empty).

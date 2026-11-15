@@ -73,17 +73,25 @@ How it is drawn, per glass surface:
   rounded rectangle with a signed distance field. The dock is 0.36 of its height (26 px on the 72 px dock), menus 10.5 px,
   applet popups 16 px, notifications 20 px, OSDs and the dock's name labels are capsules; they scale a little with the window
   corner radius setting. A bar that spans the screen, like the menu bar, only gets a bevel on its free edge and a fainter rim.
-* Menus, popups, notifications and tooltips use a neutral material: the colours behind are desaturated and darkened so the glass
-  refracts the content without tinting itself with it. The dock keeps the more saturated, clearer look.
+* Menus, popups and tooltips use a neutral dark frost: the colours behind are almost fully desaturated and darkened toward a
+  neutral grey, so a red or orange wallpaper does not turn the menu brown. Notifications use a lighter frost that keeps the hue
+  behind them: a faint white veil, then a multiply that darkens without greying, so the white text stays readable. The dock keeps
+  the more saturated, clearer look.
 * Menus, popups, notifications, labels and OSDs are drawn offscreen and cut to that rounded shape with an anti-aliased mask, so
   the app's own square or small-radius background corners never show outside the glass.
-* Floating surfaces get a soft contact shadow drawn by the same pass, where the window has room for it.
+* Floating surfaces get a soft contact shadow drawn by the same pass, faded out when the window has no margin around the glass
+  for it, so it is never cut off square at the window edge.
 * Ordinary windows are rounded by the same offscreen pass (it replaces the rounded-corners effect while Liquid Glass is on): the
-  window is cut to the corner radius from Settings (10 px by default in the macOS layout), gets a 1 px white inner hairline (13% on
-  the active window, 7% on others), and a soft drop shadow computed from the same rounded-rectangle distance field, offset down
-  (12 px active, 7 px inactive), so the shadow stays concentric with the corner at any radius. The window corners are taken out of
-  its opaque region so whatever is behind shows through. Windows with a blur region, like a translucent Konsole, get their blur
-  from the glass pass, cut to the same shape. Maximized and full-screen windows are left square.
+  window is cut to the corner radius from Settings (10 px by default in the macOS layout) with an analytic one-pixel coverage
+  edge, gets exactly one device pixel of white hairline inside the shape (9% on the active window, 5% on others) and one pixel of
+  dark contact line outside it, and a soft drop shadow computed from the same rounded-rectangle distance field (offset 14 px with
+  a 17 px falloff on the active window, 8 and 12 px on others, plus a short ambient falloff), so it stays concentric with the
+  corner at any radius and still shows on a dark wallpaper. The Aurorae edge and shadow are covered by this pass. The window
+  corners are taken out of its opaque region so whatever is behind shows through. Windows with a blur region, like a translucent
+  Konsole, get their blur from the glass pass, cut to the same shape. Client-side decorated windows (GTK and libadwaita apps) get
+  the same corners and shadow in place of their own. While a window is scaled or rotated (open and close animations, minimize)
+  the cut follows the transform; while another effect deforms it (wobbly windows, the flame), KWin draws it normally with the
+  decoration's own shadow, whose corners are concentric with the same radius. Maximized and full-screen windows are left square.
 * The screen behind the surface is copied once and blurred with a dual-Kawase pyramid (3 or 4 levels at half resolution and below).
 * A fragment shader treats the rim as a convex glass bevel: the SDF gives the edge normal, a quarter-circle height profile gives the
   surface slope, and `refract()` with an index of 1.5 bends the view inward, so the content behind is pulled and magnified along the
@@ -122,7 +130,7 @@ widget and fight the palette, while the proxy changes menus only.
 
 Notification popups use a Tahoe-style card from `/usr/local/share/plasma/plasmoids/org.kde.plasma.notifications` (Plasma 6.3.6's
 notifications applet with a new popup delegate): 344 px wide with a 20 px radius, a 32 px app icon on the left, the title in
-semibold, the body in the secondary label colour clamped to two lines, a "now" / "5m ago" timestamp at the top right, and a round
+semibold, the body at 80% white clamped to two lines, a "now" / "5m ago" timestamp at the top right, and a round
 close button that appears over the icon's corner on hover.
 
 Tuning lives in `kwinrc`, group `[Effect-kwick_liquidglass]`, values in percent: `Refraction` (60), `Blur` (50), `Dispersion` (35),

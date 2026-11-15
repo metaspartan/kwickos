@@ -102,6 +102,8 @@ private:
         float sat = 1.32f;
         float darkMin = 0.04f;
         float darkMax = 0.30f;
+        float mul = 0.0f;
+        float veil = 0.0f;
     };
 
     void slotWindowAdded(EffectWindow *w);

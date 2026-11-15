@@ -24,7 +24,7 @@ BaseDelegate {
 
     readonly property bool critical: modelInterface.urgency === NotificationManager.Notifications.CriticalUrgency
     readonly property string title: modelInterface.summary.length > 0 ? modelInterface.summary : modelInterface.applicationName
-    readonly property color secondary: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.6)
+    readonly property color secondary: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.8)
     property date now: new Date()
 
     function stamp(t) {
