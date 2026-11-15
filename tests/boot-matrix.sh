@@ -13,6 +13,7 @@ esac
 [ -w /dev/kvm ] && [ "$ARCH" = "$(dpkg --print-architecture)" ] || export TIMEOUT=${TIMEOUT:-600}
 fail=0
 for m in $MODES; do
-  TAIL=0 bash "$HERE/boot-test.sh" "$ARCH" "$m" "${RUNCMD:-}" | grep '^RESULT' || fail=1
+  out=$(TAIL=${TAIL:-40} bash "$HERE/boot-test.sh" "$ARCH" "$m" "${RUNCMD:-}")
+  if [ $? -eq 0 ]; then grep '^RESULT' <<<"$out"; else echo "$out"; fail=1; fi
 done
 exit $fail

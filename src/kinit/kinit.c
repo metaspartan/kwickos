@@ -82,19 +82,19 @@ static long now_ms(clockid_t c)
 
 static void say(const char *fmt, ...)
 {
-	char buf[512];
+	char buf[512] = "kinit: ";
 	va_list ap;
 	va_start(ap, fmt);
-	int n = vsnprintf(buf, sizeof buf - 2, fmt, ap);
+	int n = vsnprintf(buf + 7, sizeof buf - 9, fmt, ap);
 	va_end(ap);
 	if (n < 0) return;
-	if (n > (int)sizeof buf - 2) n = sizeof buf - 2;
+	if (n > (int)sizeof buf - 9) n = sizeof buf - 9;
+	n += 7;
 	buf[n++] = '\n';
 	if (is_pid1) {
 		int fd = open("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
-		if (fd >= 0) { (void)!write(fd, "kinit: ", 7); (void)!write(fd, buf, n); close(fd); return; }
+		if (fd >= 0) { (void)!write(fd, buf, n); close(fd); return; }
 	}
-	(void)!write(2, "kinit: ", 7);
 	(void)!write(2, buf, n);
 }
 
@@ -1356,10 +1356,6 @@ static int stage1(void)
 	ctl_listen();
 	load_boot_units();
 	start_wanted();
-	if (!cmdline_get("kwick.noconsole")) {
-		find_consoles();
-		for (int i = 0; i < nconsoles; i++) spawn_getty(i);
-	}
 	boot_ready_ms = now_ms(CLOCK_BOOTTIME);
 	char b[64];
 	snprintf(b, sizeof b, "%ld\n", boot_ready_ms);
@@ -1367,6 +1363,10 @@ static int stage1(void)
 	char rel[128] = "KwickOS";
 	if (read_file("/etc/kwick-release", rel, sizeof rel) > 0) trim(rel);
 	say("%s ready in %ld ms (since kernel start)", rel, boot_ready_ms);
+	if (!cmdline_get("kwick.noconsole")) {
+		find_consoles();
+		for (int i = 0; i < nconsoles; i++) spawn_getty(i);
+	}
 	/* optional one-shot command for CI / agent sandboxes: kwick.run=... */
 	const char *run = cmdline_get("kwick.run");
 	if (run) {
