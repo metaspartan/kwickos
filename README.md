@@ -1,15 +1,53 @@
-# KwickOS
-
 <p align="center">
-  <img src="docs/img/kwickos-logo.svg" width="128" alt="KwickOS logo">
+  <img src="docs/img/kwickos-logo.svg" width="112" alt="KwickOS logo">
 </p>
 
-**A Linux distribution smaller and faster than Alpine that installs software like Debian, with an optional
-desktop that looks like macOS, Windows 11 or a Linux shell at the flip of a switch.**
+<h1 align="center">KwickOS</h1>
 
-KwickOS is built from scratch on the latest stable kernel (7.3.x) with a **6.2 MB** base. It runs `apt install` against the
-**unmodified Debian 13 "trixie" archive** (about 69,000 packages, glibc included), pulled in only when you install something that needs
-them. The same base boots as a container, a microVM, a cloud/VM disk or a live ISO on **amd64, arm64 and riscv64**.
+<p align="center"><b>Smaller than Alpine. Installs like Debian.</b></p>
+
+<p align="center">
+  <a href="https://github.com/metaspartan/kwickos/releases/latest">Download</a> ·
+  <a href="docs/INSTALL.md">Install</a> ·
+  <a href="docs/SCREENSHOTS.md">Screenshots</a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
+  <a href="docs/BENCHMARKS.md">Benchmarks</a>
+</p>
+
+<p align="center">
+  <img src="docs/img/desktop.png" width="860" alt="KwickOS desktop in the macOS layout">
+</p>
+
+## Contents
+
+* [What is KwickOS](#what-is-kwickos)
+* [Quick start](#quick-start)
+* [Size and speed](#size-and-speed)
+* [The desktop](#the-desktop) and [Kwick Effects](#kwick-effects)
+* [Optional packages](#optional-packages)
+* [Installing](#installing)
+* [kfetch](#kfetch)
+* [Hardware support](#hardware-support)
+* [Building from source](#building-from-source)
+* [Documentation](#documentation)
+* [License](#license)
+
+## What is KwickOS
+
+* **A tiny base.** 6.2 MB, built from scratch on the latest stable kernel (7.3.x). BusyBox, a 120 KB init (kinit) and an
+  apt-compatible package manager (kpkg), all static.
+* **Debian's packages, Alpine's too.** `apt install` uses the unmodified Debian 13 "trixie" archive (about 69,000 packages).
+  glibc arrives only when something needs it. `apk add` works alongside it.
+* **Every architecture.** The same base boots as a container, a microVM, a VM or cloud disk, or a live ISO on amd64, arm64 and
+  riscv64.
+* **An optional desktop.** `apt install kwick-desktop` adds KDE Plasma 6 with macOS, Windows 11 and Linux layouts. The same
+  layouts work on GNOME and Hyprland.
+* **Real installers.** A graphical installer, a text installer and a scriptable `kwick-install`, with GRUB, systemd-boot or
+  the EFI stub, LUKS and ZFS root.
+
+## Quick start
+
+**Try it in a container:**
 
 ```console
 $ docker run --rm -it ghcr.io/metaspartan/kwickos
@@ -17,507 +55,170 @@ root@kwick:/# apt update && apt install -y nginx python3
 root@kwick:/# systemctl enable --now nginx      # works in containers too
 ```
 
-`apt install kwick-desktop` turns the same system into a full desktop: KDE Plasma 6 with three unified layouts, Kwick Effects,
-a settings app, an icon theme, per-layout fonts, native Steam and automatic GPU driver setup.
+**Download an image** from the [latest release](https://github.com/metaspartan/kwickos/releases/latest):
 
-| Headless (real boot, serial console) | Desktop (KDE Plasma 6, macOS layout) |
+| image | use |
 |---|---|
-| ![headless](docs/img/headless.png) | ![desktop](docs/img/desktop.png) |
+| [`kwickos-amd64-desktop.iso`](https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso) | KDE Plasma 6 live and installer ISO, UEFI and BIOS (also [arm64](https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-arm64-desktop.iso), UEFI) |
+| [`kwickos-amd64.iso`](https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64.iso) | headless live ISO, runs from RAM |
+| [`kwickos-amd64.qcow2`](https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64.qcow2) | VM and cloud disk |
+| [`SHA256SUMS`](https://github.com/metaspartan/kwickos/releases/latest/download/SHA256SUMS) | checksums |
 
-## Contents
+Replace `amd64` with `arm64` or `riscv64`. Raw disks, the kernel as a UEFI app, an initramfs and a rootfs tarball are listed in
+[docs/INSTALL.md](docs/INSTALL.md#downloads).
 
-* [How it compares](#how-it-compares) and [results](#results)
-* [Install](#install)
-* [The desktop](#the-desktop): [layouts](#three-layouts-three-desktops), [Kwick Effects](#kwick-effects), [Settings](#kwickos-settings),
-  [icons](#icons), [fonts](#fonts), [app names](#files-and-terminal), [gaming](#gaming), [GPUs and hardware](#gpus-and-hardware),
-  [Darling](#darling-macos-command-line-binaries-optional)
-* [Storage and NAS](#storage-and-nas)
-* [Using the base system](#using-the-base-system)
-* [Verification](#verification), [building](#building), [limitations](#limitations)
+**Install from the ISO:** write it to a USB stick, boot it, and run **Install KwickOS** from the desktop (or `kwick-installer` on
+the headless ISO).
 
-## How it compares
+**Turn any install into a desktop:**
 
-![comparison](docs/img/comparison.png)
+```sh
+apt update && apt install kwick-desktop
+reboot
+```
 
-### Results
+**Add the apt repository by hand** (it is preconfigured on KwickOS images):
 
-Measured, details in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+```sh
+curl -fsSL https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc -o /usr/share/keyrings/kwickos-archive-keyring.asc
+printf 'Types: deb\nURIs: https://metaspartan.github.io/kwickos\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' > /etc/apt/sources.list.d/kwickos.sources
+```
+
+Daily use of the base system (apt, services, networking, what is in the base and what is one `apt install` away) is in
+[docs/BASE.md](docs/BASE.md).
+
+## Size and speed
 
 | | Alpine 3.24.4 | **KwickOS** |
 |---|---:|---:|
 | container image (uncompressed / gzip) | 8.43 / 3.72 MB | **6.21 / 2.91 MB** |
-| memory of a `sh` in a container (anon + page tables) | 84-88 KiB | **56-60 KiB** |
-| VM boot to shell prompt (QEMU/KVM, live ISO, wall time) | 3.23 s | **1.04 s** |
-| guest boot time at shell (`/proc/uptime`) | 2.81 s | **0.66 s** (0.20 s as microVM) |
+| VM boot to shell prompt (QEMU/KVM, live ISO) | 3.23 s | **1.04 s** |
 | memory in use after boot | 66.1 MiB | **37.8 MiB** |
-| live ISO | 70 MB | **53 MB** (generic kernel and modules) |
+| live ISO | 70 MB | **53 MB** |
 | packages available | ~20k (musl) | **~69k (Debian 13, glibc)** |
 
-Real software from the Debian archive passes a 31-package compatibility matrix (PostgreSQL 17, MariaDB 11.8, Docker, OpenJDK 21,
-Go, gcc, Node.js, Python, PHP, Ruby, Redis, nginx, Apache, OpenSSH and others): [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
-
-### Why it is different
-
-| | Alpine | Debian/Ubuntu | **KwickOS** |
-|---|---|---|---|
-| base userland | BusyBox + musl `.so` | GNU coreutils + glibc | BusyBox + **static** kinit/kpkg (no libc `.so` at all) |
-| package manager | apk (Alpine packages, musl) | apt/dpkg | **kpkg**: `apt`/`dpkg`-compatible, uses Debian's own repos |
-| software compatibility | musl rebuilds | everything | everything in Debian (glibc arrives on demand) |
-| init | OpenRC | systemd | **kinit**: 120 KB PID 1 that runs systemd unit files |
-| boot chain | bootloader + initramfs | GRUB + initramfs-tools | **none**: the kernel is a UEFI app with a 120 KB embedded root finder |
-| kernel updates | apk | apt + update-grub + initramfs rebuild | `apt upgrade` copies one EFI file (and keeps the previous one for rollback) |
-
-* **Essential set provided virtually.** The base declares the Debian Essential packages (`coreutils`, `bash`, `dpkg`, ...) as satisfied
-  by BusyBox, so real Debian packages install unmodified on a 5 MB system.
-* **Self-healing compatibility.** If a maintainer script trips over a BusyBox difference, kpkg installs the GNU tool from Debian and
-  retries. GNU tools exist only where software needs them.
-* **systemd compatibility without systemd.** `.service` units, `deb-systemd-helper`, `systemd-sysusers` and `systemd-tmpfiles` are
-  handled by kinit, so `apt install nginx` gets you a running, enabled, supervised service.
-* **One file boots everything.** The EFI-stub kernel embeds kinit, which finds a `kwick-root` partition, a `KWICKOS` live medium
-  (erofs + overlay), `root=`, virtiofs/9p, or a whole-OS initramfs. No GRUB, no dracut, nothing to regenerate.
-* **Multiarch.** kpkg handles foreign architectures (`dpkg --add-architecture i386`), which is what native Steam uses.
-
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Install
-
-| file | what |
-|---|---|
-| `kwickos-amd64-desktop.iso` | KDE Plasma 6 desktop live ISO, boots in **UEFI and BIOS** (also `arm64`, UEFI) |
-| `kwickos-amd64.iso` | headless live ISO (UEFI, generic kernel, broad hardware), runs from RAM |
-| `kwickos-amd64-headless.iso` | headless live and installer ISO, boots in **UEFI and BIOS** (`make headless-iso`) |
-| `kwickos-amd64.qcow2` / `.img.zst` | VM/cloud disk: ESP (kernel) + ext4 root, 1 GiB |
-| `kwickos-amd64.efi` | the kernel itself (virt flavor), a UEFI app and `-kernel` image for QEMU/Firecracker |
-| `kwickos-amd64-initramfs.cpio.zst` | the whole OS as an initramfs (microVMs, CI sandboxes) |
-| `kwickos-rootfs-amd64.tar.gz` | rootfs tarball (containers, chroots, WSL) |
-| `ghcr.io/metaspartan/kwickos` | multi-arch container image |
-
-Replace `amd64` with `arm64` or `riscv64` where published. CI builds and publishes them for every release.
-
-**Desktop, two ways**
-
-1. Boot `kwickos-amd64-desktop.iso` (UEFI or BIOS) and you land in Plasma.
-2. Upgrade any headless install in place:
-
-```sh
-apt update && apt install kwick-desktop      # resolves to about 1,330 packages
-reboot
-```
-
-The reboot into the upgraded desktop, the BIOS and UEFI ISO boots and a clean install are covered in
-[docs/VERIFICATION.md](docs/VERIFICATION.md).
-
-| Desktop ISO, UEFI | Desktop ISO, BIOS (SeaBIOS) | After `apt install kwick-desktop` on a headless image |
-|---|---|---|
-| ![uefi](docs/img/iso-uefi-desktop.png) | ![bios](docs/img/iso-bios-desktop.png) | ![clean install](docs/img/vm-clean-install-desktop.png) |
-
-### Installer
-
-The live desktop opens **Install KwickOS** once at login and keeps it on the desktop and in the dock or panel. It walks
-through one decision per screen: language, keyboard (with a test field), time zone, look (macOS, Windows or Linux
-layout), disk (erase or existing partitions, with file system, encryption, swap and the boot loaders this machine
-supports under Advanced Options), account and a summary that ends in an **Erase and Install** confirmation. It follows
-the system's light or dark appearance and works entirely from the keyboard (Return continues, Alt+Left goes back).
-`kwick-installer-gui --dry-run` runs every step without writing to disk. The work is done by `kwick-install`, which can
-also be scripted directly.
-
-| Welcome | Select a disk | Installing |
-|---|---|---|
-| ![welcome](docs/img/installer-welcome.png) | ![disk](docs/img/installer-disk.png) | ![installing](docs/img/installer-progress.png) |
-
-### Installing
-
-`kwick-installer` opens the graphical installer in a desktop session and the terminal installer (`kwick-installer-tui`,
-plain ANSI, no extra packages) everywhere else. The headless live ISO prints `Run kwick-installer to install KwickOS` at
-login, and a `kwick.install` kernel argument starts it on the console. Both front ends call `kwick-install`, which also
-scripts the whole thing; secrets are only ever read from files:
-
-```sh
-kwick-install disks --json                     # path, size, model, transport, removable, is_live_medium
-kwick-install bootloaders --json --fs btrfs    # what this machine can boot, and the default
-kwick-install plan --disk /dev/vda --user alice --password-file /root/pw
-kwick-install run --yes --disk /dev/vda --fs btrfs --encrypt --passphrase-file /root/luks --bootloader grub \
-  --user alice --fullname "Alice" --password-file /root/pw --hostname box --timezone Europe/Berlin --swap zram
-```
-
-`run` prints only `PROGRESS <0-100> <text>`, `STEP <id> <title>`, `LOG <text>`, `ERROR <text>` (then exits non-zero) and `DONE`.
-`--mode manual --root-part P --efi-part P [--home-part P]` uses existing partitions, `--dry-run` walks the steps without touching
-the disk, and the disk holding the live medium is always refused. Installer tools (`fdisk`, `e2fsprogs`, `dosfstools`, `grub`, ...)
-that the live system lacks are fetched with `apt` first, so the headless ISO needs a network for that step.
-
-| boot loader | firmware | notes |
-|---|---|---|
-| EFI stub | UEFI | default on UEFI with an unencrypted ext4 root, the kernel is the boot entry |
-| GRUB | UEFI, BIOS (amd64) | any filesystem, LUKS2, kernel and menu on the ESP (UEFI) or `/boot` (BIOS) |
-| systemd-boot | UEFI | kernel and initramfs on the ESP |
-
-Limine is not packaged in Debian 13 and is not offered. btrfs, xfs and LUKS roots get a small generated initramfs; ext4 does
-not need one. `make headless-iso ARCH=amd64` builds `kwickos-amd64-headless.iso` (UEFI and BIOS), and
-`make headless-iso-grub` adds a GRUB menu with live, safe graphics (`nomodeset`) and install entries. The default boot path
-stays the EFI stub. Every live boot path (EFI image, isolinux, GRUB) passes `kwick.live`, which makes kinit mount the live
-medium before any installed KwickOS; without it kinit prefers the `kwick-root` partition, so a live USB left plugged in never
-hijacks an installed machine. GRUB and systemd-boot installs pin `root=UUID=`.
-
-**Headless examples**
-
-```sh
-qemu-system-x86_64 -M q35,accel=kvm -cpu host -m 512 -bios /usr/share/OVMF/OVMF_CODE.fd \
-  -drive file=kwickos-amd64.qcow2,if=virtio -nic user,model=virtio-net-pci -nographic
-
-qemu-system-x86_64 -M microvm,accel=kvm -cpu host -m 256 -nodefaults -nographic -serial stdio \
-  -kernel kwickos-amd64.efi -initrd kwickos-amd64-initramfs.cpio.zst -append "console=ttyS0"
-
-  ... -append "console=ttyS0 kwick.run=apt+update;apt+install+-y+jq"
-```
-
-Apple Silicon: use the arm64 qcow2 or ISO with UTM, Lima, Parallels or any Virtualization.framework VM, or see
-[docs/HARDWARE.md](docs/HARDWARE.md) for bare-metal Asahi support.
+Method, more rows and the Debian and Ubuntu comparison: [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Real Debian software
+(PostgreSQL, MariaDB, Docker, OpenJDK, Node.js and more) passes a 31-package matrix: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+How it gets this small: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## The desktop
 
-### Three layouts, three desktops
+`kwick-layout macos|windows|linux` switches the whole look at once: window buttons, panel or dock, fonts, icons, wallpaper and the
+Files sidebar.
 
-`kwick-layout macos|windows|linux` switches the whole look at once: window buttons, panel or dock position, fonts, icons, wallpaper
-and Files sidebar. It applies to **KDE Plasma** (default), **GNOME** and **Hyprland** (the `kwick-hyprland` package), and every
-layout is dark.
-
-* **macOS** (default): full-width menu bar flush to the screen edges with a white KwickOS mark and a compact clock, a floating dock
-  with 48 px icons, traffic-light buttons at the top left of every window.
-* **Windows 11**: 48 px centered taskbar with the KwickOS start icon, small padded clock, Fluent
-  caption buttons on the right.
-* **Linux**: thin top bar (launcher, centered clock, tray) with a floating dock on the left.
-
-| macOS | Windows | Linux |
+| macOS | Windows 11 | Linux |
 |---|---|---|
-| ![macos](docs/img/layout-macos.png) | ![windows](docs/img/layout-windows.png) | ![linux](docs/img/layout-linux.png) |
+| <img src="docs/img/layout-macos.png" width="280" alt="macOS layout"> | <img src="docs/img/layout-windows.png" width="280" alt="Windows layout"> | <img src="docs/img/layout-linux.png" width="280" alt="Linux layout"> |
 
-The same three layouts on GNOME (GNOME Text Editor open in each):
+* **KDE Plasma 6** is the default, with the KwickOS Settings app, a dock, an icon theme and fonts per layout.
+* **GNOME** gets the same three layouts.
+* **Hyprland** (`kwick-hyprland`) gets the same three layouts, each with its own waybar.
 
-| macOS | Windows | Linux |
-|---|---|---|
-| ![gnome macos](docs/img/vm-gnome-macos.png) | ![gnome windows](docs/img/vm-gnome-windows.png) | ![gnome linux](docs/img/vm-gnome-linux.png) |
+`kwick-gpu` installs the right GPU drivers, and `steam` installs native Steam. More: [docs/DESKTOP.md](docs/DESKTOP.md) and the
+[screenshot gallery](docs/SCREENSHOTS.md).
 
-And on Hyprland, with a waybar per layout:
+## Kwick Effects
 
-| macOS | Windows | Linux |
-|---|---|---|
-| ![hypr macos](docs/img/vm-tiling-macos.png) | ![hypr windows](docs/img/vm-tiling-windows.png) | ![hypr linux](docs/img/vm-tiling-linux.png) |
+Native effects with presets (`kwick-effects off|subtle|fluid|full`) or one toggle at a time (`kwick-effects set wobbly on`). They
+run on KDE, GNOME and Hyprland and need a GPU compositor.
 
-The dock is configured with `kwick-dock` (position, icon size, autohide, floating, pinned apps) and the same options are in the
-Settings app. Window decorations (KwickGlass, KwickFluent), three color schemes, wallpapers and the Terminal glass profile are
-generated by `desktop/gen-theme.py`. Other desktops can be installed with `kwick-desktop install xfce|cinnamon|mate|lxqt` and chosen
-with `kwick-desktop switch`.
-
-### Kwick Effects
-
-Native effects, with `kwick-effects off|subtle|fluid|full` presets or one toggle at a time (`kwick-effects set wobbly on`). They run
-as KWin effects on KDE, GNOME Shell extensions on GNOME and Hyprland animations on Hyprland, and need a GPU compositor (on a software
-compositor `kwick-effects` writes the config and tells you so).
-
-| preset | what you get |
+| 3D desktop cube | Flame |
 |---|---|
-| off | no animations |
-| subtle | fades, blur, sliding popups, magic lamp |
-| fluid | plus curvy wobbly windows, sheets and the 3D flip open/close |
-| full | plus flame open/close, translucency, dimmed inactive windows, the lit 3D desktop cube and Cover Flow Alt+Tab |
+| <img src="docs/img/effects-cube.gif" width="420" alt="3D desktop cube"> | <img src="docs/img/effects-flame.gif" width="420" alt="Flame close"> |
+| **3D open/close** | **Wobbly windows** |
+| <img src="docs/img/effects-3dopen.gif" width="420" alt="3D flip open"> | <img src="docs/img/effects-wobbly.gif" width="420" alt="Wobbly windows"> |
 
-Effects you can switch one by one (`kwick-effects set NAME on|off`, or the toggles on the Effects page of Settings):
+Also: magic lamp, dissolve, door and tilt open/close, five flame styles, blur, translucency, dimmed inactive windows and Cover Flow
+Alt+Tab. All options and GIFs: [docs/EFFECTS.md](docs/EFFECTS.md).
 
-| name | what it does |
+## Optional packages
+
+Nothing below is in the base image. Each one is a small package or command that installs its pieces on demand.
+
+| package | what it does | install | docs |
+|---|---|---|---|
+| `kwick-essentials` | common tools in one step: curl, jq, sudo, dnsutils, net-tools, build-essential and similar | `apt install kwick-essentials` | [BASE](docs/BASE.md) |
+| `kwick-gaming` | Bazzite-style gaming modules: Steam, Game Mode session, Proton-GE, launchers, overlays, handhelds, streaming | `apt install kwick-gaming` (included with the desktop) | [GAMING](docs/GAMING.md) |
+| `kwick-pen` | Kali-style security toolkit from Debian and pinned upstream sources, for authorized testing | `apt install kwick-pen` | [PEN](docs/PEN.md) |
+| `kwick-agents` | AI agent tooling, starting with the Cybara agent platform | `apt install kwick-agents` | [AGENTS](docs/AGENTS.md) |
+| `kwick-storage`, `kwick-zfs` | NAS modules: prebuilt OpenZFS, RAID, SnapRAID arrays, SMB and NFS shares, Cockpit | `apt install kwick-storage`, then `kwick-storage install zfs` | [STORAGE](docs/STORAGE.md) |
+| `kwick-vpn` | import WireGuard and OpenVPN profiles, add Tailscale, Mullvad, Proton, ZeroTier or NetBird | in the base: `kwick-vpn install tailscale` | [VPN](docs/VPN.md) |
+| `kwick-brew` | Homebrew (Linuxbrew) with the official installer, amd64 and arm64 | in the base: `kwick-brew install` | [BASE](docs/BASE.md#homebrew) |
+| `kwick-gpu` | detects GPUs and installs AMD, Intel or NVIDIA drivers and firmware | `apt install kwick-gpu` (included with the desktop) | [HARDWARE](docs/HARDWARE.md) |
+| `kwick-darling` | runs macOS command-line programs with Darling (amd64) | `apt install kwick-darling` | [DARLING](docs/DARLING.md) |
+
+Most of them share one interface: `list`, `status`, `install <module...>`, `remove <module...>` and `all`.
+
+## Installing
+
+The live desktop opens **Install KwickOS** at login: one decision per screen, keyboard-only friendly, with a `--dry-run` mode.
+
+| Select a disk | Installing |
 |---|---|
-| `wobbly` | windows stretch like jelly while you drag them |
-| `lamp` | magic lamp minimize into the dock |
-| `flame` | windows ignite and burn away, with flames that rise past the window edges |
-| `flip` | windows swing in and out in 3D perspective with lighting (styles flip, door, tilt) |
-| `dissolve` | closing windows crumble into glowing dust |
-| `glide`, `fallapart` | the stock Glide and Fall Apart open/close effects |
-| `cube` | Meta+C shows the desktops as a cube; the desktop switch animation can be a cube too (`kwick-effects switch cube`, Meta+Ctrl+Left/Right) |
-| `blur`, `transparency`, `sheet`, `dim`, `overview` | frosted glass, translucency, dropping dialogs, dimmed inactive windows, overview |
+| <img src="docs/img/installer-disk.png" width="420" alt="Installer disk selection"> | <img src="docs/img/installer-progress.png" width="420" alt="Installer progress"> |
 
-Only one open/close effect is active at a time (`flame`, `flip`, `dissolve`, `glide`, `fallapart` replace each other).
+* **Text installer.** `kwick-installer` opens a plain-terminal installer outside a desktop session, for example on the headless ISO.
+* **Scriptable.** Both front ends call `kwick-install`, which takes every choice as a flag and reads secrets only from files.
+* **Boot loaders.** The EFI stub (the kernel is the boot entry), GRUB (UEFI and BIOS, any file system, LUKS2) or systemd-boot.
+* **File systems.** ext4, btrfs, xfs or a ZFS root (`kwick-install --fs zfs`), optionally encrypted with LUKS.
 
-Options:
+Details, flags and all downloads: [docs/INSTALL.md](docs/INSTALL.md).
 
-* `kwick-effects wobbly AMOUNT SWAY` takes two numbers from 1 to 10 (`kwick-effects param wobbly` prints them). Amount is how far the window
-  stretches, sway is how curvy and fluid it is (softer springs and a finer mesh). The defaults are 6 and 7. In Settings they are the
-  "Wobble" and "Sway" sliders.
-* `kwick-effects flame-style classic|inferno|ember|blue|legacy` and `kwick-effects flame-height 50-200`: Legacy is a particle-system burn (many additive flame particles along a line that sweeps up the window, yellow-white to orange to deep red, about one second); Classic is tall orange fire rising above
-  the window, Inferno is wide and flares out at the sides, Ember is a subtle burn edge with drifting sparks, Blue is a hot gas flame.
-* `kwick-effects param flip flip|door|tilt` picks the 3D open/close style.
-* `kwick-effects param depth 0-10` sets how far windows float off the cube faces while it turns (the "Window depth" slider; default 5).
-* `kwick-effects switch slide|fade|cube|none` and `kwick-effects tabbox windows|cover|flip|grid` set the desktop switch animation and the
-  Alt+Tab style.
+## kfetch
 
-| Wobbly windows (6/7) | Dissolve close | 3D desktop cube |
-|---|---|---|
-| ![wobbly](docs/img/effects-wobbly.gif) | ![dissolve](docs/img/effects-dissolve.gif) | ![cube](docs/img/effects-cube.gif) |
+`kfetch` is a 6 KB shell script that prints a system summary in about 15 ms, with `--small` and `--json` modes.
+[More](docs/BASE.md#kfetch).
 
-| 3D open/close: flip | door | tilt |
-|---|---|---|
-| ![flip](docs/img/effects-3dopen.gif) | ![door](docs/img/effects-3dopen-door.gif) | ![tilt](docs/img/effects-3dopen-tilt.gif) |
+<img src="docs/img/kfetch.png" width="640" alt="kfetch output">
 
-| Flame: classic | Flame: inferno | Flame: ember |
-|---|---|---|
-| ![flame classic](docs/img/effects-flame.gif) | ![flame inferno](docs/img/effects-flame-inferno.gif) | ![flame ember](docs/img/effects-flame-ember.gif) |
+## Hardware support
 
-| Flame: blue | Flame: legacy |
+| target | status |
 |---|---|
-| ![flame blue](docs/img/effects-flame-blue.gif) | ![flame legacy](docs/img/effects-flame-legacy.gif) |
+| amd64 and arm64 VMs (QEMU/KVM, UTM, Lima, Parallels), containers | verified |
+| riscv64 QEMU virt (OpenSBI, UEFI) | verified in CI under emulation |
+| AMD, Intel and older NVIDIA GPUs | mainline drivers, not tested on real cards by the project |
+| NVIDIA Turing and newer | built, not run on a GPU |
+| Apple Silicon M1 and M2 (Asahi kernel) | built, not yet booted on a Mac |
+| NVIDIA DGX Spark (GB10 kernel flavor) | built, not yet booted |
+| Banana Pi BPI-F3 (SpacemiT K1, riscv64) | built, not yet booted |
 
-| Magic lamp |
-|---|
-| ![lamp](docs/img/effects-magiclamp.gif) |
+The project has no hardware lab, so "built" means it compiles and passes static checks only. Per-device detail:
+[docs/HARDWARE.md](docs/HARDWARE.md).
 
-These were captured in a KVM guest with a virgl GPU (KWin on OpenGL), see [docs/VERIFICATION.md](docs/VERIFICATION.md). The capture
-path drops frames, so the GIFs are jumpier than the real thing; frame sheets are next to them in `docs/img` (`effects-*-frames.png`). All of them were recorded on the current macOS layout. On GNOME the presets drive the extensions that are installed (wobbly, lamp, burn, cube,
-blur, and the wobble sliders map to the wobbly extension); on Hyprland they write bezier-curve animations (an overshoot curve for wobbly,
-a 3D-ish pop-in and fading slide for flip and the cube setting), blur and dimming.
+## Building from source
 
-### KwickOS Settings
-
-`kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, GPU,
-Gaming and VPN. It tells you when no GPU compositor is running and offers to install `kwick-gpu`.
-
-| Appearance | Dock | Effects |
-|---|---|---|
-| ![settings](docs/img/settings.png) | ![dock](docs/img/settings-dock.png) | ![effects](docs/img/settings-effects.png) |
-
-KDE System Settings uses the same KwickOS object icons:
-
-![KDE System Settings](docs/img/settings-kde.png)
-
-### Icons
-
-Each layout has its own icon theme, all generated as SVG by `tools/icons/gen-icons.py` and set by `kwick-layout` for Plasma, GNOME and
-Hyprland: `KwickOS` (macOS layout: squircle apps with layered gradients, light-blue folders with embossed glyphs, accent-blue sidebar glyphs),
-`KwickOS-Fluent` (Windows layout: white line icons for places, folders, actions, status and file types, flat Fluent app tiles) and
-`KwickOS-Linux` (Linux layout: Tokyo Night squircles). Left to right below: macOS, Windows, Linux.
-
-![icons](docs/img/icons.png)
-
-### Fonts
-
-Each layout has its own UI and monospace fonts, applied by `kwick-layout`:
-
-| layout | UI | monospace |
-|---|---|---|
-| macOS | Inter / Inter Display | JetBrains Mono |
-| Windows | Selawik | Cascadia Code |
-| Linux | Ubuntu Sans | Ubuntu Sans Mono |
-
-Fontconfig aliases map the familiar names (Segoe UI, Calibri, Consolas, SF Pro, Helvetica Neue, Ubuntu) to these. `kwick-fonts
-msfonts` fetches the real Microsoft core fonts after you accept the EULA.
-
-![fonts](docs/img/fonts.png)
-
-### Files and Terminal
-
-Apps show neutral names: **Files** (Dolphin), **Terminal** (Konsole), **Text Editor** and **Software** (Discover), through a private
-`en_KW` message catalog generated by `desktop/gen-files-l10n.py`. The Files sidebar is titled per layout ("Favorites" on macOS,
-"Quick access" on Windows).
-
-| macOS | Windows | Linux |
-|---|---|---|
-| ![files macos](docs/img/files-macos.png) | ![files windows](docs/img/files-windows.png) | ![files linux](docs/img/files-linux.png) |
-
-![terminal tools](docs/img/terminal-tools.png)
-
-### Gaming
-
-Native Steam: `steam` enables the i386 architecture through kpkg multiarch, installs Debian's `steam-installer`, downloads the
-client and runs it (the kernel has IA32 emulation). If the native install fails, `steam` falls back to the Flathub build.
-
-`kwick-gaming` is a modular, Bazzite-style setup, also in Settings, Gaming (status plus Install and Remove per module):
-`kwick-gaming list | status | install <module...> | remove <module...> | all`. Modules: `steam`, `gamescope-session` (Steam Game
-Mode on the login screen; `kwick-gaming session boot-on` boots straight into it), `proton` (ProtonUp-Qt and pinned GE-Proton),
-`launchers` (Lutris, Heroic, Bottles), `overlay` (MangoHud, GameMode, vkBasalt), `controllers`, `handheld` (HHD), `waydroid`,
-`decky`, `streaming` (Sunshine and Moonlight), `rgb` (OpenRGB) and `tweaks` (zram, sysctl, ntsync, I/O schedulers). x86-only
-modules say so on arm64 and riscv64. The comparison with Bazzite is in [docs/GAMING.md](docs/GAMING.md).
-
-![steam](docs/img/steam.png)
-
-### VPN
-
-WireGuard is built into every kernel flavor, and the desktop ships NetworkManager plugins for OpenVPN, OpenConnect (AnyConnect,
-GlobalProtect, Fortinet, Pulse), vpnc, L2TP/IPsec, strongSwan and SSTP, so VPNs show up in the Plasma network applet, the GNOME
-quick settings and the Hyprland bar (a lock appears while a tunnel is up). `kwick-vpn import <file.conf|file.ovpn> | list | up
-<name> | down <name> | status` works on both editions (NetworkManager if present, else `wg-quick` and `openvpn`), and `kwick-vpn
-install tailscale | mullvad | protonvpn | zerotier | netbird` adds a provider from its official repository with a pinned key
-fingerprint. Settings has a VPN page. Details in [docs/VPN.md](docs/VPN.md).
-
-### Storage and NAS
-
-`kwick-storage` turns either edition into a NAS without growing the base image: `kwick-storage list | status | install
-<module...> | remove <module...> | all`. Modules: `zfs` (OpenZFS modules prebuilt in CI for every KwickOS kernel, as the separate
-CDDL package `kwick-zfs`, with the Debian userland, sanoid snapshots and a monthly scrub), `raid` (mdadm, LVM), `btrfs` (snapper),
-`array` (Unraid-style mergerfs + SnapRAID: `kwick-storage array setup --data sdb,sdc --parity sdd --format --yes` writes
-`snapraid.conf` and the fstab entries and schedules a nightly sync and weekly scrub), `shares` (Samba with wsdd2 and Avahi, NFS:
-`kwick-storage share add /srv/media --smb --nfs`), `iscsi`, `smart`, `ups`, `containers`, `vms` and `webui` (Cockpit on port
-9090). Settings has a Storage page with disks, pools, arrays and per-module install rows. `kwick-install --fs zfs` installs onto a
-ZFS root. Details and a comparison with Unraid and TrueNAS in [docs/STORAGE.md](docs/STORAGE.md).
-
-### Security toolkit
-
-`kwick-pen` is an optional, Kali-style toolkit; nothing is preinstalled: `kwick-pen list | status | install <module...> | remove
-<module...> | all`. Modules: `recon`, `web` (Burp Suite, ZAP, sqlmap, ffuf, nuclei), `network` (Wireshark, bettercap, Responder,
-NetExec), `passwords` (john, hashcat, hydra, SecLists), `wireless`, `exploit` (Metasploit, searchsploit), `ad`, `re` (Ghidra,
-radare2, gdb with GEF), `forensics`, `mobile`, `cloud`, `osint` and `defense`. Sources: Debian 13 first, then Flathub, vendor repos
-and pinned upstream releases with sha256. Kali repositories are deliberately never added, since mixing archives breaks Debian
-systems. Tools without an arm64 or riscv64 build are skipped. A Security menu folder lists the GUI launchers. For authorized
-testing only. Tool table in [docs/PEN.md](docs/PEN.md).
-
-### AI agents
-
-`kwick-agents list | status | install <module...> | remove <module...> | all` installs optional AI agent tooling. `kwick-agents
-install cybara` installs the [Cybara](https://cybara.ai) self-hosted agent platform CLI from the official release, pinned and
-sha256-verified (amd64 and arm64). The `inference` module is a placeholder for a future multi-GPU engine. See
-[docs/AGENTS.md](docs/AGENTS.md).
-
-### GPUs and hardware
-
-`apt install kwick-gpu` (or `kwick-gpu install`; it also runs after `apt install kwick-desktop`) detects the GPUs and installs the
-matching drivers and firmware; `kwick-gpu` alone shows the plan.
-
-| hardware | driver path |
-|---|---|
-| AMD, Intel | in-kernel amdgpu / i915 / xe with Mesa (RADV, radeonsi, iris, ANV) and firmware |
-| NVIDIA Turing and newer | NVIDIA open kernel modules (pinned release) plus userspace from NVIDIA's Debian 13 repository |
-| NVIDIA older | nouveau with Mesa NVK |
-| Apple Silicon | Asahi kernel variant (`kwick-kernel-asahi`), Mesa asahi and honeykrisp |
-| NVIDIA DGX Spark (GB10) | `gb10` kernel flavor with NVIDIA open modules for arm64 |
-| virtio, QXL, Bochs, VMware, Hyper-V | in-tree DRM drivers with Mesa virgl or llvmpipe |
-
-What was run on real or virtual hardware and what was only built is spelled out per entry in [docs/HARDWARE.md](docs/HARDWARE.md),
-including Apple Silicon (Asahi) and the DGX Spark (GB10). Every kernel flavor ships a matching headers package for DKMS.
-
-### Darling: macOS command-line binaries (optional)
-
-`apt install kwick-darling` adds [Darling](https://github.com/darlinghq/darling), which runs macOS command-line programs on Linux.
-It is optional, amd64 only, aimed at CLI tools (GUI support is limited), and does not run arm64 Mach-O binaries. Usage, limits and
-what was verified: [docs/DARLING.md](docs/DARLING.md).
-
-![darling](docs/img/darling.png)
-
-## Using the base system
+Needs Linux with Docker, and KVM for fast boot tests.
 
 ```sh
-apt update; apt install postgresql        # real Debian packages
-apt search redis; apt show nginx; apt list --installed; apt autoremove; apt full-upgrade
-dpkg -l; dpkg -L nginx; dpkg -S /usr/sbin/nginx
-systemctl status nginx; systemctl restart nginx; journalctl -u nginx -f
-service ssh restart
-vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by default)
+make builder                       # build container with cross toolchains and QEMU
+make ARCH=amd64                    # busybox, kinit, kpkg, kernels, rootfs, images
+make boot-test ARCH=amd64          # boot matrix: microvm, RAM, disk, UEFI disk, UEFI ISO
 ```
 
-* Recommends are not installed by default (`/etc/kpkg.conf`); use `--install-recommends`.
-* The console logs in as root automatically on VM/live images. `rm /etc/kinit/autologin` and `passwd` for a password prompt.
-  Install `openssh-server` for remote access.
-* `kwick-kernel-install --list | --rollback` manages kernels.
-* `apk add <pkg>` works next to `apt`: Alpine (musl) and Debian (glibc) packages coexist, and the apk bootstrap is signature-verified.
-  `tests/ecosystems.sh` checks that `apk add nodejs`, `apt install python3` and the official Bun installer work side by side.
+Cross builds, the source tree, releases and CI: [docs/BUILDING.md](docs/BUILDING.md).
 
-### kfetch
+## Documentation
 
-`kfetch` prints a system summary with the K logo in the cyan-to-violet brand gradient, on both editions: OS and edition, kernel, host or
-board model, uptime, package counts (dpkg and apk), shell, init, terminal, CPU, GPU, memory, disk, local IP and, on the desktop, the
-session, layout and theme. It is a 6 KB POSIX shell script that runs under BusyBox `ash`, takes about 15 ms, reads `/proc` and `/sys`
-directly and skips whatever a machine does not have. `kfetch --small` is a compact version, `kfetch --json` prints one JSON object and
-`--no-logo` drops the logo. Colour is off when `NO_COLOR` is set and the logo is dropped when stdout is not a terminal. No `neofetch`
-or `fastfetch` symlinks are installed, because both names belong to Debian packages with different options.
-
-![kfetch](docs/img/kfetch.png)
-
-### Out of the box
-
-What the base can do before you install anything, and what is one `apt install` away. Sizes in the last column were measured
-on a fresh base and include the dependencies it lacks: the first Debian package pulls in glibc, about 16 MB, which every later package then shares.
-
-| need | in the base | with apt |
-|---|---|---|
-| network | DHCP and static IPv4 (`/etc/network/interfaces`, `ip`, `ifconfig`, `route`), IPv6 SLAAC and `udhcpc6`, DNS (`nslookup`, `/etc/resolv.conf`), `ping`, `ping6`, `traceroute`, `nc`, `telnet`, `netstat`, `brctl`, `rfkill`, NTP client (`ntpd`, `systemctl enable --now ntpd`) | `dnsutils` (`dig`, 44 MB), `iproute2` (`ss`), `tcpdump` (54 MB) |
-| Wi-Fi | `cfg80211`, `mac80211` and `iwlwifi` modules in the generic kernel, `rfkill` | `wpasupplicant` or `iwd` (20 MB), plus the card's firmware package (Debian's `non-free-firmware` component, which is not enabled by default) |
-| HTTPS downloads | `wget` with TLS (no certificate validation, see below) | `ca-certificates` (42 MB with its dependencies) and `curl` (60 MB) for validated TLS |
-| remote access | `nc`, `telnet`, `ssl_client` | `openssh-client` (61 MB), `openssh-server` (89 MB), `rsync` (28 MB) |
-| time zones and keymaps | `TZ=` with POSIX rules (`TZ=CET-1CEST,M3.5.0,M10.5.0/3`), clock via `hwclock` | `tzdata` (31 MB), `kbd` (18 MB) for `loadkeys` |
-| editors, pager, shell | `vi`, `less`, `ash` (history, line editing), `watch` | `nano` (21 MB), `bash` (fetched when something needs it) and `bash-completion` |
-| users and privilege | `adduser`, `addgroup`, `passwd`, `su`, `chpasswd` | `sudo` (51 MB) |
-| scheduling and logs | `crond`, `crontab`, `syslogd`, `logread`, `dmesg` | `rsyslog`, `logrotate` |
-| disks | `fdisk`, `mkfs.ext2`, `mkfs.vfat`, `mkswap`, `mount` (loop, CIFS; vfat, ext4, `ntfs3` and `exfat` in the kernel), `lsblk`, `blkid`, `losetup`, `fsck` | `e2fsprogs` (19 MB), `parted` (21 MB), `exfatprogs` (17 MB), `ntfs-3g` (57 MB), `xfsprogs`, `btrfs-progs` |
-| archives | `tar`, `gzip`, `bzip2`, `xz`, `unzip`, `cpio` | `zstd` (23 MB), `p7zip` |
-| hardware and processes | `lspci`, `lsusb`, `lsmod`, `modprobe`, `top`, `ps`, `free`, `lsof`, `kfetch` | `htop` (18 MB), `pciutils`, `usbutils`, `strace` |
-| containers | `unshare`, `nsenter`, `chroot` and a kernel with namespaces and cgroups | `podman` (197 MB), `docker.io` (see the compatibility matrix) |
-| installer | `kwick-install`, `kwick-installer` | fetches `fdisk`, `e2fsprogs`, GRUB and so on when needed |
-
-`wget` in the base uses BusyBox's built-in TLS client, which encrypts but does not validate certificates; install `ca-certificates` and
-`curl` when that matters. The base has no `sudo`: log in as root or install it. Enabling anything at boot is left to you, so the base
-starts only `networking` and `syslog`.
-
-### Homebrew (on demand)
-
-`kwick-brew install` sets up [Homebrew](https://brew.sh) (Linuxbrew) at `/home/linuxbrew/.linuxbrew` using the official installer. Nothing
-is preinstalled, so it costs about 0 bytes in the image. It first installs the Debian build dependencies it needs (`build-essential`,
-`procps`, `curl`, `file`, `git`) if they are missing. After install Homebrew itself takes about 220 MB, plus roughly 460 MB of build
-tools on a minimal system. `kwick-brew status`, `kwick-brew uninstall` (the official uninstall script) and `kwick-brew shellenv` cover
-the rest; the desktop also has an "Install Homebrew" launcher. Supported on x86_64 and arm64 only; other architectures exit with
-status 3. Once installed, login shells add brew to the end of `PATH` (`/etc/profile.d/20-kwick-brew.sh`), so system tools in
-`/usr/bin` always win.
-
-## Verification
-
-Everything in the desktop sections was run in KVM virtual machines with a GPU-accelerated display on an AMD Radeon 8060S host. The
-log, the lab setup (`tools/vmlab/`), the bugs found and fixed, and the list of things that were not verified are in
-[docs/VERIFICATION.md](docs/VERIFICATION.md).
-
-## Releases and security
-
-Every push to `main` that changes the product, and every kernel bump found by `kernel-watch` (kernel.org is polled every 6 hours),
-triggers the `release` workflow. It builds and boot-tests all architectures, then publishes `v<version>-k<kernel>` with ISOs, disk
-images, the multi-arch container on ghcr.io and the signed apt repo. `.github/workflows/security.yml` runs on every push and nightly:
-kernel freshness, `govulncheck` for kpkg, OSV advisories and a grype scan of the built image.
-
-## Building
-
-Requirements: Linux with Docker (and KVM for fast boot tests). For non-native arches register binfmt once:
-`docker run --privileged --rm tonistiigi/binfmt --install all`.
-
-```sh
-make builder                       # build container with cross toolchains + QEMU
-make ARCH=amd64                    # busybox, kinit, kpkg, kernels (virt+generic), rootfs, images
-make boot-test ARCH=amd64          # boots microvm, ram, disk, UEFI disk, UEFI ISO
-make container compat ARCH=amd64   # real-world Debian package compatibility matrix
-bash bench/container.sh kwickos:0.1.0-amd64   # container benchmarks vs Alpine/Debian/Ubuntu
-```
-
-The kernel version is pinned in [`KERNEL_VERSION`](KERNEL_VERSION); the build verifies the tarball checksum against kernel.org.
-
-| path | contents |
+| doc | contents |
 |---|---|
-| `src/kinit/` | init system (C) |
-| `src/kpkg/` | package manager (Go) |
-| `config/kernel/` | kernel config fragments (common, per-arch, `virt`/`generic`/`apple`/`gb10`) |
-| `config/busybox/` | BusyBox config + GNU-compatibility patches |
-| `rootfs/` | files copied into the base system |
-| `desktop/` | desktop image, theme and catalog generators, the files shipped by `kwick-desktop` |
-| `scripts/` | build steps (userland, kernel, rootfs, images, packages, apt repo) |
-| `tools/` | icon generator and the KVM/GPU verification lab (`tools/vmlab/`) |
-| `tests/` | boot matrix, VM functional test, package compatibility matrix, desktop screenshot script |
-| `bench/` | benchmarks against Alpine/Debian/Ubuntu |
-| `.github/workflows/` | CI build and test for 3 arches, releases, kernel watch |
-
-## Limitations
-
-* The headless ISO and disk images boot through UEFI only; the desktop ISO also boots in BIOS mode on amd64. Direct `-kernel` boot
-  works everywhere.
-* kpkg implements the commonly used apt/dpkg surface and multiarch and apt's pin priorities (`/etc/apt/preferences(.d)`, `-t`, `APT::Default-Release`, `apt-cache policy`); holds and source packages are not implemented.
-* kinit implements the commonly used subset of systemd units: no socket activation, timers or D-Bus, and units start in parallel
-  with only the ordering described in the docs.
-* No SELinux/AppArmor policy. Lockdown, Landlock, Yama and seccomp are enabled.
-* riscv64 is tested under QEMU emulation only.
-* Desktop effects need a GPU compositor. GPU, Apple Silicon and GB10 specifics are in [docs/HARDWARE.md](docs/HARDWARE.md).
+| [INSTALL](docs/INSTALL.md) | downloads, installers, boot loaders, apt repository |
+| [BASE](docs/BASE.md) | using the base system, what is included, kfetch, Homebrew |
+| [DESKTOP](docs/DESKTOP.md) | layouts, Settings, icons, fonts, gaming, GPUs, Darling |
+| [EFFECTS](docs/EFFECTS.md) | every effect, option and GIF |
+| [SCREENSHOTS](docs/SCREENSHOTS.md) | the full screenshot gallery |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | kinit, kpkg, the boot path, limitations |
+| [BENCHMARKS](docs/BENCHMARKS.md) and [COMPATIBILITY](docs/COMPATIBILITY.md) | measurements and the package matrix |
+| [HARDWARE](docs/HARDWARE.md) | kernel flavors, GPUs, Apple Silicon, GB10, riscv64 boards |
+| [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md) | optional packages |
+| [BUILDING](docs/BUILDING.md) and [VERIFICATION](docs/VERIFICATION.md) | building from source, CI, and what was tested |
 
 ## License
 
 KwickOS sources are MIT-licensed. Images also contain GPL-2.0 software (Linux, BusyBox) and others; see [LICENSE](LICENSE).
-The native KWin effect plugins link against KWin (GPL-2.0-or-later): the Flip plugin's source in `src/kwin-flip` is MIT, and its compiled
-`kwick_flip.so` (like the third-party KDE-Rounded-Corners plugin) is distributed under the GPL-2.0-or-later, with a note in
-`/usr/share/doc/kwick-flip/copyright`.
+
+* The native KWin effect plugins link against KWin (GPL-2.0-or-later). The Flip plugin's source in `src/kwin-flip` is MIT, and its
+  compiled `kwick_flip.so` (like the third-party KDE-Rounded-Corners plugin) is distributed under the GPL-2.0-or-later, with a note
+  in `/usr/share/doc/kwick-flip/copyright`.
+* OpenZFS is CDDL. It is never built into the kernel. The modules ship only in the separate `kwick-zfs-modules-*` packages with the
+  CDDL text, and nothing ZFS-related is installed unless you install it. See [docs/STORAGE.md](docs/STORAGE.md#licensing).

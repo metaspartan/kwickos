@@ -1,5 +1,26 @@
 # Benchmarks
 
+![comparison](img/comparison.png)
+
+## Current summary
+
+The latest measurements against Alpine 3.24.4. These are the numbers the README and the site quote.
+
+| | Alpine 3.24.4 | **KwickOS** |
+|---|---:|---:|
+| container image (uncompressed / gzip) | 8.43 / 3.72 MB | **6.21 / 2.91 MB** |
+| memory of a `sh` in a container (anon + page tables) | 84-88 KiB | **56-60 KiB** |
+| VM boot to shell prompt (QEMU/KVM, live ISO, wall time) | 3.23 s | **1.04 s** |
+| guest boot time at shell (`/proc/uptime`) | 2.81 s | **0.66 s** (0.20 s as microVM) |
+| memory in use after boot | 66.1 MiB | **37.8 MiB** |
+| live ISO | 70 MB | **53 MB** (generic kernel and modules) |
+| packages available | ~20k (musl) | **~69k (Debian 13, glibc)** |
+
+The detailed tables below are from the first full run with KwickOS 0.1.0. The base has grown since (the container image went from
+5.53 MB to 6.21 MB), so their absolute numbers are older than the summary above; the method is unchanged.
+
+## Method and first full run
+
 All numbers below were measured on 2026-11-12 with KwickOS 0.1.0 (Linux 7.3.4) on one
 machine: Windows 11 host, Docker Desktop 29.9 on WSL2 (kernel 6.6), 32 threads, and
 QEMU 10.0 with KVM inside a Debian 13 container. Comparison systems are the latest releases

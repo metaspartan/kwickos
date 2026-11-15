@@ -153,3 +153,37 @@ build and boot matrix then tests.
 * Networking defaults: BBR + fq, TCP Fast Open, nftables (with an iptables-legacy
   fallback), WireGuard, VXLAN, bridges, veth, cgroup v2 and all namespaces, so
   Docker/containerd/podman installed via `apt` work.
+
+## 6. Compared with Alpine and Debian
+
+| | Alpine | Debian/Ubuntu | **KwickOS** |
+|---|---|---|---|
+| base userland | BusyBox + musl `.so` | GNU coreutils + glibc | BusyBox + **static** kinit/kpkg (no libc `.so` at all) |
+| package manager | apk (Alpine packages, musl) | apt/dpkg | **kpkg**: `apt`/`dpkg`-compatible, uses Debian's own repos |
+| software compatibility | musl rebuilds | everything | everything in Debian (glibc arrives on demand) |
+| init | OpenRC | systemd | **kinit**: 120 KB PID 1 that runs systemd unit files |
+| boot chain | bootloader + initramfs | GRUB + initramfs-tools | **none**: the kernel is a UEFI app with a 120 KB embedded root finder |
+| kernel updates | apk | apt + update-grub + initramfs rebuild | `apt upgrade` copies one EFI file (and keeps the previous one for rollback) |
+
+* **Essential set provided virtually.** The base declares the Debian Essential packages (`coreutils`, `bash`, `dpkg`, ...) as
+  satisfied by BusyBox, so real Debian packages install unmodified on a 5 MB system.
+* **Self-healing compatibility.** If a maintainer script trips over a BusyBox difference, kpkg installs the GNU tool from Debian
+  and retries. GNU tools exist only where software needs them.
+* **systemd compatibility without systemd.** `.service` units, `deb-systemd-helper`, `systemd-sysusers` and `systemd-tmpfiles`
+  are handled by kinit, so `apt install nginx` gets you a running, enabled, supervised service.
+* **One file boots everything.** The EFI-stub kernel embeds kinit, which finds a `kwick-root` partition, a `KWICKOS` live medium
+  (erofs + overlay), `root=`, virtiofs/9p, or a whole-OS initramfs. No GRUB, no dracut, nothing to regenerate.
+* **Multiarch.** kpkg handles foreign architectures (`dpkg --add-architecture i386`), which is what native Steam uses.
+* **Alpine packages too.** `apk add` works next to `apt`, with a signature-verified bootstrap.
+
+## 7. Limitations
+
+* The headless live ISO and the disk images boot through UEFI only. The desktop ISO and `kwickos-amd64-headless.iso` also boot in
+  BIOS mode on amd64. Direct `-kernel` boot works everywhere.
+* kpkg implements the commonly used apt/dpkg surface, multiarch and apt's pin priorities (`/etc/apt/preferences(.d)`, `-t`,
+  `APT::Default-Release`, `apt-cache policy`). Holds and source packages are not implemented.
+* kinit implements the commonly used subset of systemd units: no socket activation, timers or D-Bus, and units start in parallel
+  with only the ordering described above.
+* No SELinux/AppArmor policy. Lockdown, Landlock, Yama and seccomp are enabled.
+* riscv64 is tested under QEMU emulation only.
+* Desktop effects need a GPU compositor. GPU, Apple Silicon and GB10 specifics are in [HARDWARE.md](HARDWARE.md).
