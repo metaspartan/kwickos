@@ -76,6 +76,7 @@ T0=$(date +%s)
 TARGETS=$(basename $IMG)
 case $ARCH in arm64|riscv64) TARGETS="$TARGETS vmlinuz.efi";; esac
 [ "$FLAVOR" = generic ] && TARGETS="$TARGETS modules"
+[ "$FLAVOR" = generic ] && [ "$ARCH" = riscv64 ] && TARGETS="$TARGETS dtbs"
 "${M[@]}" $TARGETS > "$O/build.log" 2>&1 || { tail -40 "$O/build.log"; exit 1; }
 echo ">> built in $(( $(date +%s) - T0 ))s"
 
@@ -92,6 +93,9 @@ if [ "$FLAVOR" = generic ]; then
   "${M[@]}" INSTALL_MOD_PATH="$MD" INSTALL_MOD_STRIP=1 modules_install >/dev/null
   rm -f "$MD/lib/modules/$KREL/build" "$MD/lib/modules/$KREL/source"
   tar -C "$MD" -c lib | zstd -19 -T0 -q -o "$D/modules.tar.zst"
+fi
+if [ "$FLAVOR" = generic ] && [ "$ARCH" = riscv64 ]; then
+  "${M[@]}" INSTALL_DTBS_PATH="$D/dtbs" dtbs_install >/dev/null
 fi
 ls -l "$D"
 echo ">> $KREL done"

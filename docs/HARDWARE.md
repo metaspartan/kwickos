@@ -96,7 +96,21 @@ DGX OS ships a recovery environment and firmware updates; keep it. KwickOS has n
 | Hardware | Status |
 | --- | --- |
 | QEMU virt with OpenSBI and UEFI | Verified (boot test in CI) |
+| Banana Pi BPI-F3 (SpacemiT K1) | Built: the generic flavor carries the mainline K1 drivers built in (clocks, resets, pinctrl, GPIO, eMMC/SD, K1 EMAC with the RTL8211F PHY, PCIe/NVMe, DWC3 USB, P1 PMIC) and ships `spacemit/k1-bananapi-f3.dtb`. The vendor U-Boot loads `Image` and the DTB from the ESP and runs `booti`; see below |
+| Other SpacemiT K1 boards (Milk-V Jupiter, Muse Pi Pro, Orange Pi RV2) | Upstream: same kernel and mainline device trees, not tried |
 | VisionFive 2, Milk-V, HiFive boards | Unsupported: no board device trees or vendor firmware handling; the generic flavor is built only in release CI |
+
+### Banana Pi BPI-F3
+
+The board keeps its vendor boot chain (BootROM, FSBL, OpenSBI and U-Boot 2022.10 from SpacemiT). The BootROM tries the SD card first, then the medium the boot DIP switch selects (eMMC, SPI NOR or SPI NAND). KwickOS does not replace the bootloader. It installs to the eMMC user area as a GPT disk with a 512 MiB ESP (`EFI/BOOT/BOOTRISCV64.EFI`, plus `Image`, `dtb/spacemit/k1-bananapi-f3.dtb`, `boot.cmd` and `boot.scr` for U-Boot) and an ext4 `kwick-root` partition.
+
+From the vendor U-Boot prompt on the serial console (115200 8N1), with the SD card's U-Boot running:
+
+```
+load mmc 2:1 0x2c100000 boot.scr; source 0x2c100000
+```
+
+U-Boot numbers the SD card `mmc 0` and the eMMC `mmc 2`; mainline Linux names the eMMC `mmcblk0` and the SD card `mmcblk1`, which is why the root is found by `PARTLABEL=kwick-root`. The vendor kernel's `end0` and `end1` are `eth0` and `eth1` in mainline. Both ports use DHCP. `kwick-kernel-install` refreshes `Image` on the ESP along with `BOOTRISCV64.EFI`, so kernel updates from apt reach this boot path. Booting the EFI image with the vendor U-Boot's `bootefi` should also work but has not been tried. Without a serial console the SD card's U-Boot boots Armbian as before. Booting the eMMC with no SD card inserted needs the vendor bootloader written to the eMMC boot partition, which KwickOS does not do. The ESP starts at 16 MiB to leave room for it.
 
 ## What to do when something does not work
 

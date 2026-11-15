@@ -57,6 +57,11 @@ case "${1:-}" in
 		cp "$ESP/EFI/BOOT/$NAME" "$ESP/EFI/kwick/rollback-from.efi"
 		cp "$ESP/EFI/kwick/previous.efi" "$ESP/EFI/BOOT/$NAME.new"
 		mv "$ESP/EFI/BOOT/$NAME.new" "$ESP/EFI/BOOT/$NAME"
+		if [ -f "$ESP/Image" ] && [ -f "$ESP/EFI/kwick/previous.Image" ]; then
+			cp "$ESP/Image" "$ESP/EFI/kwick/rollback-from.Image"
+			cp "$ESP/EFI/kwick/previous.Image" "$ESP/Image.new"
+			mv "$ESP/Image.new" "$ESP/Image"
+		fi
 		sync
 		echo "Rolled back. Reboot to use the previous kernel."
 		exit 0 ;;
@@ -82,6 +87,11 @@ if [ -f "$ESP/EFI/BOOT/$NAME" ] && ! cmp -s "$ESP/EFI/BOOT/$NAME" "$IMG"; then
 fi
 cp "$IMG" "$ESP/EFI/BOOT/$NAME.new"
 mv "$ESP/EFI/BOOT/$NAME.new" "$ESP/EFI/BOOT/$NAME"
+if [ -f "$ESP/Image" ] && [ -f "$SRC/vmlinuz" ]; then
+	cmp -s "$ESP/Image" "$SRC/vmlinuz" || cp "$ESP/Image" "$ESP/EFI/kwick/previous.Image"
+	cp "$SRC/vmlinuz" "$ESP/Image.new"
+	mv "$ESP/Image.new" "$ESP/Image"
+fi
 echo "$REL" > "$ESP/EFI/kwick/current"
 sync
 echo "kwick-kernel-install: $REL is now the boot kernel (previous kept for --rollback)."
