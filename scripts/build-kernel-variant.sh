@@ -178,6 +178,7 @@ dir /lib/firmware 0755 0 0
 file /lib/firmware/$(basename "$FW_URL") $FW 0644 0 0
 file /init $KINIT 0755 0 0
 EOT
+  if [ -n "${WATCHDOG:-}" ]; then echo "$WATCHDOG" > "$O/kwick-watchdog"; echo "file /kwick-watchdog $O/kwick-watchdog 0644 0 0" >> "$O/initrd.list"; fi
   "$O/usr/gen_init_cpio" "$O/initrd.list" | gzip -9n > "$D/initrd.img"
 fi
 MD="$O/modroot"; rm -rf "$MD"

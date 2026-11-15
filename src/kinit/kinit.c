@@ -30,6 +30,7 @@
 #include <limits.h>
 #include <linux/loop.h>
 #include <linux/netlink.h>
+#include <linux/watchdog.h>
 #include <net/if.h>
 #include <poll.h>
 #include <pwd.h>
@@ -334,6 +335,50 @@ static int setup_live(const char *media)
 		     "lowerdir=/run/lower,upperdir=/run/rw/upper,workdir=/run/rw/work");
 }
 
+static void stage0_fail(void)
+{
+	const char *p = cmdline_get("panic");
+	int secs = p ? atoi(p) : 0;
+	if (secs <= 0) {
+		say("waiting forever (pass panic=N to reboot after N seconds)");
+		for (;;) pause();
+	}
+	say("rebooting in %d seconds (panic=%d)", secs, secs);
+	sync();
+	sleep(secs);
+	reboot(RB_AUTOBOOT);
+	for (;;) pause();
+}
+
+static void stage0_watchdog(void)
+{
+	char buf[16];
+	const char *v = cmdline_get("kwick.watchdog");
+	if (!v && read_file("/kwick-watchdog", buf, sizeof buf) > 0) v = buf;
+	int timeout = v ? atoi(v) : 0;
+	if (timeout <= 0) return;
+	int fd = -1;
+	for (int i = 0; i < 50 && fd < 0; i++) {
+		fd = open("/dev/watchdog", O_WRONLY | O_CLOEXEC);
+		if (fd < 0) usleep(100000);
+	}
+	if (fd < 0) { say("watchdog: /dev/watchdog not available"); return; }
+	ioctl(fd, WDIOC_SETTIMEOUT, &timeout);
+	ioctl(fd, WDIOC_KEEPALIVE, 0);
+	say("watchdog armed, %d s timeout", timeout);
+	pid_t pid = fork();
+	if (pid == 0) {
+		int period = timeout / 4 > 0 ? timeout / 4 : 1;
+		for (int t = 0; t < 150; t += period) {
+			ioctl(fd, WDIOC_KEEPALIVE, 0);
+			sleep(period);
+		}
+		ioctl(fd, WDIOC_KEEPALIVE, 0);
+		_exit(0);
+	}
+	close(fd);
+}
+
 static void stage0(void)
 {
 	mount("devtmpfs", "/dev", "devtmpfs", 0, "mode=0755");
@@ -342,6 +387,7 @@ static void stage0(void)
 	mkdir_p("/newroot", 0755);
 	mkdir_p("/run", 0755);
 	mount("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755");
+	stage0_watchdog();
 
 	const char *root = cmdline_get("root");
 	const char *fstype = cmdline_get("rootfstype");
@@ -375,8 +421,8 @@ static void stage0(void)
 		}
 		if (mounted) break;
 		if (now_ms(CLOCK_MONOTONIC) > deadline) {
-			say("no root filesystem found (root=%s). Waiting forever; check your boot media.", spec[0] ? spec : "auto");
-			for (;;) pause();
+			say("no root filesystem found (root=%s); check your boot media.", spec[0] ? spec : "auto");
+			stage0_fail();
 		}
 		if (attempt == 40) say("waiting for root device %s ...", spec[0] ? spec : "(auto)");
 		usleep(25000);
@@ -391,13 +437,13 @@ static void stage0(void)
 	unlink("/init"); /* free the (tiny) initramfs copy */
 	if (chdir("/newroot") || mount(".", "/", NULL, MS_MOVE, NULL) || chroot(".") || chdir("/")) {
 		say("switch_root failed: %s", strerror(errno));
-		for (;;) pause();
+		stage0_fail();
 	}
 	const char *init = cmdline_get("init");
 	execl(init ? init : "/sbin/init", "init", (char *)NULL);
 	execl("/bin/sh", "sh", (char *)NULL);
 	say("cannot exec init: %s", strerror(errno));
-	for (;;) pause();
+	stage0_fail();
 }
 
 /* ------------------------------------------------------------- services */

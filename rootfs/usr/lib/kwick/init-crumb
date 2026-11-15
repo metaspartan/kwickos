@@ -1,7 +1,16 @@
 #!/bin/sh
 mount -o remount,rw / 2>/dev/null
 echo "$(date) init-crumb pid=$$" >> /var/log/kinit-start
-[ -e /dev/watchdog ] && watchdog -T 60 -t 10 /dev/watchdog
+if [ -e /dev/watchdog ]; then
+	(
+		i=0
+		while [ $i -lt 60 ]; do
+			watchdog -T 60 -t 10 /dev/watchdog 2>/dev/null && break
+			i=$((i + 1))
+			sleep 3
+		done
+	) &
+fi
 (
 	sleep 120
 	if ! ip -4 addr show 2>/dev/null | grep "inet " | grep -vq " 127\."; then

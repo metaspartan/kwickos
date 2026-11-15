@@ -6,3 +6,4 @@ DT_ENABLE="watchdog@d4080000"
 FIT_LOAD=0x600000
 FW_URL=https://gitee.com/spacemit-buildroot/buildroot-ext/raw/855fba3e9458d69d08f71bad66e42e87979e6885/board/spacemit/k1/target_overlay/lib/firmware/esos.elf
 FW_SHA256=a7ef0129310a0fdc71d848490b4d6fdd73fbecc31d9f6b314662617dfdaaaefc
+WATCHDOG=60
