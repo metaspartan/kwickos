@@ -7,12 +7,19 @@ cp -r --no-preserve=ownership "$SRC/desktop/rootfs/." "$P/"
 find "$P" -type f \( -path '*/usr/lib/kwick/*' -o -path '*/usr/bin/kwick-*' \) -exec chmod 755 {} +
 chmod 755 "$P/usr/lib/kwick/fetch-fonts"
 "$P/usr/lib/kwick/fetch-fonts" "$P" all
-"$SRC/scripts/mkroundedpkg.sh" "$P"
-if [ -d "$OUT/kwin-flip-$ARCH/usr" ]; then
-  cp -r --no-preserve=ownership "$OUT/kwin-flip-$ARCH/." "$P/"
-else
-  bash "$SRC/scripts/mkflippkg.sh" "$P"
-fi
+kwin_plugin() {
+  local name=$1 script=$2
+  if [ -d "$OUT/kwin-$name-$ARCH/usr" ]; then
+    cp -r --no-preserve=ownership "$OUT/kwin-$name-$ARCH/." "$P/"
+  elif [ "$(dpkg --print-architecture)" = "$ARCH" ]; then
+    bash "$SRC/scripts/$script" "$P"
+  else
+    echo "no prebuilt kwin-$name-$ARCH in $OUT and this host is $(dpkg --print-architecture)" >&2
+    exit 1
+  fi
+}
+kwin_plugin rounded mkroundedpkg.sh
+kwin_plugin flip mkflippkg.sh
 chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 "$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"

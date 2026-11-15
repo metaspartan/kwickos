@@ -179,7 +179,7 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkagentspkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkstoragepkg.sh
           cp dl/kwickos-zfs-*/kwick-zfs*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no OpenZFS module packages in this release"
-          docker run --rm --platform linux/arm64 -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash /src/scripts/mkflippkg.sh /out/kwin-flip-arm64
+          docker run --rm --platform linux/arm64 -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-arm64 && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-arm64"
           for a in amd64 arm64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
           . config/darling.env; mkdir -p out/repo/pool/main

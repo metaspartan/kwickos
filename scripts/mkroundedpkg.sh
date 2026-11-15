@@ -5,7 +5,7 @@ VER=0.7.2
 SHA256=0a58fa41a9bb5e4ac33ddbe50973138d7189cb3393aa718cd83792b047c2e4f0
 URL=https://github.com/matinlotfali/KDE-Rounded-Corners/archive/refs/tags/v$VER.tar.gz
 DEPS="build-essential cmake extra-cmake-modules pkg-config curl ca-certificates kwin-dev libepoxy-dev libxcb1-dev qt6-base-dev qt6-base-private-dev libkf6configwidgets-dev libkf6i18n-dev libkf6kcmutils-dev libkf6windowsystem-dev libkf6coreaddons-dev libkdecorations3-dev gettext"
-if ! dpkg -s kwin-dev >/dev/null 2>&1; then
+if ! dpkg -s kwin-dev libkf6kcmutils-dev libkdecorations3-dev curl gettext >/dev/null 2>&1; then
   apt-get update -qq
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $DEPS
 fi
