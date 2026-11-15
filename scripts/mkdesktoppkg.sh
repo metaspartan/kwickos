@@ -21,6 +21,7 @@ kwin_plugin() {
 kwin_plugin rounded mkroundedpkg.sh
 kwin_plugin flip mkflippkg.sh
 kwin_plugin liquidglass mkglasspkg.sh
+kwin_plugin macstyle mkmacstylepkg.sh
 chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 "$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
@@ -44,6 +45,10 @@ cat > "$P/DEBIAN/postinst" <<'EOF'
 set -e
 [ "$1" = configure ] || exit 0
 rm -f /etc/systemd/system/multi-user.target.wants/networking.service
+if [ -f /etc/network/interfaces ] && grep -E '^[[:space:]]*iface[[:space:]]' /etc/network/interfaces | grep -qvE '^[[:space:]]*iface[[:space:]]+lo[[:space:]]'; then
+  cp /etc/network/interfaces /etc/network/interfaces.kwick-headless
+  printf 'auto lo\niface lo inet loopback\n\nsource-directory /etc/network/interfaces.d\n' > /etc/network/interfaces
+fi
 W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W
 for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do
   f=$(ls /usr/lib/systemd/system/$u.service 2>/dev/null || true); [ -n "$f" ] && ln -sf "$f" $W/$u.service
