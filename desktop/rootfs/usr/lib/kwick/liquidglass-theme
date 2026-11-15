@@ -75,13 +75,58 @@ frame() {
   } > "$f"
 }
 
+menubar() {
+  f=$1 R=5 E=10 M=4
+  F=$((2 * R + E))
+  corner() {
+    id=$1 x=$2 y=$3 op=$4
+    case $id in
+      *topleft) p="M$x,$((y + R)) A$R,$R 0 0 1 $((x + R)),$y L$((x + R)),$((y + R)) Z" ;;
+      *topright) p="M$x,$y A$R,$R 0 0 1 $((x + R)),$((y + R)) L$x,$((y + R)) Z" ;;
+      *bottomleft) p="M$((x + R)),$((y + R)) A$R,$R 0 0 1 $x,$y L$((x + R)),$y Z" ;;
+      *bottomright) p="M$((x + R)),$y A$R,$R 0 0 1 $x,$((y + R)) L$x,$y Z" ;;
+    esac
+    printf '<path id="%s" d="%s" fill="#ffffff" fill-opacity="%s"/>\n' "$id" "$p" "$op"
+  }
+  rect() { printf '<rect id="%s" x="%s" y="%s" width="%s" height="%s" fill="#ffffff" fill-opacity="%s"/>\n' "$@"; }
+  {
+    printf '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">\n' $((F + 30)) $((3 * (F + 10))) $((F + 30)) $((3 * (F + 10)))
+    i=0
+    for st in normal:0 hover:0.2 pressed:0.24; do
+      pre=${st%%:*} op=${st#*:} oy=$((i * (F + 10)))
+      corner "$pre-topleft" 0 "$oy" "$op"
+      rect "$pre-top" "$R" "$oy" $E "$R" "$op"
+      corner "$pre-topright" $((R + E)) "$oy" "$op"
+      rect "$pre-left" 0 $((oy + R)) "$R" $E "$op"
+      rect "$pre-center" "$R" $((oy + R)) $E $E "$op"
+      rect "$pre-right" $((R + E)) $((oy + R)) "$R" $E "$op"
+      corner "$pre-bottomleft" 0 $((oy + R + E)) "$op"
+      rect "$pre-bottom" "$R" $((oy + R + E)) $E "$R" "$op"
+      corner "$pre-bottomright" $((R + E)) $((oy + R + E)) "$op"
+      for side in top bottom; do printf '<rect id="%s-hint-%s-margin" x="%s" y="%s" width="2" height="%s" fill="none"/>\n' "$pre" "$side" $((F + 4)) "$oy" 3; done
+      for side in left right; do printf '<rect id="%s-hint-%s-margin" x="%s" y="%s" width="%s" height="2" fill="none"/>\n' "$pre" "$side" $((F + 4)) $((oy + 6)) 8; done
+      i=$((i + 1))
+    done
+    printf '</svg>\n'
+  } > "$f"
+}
+
 generate() {
   prev=$1 r=$2
-  rm -rf "$D"; mkdir -p "$D/widgets" "$D/dialogs" "$D/solid/widgets" "$D/solid/dialogs"
+  rm -rf "$D"; mkdir -p "$D"
+  for base in "$DATA/plasma/desktoptheme/$prev" "/usr/share/plasma/desktoptheme/$prev"; do
+    [ -d "$base" ] && { cp -r "$base/." "$D/"; break; }
+  done
+  rm -f "$D/metadata.json" "$D/metadata.desktop" "$D/plasmarc"
+  for v in "" translucent/ opaque/ solid/; do
+    rm -f "$D/${v}widgets/panel-background.svg"* "$D/${v}widgets/tooltip.svg"* "$D/${v}dialogs/background.svg"* "$D/${v}widgets/menubaritem.svg"*
+  done
+  mkdir -p "$D/widgets" "$D/dialogs" "$D/solid/widgets" "$D/solid/dialogs"
   dr=$(( r / 2 )); [ "$dr" -lt 3 ] && dr=3; [ "$dr" -gt 8 ] && dr=8
-  frame "$D/widgets/panel-background.svg" 4 4 0.01 0 0 8
+  frame "$D/widgets/panel-background.svg" 4 2 0.01 0 0 2
   frame "$D/dialogs/background.svg" "$dr" 8 0.03 0 0
   frame "$D/widgets/tooltip.svg" 4 4 0.03 0 0
+  menubar "$D/widgets/menubaritem.svg"
   cp "$D/widgets/panel-background.svg" "$D/widgets/tooltip.svg" "$D/solid/widgets/"
   cp "$D/dialogs/background.svg" "$D/solid/dialogs/"
   cat > "$D/metadata.json" <<EOF

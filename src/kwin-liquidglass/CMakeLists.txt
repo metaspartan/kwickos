@@ -33,6 +33,8 @@ qt_add_resources(kwick_liquidglass "kwick_liquidglass_shaders"
         shaders/down.frag
         shaders/up.frag
         shaders/glass.frag
+        shaders/clip.vert
+        shaders/clip.frag
 )
 
 target_link_libraries(kwick_liquidglass PRIVATE

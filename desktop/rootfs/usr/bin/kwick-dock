@@ -5,8 +5,10 @@ usage() {
 usage: kwick-dock position [bottom|left|right]
        kwick-dock size [PIXELS]
        kwick-dock autohide [on|off]
+       kwick-dock magnify [on|off]
        kwick-dock pin DESKTOP-ID
        kwick-dock unpin DESKTOP-ID
+       kwick-dock sync ID,ID,...
        kwick-dock list
        kwick-dock apply
 USAGE
@@ -29,12 +31,12 @@ set_key() {
 
 ensure() {
   [ -f "$conf" ] && return 0
-  printf 'position=bottom\niconSize=48\nautohide=off\nfloating=on\npinned=%s\n' "$default_pinned" > "$conf"
+  printf 'position=bottom\niconSize=48\nautohide=off\nfloating=on\nmagnify=on\npinned=%s\n' "$default_pinned" > "$conf"
 }
 
 preamble() {
-  printf 'var KWICK_DOCK = {position: "%s", iconSize: %s, autohide: "%s", floating: "%s", pinned: "%s"};\n' \
-    "$(val position bottom)" "$(val iconSize 48)" "$(val autohide off)" "$(val floating on)" "$(val pinned "$default_pinned")"
+  printf 'var KWICK_DOCK = {position: "%s", iconSize: %s, autohide: "%s", floating: "%s", magnify: "%s", pinned: "%s"};\n' \
+    "$(val position bottom)" "$(val iconSize 48)" "$(val autohide off)" "$(val floating on)" "$(val magnify on)" "$(val pinned "$default_pinned")"
 }
 
 apply() {
@@ -64,6 +66,13 @@ case "$cmd" in
     if [ $# -lt 2 ]; then val autohide off; echo; exit 0; fi
     case "$2" in on|off) ;; *) echo "usage: kwick-dock autohide on|off" >&2; exit 1;; esac
     set_key autohide "$2"; apply ;;
+  magnify)
+    if [ $# -lt 2 ]; then val magnify on; echo; exit 0; fi
+    case "$2" in on|off) ;; *) echo "usage: kwick-dock magnify on|off" >&2; exit 1;; esac
+    set_key magnify "$2"; apply ;;
+  sync)
+    [ $# -ge 2 ] || { echo "usage: kwick-dock sync ID,ID,..." >&2; exit 1; }
+    set_key pinned "$2" ;;
   pin)
     [ $# -ge 2 ] || { echo "usage: kwick-dock pin DESKTOP-ID" >&2; exit 1; }
     id=$2
@@ -78,7 +87,7 @@ case "$cmd" in
     new=$(printf '%s' ",$cur," | sed "s|,$id,|,|g; s|^,||; s|,\$||")
     set_key pinned "$new"; apply ;;
   list)
-    printf 'position=%s\niconSize=%s\nautohide=%s\nfloating=%s\n' "$(val position bottom)" "$(val iconSize 48)" "$(val autohide off)" "$(val floating on)"
+    printf 'position=%s\niconSize=%s\nautohide=%s\nfloating=%s\nmagnify=%s\n' "$(val position bottom)" "$(val iconSize 48)" "$(val autohide off)" "$(val floating on)" "$(val magnify on)"
     printf '%s\n' "$(val pinned "$default_pinned")" | tr ',' '\n' | sed 's/^/pinned=/' ;;
   apply) apply ;;
   preamble) preamble ;;

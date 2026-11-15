@@ -47,33 +47,6 @@ static QByteArray readShader(const QString &path)
     return source;
 }
 
-static double estimateRadius(const QRegion &region)
-{
-    const QRect b = region.boundingRect();
-    if (b.isEmpty() || region.rectCount() < 3) {
-        return 0.0;
-    }
-    int tl = b.height();
-    int tr = b.height();
-    int bl = b.height();
-    int br = b.height();
-    for (const QRect &r : region) {
-        if (r.left() == b.left()) {
-            tl = std::min(tl, r.top() - b.top());
-            bl = std::min(bl, b.bottom() - r.bottom());
-        }
-        if (r.right() == b.right()) {
-            tr = std::min(tr, r.top() - b.top());
-            br = std::min(br, b.bottom() - r.bottom());
-        }
-    }
-    const int m = std::max(std::max(tl, tr), std::max(bl, br));
-    if (m <= 0 || m >= b.height()) {
-        return 0.0;
-    }
-    return m + 1.0;
-}
-
 LiquidGlassEffect::LiquidGlassEffect()
 {
     reconfigure(ReconfigureAll);
@@ -100,6 +73,7 @@ LiquidGlassEffect::~LiquidGlassEffect()
     m_downShader.reset();
     m_upShader.reset();
     m_glassShader.reset();
+    m_clipShader.reset();
 }
 
 bool LiquidGlassEffect::supported()
@@ -179,7 +153,10 @@ LiquidGlassEffect::Kind LiquidGlassEffect::classify(EffectWindow *w) const
     if (w->isTooltip()) {
         return Kind::Tooltip;
     }
-    if (w->isAppletPopup() || w->isNotification() || w->isCriticalNotification()) {
+    if (w->isNotification() || w->isCriticalNotification()) {
+        return Kind::Notification;
+    }
+    if (w->isAppletPopup()) {
         return Kind::Popup;
     }
     if (w->isPopupMenu() || w->isDropdownMenu() || w->isMenu() || w->isComboBox() || w->isPopupWindow()) {
@@ -342,30 +319,39 @@ QRect LiquidGlassEffect::area(EffectWindow *w, const Glass &glass) const
 
 double LiquidGlassEffect::radiusFor(EffectWindow *w, const Glass &glass, const QRectF &shape) const
 {
-    double radius = 0.0;
-    if (glass.kind == Kind::Menu && glass.content.has_value() && !glass.content->isEmpty()) {
-        radius = estimateRadius(glass.content.value());
-    }
-    if (radius < 3.0) {
-        switch (glass.kind) {
-        case Kind::Dock:
-            radius = m_radius * 2.0;
-            break;
-        case Kind::Tooltip:
-            radius = std::round(m_radius * 2.0 / 3.0);
-            break;
-        case Kind::Bar:
-            radius = 0.0;
-            break;
-        default:
-            radius = m_radius;
-            break;
-        }
-    }
     Q_UNUSED(w)
-    return std::clamp(radius, 0.0, std::min(shape.width(), shape.height()) / 2.0);
+    const double cross = std::min(shape.width(), shape.height());
+    const double s = std::clamp(m_radius / 26.0, 0.0, 1.4);
+    double radius = 0.0;
+    switch (glass.kind) {
+    case Kind::Dock:
+        radius = cross * 0.36 * s;
+        break;
+    case Kind::Bar:
+        radius = 0.0;
+        break;
+    case Kind::Menu:
+        radius = 11.0 * std::clamp(s, 0.5, 1.2);
+        break;
+    case Kind::Popup:
+        radius = 18.0 * std::clamp(s, 0.5, 1.2);
+        break;
+    case Kind::Notification:
+        radius = 20.0 * std::clamp(s, 0.5, 1.2);
+        break;
+    case Kind::Osd:
+        radius = cross / 2.0;
+        break;
+    case Kind::Tooltip:
+        radius = std::min(cross / 2.0, 11.0);
+        break;
+    case Kind::Frame:
+    case Kind::None:
+        radius = m_radius;
+        break;
+    }
+    return std::clamp(radius, 0.0, cross / 2.0);
 }
-
 LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
 {
     Look look;
@@ -380,7 +366,10 @@ LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
         look = {0.6f, 0.88f, 14.0f, 4, 3.2f, 1.1f};
         break;
     case Kind::Popup:
-        look = {0.75f, 0.82f, 18.0f, 4, 3.2f, 1.05f};
+        look = {0.75f, 0.85f, 18.0f, 4, 3.2f, 1.1f};
+        break;
+    case Kind::Notification:
+        look = {0.75f, 0.85f, 18.0f, 4, 3.2f, 1.1f};
         break;
     case Kind::Tooltip:
         look = {0.5f, 0.75f, 9.0f, 3, 2.5f, 1.1f};
@@ -499,7 +488,7 @@ void LiquidGlassEffect::prePaintWindow(EffectWindow *w, WindowPrePaintData &data
 
 bool LiquidGlassEffect::ensureShaders()
 {
-    if (m_downShader && m_upShader && m_glassShader) {
+    if (m_downShader && m_upShader && m_glassShader && m_clipShader) {
         return true;
     }
     if (m_shaderFailed) {
@@ -509,15 +498,19 @@ bool LiquidGlassEffect::ensureShaders()
     const QByteArray down = readShader(QStringLiteral(":/effects/kwick_liquidglass/shaders/down.frag"));
     const QByteArray up = readShader(QStringLiteral(":/effects/kwick_liquidglass/shaders/up.frag"));
     const QByteArray glass = readShader(QStringLiteral(":/effects/kwick_liquidglass/shaders/glass.frag"));
-    if (!vertex.isEmpty() && !down.isEmpty() && !up.isEmpty() && !glass.isEmpty()) {
+    const QByteArray clipVertex = readShader(QStringLiteral(":/effects/kwick_liquidglass/shaders/clip.vert"));
+    const QByteArray clip = readShader(QStringLiteral(":/effects/kwick_liquidglass/shaders/clip.frag"));
+    if (!vertex.isEmpty() && !down.isEmpty() && !up.isEmpty() && !glass.isEmpty() && !clipVertex.isEmpty() && !clip.isEmpty()) {
+        m_clipShader = ShaderManager::instance()->generateCustomShader(ShaderTrait::MapTexture, clipVertex, clip);
         m_downShader = ShaderManager::instance()->generateCustomShader(ShaderTrait::MapTexture, vertex, down);
         m_upShader = ShaderManager::instance()->generateCustomShader(ShaderTrait::MapTexture, vertex, up);
         m_glassShader = ShaderManager::instance()->generateCustomShader(ShaderTrait::MapTexture, vertex, glass);
     }
-    if (!m_downShader || !m_downShader->isValid() || !m_upShader || !m_upShader->isValid() || !m_glassShader || !m_glassShader->isValid()) {
+    if (!m_downShader || !m_downShader->isValid() || !m_upShader || !m_upShader->isValid() || !m_glassShader || !m_glassShader->isValid() || !m_clipShader || !m_clipShader->isValid()) {
         m_downShader.reset();
         m_upShader.reset();
         m_glassShader.reset();
+        m_clipShader.reset();
         m_shaderFailed = true;
         qWarning("kwick_liquidglass: shader compilation failed");
         return false;
@@ -577,6 +570,8 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     probe.kind = kind;
     probe.content = glass.content;
     const double radius = radiusFor(w, probe, shape);
+    glass.clipShape = shape;
+    glass.clipRadius = radius;
     Look look = lookFor(kind);
     const double minSide = std::min(shape.width(), shape.height());
     look.bevel = float(std::min<double>(look.bevel, minSide * (kind == Kind::Bar ? 0.5 : 0.42)));
@@ -761,7 +756,7 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     shader->setUniform("uRefract", look.refract);
     shader->setUniform("uFrost", look.frost);
     shader->setUniform("uDisperse", float(m_dispersion));
-    shader->setUniform("uSpec", float(m_specular));
+    shader->setUniform("uSpec", float(kind == Kind::Bar ? m_specular * 0.35 : m_specular));
     shader->setUniform("uTint", look.tint);
     shader->setUniform("uStyle", float(m_style));
     shader->setUniform("uOpacity", opacity);
@@ -841,7 +836,103 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
     } else {
         painted = paintGlass(renderTarget, viewport, w, it->second, region, data);
     }
+    const Kind kind = it->second.kind;
+    const bool clipKind = kind == Kind::Menu || kind == Kind::Popup || kind == Kind::Notification || kind == Kind::Osd || kind == Kind::Tooltip;
+    if (painted && clipKind && it->second.clipRadius > 0.5 && drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
+        return;
+    }
     effects->drawWindow(renderTarget, viewport, w, painted ? (mask | PAINT_WINDOW_TRANSFORMED) : mask, region, data);
+}
+
+bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w, Glass &glass, int mask, const QRegion &region, const WindowPaintData &data)
+{
+    const double scale = viewport.scale();
+    const QRectF geometry = snapToPixels(w->expandedGeometry(), scale);
+    const QSize size = (geometry.size() * scale).toSize();
+    if (size.isEmpty()) {
+        return false;
+    }
+    const GLenum format = renderTarget.texture() ? renderTarget.texture()->internalFormat() : GL_RGBA8;
+    if (!glass.clipTexture || glass.clipTexture->size() != size || glass.clipTexture->internalFormat() != format) {
+        glass.clipFramebuffer.reset();
+        glass.clipTexture = GLTexture::allocate(format, size);
+        if (!glass.clipTexture) {
+            return false;
+        }
+        glass.clipTexture->setFilter(GL_LINEAR);
+        glass.clipTexture->setWrapMode(GL_CLAMP_TO_EDGE);
+        glass.clipFramebuffer = std::make_unique<GLFramebuffer>(glass.clipTexture.get());
+        if (!glass.clipFramebuffer->valid()) {
+            glass.clipFramebuffer.reset();
+            glass.clipTexture.reset();
+            return false;
+        }
+    }
+
+    {
+        RenderTarget target(glass.clipFramebuffer.get());
+        RenderViewport offscreen(geometry, scale, target);
+        GLFramebuffer::pushFramebuffer(glass.clipFramebuffer.get());
+        glClearColor(0.0, 0.0, 0.0, 0.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        WindowPaintData plain;
+        plain.setOpacity(data.opacity());
+        plain.setBrightness(data.brightness());
+        plain.setSaturation(data.saturation());
+        effects->drawWindow(target, offscreen, w, mask | PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, infiniteRegion(), plain);
+        GLFramebuffer::popFramebuffer();
+    }
+
+    const QPointF shift(data.xTranslation(), data.yTranslation());
+    const QRect device = snapToPixelGrid(scaledRect(geometry.translated(shift), scale));
+    const QRectF shapeDevice = scaledRect(glass.clipShape, scale);
+    const QMatrix4x4 texMatrix = glass.clipTexture->matrix(NormalizedCoordinates);
+    auto vertex = [&](const QPointF &position, const QPointF &uv) {
+        return GLVertex2D{
+            .position = QVector2D(position),
+            .texcoord = QVector2D(texMatrix.map(uv)),
+        };
+    };
+    const float x0 = device.left();
+    const float y0 = device.top();
+    const float x1 = device.left() + device.width();
+    const float y1 = device.top() + device.height();
+    const GLVertex2D tl = vertex(QPointF(x0, y0), QPointF(0.0, 0.0));
+    const GLVertex2D tr = vertex(QPointF(x1, y0), QPointF(1.0, 0.0));
+    const GLVertex2D br = vertex(QPointF(x1, y1), QPointF(1.0, 1.0));
+    const GLVertex2D bl = vertex(QPointF(x0, y1), QPointF(0.0, 1.0));
+    const std::array<GLVertex2D, 6> vertices{tl, br, bl, tl, tr, br};
+
+    GLVertexBuffer *vbo = GLVertexBuffer::streamingBuffer();
+    vbo->reset();
+    vbo->setAttribLayout(std::span(GLVertexBuffer::GLVertex2DLayout), sizeof(GLVertex2D));
+    const auto map = vbo->map<GLVertex2D>(vertices.size());
+    if (!map) {
+        return false;
+    }
+    std::copy(vertices.begin(), vertices.end(), map->begin());
+    vbo->unmap();
+
+    ShaderBinder binder(m_clipShader.get());
+    GLShader *shader = binder.shader();
+    shader->setUniform("uMvp", viewport.projectionMatrix());
+    shader->setUniform("uTex", 0);
+    shader->setUniform("uRect", QVector4D(float(shapeDevice.center().x()), float(shapeDevice.center().y()), float(shapeDevice.width() / 2.0), float(shapeDevice.height() / 2.0)));
+    shader->setUniform("uRadius", float(glass.clipRadius * scale));
+
+    const QRegion logicalClip = region == infiniteRegion() ? QRegion(geometry.translated(shift).toAlignedRect()) : region;
+    const QRegion clipRegion = viewport.mapToRenderTarget(logicalClip);
+    glEnable(GL_SCISSOR_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    vbo->bindArrays();
+    glass.clipTexture->bind();
+    vbo->draw(clipRegion, GL_TRIANGLES, 0, vertices.size(), true);
+    glass.clipTexture->unbind();
+    vbo->unbindArrays();
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    return true;
 }
 
 void LiquidGlassEffect::profileCollect(bool wait)

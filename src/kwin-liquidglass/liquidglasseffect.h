@@ -52,6 +52,7 @@ private:
         Dock,
         Menu,
         Popup,
+        Notification,
         Tooltip,
         Osd,
         Frame,
@@ -80,6 +81,10 @@ private:
         std::map<Output *, Render> render;
         ItemEffect itemEffect;
         QRect lastArea;
+        std::unique_ptr<GLTexture> clipTexture;
+        std::unique_ptr<GLFramebuffer> clipFramebuffer;
+        QRectF clipShape;
+        double clipRadius = 0.0;
         double hover = 0.0;
         double hoverTarget = 0.0;
         QPointF pointer;
@@ -108,6 +113,7 @@ private:
     Look lookFor(Kind kind) const;
     bool ensureShaders();
     bool ensurePasses(Render &render, const QSize &size, GLenum format, int levels);
+    bool drawClipped(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w, Glass &glass, int mask, const QRegion &region, const WindowPaintData &data);
     bool paintGlass(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w, Glass &glass, const QRegion &region, const WindowPaintData &data);
 
     std::map<EffectWindow *, Glass> m_windows;
@@ -115,6 +121,7 @@ private:
     std::unique_ptr<GLShader> m_downShader;
     std::unique_ptr<GLShader> m_upShader;
     std::unique_ptr<GLShader> m_glassShader;
+    std::unique_ptr<GLShader> m_clipShader;
     bool m_shaderFailed = false;
     Output *m_currentScreen = nullptr;
     QRegion m_paintedArea;

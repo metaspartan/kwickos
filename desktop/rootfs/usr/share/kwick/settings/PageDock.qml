@@ -115,6 +115,11 @@ ColumnLayout {
             }
         }
         Cell {
+            title: "Magnification"
+            subtitle: "Icons grow a little under the pointer"
+            Toggle { checked: Sys.dockMagnify; onToggled: (v) => Sys.setDockMagnify(v) }
+        }
+        Cell {
             title: "Automatically hide the dock"
             subtitle: "The dock slides away until you move the pointer to its edge"
             last: !Sys.dockFloatingSupported

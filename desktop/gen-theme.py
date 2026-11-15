@@ -136,33 +136,38 @@ def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
 
 
 def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, btn_h, spacing, margin_top,
-            align, text_a, text_i, rc_title_h=None):
+            align, text_a, text_i, rc_title_h=None, shadow=(6, 10, 14, 0.15, 0.08), sides=(1.0, 1.0, 1.0)):
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">']
-    pt, ps, pb = 6, 10, 14
+    pt, ps, pb, sa, si = shadow
+    ov = 1 if pt > 6 else 0
+    ft, fs, fb = sides
     defs = ""
     q = ((0, 0.0), (0.3, 0.12), (0.6, 0.42), (1, 1.0))
+    if shadow[0] > 6:
+        q = tuple((o, math.exp(-((1 - o) * 2.15) ** 2) if o > 0 else 0.0) for o in (0, 0.15, 0.3, 0.45, 0.6, 0.72, 0.84, 0.93, 1))
     T = title_h
     for pi, (prefix, y, bar) in enumerate((("decoration", 0, bar_a), ("decoration-inactive", 60, bar_i))):
         col, op = bar
         k = f"{pi}"
-        a = 0.15 if pi == 0 else 0.08
+        a = sa if pi == 0 else si
 
-        def stops(rev=False):
+        def stops(rev=False, f=1.0):
             pts = [(1 - o, v) for o, v in reversed(q)] if rev else list(q)
-            return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * v:.4f}"/>' for o, v in pts)
+            return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * f * v:.4f}"/>' for o, v in pts)
 
-        def rstops():
+        def rstops(f=1.0):
             pts = [(1 - o, v) for o, v in reversed(q)]
-            return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * v:.4f}"/>' for o, v in pts)
+            return "".join(f'<stop offset="{o}" stop-color="#000" stop-opacity="{a * f * v:.4f}"/>' for o, v in pts)
 
         defs += (
-            f'<linearGradient id="gl{k}" x1="0" y1="0" x2="1" y2="0">{stops()}</linearGradient>'
-            f'<linearGradient id="gr{k}" x1="0" y1="0" x2="1" y2="0">{stops(True)}</linearGradient>'
-            f'<linearGradient id="gt{k}" x1="0" y1="0" x2="0" y2="1">{stops()}</linearGradient>'
-            f'<linearGradient id="gb{k}" x1="0" y1="0" x2="0" y2="1">{stops(True)}</linearGradient>'
+            f'<linearGradient id="gl{k}" x1="0" y1="0" x2="1" y2="0">{stops(f=fs)}</linearGradient>'
+            f'<linearGradient id="gr{k}" x1="0" y1="0" x2="1" y2="0">{stops(True, fs)}</linearGradient>'
+            f'<linearGradient id="gt{k}" x1="0" y1="0" x2="0" y2="1">{stops(f=ft)}</linearGradient>'
+            f'<linearGradient id="gb{k}" x1="0" y1="0" x2="0" y2="1">{stops(True, fb)}</linearGradient>'
         )
-        for nm, cx, cy, sx, sy in (("rtl", ps, pt, ps, pt), ("rtr", 0, pt, ps, pt), ("rbl", ps, 0, ps, pb), ("rbr", 0, 0, ps, pb)):
-            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({cx} {cy}) scale({sx} {sy})">{rstops()}</radialGradient>'
+        for nm, cx, cy, sx, sy, f in (("rtl", ps, pt, ps, pt, (ft + fs) / 2), ("rtr", 0, pt, ps, pt, (ft + fs) / 2),
+                                      ("rbl", ps, 0, ps, pb, (fb + fs) / 2), ("rbr", 0, 0, ps, pb, (fb + fs) / 2)):
+            defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({cx} {cy}) scale({sx} {sy})">{rstops(f)}</radialGradient>'
         tl = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtl{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gl{k})"/>'
         tp = f'<rect x="0" y="0" width="8" height="{pt}" fill="url(#gt{k})"/>{svg_rect_path(0, pt, 8, T + 1, fill=col, op=op)}'
         tr = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtr{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gr{k})"/>'
@@ -222,9 +227,9 @@ ButtonSpacing={spacing}
 ButtonMarginTop={margin_top}
 ExplicitButtonSpacer=6
 PaddingTop={pt}
-PaddingLeft={ps}
-PaddingRight={ps}
-PaddingBottom={pb}
+PaddingLeft={ps - ov}
+PaddingRight={ps - ov}
+PaddingBottom={pb - ov}
 """)
     w(f"{d}/metadata.json", json.dumps({"KPlugin": {"Id": name, "Name": name, "Description": "KwickOS window decoration",
                                                       "Authors": [{"Name": "KwickOS"}], "License": "MIT"}}, indent=2) + "\n")
@@ -258,9 +263,9 @@ def win_buttons(kind, st):
     return f'{bg}<path d="{g}" stroke="{fg}" stroke-width="1" fill="none" stroke-linecap="square"/>'
 
 
-aurorae("KwickGlass", 34, 1, 12, ("#323232", 1), ("#282828", 1), ("#323232", 1),
+aurorae("KwickGlass", 34, 1, 26, ("#323232", 1), ("#282828", 1), ("#323232", 1),
         mac_buttons, 14, 14, 5, 7, "Center", grey(over(MAC["label"], MAC["window"])),
-        grey(over(MAC["tertiary"], MAC["under"])), 28)
+        grey(over(MAC["tertiary"], MAC["under"])), 28, shadow=(24, 36, 54, 0.40, 0.20))
 aurorae("KwickFluent", 32, 1, 8, ("#202020", 1), ("#202020", 1), ("#202020", 1),
         win_buttons, 46, 32, 0, 0, "Left", "255,255,255", grey(over(FLU["text3"], FLU["base"])))
 
@@ -300,7 +305,7 @@ def frame_svg(r, fill, op, stroke=None, stroke_op=0.0, prefix="", margins=(4, 4,
     return "".join(pieces)
 
 
-def plasma_theme(name, title, panel, tasks):
+def plasma_theme(name, title, panel, tasks, menubar=None):
     d = f"usr/share/plasma/desktoptheme/{name}"
     w(f"{d}/metadata.json", json.dumps({"KPlugin": {"Authors": [{"Name": "KwickOS"}], "Description": f"{title} panels for KwickOS",
                                                      "Id": name, "License": "MIT", "Name": title, "Version": "1.0"},
@@ -317,6 +322,12 @@ def plasma_theme(name, title, panel, tasks):
         body += frame_svg(spec.get("r", 0), spec.get("fill", "#ffffff"), spec.get("op", 0.0), prefix=f"{state}-",
                           margins=(4, 4, 4, 4), bottom_extra=spec.get("mark", ""), ox=0, oy=i * 80, edge=spec.get("edge", 6))
     w(f"{d}/widgets/tasks.svg", head.replace('height="400"', 'height="420"').replace("0 0 400 400", "0 0 400 420") + body + "</svg>\n")
+    if menubar:
+        body = ""
+        for i, (state, spec) in enumerate(menubar.items()):
+            body += frame_svg(spec.get("r", 0), spec.get("fill", "#ffffff"), spec.get("op", 0.0), prefix=f"{state}-",
+                              margins=spec.get("margins", (4, 4, 8, 8)), ox=0, oy=i * 80, edge=spec.get("edge", 6))
+        w(f"{d}/widgets/menubaritem.svg", head + body + "</svg>\n")
 
 
 def dot(col, op, size=4, h=6):
@@ -332,7 +343,8 @@ mac_dot = dot("#ffffff", 0.55)
 plasma_theme("kwick-glass", "KwickGlass",
              {"r": 18, "fill": "#323232", "op": 0.55, "stroke": "#ffffff", "stroke_op": 0.15, "margins": (2, 2, 6, 6)},
              {"normal": {"mark": mac_dot}, "focus": {"mark": mac_dot}, "minimized": {"mark": mac_dot},
-              "hover": {"r": 10, "edge": 10, "op": 0.10}, "attention": {"mark": dot("#ff9f0a", 1.0)}})
+              "hover": {}, "attention": {"mark": dot("#ff9f0a", 1.0)}},
+             {"normal": {}, "hover": {"r": 5, "edge": 6, "op": 0.2}, "pressed": {"r": 5, "edge": 6, "op": 0.24}})
 plasma_theme("kwick-fluent", "KwickFluent",
              {"r": 0, "fill": "#202020", "op": 0.85, "margins": (4, 4, 4, 4)},
              {"normal": {"mark": pill("#9d9d9d", 6, 3)}, "minimized": {"mark": pill("#9d9d9d", 6, 3)},

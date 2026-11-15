@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Date and Time",
+        "Description": "A macOS style menu bar clock: weekday, date and time in one line, with a calendar popup",
+        "Icon": "preferences-system-time",
+        "Id": "org.kwickos.clock",
+        "License": "GPL-2.0-or-later",
+        "Name": "Kwick Clock",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

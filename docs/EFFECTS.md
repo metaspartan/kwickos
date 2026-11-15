@@ -70,9 +70,12 @@ tooltips and OSDs, and optionally under window title bars.
 How it is drawn, per glass surface:
 
 * The shape is the bounding box of the surface's blur region (the mask Plasma and Breeze already send to KWin), drawn as a
-  rounded rectangle with a signed distance field. The corner radius follows the rounded-corners setting: the dock uses twice the
-  window radius, popups, notifications and OSDs the window radius, tooltips two thirds of it. Breeze menus keep the radius of their
-  own mask. A bar that spans the screen, like the menu bar, only gets a bevel on its free edge.
+  rounded rectangle with a signed distance field. The radii follow Tahoe and scale with the window corner radius setting (26 px
+  by default in the macOS layout): the dock is 0.36 of its height (26 px on the 72 px dock), menus 11 px, applet popups 18 px,
+  notifications 20 px, OSDs and the dock's name labels are capsules. A bar that spans the screen, like the menu bar, only gets a
+  bevel on its free edge and a fainter rim.
+* Menus, popups, notifications, labels and OSDs are drawn offscreen and cut to that rounded shape with an anti-aliased mask, so
+  the app's own square or small-radius background corners never show outside the glass.
 * Floating surfaces get a soft contact shadow drawn by the same pass, where the window has room for it.
 * The screen behind the surface is copied once and blurred with a dual-Kawase pyramid (3 or 4 levels at half resolution and below).
 * A fragment shader treats the rim as a convex glass bevel: the SDF gives the edge normal, a quarter-circle height profile gives the
@@ -99,8 +102,13 @@ toggle switch it by hand.
 
 While it is on, `kwick-effects` switches Plasma to a small generated desktop theme, `kwick-liquidglass` in
 `~/.local/share/plasma/desktoptheme`, that makes the panel, dialog and tooltip backgrounds nearly clear, falls back to your
-previous Plasma theme for everything else and turns the background contrast filter off. Breeze menus get `MenuOpacity=45` so the
-glass shows through them. Switching Liquid Glass off restores the previous theme and menu opacity.
+previous Plasma theme for everything else and turns the background contrast filter off. It also draws the menu bar item
+highlight as a translucent white rounded pill. Breeze menus get `MenuOpacity=45` so the glass shows through them. Switching
+Liquid Glass off restores the previous theme and menu opacity.
+
+Notification popups use a Tahoe-style card from `/usr/local/share/plasma/plasmoids/org.kde.plasma.notifications` (Plasma 6.3.6's
+notifications applet with a new popup delegate): the app icon on the left, a bold title with "now", the body in secondary grey,
+and a round close button that appears at the top left on hover.
 
 Tuning lives in `kwinrc`, group `[Effect-kwick_liquidglass]`, values in percent: `Refraction` (60), `Blur` (50), `Dispersion` (35),
 `Specular` (70), `Tint` (100), `Style` (0 adaptive dark, 1 light, 2 clear), `TitleBars` (false, glass under translucent title
