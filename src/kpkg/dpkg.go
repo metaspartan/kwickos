@@ -12,7 +12,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
+	"sort"
 	"strings"
 	"time"
 )
@@ -267,6 +267,9 @@ func statusAbbrev(st string) string {
 	want := map[string]string{"install": "i", "hold": "h", "deinstall": "r", "purge": "p", "unknown": "u"}[f[0]]
 	cur := map[string]string{"installed": "i", "config-files": "c", "unpacked": "U", "half-configured": "F",
 		"half-installed": "H", "triggers-awaited": "W", "triggers-pending": "t", "not-installed": "n"}[f[2]]
+	if f[1] == "reinstreq" {
+		return want + cur + "R"
+	}
 	return want + cur + " "
 }
 
@@ -295,27 +298,7 @@ func dpkgList(pats []string) int {
 func mainDpkgQuery(args []string) int {
 	setupPaths()
 	args = parseDpkgOpts(args)
-	format := "${binary:Package}\t${Version}\n"
-	var cmd string
-	var pats []string
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "-f" || a == "--showformat":
-			if i+1 < len(args) {
-				format = args[i+1]
-				i++
-			}
-		case strings.HasPrefix(a, "--showformat="):
-			format = strings.TrimPrefix(a, "--showformat=")
-		case strings.HasPrefix(a, "-f") && len(a) > 2 && cmd != "":
-			format = a[2:]
-		case strings.HasPrefix(a, "-") && cmd == "":
-			cmd = a
-		default:
-			pats = append(pats, a)
-		}
-	}
+	cmd, format, pats := parseQueryArgs(args)
 	db := mustDB(false)
 	find := func(n string) *Installed {
 		if in := db.lookupInstalled(n); in != nil {
@@ -325,36 +308,38 @@ func mainDpkgQuery(args []string) int {
 	}
 	switch cmd {
 	case "-W", "--show":
-		rc := 1
-		for _, k := range sortedKeys(db.Installed) {
-			in := db.Installed[k]
+		items, ferr := parseShowFormat(format)
+		if ferr != nil {
+			fmt.Fprintf(os.Stderr, "dpkg-query: error in show format: %v\n", ferr)
+			return 2
+		}
+		rc := 0
+		matched := make([]bool, len(pats))
+		for _, in := range installedSorted(db) {
 			if len(pats) > 0 {
 				ok := false
-				for _, p := range pats {
+				for i, p := range pats {
 					if matchInstalledPattern(p, in) || (strings.HasSuffix(p, ":"+cfg.Arch) && matchInstalledPattern(strings.TrimSuffix(p, ":"+cfg.Arch), in) && (in.Arch == cfg.Arch || in.Arch == "all")) {
 						ok = true
+						matched[i] = true
 					}
 				}
 				if !ok {
 					continue
 				}
 			}
-			rc = 0
-			fmt.Print(expandFormat(format, in))
+			fmt.Print(expandFormat(items, in))
 		}
-		if len(pats) > 0 && rc != 0 {
-			for _, p := range pats {
-				if v := db.baseVirtual(strings.TrimSuffix(p, ":"+cfg.Arch)); v != nil {
-					fmt.Print(expandFormat(format, v))
-					rc = 0
-				}
+		for i, p := range pats {
+			if matched[i] {
+				continue
 			}
-		}
-		if len(pats) > 0 && rc != 0 {
-			fmt.Fprintf(os.Stderr, "dpkg-query: no packages found matching %s\n", strings.Join(pats, " "))
-		}
-		if len(pats) == 0 {
-			rc = 0
+			if v := db.baseVirtual(strings.TrimSuffix(p, ":"+cfg.Arch)); v != nil {
+				fmt.Print(expandFormat(items, v))
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "dpkg-query: no packages found matching %s\n", p)
+			rc = 1
 		}
 		return rc
 	case "-s", "--status", "-p", "--print-avail":
@@ -428,60 +413,6 @@ func mainDpkgQuery(args []string) int {
 		return 2
 	}
 	return 0
-}
-
-func expandFormat(f string, in *Installed) string {
-	f = strings.NewReplacer(`\n`, "\n", `\t`, "\t", `\\`, `\`).Replace(f)
-	var b strings.Builder
-	for {
-		i := strings.Index(f, "${")
-		if i < 0 {
-			b.WriteString(f)
-			break
-		}
-		b.WriteString(f[:i])
-		j := strings.IndexByte(f[i:], '}')
-		if j < 0 {
-			b.WriteString(f[i:])
-			break
-		}
-		field := f[i+2 : i+j]
-		f = f[i+j+1:]
-		width := 0
-		if k := strings.IndexByte(field, ';'); k >= 0 {
-			width, _ = strconv.Atoi(field[k+1:])
-			field = field[:k]
-		}
-		var v string
-		switch field {
-		case "binary:Package":
-			v = in.InfoName()
-			if !strings.Contains(v, ":") && false {
-				v += ":" + in.Arch
-			}
-		case "db:Status-Abbrev":
-			v = statusAbbrev(in.Status)
-		case "db:Status-Want":
-			v = strings.Fields(in.Status + " x x")[0]
-		case "db:Status-Status":
-			v = strings.Fields(in.Status + " x x x")[2]
-		case "Status":
-			v = in.Status
-		case "source:Package":
-			v = strings.Fields(in.Field("Source") + " " + in.Name)[0]
-		case "binary:Summary":
-			v = strings.SplitN(in.Field("Description"), "\n", 2)[0]
-		default:
-			v = in.Field(field)
-		}
-		if width > 0 {
-			v = fmt.Sprintf("%-*s", width, v)
-		} else if width < 0 {
-			v = fmt.Sprintf("%*s", -width, v)
-		}
-		b.WriteString(v)
-	}
-	return b.String()
 }
 
 func mainDpkgTrigger(args []string) int {
@@ -719,4 +650,43 @@ func buildDeb(src, out string) error {
 	fmt.Printf("dpkg-deb: building package '%s' in '%s'.\n", para.Get("Package"), out)
 	_ = path.Join
 	return nil
+}
+
+func parseQueryArgs(args []string) (string, string, []string) {
+	format := "${binary:Package}\t${Version}\n"
+	var cmd string
+	var pats []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "-f" || a == "--showformat":
+			if i+1 < len(args) {
+				format = args[i+1]
+				i++
+			}
+		case strings.HasPrefix(a, "--showformat="):
+			format = strings.TrimPrefix(a, "--showformat=")
+		case strings.HasPrefix(a, "-f") && len(a) > 2 && !strings.HasPrefix(a, "--"):
+			format = strings.TrimPrefix(a[2:], "=")
+		case strings.HasPrefix(a, "-") && cmd == "":
+			cmd = a
+		default:
+			pats = append(pats, a)
+		}
+	}
+	return cmd, format, pats
+}
+
+func installedSorted(db *DB) []*Installed {
+	out := make([]*Installed, 0, len(db.Installed))
+	for _, k := range sortedKeys(db.Installed) {
+		out = append(out, db.Installed[k])
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Arch < out[j].Arch
+	})
+	return out
 }

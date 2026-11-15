@@ -109,7 +109,7 @@ func (pl *Plan) choose(d Dep, from string) *Pkg {
 	var direct *Pkg
 	best := 1 << 30
 	for _, k := range nameKeys(d.Name) {
-		for _, c := range pl.db.Avail[k] {
+		for _, c := range pl.db.Ranked(k) {
 			if !archFits(d.Arch, from, c) || !VersionSatisfies(c.Version, d.Op, d.Ver) {
 				continue
 			}

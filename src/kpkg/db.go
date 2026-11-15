@@ -19,6 +19,7 @@ type Pkg struct {
 	Arch     string
 	Src      *Source
 	LocalDeb string
+	Also     []*Source
 	deps     map[string][][]Dep
 	provides []Provided
 }
@@ -87,6 +88,8 @@ type DB struct {
 	Order     []string // installed package order in status file
 	provAvail map[string][]provider
 	Auto      map[string]bool
+	Pol       *Policy
+	cand      map[string]*Pkg
 }
 
 var curDB *DB
@@ -153,8 +156,12 @@ func (db *DB) LoadAvailable() error {
 
 func (db *DB) addAvail(pk *Pkg) {
 	key := pk.Key()
+	db.cand = nil
 	for _, x := range db.Avail[key] {
 		if x.Version == pk.Version && x.Arch == pk.Arch {
+			if pk.Src != nil && x.Src != nil && x.Src != pk.Src {
+				x.Also = append(x.Also, pk.Src)
+			}
 			return
 		}
 	}
@@ -296,13 +303,16 @@ func (db *DB) lookupInstalled(name string) *Installed {
 	return nil
 }
 
-// Candidate returns the newest available version of name.
 func (db *DB) Candidate(name string) *Pkg {
-	vs := db.Avail[name]
-	if len(vs) == 0 {
-		return nil
+	if db.cand == nil {
+		db.cand = map[string]*Pkg{}
 	}
-	return vs[0]
+	if c, ok := db.cand[name]; ok {
+		return c
+	}
+	c := db.pickCandidate(name)
+	db.cand[name] = c
+	return c
 }
 
 // Upgradable lists installed packages that have a newer candidate.
@@ -314,7 +324,7 @@ func (db *DB) Upgradable() []*Pkg {
 		if in.State() != "installed" {
 			continue
 		}
-		if c := db.Candidate(in.Key()); c != nil && CompareVersions(c.Version, in.Version) > 0 {
+		if c := db.Candidate(in.Key()); c != nil && CompareVersions(c.Version, in.Version) != 0 {
 			out = append(out, c)
 		}
 	}

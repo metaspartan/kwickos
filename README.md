@@ -472,7 +472,7 @@ The kernel version is pinned in [`KERNEL_VERSION`](KERNEL_VERSION); the build ve
 
 * The headless ISO and disk images boot through UEFI only; the desktop ISO also boots in BIOS mode on amd64. Direct `-kernel` boot
   works everywhere.
-* kpkg implements the commonly used apt/dpkg surface and multiarch; pinning, holds and source packages are not implemented.
+* kpkg implements the commonly used apt/dpkg surface and multiarch and apt's pin priorities (`/etc/apt/preferences(.d)`, `-t`, `APT::Default-Release`, `apt-cache policy`); holds and source packages are not implemented.
 * kinit implements the commonly used subset of systemd units: no socket activation, timers or D-Bus, and units start in parallel
   with only the ordering described in the docs.
 * No SELinux/AppArmor policy. Lockdown, Landlock, Yama and seccomp are enabled.

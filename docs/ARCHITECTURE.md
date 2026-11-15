@@ -113,6 +113,14 @@ archive and pulls in only what nginx really needs (libc6, libssl, pcre2, ...).
   stays tiny, and GNU tools appear only on systems whose software needs them.
 * Recommends are **off by default** (`/etc/kpkg.conf`), as in Debian container
   images. Use `--install-recommends` per call.
+* Candidates follow apt's policy: `/etc/apt/preferences` and `preferences.d`
+  pins (release, origin, version, glob and regex package patterns), `-t` /
+  `APT::Default-Release` (990), NotAutomatic archives such as backports (100,
+  or 1 without ButAutomaticUpgrades), installed versions (100). The highest
+  priority wins, then the highest version; above 1000 may downgrade and a
+  negative priority blocks a version. Dependencies use the same ranking, so
+  `apt install samba` stays on trixie while `-t trixie-backports` moves it and
+  its dependencies to backports.
 
 ## 4. Kernel flavors and updates
 

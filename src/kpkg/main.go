@@ -30,6 +30,7 @@ type Config struct {
 	KeepDebs, DownloadOnly    bool
 	Purge, AutoRemove         bool
 	Quiet                     int
+	TargetRelease             string
 	// Avoid: packages never chosen to satisfy an "a | b" dependency or a
 	// virtual package while another option exists. KwickOS runs kinit as
 	// PID 1, so systemd-as-init packages are only taken when unavoidable.

@@ -66,6 +66,8 @@ func parseCommon(args []string) []string {
 			switch k {
 			case "RootDir", "Dir":
 				cfg.Root = v
+			case "APT::Default-Release":
+				cfg.TargetRelease = v
 			case "APT::Install-Recommends":
 				cfg.Recommends = v == "true" || v == "1"
 			case "APT::Get::Assume-Yes":
@@ -77,7 +79,14 @@ func parseCommon(args []string) []string {
 			a == "--allow-downgrades" || a == "--allow-remove-essential" || a == "--allow-change-held-packages" ||
 			a == "--no-upgrade" || a == "--only-upgrade" || a == "-m" || a == "--force-yes" || a == "--allow-unauthenticated" ||
 			a == "--no-show-upgraded" || a == "-V" || a == "--verbose-versions" || a == "--show-progress" || a == "--no-cache":
-		case a == "-t" || a == "--target-release" || a == "-a" || a == "--host-architecture":
+		case (a == "-t" || a == "--target-release" || a == "--default-release") && i+1 < len(args):
+			cfg.TargetRelease = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--target-release=") || strings.HasPrefix(a, "--default-release="):
+			_, cfg.TargetRelease, _ = strings.Cut(a, "=")
+		case strings.HasPrefix(a, "-t") && len(a) > 2 && !strings.HasPrefix(a, "--"):
+			cfg.TargetRelease = strings.TrimPrefix(a[2:], "=")
+		case a == "-a" || a == "--host-architecture":
 			i++
 		default:
 			rest = append(rest, a)
@@ -210,12 +219,24 @@ func resolveRequest(db *DB, req string) (*Pkg, error) {
 		}
 		pools = append(pools, allOnly)
 	}
-	for _, pool := range pools {
+	for pi, pool := range pools {
+		if pi == 0 && !hasVer && suite == "" {
+			if c := db.Candidate(name); c != nil {
+				return c, nil
+			}
+			if len(pool) > 0 {
+				if in := db.lookupInstalled(name); in != nil && in.Key() == name {
+					return in.Pkg, nil
+				}
+				return nil, fmt.Errorf("package %s has no installation candidate", name)
+			}
+			continue
+		}
 		for _, p := range pool {
 			if hasVer && p.Version != ver {
 				continue
 			}
-			if suite != "" && p.Src != nil && p.Src.Suite != suite {
+			if suite != "" && p.Src != nil && !db.srcMatchesAny(p, suite) {
 				continue
 			}
 			return p, nil
@@ -316,13 +337,6 @@ func runPlan(pl *Plan, extra bool) error {
 	return pl.Execute(cfg.Purge)
 }
 
-func srcLabel(p *Pkg) string {
-	if p.Src == nil {
-		return "local"
-	}
-	return p.Src.Suite + "/" + p.Src.Comp
-}
-
 func cmdRemove(args []string, auto bool) error {
 	db := mustDB(false)
 	var pl *Plan
@@ -413,7 +427,7 @@ func cmdList(args []string) error {
 		return nil
 	}
 	for _, n := range sortedKeys(db.Avail) {
-		p := db.Avail[n][0]
+		p := db.Newest(n)
 		if !match(n) && !match(p.Name) {
 			continue
 		}
@@ -476,7 +490,7 @@ func mainAptCache(args []string) int {
 			res = append(res, re)
 		}
 		for _, n := range sortedKeys(db.Avail) {
-			p := db.Avail[n][0]
+			p := db.Newest(n)
 			text := n + " " + p.Field("Description")
 			ok := true
 			for _, re := range res {
@@ -522,23 +536,14 @@ func mainAptCache(args []string) int {
 	case "policy", "madison":
 		db := mustDB(true)
 		for _, a := range args {
-			fmt.Printf("%s:\n", a)
-			iv := "(none)"
-			if in := db.lookupInstalled(a); in != nil {
-				iv = in.Version
+			if cmd == "madison" {
+				printMadison(db, a)
+			} else {
+				printPolicy(db, a)
 			}
-			cv := "(none)"
-			if c := db.Candidate(a); c != nil {
-				cv = c.Version
-			}
-			fmt.Printf("  Installed: %s\n  Candidate: %s\n  Version table:\n", iv, cv)
-			for _, p := range db.Avail[a] {
-				mark := "    "
-				if p.Version == iv {
-					mark = " *** "
-				}
-				fmt.Printf(" %s%s 500\n        500 %s %s/%s %s Packages\n", mark, p.Version, strings.TrimRight(p.Src.URI, "/"), p.Src.Suite, p.Src.Comp, p.Arch)
-			}
+		}
+		if cmd == "policy" && len(args) == 0 {
+			printPolicyAll(db)
 		}
 	case "depends":
 		db := mustDB(true)
@@ -565,7 +570,7 @@ func mainAptCache(args []string) int {
 		for _, a := range args {
 			fmt.Printf("%s\nReverse Depends:\n", a)
 			for _, n := range sortedKeys(db.Avail) {
-				p := db.Avail[n][0]
+				p := db.Newest(n)
 				for _, fld := range []string{"Pre-Depends", "Depends"} {
 					for _, g := range p.Deps(fld) {
 						for _, d := range g {
