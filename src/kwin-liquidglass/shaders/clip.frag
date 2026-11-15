@@ -6,6 +6,10 @@ uniform float uRadius;
 uniform vec3 uShadow;
 uniform vec2 uStroke;
 uniform float uScale;
+uniform sampler2D uMean;
+uniform vec3 uMeanUv;
+uniform float uAdapt;
+uniform float uInkLeft;
 
 in vec2 vUv;
 in vec2 vPx;
@@ -51,6 +55,20 @@ void main()
     if (uStroke.x > 0.0) {
         float line = band(d, -uScale, 0.0) * cover;
         win.rgb = mix(win.rgb, vec3(win.a), uStroke.x * line);
+    }
+    if (uAdapt > 0.0 && win.a > 0.002 && vPx.x > uInkLeft) {
+        vec3 m3 = texture(uMean, uMeanUv.xy).rgb * 0.4;
+        m3 += texture(uMean, uMeanUv.xy + vec2(uMeanUv.z, 0.0)).rgb * 0.3;
+        m3 += texture(uMean, uMeanUv.xy - vec2(uMeanUv.z, 0.0)).rgb * 0.3;
+        float light = uAdapt * smoothstep(0.48, 0.62, dot(m3, vec3(0.2126, 0.7152, 0.0722)));
+        vec3 c = win.rgb / win.a;
+        float hi = max(c.r, max(c.g, c.b));
+        float lo = min(c.r, min(c.g, c.b));
+        float grey = 1.0 - smoothstep(0.06, 0.16, hi - lo);
+        float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        float bright = smoothstep(0.6, 0.8, lo);
+        float f = mix(0.625, 0.85, smoothstep(0.93, 0.98, lum));
+        win = mix(win, vec4(0.0, 0.0, 0.0, win.a * f), light * grey * bright);
     }
     fragColor = win + vec4(0.0, 0.0, 0.0, shadow * (1.0 - win.a));
 }

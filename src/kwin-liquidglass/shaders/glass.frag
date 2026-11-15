@@ -23,6 +23,7 @@ uniform float uSat;
 uniform vec2 uDark;
 uniform float uMul;
 uniform float uVeil;
+uniform float uAdapt;
 
 in vec2 vUv;
 
@@ -106,7 +107,6 @@ void main()
     float frost = uFrost * mix(0.3, 1.0, smoothstep(0.0, 0.7, x));
     vec3 col = mix(sharp, soft, frost);
     col = max(mix(vec3(luma(col)), col, uSat), vec3(0.0));
-    col = mix(col, vec3(1.0), uVeil);
 
     vec2 sc = uShape.xy;
     vec2 sh = uShape.zw;
@@ -114,10 +114,12 @@ void main()
     m3 += texture(uMean, uvAt(sc + vec2(sh.x * 0.6, 0.0))).rgb * 0.3;
     m3 += texture(uMean, uvAt(sc - vec2(sh.x * 0.6, 0.0))).rgb * 0.3;
     float m = mix(luma(m3), luma(soft), 0.35);
+    float light = uAdapt * smoothstep(0.48, 0.62, luma(m3));
+    col = mix(col, vec3(1.0), mix(uVeil, 0.4, light));
 
     if (uStyle < 0.5) {
-        float darken = uTint * mix(uDark.x, uDark.y, smoothstep(0.3, 0.92, m));
-        float lift = uTint * (1.0 - smoothstep(0.03, 0.25, m)) * 0.08;
+        float darken = uTint * mix(uDark.x, uDark.y, smoothstep(0.3, 0.92, m)) * (1.0 - light);
+        float lift = uTint * (1.0 - smoothstep(0.03, 0.25, m)) * 0.08 * (1.0 - light);
         float k = clamp(darken, 0.0, 0.9);
         col = mix(mix(col, vec3(0.05, 0.055, 0.07), k), col * (1.0 - k), uMul) + vec3(lift);
     } else if (uStyle < 1.5) {

@@ -74,9 +74,13 @@ How it is drawn, per glass surface:
   applet popups 16 px, notifications 20 px, OSDs and the dock's name labels are capsules; they scale a little with the window
   corner radius setting. A bar that spans the screen, like the menu bar, only gets a bevel on its free edge and a fainter rim.
 * Menus, popups and tooltips use a neutral dark frost: the colours behind are almost fully desaturated and darkened toward a
-  neutral grey, so a red or orange wallpaper does not turn the menu brown. Notifications use a lighter frost that keeps the hue
-  behind them: a faint white veil, then a multiply that darkens without greying, so the white text stays readable. The dock keeps
-  the more saturated, clearer look.
+  neutral grey, so a red or orange wallpaper does not turn the menu brown. Notification banners adapt to what is behind them:
+  the shader takes the average luminance of the blurred backdrop, and above about 0.55 the card becomes a light, bright frost
+  (a 40% white veil over the saturated backdrop, no darkening) with dark text; below it, a darker frost that keeps the hue (a
+  faint veil, then a multiply that darkens without greying) with white text. The two blend smoothly across the threshold. The text
+  colour is switched in the same composite pass, from the same luminance, so it can never disagree with the material or flicker:
+  near-white text right of the icon becomes black at 85% for the title and 50% for the body and timestamp, while the icon and
+  anything coloured are left alone. The dock keeps the more saturated, clearer look.
 * Menus, popups, notifications, labels and OSDs are drawn offscreen and cut to that rounded shape with an anti-aliased mask, so
   the app's own square or small-radius background corners never show outside the glass.
 * Floating surfaces get a soft contact shadow drawn by the same pass, faded out when the window has no margin around the glass
@@ -130,7 +134,7 @@ widget and fight the palette, while the proxy changes menus only.
 
 Notification popups use a Tahoe-style card from `/usr/local/share/plasma/plasmoids/org.kde.plasma.notifications` (Plasma 6.3.6's
 notifications applet with a new popup delegate): 344 px wide with a 20 px radius, a 32 px app icon on the left, the title in
-semibold, the body at 80% white clamped to two lines, a "now" / "5m ago" timestamp at the top right, and a round
+semibold, the body at 80% (black at 50% on the light material) clamped to two lines, a "now" / "5m ago" timestamp at the top right, and a round
 close button that appears over the icon's corner on hover.
 
 Tuning lives in `kwinrc`, group `[Effect-kwick_liquidglass]`, values in percent: `Refraction` (60), `Blur` (50), `Dispersion` (35),

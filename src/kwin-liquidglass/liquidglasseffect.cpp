@@ -808,6 +808,7 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     const float shadowRoom = float(std::clamp(margin / (10.0 * scale), 0.0, 1.0));
     shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 0.0f : 0.32f * shadowRoom * shadowRoom);
     shader->setUniform("uVeil", look.veil);
+    shader->setUniform("uAdapt", kind == Kind::Notification ? 1.0f : 0.0f);
     shader->setUniform("uPointer",QVector3D(float(pointer.x()), float(pointer.y()), float(m_interactive && kind != Kind::Window ? glass.hover : 0.0)));
 
     glActiveTexture(GL_TEXTURE2);
@@ -1008,6 +1009,26 @@ bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const Rend
     shader->setUniform("uShadow", window ? QVector3D(active ? 0.62f : 0.42f, float((active ? 14.0 : 8.0) * scale), float((active ? 17.0 : 12.0) * scale)) : QVector3D(0.0f, 0.0f, 1.0f));
     shader->setUniform("uStroke", window ? QVector2D(active ? 0.09f : 0.05f, active ? 0.38f : 0.26f) : QVector2D(0.0f, 0.0f));
     shader->setUniform("uScale", float(scale));
+    shader->setUniform("uMean", 1);
+    GLTexture *mean = nullptr;
+    if (glass.kind == Kind::Notification) {
+        const auto found = glass.render.find(m_currentScreen);
+        if (found != glass.render.end() && !found->second.passes.empty() && !found->second.device.isEmpty()) {
+            const Render &render = found->second;
+            mean = render.passes.back().texture.get();
+            const QPointF center = shapeDevice.center() - QPointF(render.device.topLeft());
+            const float W = render.device.width();
+            const float H = render.device.height();
+            shader->setUniform("uMeanUv", QVector3D(float(center.x() / W), float(1.0 - center.y() / H), float(shapeDevice.width() * 0.3 / W)));
+        }
+    }
+    shader->setUniform("uAdapt", mean ? 1.0f : 0.0f);
+    shader->setUniform("uInkLeft", float(shapeDevice.left() + 48.0 * scale));
+    if (mean) {
+        glActiveTexture(GL_TEXTURE1);
+        mean->bind();
+        glActiveTexture(GL_TEXTURE0);
+    }
 
     const QRegion logicalClip = region == infiniteRegion() ? QRegion(transformed ? viewport.renderRect().toAlignedRect() : geometry.translated(shift).toAlignedRect()) : region;
     const QRegion clipRegion = viewport.mapToRenderTarget(logicalClip);
@@ -1018,6 +1039,11 @@ bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const Rend
     glass.clipTexture->bind();
     vbo->draw(clipRegion, GL_TRIANGLES, 0, vertices.size(), true);
     glass.clipTexture->unbind();
+    if (mean) {
+        glActiveTexture(GL_TEXTURE1);
+        mean->unbind();
+        glActiveTexture(GL_TEXTURE0);
+    }
     vbo->unbindArrays();
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
