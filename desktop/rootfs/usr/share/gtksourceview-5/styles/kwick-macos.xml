@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<style-scheme id="kwick-macos" name="KwickOS macOS Dark" version="1.0" parent-scheme="Adwaita-dark">
+  <author>KwickOS</author>
+  <description>Adwaita dark on the macOS text background</description>
+  <metadata>
+    <property name="variant">dark</property>
+  </metadata>
+  <style name="text" foreground="#dddddd" background="#1e1e1e"/>
+  <style name="current-line" background="#292929"/>
+  <style name="current-line-number" background="#292929"/>
+  <style name="line-numbers" foreground="#5c5c5c" background="#1e1e1e"/>
+  <style name="selection" background="#3f638b"/>
+  <style name="cursor" foreground="#dddddd"/>
+</style-scheme>

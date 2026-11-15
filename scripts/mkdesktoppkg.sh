@@ -20,6 +20,7 @@ kwin_plugin() {
 }
 kwin_plugin rounded mkroundedpkg.sh
 kwin_plugin flip mkflippkg.sh
+kwin_plugin liquidglass mkglasspkg.sh
 chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 "$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"

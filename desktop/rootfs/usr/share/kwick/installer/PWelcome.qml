@@ -204,7 +204,7 @@ FocusScope {
         height: Math.min(520, p.height - 60)
         anchors.centerIn: parent
         radius: 16
-        color: Theme.dark ? "#2b2b30" : "#f6f6f8"
+        color: Theme.dark ? "#2b2b2b" : "#f6f6f8"
         border.width: 1
         border.color: Theme.dark ? "#26ffffff" : "#1a000000"
         opacity: p.picking ? 1 : 0

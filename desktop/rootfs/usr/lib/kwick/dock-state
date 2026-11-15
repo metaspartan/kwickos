@@ -1,0 +1,27 @@
+#!/bin/sh
+mode=state
+[ "${1:-}" = open ] && { mode=open; shift; }
+pat=${1:?usage: dock-state [open] CLASS-REGEX [COMMAND]}
+shift
+if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+  all=$(hyprctl clients -j 2>/dev/null | grep -o '"class": "[^"]*"')
+  act=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1)
+elif [ -n "${SWAYSOCK:-}" ]; then
+  all=$(swaymsg -t get_tree 2>/dev/null | grep -o -e '"app_id": "[^"]*"' -e '"class": "[^"]*"')
+  act=
+else
+  all=; act=
+fi
+m() { printf '%s\n' "$1" | grep -Eq "\": \"($pat)\"$"; }
+if [ $mode = open ]; then
+  if m "$all"; then
+    if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then exec hyprctl dispatch focuswindow "class:^($pat)\$" >/dev/null
+    else exec swaymsg "[app_id=\"^($pat)\$\"] focus" >/dev/null; fi
+  fi
+  exec setsid sh -c "$*" >/dev/null 2>&1
+fi
+if m "$act"; then st=active
+elif m "$all"; then st=running
+else st=idle
+fi
+printf '{"text": " ", "class": "%s", "alt": "%s"}\n' "$st" "$st"

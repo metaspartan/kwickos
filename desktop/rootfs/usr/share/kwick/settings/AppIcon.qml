@@ -8,7 +8,7 @@ Rectangle {
     implicitWidth: 34
     implicitHeight: 34
     radius: 9
-    color: "#3a3a42"
+    color: Theme.cardHi
     border.width: 1
     border.color: Theme.line
 

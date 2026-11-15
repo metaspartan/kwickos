@@ -7,14 +7,14 @@
 }
 
 window#waybar {
-  background: rgba(28, 28, 36, 0.72);
-  color: #ffffff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(30, 30, 30, 0.6);
+  color: rgba(255, 255, 255, 0.847);
+  border-bottom: none;
 }
 
 #custom-logo {
   min-width: 22px;
-  margin: 3px 4px 3px 12px;
+  margin: 3px 4px 3px 7px;
   background-image: url("/usr/share/icons/hicolor/scalable/apps/kwickos-menubar.svg");
   background-repeat: no-repeat;
   background-position: center;
@@ -35,8 +35,8 @@ window#waybar {
   padding: 0 9px;
 }
 
-#clock {
-  padding-right: 14px;
+#custom-clock {
+  padding: 0 14px 0 9px;
 }
 
 #battery.warning {
@@ -48,12 +48,12 @@ window#waybar {
 }
 
 tooltip {
-  background: rgba(28, 28, 36, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  background: rgba(50, 50, 50, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.098);
+  border-radius: 6px;
 }
 
 #custom-vpn {
   padding: 0 9px;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.847);
 }

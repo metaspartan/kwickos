@@ -70,7 +70,7 @@ ColumnLayout {
                             width: parent.width * 0.46
                             height: parent.height * 0.46
                             radius: 4
-                            color: "#2c2c32"
+                            color: "#323232"
                             border.width: 1
                             border.color: "#26ffffff"
                         }
@@ -183,7 +183,7 @@ ColumnLayout {
         height: 520
         padding: 0
         onOpened: { search.text = ""; search.forceActiveFocus() }
-        background: Rectangle { radius: 14; color: "#2a2a2f"; border.width: 1; border.color: Theme.lineStrong }
+        background: Rectangle { radius: 14; color: "#323232"; border.width: 1; border.color: Theme.lineStrong }
         Overlay.modal: Rectangle { color: "#99000000" }
         contentItem: ColumnLayout {
             spacing: 0
@@ -221,7 +221,7 @@ ColumnLayout {
                     required property var modelData
                     width: appList.width
                     height: 48
-                    Rectangle { anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; radius: 8; color: ma.containsMouse ? "#38383f" : "transparent" }
+                    Rectangle { anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; radius: 8; color: ma.containsMouse ? Theme.hover : "transparent" }
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 18

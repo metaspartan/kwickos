@@ -27,12 +27,41 @@ icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-
 
 defrad() { if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprdef "$@"; return; fi; case ${1:-$want} in macos) echo 12 ;; *) echo 8 ;; esac; }
 
-hyprdef() { case ${1:-$want} in macos) echo 16 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
+hyprdef() { case ${1:-$want} in macos) echo 12 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
 
 curradius() {
   r=$(cat "$cfg/radius" 2>/dev/null)
   case $r in ''|*[!0-9]*) echo "" ;; *) echo "$r" ;; esac
 }
+
+konsoleprofile() { case $want in windows) echo KwickFluent.profile ;; linux) echo KwickLinux.profile ;; *) echo KwickOS.profile ;; esac; }
+
+gnometerm() {
+  p=/org/gnome/terminal/legacy/profiles:/:b1dcc9dd-5262-4d8d-a863-c897e6d979b9/
+  s=org.gnome.Terminal.Legacy.Profile:$p
+  case $want in
+    macos)
+      gsettings set "$s" use-theme-colors false
+      gsettings set "$s" background-color 'rgb(30,30,30)'
+      gsettings set "$s" foreground-color 'rgb(255,255,255)'
+      gsettings set "$s" palette "['rgb(0,0,0)', 'rgb(153,0,0)', 'rgb(0,166,0)', 'rgb(153,153,0)', 'rgb(0,0,178)', 'rgb(178,0,178)', 'rgb(0,166,178)', 'rgb(191,191,191)', 'rgb(102,102,102)', 'rgb(230,0,0)', 'rgb(0,217,0)', 'rgb(230,230,0)', 'rgb(0,0,255)', 'rgb(230,0,230)', 'rgb(0,230,230)', 'rgb(230,230,230)']"
+      gsettings set "$s" cursor-colors-set true
+      gsettings set "$s" cursor-background-color 'rgb(146,146,146)'
+      gsettings set "$s" cursor-foreground-color 'rgb(30,30,30)' ;;
+    windows)
+      gsettings set "$s" use-theme-colors false
+      gsettings set "$s" background-color 'rgb(12,12,12)'
+      gsettings set "$s" foreground-color 'rgb(204,204,204)'
+      gsettings set "$s" palette "['rgb(12,12,12)', 'rgb(197,15,31)', 'rgb(19,161,14)', 'rgb(193,156,0)', 'rgb(0,55,218)', 'rgb(136,23,152)', 'rgb(58,150,221)', 'rgb(204,204,204)', 'rgb(118,118,118)', 'rgb(231,72,86)', 'rgb(22,198,12)', 'rgb(249,241,165)', 'rgb(59,120,255)', 'rgb(180,0,158)', 'rgb(97,214,214)', 'rgb(242,242,242)']"
+      gsettings set "$s" cursor-colors-set true
+      gsettings set "$s" cursor-background-color 'rgb(255,255,255)'
+      gsettings set "$s" cursor-foreground-color 'rgb(12,12,12)' ;;
+    *)
+      gsettings reset "$s" use-theme-colors
+      gsettings reset "$s" palette
+      gsettings reset "$s" cursor-colors-set ;;
+  esac
+} 2>/dev/null
 
 gtklayout() { case $want in macos) echo 'close,minimize,maximize:' ;; *) echo ':minimize,maximize,close' ;; esac; }
 
@@ -85,8 +114,30 @@ refresh_icons() {
 
 fontset() { pt=10; [ "$want" = windows ] && pt=9; UI=$(kwick-fonts names "$want" | sed -n 1p),$pt; MONO=$(kwick-fonts names "$want" | sed -n 2p),10; }
 
-kde() {
+fontconf() {
   fontset
+  d=${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig/conf.d; mkdir -p "$d"
+  cat > "$d/60-kwick-layout.conf" <<CONF
+<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <alias binding="same"><family>sans-serif</family><prefer><family>${UI%,*}</family></prefer></alias>
+  <alias binding="same"><family>monospace</family><prefer><family>${MONO%,*}</family></prefer></alias>
+</fontconfig>
+CONF
+  if command -v kwriteconfig6 >/dev/null 2>&1 && [ "$1" != kde ]; then
+    kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kw kdeglobals General fixed "$MONO,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+    kw kdeglobals Icons Theme "$(icontheme)"
+  fi
+  gsettings set org.gnome.desktop.interface font-name "${UI%,*} $pt" 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface document-font-name "${UI%,*} $pt" 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface monospace-font-name "${MONO%,*} 10" 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface cursor-theme breeze_cursors 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface cursor-size 24 2>/dev/null || true
+}
+
+kde() {
+  fontconf kde
   case $want in
     macos)   SCHEME=KwickGlass;  ACC="10,132,255"; LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickGlass;  L=XIA; R="" ;;
     windows) SCHEME=KwickFluent; ACC="0,120,212";  LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickFluent; L=M;   R=IAX ;;
@@ -101,14 +152,15 @@ kde() {
   kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
   kw kdeglobals General fixed "$MONO,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
-  kw kdeglobals WM activeFont "$UI,-1,5,600,0,0,0,0,0,0,0,0,0,0,1"
+  kw kdeglobals WM activeFont "$UI,-1,5,$( [ "$want" = macos ] && echo 700 || echo 600 ),0,0,0,0,0,0,0,0,0,0,1"
+  kw konsolerc "Desktop Entry" DefaultProfile "$(konsoleprofile)"
   kw kwinrc org.kde.kdecoration2 library "$LIB"
   kw kwinrc org.kde.kdecoration2 theme "$DECO"
   kw kwinrc org.kde.kdecoration2 BorderSize None
   kw kwinrc org.kde.kdecoration2 BorderSizeAuto false
   kw kwinrc org.kde.kdecoration2 ButtonsOnLeft "$L"
   kw kwinrc org.kde.kdecoration2 ButtonsOnRight "$R"
-  kw plasmarc Theme name default
+  kw plasmarc Theme name "$(case $want in macos) echo kwick-glass ;; windows) echo kwick-fluent ;; *) echo default ;; esac)"
   corners
   files
   gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null || true
@@ -138,6 +190,8 @@ corners() {
   kw kwinrc $g ActiveSecondOutlineAlpha 34
   kw kwinrc $g InactiveSecondOutlineAlpha 18
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwin4_effect_shapecorners >/dev/null 2>&1 || true
+  [ "$(kreadconfig6 --file kwinrc --group Plugins --key kwick_liquidglassEnabled --default false)" = true ] && [ -x /usr/lib/kwick/liquidglass-theme ] && { /usr/lib/kwick/liquidglass-theme on >/dev/null 2>&1; qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwick_liquidglass >/dev/null 2>&1; }
+  true
 }
 
 files() {
@@ -155,7 +209,7 @@ files() {
 }
 
 gnome() {
-  fontset
+  fontconf gnome
   gtkstyle
   G=/usr/share/kwick/gnome
   GSETTINGS_SCHEMA_DIR=$(ls -d /usr/share/gnome-shell/extensions/*/schemas 2>/dev/null | tr "
@@ -169,6 +223,7 @@ gnome() {
   gsettings set org.gnome.desktop.interface document-font-name "$(printf '%s' "$UI" | sed 's/,/ /')"
   gsettings set org.gnome.desktop.interface monospace-font-name "$(printf '%s' "$MONO" | sed 's/,/ /')"
   gsettings set org.gnome.desktop.wm.preferences titlebar-font "$(printf '%s' "$UI" | sed 's/,.*//') Bold 10"
+  gnometerm
   true
 }
 
@@ -178,9 +233,10 @@ tiling() {
   sub() { sed -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" -e "s|@APPID@|$([ "$1" = hyprland ] && echo class || echo app_id)|g" "$2"; }
   case $want in macos) wp=KwickGlass ;; windows) wp=KwickFluent ;; *) wp=KwickOS ;; esac
   ICO=$(icontheme)
+  fontconf tiling
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$C/$v"
-    sed "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
+    sed -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" -e "s|^gtk-font-name=.*|gtk-font-name=$ui $pt|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
     echo "gtk-decoration-layout=$(gtklayout)" >> "$C/$v/settings.ini"
   done
   gtkstyle
@@ -204,7 +260,7 @@ tiling() {
   if [ -f "$T/$want/dock.jsonc" ]; then sub x "$T/$want/dock.jsonc" > "$C/waybar/dock.jsonc"; sub x "$T/$want/dock.css" > "$C/waybar/dock.css"; fi
   sub x "$T/$want/mako.conf" > "$C/mako/config"
   sub x "$T/$want/fuzzel.ini" > "$C/fuzzel/fuzzel.ini"
-  sub x "$T/common/foot.ini" > "$C/foot/foot.ini"
+  if [ -f "$T/$want/foot.ini" ]; then sub x "$T/$want/foot.ini" > "$C/foot/foot.ini"; else sub x "$T/common/foot.ini" > "$C/foot/foot.ini"; fi
   sub x "$T/common/swaylock.conf" > "$C/swaylock/config"
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then
     wm=hyprland; hyprctl reload >/dev/null 2>&1
@@ -223,6 +279,8 @@ tiling() {
   (swaybg -m fill -i "$cfg/wallpaper" >/dev/null 2>&1 &)
   (waybar -c "$C/waybar/$wm.jsonc" -s "$C/waybar/style.css" >/dev/null 2>&1 &)
   [ -f "$C/waybar/dock.jsonc" ] && (waybar -c "$C/waybar/dock.jsonc" -s "$C/waybar/dock.css" >/dev/null 2>&1 &)
+  pkill -f 'kwick-dock-watch' 2>/dev/null
+  [ "$wm" = hyprland ] && (setsid /usr/lib/kwick/dock-watch >/dev/null 2>&1 &)
   (mako >/dev/null 2>&1 &)
   true
 }

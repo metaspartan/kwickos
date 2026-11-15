@@ -1,0 +1,30 @@
+.kwick-windows .panel-button.kwick-taskbar-button {
+  padding: 0 8px;
+  margin: 4px 2px;
+  border-radius: 4px;
+}
+
+.kwick-windows .panel-button.kwick-clock {
+  padding: 0 10px;
+  margin: 4px 0;
+  border-radius: 4px;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.kwick-windows .kwick-clock-label {
+  font-size: 12px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.kwick-windows .popup-menu-content {
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.kwick-windows .popup-menu-item {
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+}

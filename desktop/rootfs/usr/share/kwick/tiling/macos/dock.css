@@ -11,26 +11,31 @@ window#waybar {
 }
 
 #dock {
-  background: rgba(28, 28, 36, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 22px;
-  padding: 6px 12px;
+  background: rgba(50, 50, 50, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 0 4px;
 }
 
 #custom-files,
 #custom-web,
 #custom-term,
-#custom-settings {
-  min-width: 52px;
-  min-height: 52px;
-  margin: 0 3px;
+#custom-editor,
+#custom-store,
+#custom-settings,
+#custom-trash {
+  min-width: 86px;
+  min-height: 72px;
+  margin: 0 1px;
+  padding: 0;
+  border-radius: 6px;
   background-repeat: no-repeat;
-  background-position: center;
-  background-size: 48px 48px;
+  background-position: center 12px, center;
+  background-size: 48px 48px, 100% 100%;
 }
 
 #custom-files {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/system-file-manager.svg");
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-files.svg");
 }
 
 #custom-web {
@@ -41,36 +46,85 @@ window#waybar {
   background-image: url("/usr/share/icons/KwickOS/scalable/apps/utilities-terminal.svg");
 }
 
+#custom-editor {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-editor.svg");
+}
+
+#custom-store {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-software.svg");
+}
+
 #custom-settings {
-  background-image: url("/usr/share/icons/KwickOS/scalable/preferences/preferences-system.svg");
+  background-image: url("/usr/share/icons/KwickOS/scalable/preferences/kwick-settings.svg");
+}
+
+#custom-trash {
+  background-image: url("/usr/share/icons/KwickOS/scalable/places/user-trash.svg");
+}
+
+#custom-files.running,
+#custom-files.active {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-files.svg"), radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+}
+
+#custom-web.running,
+#custom-web.active {
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/firefox.svg"), radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+}
+
+#custom-term.running,
+#custom-term.active {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/utilities-terminal.svg"), radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+}
+
+#custom-editor.running,
+#custom-editor.active {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-editor.svg"), radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+}
+
+#custom-store.running,
+#custom-store.active {
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-software.svg"), radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+}
+
+#custom-settings.running,
+#custom-settings.active {
+  background-image: url("/usr/share/icons/KwickOS/scalable/preferences/kwick-settings.svg"), radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+}
+
+#custom-files:hover,
+#custom-web:hover,
+#custom-term:hover,
+#custom-editor:hover,
+#custom-store:hover,
+#custom-settings:hover,
+#custom-trash:hover {
+  background-color: rgba(255, 255, 255, 0.12);
 }
 
 #custom-sep {
   min-width: 1px;
-  margin: 8px 6px;
+  margin: 16px 8px;
   background: rgba(255, 255, 255, 0.18);
 }
 
 #taskbar button {
-  padding: 0 4px;
-  margin: 0 3px;
-  background: transparent;
-  border-bottom: 3px solid transparent;
-  border-radius: 10px;
-}
-
-#taskbar button.active {
+  min-width: 48px;
+  min-height: 72px;
+  padding: 0 19px;
+  margin: 0 1px;
   background-color: transparent;
-  background-image: radial-gradient(circle at 50% 94%, rgba(255, 255, 255, 0.85) 0, rgba(255, 255, 255, 0.85) 2px, rgba(255, 255, 255, 0) 3px);
-  border-bottom: 3px solid transparent;
+  background-image: radial-gradient(circle at 50% 93%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.55) 2px, rgba(255, 255, 255, 0) 3px);
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 #taskbar button:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.12);
 }
 
 tooltip {
-  background: rgba(28, 28, 36, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  background: rgba(50, 50, 50, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.098);
+  border-radius: 6px;
 }

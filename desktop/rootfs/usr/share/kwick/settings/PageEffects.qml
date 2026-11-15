@@ -12,6 +12,7 @@ ColumnLayout {
         { id: "flip", title: "3D flip open and close", sub: "Windows swing in and out in perspective with lighting (replaces flame)" },
         { id: "cube", title: "3D desktop cube", sub: "Meta+C shows your desktops as a cube with windows floating above the faces" },
         { id: "blur", title: "Blur", sub: "Frosted glass behind menus, docks and panels" },
+        { id: "liquidglass", title: "Liquid Glass", sub: "The dock, menu bar, menus and notifications bend, frost and catch the light like real glass (needs a GPU)" },
         { id: "transparency", title: "Translucency", sub: "Inactive windows, dialogs and menus turn slightly see-through" }
     ]
     readonly property var moreList: [
@@ -118,7 +119,7 @@ ColumnLayout {
                 Layout.preferredWidth: 1
                 implicitHeight: 112
                 radius: 12
-                color: on ? "#252a3a" : Theme.card
+                color: on ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12) : Theme.card
                 border.width: on ? 2 : 1
                 border.color: on ? Theme.accent : Theme.line
                 ColumnLayout {

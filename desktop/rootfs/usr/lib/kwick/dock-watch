@@ -1,0 +1,18 @@
+#!/bin/sh
+s=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr/${HYPRLAND_INSTANCE_SIGNATURE:-}/.socket2.sock
+[ -S "$s" ] || exit 0
+command -v python3 >/dev/null 2>&1 || exit 0
+exec python3 -c '
+import socket, subprocess, sys
+c = socket.socket(socket.AF_UNIX)
+c.connect(sys.argv[2])
+buf = b""
+while True:
+    d = c.recv(4096)
+    if not d:
+        break
+    buf += d
+    *lines, buf = buf.split(b"\n")
+    if any(l.split(b">>")[0] in (b"openwindow", b"closewindow", b"activewindow") for l in lines):
+        subprocess.run(["pkill", "-RTMIN+9", "-x", "waybar"])
+' kwick-dock-watch "$s"

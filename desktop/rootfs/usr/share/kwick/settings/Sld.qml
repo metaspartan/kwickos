@@ -19,7 +19,7 @@ Item {
         width: parent.width
         height: 5
         radius: 2.5
-        color: "#4a4a52"
+        color: Theme.track
         Rectangle {
             width: knob.x + knob.width / 2
             height: parent.height

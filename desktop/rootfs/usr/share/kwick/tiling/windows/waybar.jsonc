@@ -2,26 +2,61 @@
   "layer": "top",
   "position": "bottom",
   "height": 48,
-  "spacing": 2,
+  "spacing": 0,
   "modules-left": [],
-  "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "wlr/taskbar"],
-  "modules-right": ["tray", "custom/vpn", "network", "pulseaudio", "battery", "clock"],
+  "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "custom/editor", "custom/store", "custom/steam", "custom/settings", "wlr/taskbar"],
+  "modules-right": ["tray", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/start": { "format": " ", "tooltip-format": "Start", "on-click": "fuzzel" },
   "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "fuzzel" },
-  "custom/files": { "format": "\u00a0", "tooltip-format": "Files", "on-click": "xdg-open ~" },
-  "custom/web": { "format": "\u00a0", "tooltip-format": "Firefox", "on-click": "firefox-esr" },
-  "custom/term": { "format": "\u00a0", "tooltip-format": "Terminal", "on-click": "kwick-terminal" },
+  "custom/files": {
+    "exec": "/usr/lib/kwick/dock-state 'org.gnome.Nautilus|org.kde.dolphin|thunar|pcmanfm'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Files",
+    "on-click": "/usr/lib/kwick/dock-state open 'org.gnome.Nautilus|org.kde.dolphin|thunar|pcmanfm' kwick-app files"
+  },
+  "custom/web": {
+    "exec": "/usr/lib/kwick/dock-state 'firefox-esr|firefox'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Firefox",
+    "on-click": "/usr/lib/kwick/dock-state open 'firefox-esr|firefox' firefox-esr"
+  },
+  "custom/term": {
+    "exec": "/usr/lib/kwick/dock-state 'foot|kitty|Alacritty|org.kde.konsole'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Terminal",
+    "on-click": "/usr/lib/kwick/dock-state open 'foot|kitty|Alacritty|org.kde.konsole' kwick-terminal"
+  },
+  "custom/editor": {
+    "exec": "/usr/lib/kwick/dock-state 'org.kde.kate|org.gnome.TextEditor|mousepad'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Text Editor",
+    "on-click": "/usr/lib/kwick/dock-state open 'org.kde.kate|org.gnome.TextEditor|mousepad' kwick-app editor"
+  },
+  "custom/store": {
+    "exec": "/usr/lib/kwick/dock-state 'org.kde.discover|org.gnome.Software'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Software",
+    "on-click": "/usr/lib/kwick/dock-state open 'org.kde.discover|org.gnome.Software' kwick-app software"
+  },
+  "custom/steam": {
+    "exec": "/usr/lib/kwick/dock-state 'steam'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Steam",
+    "on-click": "/usr/lib/kwick/dock-state open 'steam' steam"
+  },
+  "custom/settings": {
+    "exec": "/usr/lib/kwick/dock-state 'org.qt-project.qml|kwick-settings'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "KwickOS Settings",
+    "on-click": "/usr/lib/kwick/dock-state open 'org.qt-project.qml|kwick-settings' kwick-settings"
+  },
   "wlr/taskbar": {
     "format": "{icon}",
-    "icon-size": 24,
+    "icon-size": 32,
     "icon-theme": "KwickOS-Fluent",
     "tooltip-format": "{title}",
     "on-click": "activate",
-    "on-click-middle": "close"
+    "on-click-middle": "close",
+    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kde.discover", "org.gnome.Software", "steam", "org.qt-project.qml", "kwick-settings"]
   },
-  "clock": {
-    "format": "{:%I:%M %p\n%m/%d/%Y}",
-    "tooltip-format": "<tt>{calendar}</tt>"
+  "custom/clock": {
+    "exec": "/usr/lib/kwick/bar-clock",
+    "return-type": "json",
+    "interval": 10,
+    "justify": "center"
   },
   "custom/vpn": {
     "exec": "kwick-vpn waybar",

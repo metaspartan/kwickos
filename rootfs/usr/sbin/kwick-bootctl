@@ -1,0 +1,150 @@
+#!/bin/sh
+set -eu
+MNT=/run/kwick-sdboot
+KDIR=/usr/lib/kwick/kernels
+EMMC_ESP=/boot/efi
+
+usage() {
+	cat <<'EOF'
+kwick-bootctl - boot control for U-Boot boards with the KwickOS boot env (Banana Pi BPI-F3 / SpacemiT K1)
+
+  status                     show default, pending one-shots, failed attempts and the boot kernel
+  mark-good                  confirm this boot (clears kwick-attempt); run by kwick-boot-ok.service
+  default kwickos|armbian    set the persistent default
+  once kwickos|armbian       boot the other system once on the next reboot
+  set-kernel <release>       boot /usr/lib/kwick/kernels/<release> (copied to the eMMC ESP)
+  set-kernel vendor          boot the board vendor kernel, initrd and DTB from the SD boot partition
+  rollback                   restore the previous kernel selection
+  list                       list kernels that set-kernel can use
+EOF
+}
+
+find_bootpart() {
+	for d in /dev/mmcblk0p1 /dev/mmcblk1p1 /dev/sda1; do
+		[ -b "$d" ] || continue
+		echo "$d"
+		return 0
+	done
+	return 1
+}
+
+mount_boot() {
+	if grep -q " $MNT " /proc/mounts 2>/dev/null; then return 0; fi
+	dev=$(find_bootpart) || { echo "kwick-bootctl: no SD boot partition found" >&2; exit 1; }
+	mkdir -p "$MNT"
+	mount -t vfat "$dev" "$MNT"
+	if [ ! -f "$MNT/env_k1-x.txt" ] || ! grep -q '^kwick_boot=' "$MNT/env_k1-x.txt"; then
+		umount "$MNT"
+		echo "kwick-bootctl: $dev has no KwickOS boot env (env_k1-x.txt with kwick_boot)" >&2
+		exit 1
+	fi
+}
+
+done_boot() {
+	sync
+	umount "$MNT" 2>/dev/null || true
+}
+
+setflag() { : > "$MNT/$1"; }
+clrflag() { rm -f "$MNT/$1"; }
+
+write_conf() {
+	[ -f "$MNT/kwick.txt" ] && cp "$MNT/kwick.txt" "$MNT/kwick.prv"
+	printf '%s\n' "$@" > "$MNT/kwick.tmp"
+	mv "$MNT/kwick.tmp" "$MNT/kwick.txt"
+}
+
+kernel_files() {
+	rel=$1
+	src="$KDIR/$rel"
+	[ -d "$src" ] || { echo "kwick-bootctl: $src not found" >&2; exit 1; }
+	img=""
+	for f in Image.itb vmlinuz.itb; do [ -f "$src/$f" ] && { img="$src/$f"; break; }; done
+	if [ -z "$img" ]; then
+		command -v mkimage >/dev/null 2>&1 || { echo "kwick-bootctl: $src has no Image.itb and mkimage is missing (apt install u-boot-tools)" >&2; exit 1; }
+		load=0x200000
+		[ -f "$src/load-address" ] && load=$(cat "$src/load-address")
+		mkimage -f auto -A riscv -O linux -T kernel -C none -a "$load" -e "$load" -n "Linux $rel" -d "$src/vmlinuz" "$src/Image.itb" >/dev/null
+		img="$src/Image.itb"
+	fi
+	dtb=""
+	for f in spacemit/k1-x_deb1.dtb spacemit/k1-bananapi-f3.dtb; do [ -f "$src/dtbs/$f" ] && { dtb="$src/dtbs/$f"; break; }; done
+	[ -n "$dtb" ] || { echo "kwick-bootctl: no K1 DTB in $src/dtbs" >&2; exit 1; }
+	rd=""
+	[ -f "$src/initrd.img" ] && rd="$src/initrd.img"
+}
+
+cmd=${1:-status}
+case "$cmd" in
+	-h|--help|help) usage ;;
+	status)
+		mount_boot
+		if [ -f "$MNT/kwick-mode-armbian" ]; then echo "default: armbian"; else echo "default: kwickos"; fi
+		[ -f "$MNT/kwick-try" ] && echo "next boot: kwickos (once)"
+		[ -f "$MNT/kwick-once-armbian" ] && echo "next boot: armbian (once)"
+		[ -f "$MNT/kwick-attempt" ] && echo "unconfirmed boot: yes (kwick-attempt present; a reboot before mark-good falls back to Armbian)"
+		echo "kernel selection:"
+		if [ -f "$MNT/kwick.txt" ]; then sed 's/^/  /' "$MNT/kwick.txt"; else echo "  kwick_kernel=armbianrd (built-in default)"; fi
+		echo "running: $(uname -r)"
+		done_boot ;;
+	mark-good)
+		mount_boot
+		clrflag kwick-attempt
+		done_boot ;;
+	default)
+		mount_boot
+		case "${2:-}" in
+			kwickos) clrflag kwick-mode-armbian ;;
+			armbian) setflag kwick-mode-armbian ;;
+			*) usage; exit 1 ;;
+		esac
+		done_boot ;;
+	once)
+		mount_boot
+		case "${2:-}" in
+			kwickos) clrflag kwick-once-armbian; setflag kwick-try ;;
+			armbian) clrflag kwick-try; setflag kwick-once-armbian ;;
+			*) usage; exit 1 ;;
+		esac
+		done_boot ;;
+	list)
+		echo "vendor"
+		ls -1 "$KDIR" 2>/dev/null || true ;;
+	rollback)
+		mount_boot
+		[ -f "$MNT/kwick.prv" ] || { echo "kwick-bootctl: no previous selection" >&2; done_boot; exit 1; }
+		cp "$MNT/kwick.txt" "$MNT/kwick.tmp" 2>/dev/null || : > "$MNT/kwick.tmp"
+		mv "$MNT/kwick.prv" "$MNT/kwick.txt"
+		mv "$MNT/kwick.tmp" "$MNT/kwick.prv"
+		cat "$MNT/kwick.txt"
+		done_boot ;;
+	set-kernel)
+		rel=${2:-}
+		[ -n "$rel" ] || { usage; exit 1; }
+		if [ "$rel" = vendor ]; then
+			mount_boot
+			write_conf "kwick_kernel=armbianrd"
+			done_boot
+			echo "next boot: vendor kernel from the SD boot partition"
+			exit 0
+		fi
+		kernel_files "$rel"
+		grep -q " $EMMC_ESP " /proc/mounts || { echo "kwick-bootctl: $EMMC_ESP (eMMC ESP) is not mounted" >&2; exit 1; }
+		d="$EMMC_ESP/kwick/$rel"
+		mkdir -p "$d"
+		cp "$img" "$d/Image.itb"
+		cp "$dtb" "$d/board.dtb"
+		rdline="kwick_c_rd="
+		if [ -n "$rd" ]; then cp "$rd" "$d/initrd.img"; rdline="kwick_c_rd=kwick/$rel/initrd.img"; fi
+		sync
+		root=PARTLABEL=kwick-root
+		mount_boot
+		write_conf "kwick_kernel=custom" \
+			"kwick_c_dev=mmc 2:1" "kwick_c_ddev=mmc 2:1" "kwick_c_rdev=mmc 2:1" \
+			"kwick_c_root=$root" \
+			"kwick_c_knl=kwick/$rel/Image.itb" "kwick_c_dtb=kwick/$rel/board.dtb" "$rdline" \
+			"kwick_c_extra=${KWICK_BOOT_EXTRA:-}"
+		done_boot
+		echo "next boot: $rel (an unconfirmed boot falls back to Armbian; restore with: kwick-bootctl rollback)" ;;
+	*) usage; exit 1 ;;
+esac

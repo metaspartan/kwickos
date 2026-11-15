@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<style-scheme id="kwick-windows" name="KwickOS Windows Dark" version="1.0" parent-scheme="Adwaita-dark">
+  <author>KwickOS</author>
+  <description>Adwaita dark on the Windows 11 secondary background</description>
+  <metadata>
+    <property name="variant">dark</property>
+  </metadata>
+  <style name="text" foreground="#ffffff" background="#1c1c1c"/>
+  <style name="current-line" background="#232323"/>
+  <style name="current-line-number" background="#232323"/>
+  <style name="line-numbers" foreground="#969696" background="#1c1c1c"/>
+  <style name="selection" background="#0078d4"/>
+  <style name="cursor" foreground="#ffffff"/>
+</style-scheme>

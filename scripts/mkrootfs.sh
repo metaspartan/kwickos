@@ -41,7 +41,7 @@ for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dp
 
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
 find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup
+chmod 0755 usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd
@@ -92,6 +92,22 @@ if [ -n "$KWICK_REPO_URL" ] && [ -f "$KWICK_REPO_KEY" ]; then
   cp "$KWICK_REPO_KEY" usr/share/keyrings/kwickos-archive-keyring.asc
   printf 'Types: deb\nURIs: %s\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' "$KWICK_REPO_URL" > etc/apt/sources.list.d/kwickos.sources
 fi
+NCB=ncurses-base_6.5+20250216-2_all.deb
+NCB_SHA256=190e775260a38973c415a36ae99f33ad1b37ea6ca99929d7c5d53843fc23e914
+NCB_CACHE=${CACHE:-/cache}/$NCB
+if [ ! -f "$NCB_CACHE" ]; then
+  mkdir -p "$(dirname "$NCB_CACHE")"
+  curl -fsSL -o "$NCB_CACHE.part" "http://deb.debian.org/debian/pool/main/n/ncurses/$NCB"
+  mv "$NCB_CACHE.part" "$NCB_CACHE"
+fi
+echo "$NCB_SHA256  $NCB_CACHE" | sha256sum -c --quiet
+NCX=$(mktemp -d)
+dpkg-deb -x "$NCB_CACHE" "$NCX"
+for t in d/dumb l/linux v/vt100 v/vt220 x/xterm x/xterm-color x/xterm-256color s/screen s/screen-256color t/tmux t/tmux-256color; do
+  mkdir -p "usr/share/terminfo/${t%/*}"
+  cp "$NCX/usr/share/terminfo/$t" "usr/share/terminfo/$t"
+done
+rm -rf "$NCX"
 ALPINE_BRANCH=${ALPINE_BRANCH:-v3.24}
 case $ARCH in amd64) AARCH=x86_64;; arm64) AARCH=aarch64;; riscv64) AARCH=riscv64;; esac
 mkdir -p etc/apk/keys usr/lib/apk/db var/cache/apk
@@ -114,7 +130,7 @@ t:1700000000
 p:busybox=1.38.0-r0 busybox-binsh=1.38.0-r0 /bin/sh cmd:sh alpine-baselayout=3.7.2-r1 alpine-baselayout-data=3.7.2-r1 alpine-release=3.24.4-r0 alpine-keys=2.6-r0 apk-tools=3.0.9-r0 ssl_client=1.38.0-r0
 
 EOF
-for u in networking syslog; do ln -sf /usr/lib/systemd/system/$u.service etc/systemd/system/multi-user.target.wants/$u.service; done
+for u in networking syslog kwick-boot-ok; do ln -sf /usr/lib/systemd/system/$u.service etc/systemd/system/multi-user.target.wants/$u.service; done
 
 PROVIDES="base-files (= 13.8), base-passwd (= 3.6.7), bash (= 5.2.37-2), bsdutils (= 1:2.41-5), coreutils (= 9.7-3), \
 dash (= 0.5.12-12), debianutils (= 5.23.2), diffutils (= 1:3.10-4), dpkg (= $(grep -o 'dpkgCompatVersion = "[^"]*' $SRC/src/kpkg/main.go | cut -d'"' -f2)), \

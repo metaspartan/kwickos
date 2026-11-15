@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": ["custom/logo", "@WM@/window"],
   "modules-center": [],
-  "modules-right": ["tray", "bluetooth", "custom/vpn", "network", "pulseaudio", "battery", "clock"],
+  "modules-right": ["tray", "bluetooth", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/logo": {
     "format": "\u00a0",
     "tooltip": false,
@@ -16,11 +16,12 @@
     "format": "{@APPID@}",
     "max-length": 40,
     "separate-outputs": true,
-    "rewrite": { "": "Finder", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.qt-project.qml": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Finder" }
+    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.qt-project.qml": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "steam": "Steam" }
   },
-  "clock": {
-    "format": "{:%a %b %e  %I:%M %p}",
-    "tooltip-format": "<tt>{calendar}</tt>"
+  "custom/clock": {
+    "exec": "/usr/lib/kwick/bar-clock mac",
+    "return-type": "json",
+    "interval": 10
   },
   "bluetooth": {
     "format": "",

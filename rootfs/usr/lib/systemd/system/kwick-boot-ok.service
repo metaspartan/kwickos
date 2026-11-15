@@ -1,0 +1,9 @@
+[Unit]
+Description=Confirm a healthy boot to the U-Boot attempt counter
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/kwick/boot-ok
+
+[Install]
+WantedBy=multi-user.target

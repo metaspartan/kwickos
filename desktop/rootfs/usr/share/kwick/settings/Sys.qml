@@ -36,7 +36,7 @@ QtObject {
 
     readonly property var accents: [
         { name: "blue", rgb: "10,132,255", hex: "#0a84ff" },
-        { name: "purple", rgb: "175,82,222", hex: "#af52de" },
+        { name: "purple", rgb: "191,90,242", hex: "#bf5af2" },
         { name: "pink", rgb: "255,55,95", hex: "#ff375f" },
         { name: "red", rgb: "255,69,58", hex: "#ff453a" },
         { name: "orange", rgb: "255,159,10", hex: "#ff9f0a" },

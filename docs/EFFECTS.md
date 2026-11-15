@@ -69,9 +69,11 @@ tooltips and OSDs, and optionally under window title bars.
 
 How it is drawn, per glass surface:
 
-* The shape is the surface's blur region (the mask Plasma and Breeze already send to KWin), turned into a rounded rectangle with
-  a signed distance field. The corner radius follows the rounded-corners setting: the dock uses 1.5x the window radius, menus
-  and popups the window radius, tooltips two thirds of it.
+* The shape is the bounding box of the surface's blur region (the mask Plasma and Breeze already send to KWin), drawn as a
+  rounded rectangle with a signed distance field. The corner radius follows the rounded-corners setting: the dock uses twice the
+  window radius, popups, notifications and OSDs the window radius, tooltips two thirds of it. Breeze menus keep the radius of their
+  own mask. A bar that spans the screen, like the menu bar, only gets a bevel on its free edge.
+* Floating surfaces get a soft contact shadow drawn by the same pass, where the window has room for it.
 * The screen behind the surface is copied once and blurred with a dual-Kawase pyramid (3 or 4 levels at half resolution and below).
 * A fragment shader treats the rim as a convex glass bevel: the SDF gives the edge normal, a quarter-circle height profile gives the
   surface slope, and `refract()` with an index of 1.5 bends the view inward, so the content behind is pulled and magnified along the
@@ -85,7 +87,10 @@ How it is drawn, per glass surface:
 * Moving the pointer over the glass swings the light toward it and adds a soft glow under the pointer.
 
 Performance: the blurred backdrop is cached per surface and output and is only recomputed when something under the glass changes;
-a repaint of the panel itself (a clock tick, hovering an icon) only re-runs the final pass inside the damaged region.
+a repaint of the panel itself (a clock tick, hovering an icon) only re-runs the final pass inside the damaged region. In the virgl
+lab VM, dragging a window behind the dock ran at 35 to 36 fps with Liquid Glass against 33 to 35 fps with the plain blur effect
+(the VM tops out there), so the glass costs no measurable frame time over KWin's own blur. GPU timer queries are not usable under
+virgl, so there is no per-pass GPU time from real hardware yet.
 
 It needs GPU rendering. `kwick-effects auto` runs at login: it turns Liquid Glass on when KWin renders on a GPU (unless you
 switched it off), and always off on llvmpipe or other software OpenGL. The plugin also refuses to load on a software renderer. The
@@ -99,7 +104,8 @@ glass shows through them. Switching Liquid Glass off restores the previous theme
 
 Tuning lives in `kwinrc`, group `[Effect-kwick_liquidglass]`, values in percent: `Refraction` (60), `Blur` (50), `Dispersion` (35),
 `Specular` (70), `Tint` (100), `Style` (0 adaptive dark, 1 light, 2 clear), `TitleBars` (false, glass under translucent title
-bars), `Interactive` (true) and `Profile` (false; logs frame interval and glass GPU time every 600 frames to the KWin log). Apply
+bars), `Interactive` (true) and `Profile` (0; 1 logs the animated frame interval and the glass GPU time every 600 frames to the
+KWin log, 2 does the same with the glass skipped so the plain blur effect draws instead, for a baseline). Apply
 changes with `qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwick_liquidglass`.
 
 ## GNOME and Hyprland

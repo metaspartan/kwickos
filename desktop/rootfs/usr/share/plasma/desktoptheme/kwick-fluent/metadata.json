@@ -1,0 +1,15 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Description": "KwickFluent panels for KwickOS",
+        "Id": "kwick-fluent",
+        "License": "MIT",
+        "Name": "KwickFluent",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "5.0"
+}

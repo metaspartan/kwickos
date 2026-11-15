@@ -1,3 +1,35 @@
+@define-color theme_bg_color #202020;
+@define-color theme_fg_color #ffffff;
+@define-color theme_base_color #1c1c1c;
+@define-color theme_text_color #ffffff;
+@define-color theme_selected_bg_color #0078d4;
+@define-color theme_selected_fg_color #ffffff;
+@define-color theme_unfocused_bg_color #202020;
+@define-color theme_unfocused_fg_color rgba(255, 255, 255, 0.773);
+@define-color theme_unfocused_base_color #1c1c1c;
+@define-color theme_unfocused_text_color #ffffff;
+@define-color theme_unfocused_selected_bg_color #2d2d2d;
+@define-color theme_unfocused_selected_fg_color #ffffff;
+@define-color insensitive_fg_color rgba(255, 255, 255, 0.365);
+@define-color borders rgba(255, 255, 255, 0.082);
+@define-color unfocused_borders rgba(255, 255, 255, 0.082);
+@define-color accent_color #99ebff;
+@define-color accent_bg_color #0078d4;
+@define-color accent_fg_color #ffffff;
+@define-color window_bg_color #202020;
+@define-color window_fg_color #ffffff;
+@define-color view_bg_color #1c1c1c;
+@define-color view_fg_color #ffffff;
+@define-color headerbar_bg_color #202020;
+@define-color headerbar_fg_color #ffffff;
+@define-color headerbar_backdrop_color #202020;
+@define-color sidebar_bg_color #202020;
+@define-color popover_bg_color #2c2c2c;
+@define-color dialog_bg_color #202020;
+@define-color card_bg_color rgba(255, 255, 255, 0.051);
+@define-color success_color #6ccb5f;
+@define-color warning_color #fce100;
+@define-color error_color #ff99a4;
 headerbar .titlebar-buttons {
   margin: 0;
 }
@@ -47,4 +79,40 @@ headerbar button.titlebutton.close:active image {
 
 window.csd decoration {
   border-radius: @RADIUS@px @RADIUS@px 0 0;
+}
+
+headerbar,
+.titlebar:not(headerbar) {
+  background-color: #202020;
+  background-image: none;
+  border-color: rgba(255, 255, 255, 0.082);
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.082);
+  color: #ffffff;
+}
+
+headerbar:backdrop,
+.titlebar:not(headerbar):backdrop {
+  background-color: #202020;
+  color: rgba(255, 255, 255, 0.529);
+}
+
+headerbar button:not(.titlebutton) {
+  background-color: transparent;
+  background-image: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+headerbar button:not(.titlebutton):hover {
+  background-color: rgba(255, 255, 255, 0.059);
+}
+
+headerbar button:not(.titlebutton):active,
+headerbar button:not(.titlebutton):checked {
+  background-color: rgba(255, 255, 255, 0.039);
+}
+
+.background:not(.csd):not(.solid-csd),
+window.background {
+  background-color: #202020;
 }

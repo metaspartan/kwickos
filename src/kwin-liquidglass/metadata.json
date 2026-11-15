@@ -1,0 +1,18 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Appearance",
+        "Description": "Liquid Glass: the dock, menu bar, menus, popups, notifications and OSDs refract, frost and catch the light like a thick sheet of glass",
+        "EnabledByDefault": false,
+        "Icon": "kwick-effects",
+        "License": "MIT",
+        "Name": "Liquid Glass",
+        "Version": "1.0"
+    },
+    "X-KDE-Ordering": "60"
+}

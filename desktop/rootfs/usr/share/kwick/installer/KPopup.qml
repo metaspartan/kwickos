@@ -100,7 +100,7 @@ FocusScope {
 
         background: Rectangle {
             radius: 10
-            color: Theme.dark ? "#323238" : "#fbfbfd"
+            color: Theme.dark ? "#323232" : "#fbfbfd"
             border.width: 1
             border.color: Theme.dark ? "#30ffffff" : "#22000000"
         }

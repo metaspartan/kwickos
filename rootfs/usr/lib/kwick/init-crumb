@@ -1,0 +1,19 @@
+#!/bin/sh
+mount -o remount,rw / 2>/dev/null
+echo "$(date) init-crumb pid=$$" >> /var/log/kinit-start
+[ -e /dev/watchdog ] && watchdog -T 60 -t 10 /dev/watchdog
+(
+	sleep 120
+	if ! ip -4 addr show 2>/dev/null | grep "inet " | grep -vq " 127\."; then
+		{
+			echo "== safety reboot $(date): no IPv4 after 120s"
+			ip addr 2>&1
+			ps 2>&1
+			dmesg 2>&1
+		} > /var/log/boot-dmesg-safety
+		sync
+		sleep 2
+		reboot -f
+	fi
+) &
+exec /usr/sbin/kinit

@@ -9,7 +9,7 @@ Rectangle {
     implicitHeight: 26
     radius: 13
     opacity: enabled ? 1 : 0.4
-    color: checked ? Theme.accent : "#4a4a52"
+    color: checked ? Theme.accent : Theme.track
     Behavior on color { ColorAnimation { duration: 140 } }
 
     Rectangle {

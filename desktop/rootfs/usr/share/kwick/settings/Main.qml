@@ -81,7 +81,7 @@ ApplicationWindow {
                     Layout.bottomMargin: 10
                     implicitHeight: 30
                     radius: 8
-                    color: "#303036"
+                    color: Theme.field
                     border.width: 1
                     border.color: Theme.line
                     Item {
@@ -120,7 +120,7 @@ ApplicationWindow {
                         visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0
                         implicitHeight: 40
                         radius: 9
-                        color: on ? Theme.accent : hover.containsMouse ? "#2f2f35" : "transparent"
+                        color: on ? Theme.accent : hover.containsMouse ? Theme.hover : "transparent"
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 8

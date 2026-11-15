@@ -19,10 +19,11 @@ kwick-effects: window effects for KDE Plasma, GNOME and Hyprland.
   kwick-effects tabbox [windows|cover|flip|grid] Alt+Tab style (KDE)
   kwick-effects check                     compositor: gpu|software|none
   kwick-effects backend                   kde|gnome|hyprland|sway|none
-NAME: wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube
+  kwick-effects auto                      at login: Liquid Glass on with a GPU, off on software rendering
+NAME: wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube liquidglass
   off      no animations
   subtle   fades, blur, sliding popups, magic lamp
-  fluid    plus curvy wobbly windows, sheets and 3D flip open/close
+  fluid    plus curvy wobbly windows, sheets, 3D flip open/close and Liquid Glass
   full     plus flame open/close, translucency, dimmed inactive windows, 3D cube
 USAGE
 }
@@ -102,6 +103,16 @@ lamp() {
   return 0
 }
 blurfx() { pl blur "$1"; pl contrast "$1"; }
+glass_ok() { ls /usr/lib/*/qt6/plugins/kwin/effects/plugins/kwick_liquidglass.so >/dev/null 2>&1; }
+glass_theme() { [ -x /usr/lib/kwick/liquidglass-theme ] && /usr/lib/kwick/liquidglass-theme "$1" >/dev/null 2>&1; return 0; }
+glass() {
+  if [ "$1" = 1 ] && glass_ok && [ "$(gl)" = gpu ]; then
+    pl blur 1; pl kwick_liquidglass 1; glass_theme on
+  else
+    pl kwick_liquidglass 0; glass_theme off
+  fi
+  return 0
+}
 popups() { pl slidingpopups "$1"; pl fadingpopups "$1"; }
 helpers() { for id in maximize login logout sessionquit dialogparent; do pl $id "$1"; done; }
 wob_amount() { v=$(get_fx wobble_amount); case $v in [1-9]|10) echo "$v" ;; *) echo 6 ;; esac; }
@@ -204,11 +215,12 @@ kde_tabbox_get() {
 }
 
 preset_kde() {
+  set_fx liquidglass_user ""
   case $1 in
-    off)    oc none; lamp 0; pl wobblywindows 0; blurfx 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 0; helpers 0; kde_switch_set none; factor=0 ;;
-    subtle) oc scale; lamp 1; pl wobblywindows 0; blurfx 1; pl translucency 0; pl sheet 0; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.7 ;;
-    fluid)  oc flip; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
-    full)   oc flame; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
+    off)    oc none; lamp 0; pl wobblywindows 0; blurfx 0; glass 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 0; helpers 0; kde_switch_set none; factor=0 ;;
+    subtle) oc scale; lamp 1; pl wobblywindows 0; blurfx 1; glass 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.7 ;;
+    fluid)  oc flip; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; glass 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
+    full)   oc flame; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; glass 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
             kde_switch_set cube || kde_switch_set slide
             cube_ok && { desktops 4; pl cube 1; kw kwinrc Effect-cube CubeFaceDisplacement 120; }
             kde_tabbox_set cover || kde_tabbox_set windows
@@ -241,6 +253,7 @@ kde_status() {
   s dim diminactive false
   s overview overview true
   if cube_ok; then s cube cube false; else echo "cube na"; fi
+  if glass_ok; then s liquidglass kwick_liquidglass false; else echo "liquidglass na"; fi
 }
 
 kde_set() {
@@ -254,7 +267,10 @@ kde_set() {
     fallapart) [ $v = 1 ] && oc fallapart || oc scale ;;
     glide) [ $v = 1 ] && oc glide || oc scale ;;
     fade) [ $v = 1 ] && oc fade || oc scale ;;
-    blur) blurfx $v ;;
+    blur) blurfx $v; [ $v = 0 ] && glass 0 ;;
+    liquidglass) glass_ok || { echo "Liquid Glass is not installed" >&2; return 1; }
+          [ $v = 1 ] && [ "$(gl)" != gpu ] && { echo "Liquid Glass needs GPU rendering; it stays off with software OpenGL" >&2; glass 0; return 1; }
+          set_fx liquidglass_user "$2"; glass $v ;;
     transparency) pl translucency $v ;;
     sheet) pl sheet $v ;;
     dim) pl diminactive $v ;;
@@ -294,7 +310,7 @@ gnome_status() {
     u=$(gx_uuid $n)
     if ! gx_have "$u"; then echo "$n na"; elif gx_on "$u"; then echo "$n on"; else echo "$n off"; fi
   done
-  for n in flip dissolve fallapart glide fade transparency sheet dim; do echo "$n na"; done
+  for n in flip dissolve fallapart glide fade transparency sheet dim liquidglass; do echo "$n na"; done
   echo "overview on"
 }
 gnome_burn() {
@@ -332,7 +348,7 @@ fxv() { v=$(get_fx "$1"); if [ -n "$v" ]; then echo "$v"; else echo "${2:-off}";
 
 hypr_status() {
   for n in wobbly flip blur transparency dim; do echo "$n $(fxv $n off)"; done
-  for n in sheet lamp flame dissolve fallapart glide fade overview cube; do echo "$n na"; done
+  for n in sheet lamp flame dissolve fallapart glide fade overview cube liquidglass; do echo "$n na"; done
 }
 hypr_write() {
   wob=$(fxv wobbly off); flp=$(fxv flip off); wa=$(wob_amount); wc=$(wob_curve); blr=$(fxv blur off); trn=$(fxv transparency off); dim=$(fxv dim off); sw=$(fxv switch slide)
@@ -406,8 +422,8 @@ status() {
     gnome) gnome_status ;;
     hyprland) hypr_status ;;
     sway) for n in blur dim; do echo "$n $(fxv $n off)"; done
-          for n in wobbly lamp flame flip dissolve fallapart glide fade transparency sheet overview cube; do echo "$n na"; done ;;
-    *) for n in wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube; do echo "$n na"; done ;;
+          for n in wobbly lamp flame flip dissolve fallapart glide fade transparency sheet overview cube liquidglass; do echo "$n na"; done ;;
+    *) for n in wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube liquidglass; do echo "$n na"; done ;;
   esac
 }
 
@@ -425,6 +441,27 @@ fi
 
 case "$p" in
   check) gl; exit 0 ;;
+  auto)
+    [ "$be" = kde ] && glass_ok || exit 0
+    on=0; isplug kwick_liquidglass false && on=1
+    if [ "$(gl)" != gpu ]; then
+      [ $on = 1 ] && { glass 0; reload; }
+      exit 0
+    fi
+    case $(get_fx liquidglass_user) in
+      on) want=1 ;;
+      off) want=0 ;;
+      *) case $(cat "$cfg/effects" 2>/dev/null || echo default) in
+           default|fluid|full) want=1 ;;
+           custom) want=$on ;;
+           *) want=0 ;;
+         esac ;;
+    esac
+    if [ $want = 1 ]; then
+      if [ $on = 0 ]; then glass 1; reload
+      elif [ "$(/usr/lib/kwick/liquidglass-theme status 2>/dev/null)" != on ]; then glass_theme on; fi
+    elif [ $on = 1 ]; then glass 0; reload; fi
+    exit 0 ;;
   backend) echo "$be"; exit 0 ;;
   list) q org.kde.KWin /Effects org.kde.kwin.Effects.listOfEffects | sort; exit 0 ;;
   status) status; exit 0 ;;

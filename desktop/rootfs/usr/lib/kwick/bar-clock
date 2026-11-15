@@ -1,0 +1,7 @@
+#!/bin/sh
+tip=$(date '+%A, %B %-d, %Y')
+if [ "${1:-}" = mac ]; then
+  printf '{"text": "%s", "tooltip": "%s"}\n' "$(date '+%a %b %-d  %-I:%M %p')" "$tip"
+else
+  printf '{"text": "%s\\n%s", "tooltip": "%s"}\n' "$(date '+%-I:%M %p')" "$(date '+%-m/%-d/%Y')" "$tip"
+fi

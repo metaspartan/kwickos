@@ -19,7 +19,7 @@ Rectangle {
     Rectangle {
         id: win
         radius: 5
-        color: "#2c2c32"
+        color: "#323232"
         border.width: 1
         border.color: "#26ffffff"
         width: parent.width * 0.5
@@ -41,8 +41,8 @@ Rectangle {
             visible: p.kind === "windows"
             Repeater { model: 3; Rectangle { width: 5; height: 1.5; color: "#aaaaaa"; y: 2 } }
         }
-        Rectangle { x: 6; y: 17; width: parent.width - 12; height: 3; radius: 1.5; color: "#3d3d45" }
-        Rectangle { x: 6; y: 25; width: (parent.width - 12) * 0.6; height: 3; radius: 1.5; color: "#3d3d45" }
+        Rectangle { x: 6; y: 17; width: parent.width - 12; height: 3; radius: 1.5; color: "#464646" }
+        Rectangle { x: 6; y: 25; width: (parent.width - 12) * 0.6; height: 3; radius: 1.5; color: "#464646" }
     }
 
     Rectangle {

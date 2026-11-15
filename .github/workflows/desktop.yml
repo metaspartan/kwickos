@@ -43,7 +43,7 @@ jobs:
           make container ARCH=$ARCH
 
       - name: Desktop rootfs (Plasma, drivers, firmware, effects)
-        run: docker build --progress=plain --build-context kwinflipsrc=src/kwin-flip --build-context kwickscripts=scripts --build-arg BASE=kwickos:$(cat VERSION)-$ARCH -t kwickos-desktop:ci desktop/
+        run: docker build --progress=plain --build-context kwinflipsrc=src/kwin-flip --build-context kwinglasssrc=src/kwin-liquidglass --build-context kwickscripts=scripts --build-arg BASE=kwickos:$(cat VERSION)-$ARCH -t kwickos-desktop:ci desktop/
 
       - name: Desktop live ISO
         run: |

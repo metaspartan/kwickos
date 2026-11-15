@@ -1,0 +1,11 @@
+#!/bin/sh
+grep -qs spacemit /proc/device-tree/compatible || exit 0
+n=0
+while ! ip -4 addr show 2>/dev/null | grep "inet " | grep -vq " 127\."; do
+	n=$((n + 1))
+	[ $n -gt 600 ] && exit 1
+	sleep 1
+done
+sleep 60
+dmesg > /var/log/boot-dmesg 2>&1
+/usr/sbin/kwick-bootctl mark-good && echo "$(date) boot confirmed" >> /var/log/kwick-boot.log

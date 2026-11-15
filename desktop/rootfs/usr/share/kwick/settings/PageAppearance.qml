@@ -129,7 +129,7 @@ ColumnLayout {
                 implicitWidth: 74
                 implicitHeight: 26
                 radius: 13
-                color: "#2f2f36"
+                color: Theme.control
                 border.width: 1
                 border.color: Theme.lineStrong
                 Text { anchors.centerIn: parent; text: "Dark"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13 }

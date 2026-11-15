@@ -1,0 +1,7 @@
+{
+  "uuid": "kwick-taskbar@kwickos.org",
+  "name": "KwickOS Taskbar",
+  "description": "Windows 11 style taskbar pieces: Search and Task View buttons, a two line clock with the date",
+  "shell-version": ["46", "47", "48", "49"],
+  "version": 1
+}

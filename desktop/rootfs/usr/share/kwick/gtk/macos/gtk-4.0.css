@@ -1,3 +1,69 @@
+@define-color accent_color #419cff;
+@define-color accent_bg_color #0a84ff;
+@define-color accent_fg_color #ffffff;
+@define-color destructive_color #ff453a;
+@define-color destructive_bg_color #ff453a;
+@define-color destructive_fg_color #ffffff;
+@define-color success_color #32d74b;
+@define-color warning_color #ff9f0a;
+@define-color error_color #ff453a;
+@define-color window_bg_color #323232;
+@define-color window_fg_color rgba(255, 255, 255, 0.847);
+@define-color view_bg_color #1e1e1e;
+@define-color view_fg_color rgba(255, 255, 255, 0.847);
+@define-color headerbar_bg_color #323232;
+@define-color headerbar_fg_color rgba(255, 255, 255, 0.847);
+@define-color headerbar_backdrop_color #282828;
+@define-color headerbar_border_color rgba(255, 255, 255, 0.098);
+@define-color headerbar_shade_color rgba(0, 0, 0, 0.36);
+@define-color sidebar_bg_color #282828;
+@define-color sidebar_fg_color rgba(255, 255, 255, 0.847);
+@define-color sidebar_backdrop_color #282828;
+@define-color sidebar_border_color rgba(255, 255, 255, 0.098);
+@define-color secondary_sidebar_bg_color #282828;
+@define-color secondary_sidebar_backdrop_color #282828;
+@define-color card_bg_color rgba(255, 255, 255, 0.047);
+@define-color card_fg_color rgba(255, 255, 255, 0.847);
+@define-color dialog_bg_color #323232;
+@define-color dialog_fg_color rgba(255, 255, 255, 0.847);
+@define-color popover_bg_color #323232;
+@define-color popover_fg_color rgba(255, 255, 255, 0.847);
+@define-color thumbnail_bg_color #323232;
+@define-color borders rgba(255, 255, 255, 0.098);
+
+:root {
+  --accent-color: #419cff;
+  --accent-bg-color: #0a84ff;
+  --accent-fg-color: #ffffff;
+  --destructive-color: #ff453a;
+  --destructive-bg-color: #ff453a;
+  --success-color: #32d74b;
+  --warning-color: #ff9f0a;
+  --error-color: #ff453a;
+  --window-bg-color: #323232;
+  --window-fg-color: rgba(255, 255, 255, 0.847);
+  --view-bg-color: #1e1e1e;
+  --view-fg-color: rgba(255, 255, 255, 0.847);
+  --headerbar-bg-color: #323232;
+  --headerbar-fg-color: rgba(255, 255, 255, 0.847);
+  --headerbar-backdrop-color: #282828;
+  --headerbar-border-color: rgba(255, 255, 255, 0.098);
+  --headerbar-shade-color: rgba(0, 0, 0, 0.36);
+  --sidebar-bg-color: #282828;
+  --sidebar-fg-color: rgba(255, 255, 255, 0.847);
+  --sidebar-backdrop-color: #282828;
+  --sidebar-border-color: rgba(255, 255, 255, 0.098);
+  --secondary-sidebar-bg-color: #282828;
+  --secondary-sidebar-backdrop-color: #282828;
+  --card-bg-color: rgba(255, 255, 255, 0.047);
+  --card-fg-color: rgba(255, 255, 255, 0.847);
+  --dialog-bg-color: #323232;
+  --dialog-fg-color: rgba(255, 255, 255, 0.847);
+  --popover-bg-color: #323232;
+  --popover-fg-color: rgba(255, 255, 255, 0.847);
+  --thumbnail-bg-color: #323232;
+  --border-color: rgba(255, 255, 255, 0.098);
+}
 windowcontrols {
   margin: 0 5px;
 }
@@ -6,10 +72,10 @@ windowcontrols button.close,
 windowcontrols button.minimize,
 windowcontrols button.maximize,
 windowcontrols button.restore {
-  min-width: 12px;
-  min-height: 12px;
+  min-width: 14px;
+  min-height: 14px;
   padding: 0;
-  margin: 0 2px;
+  margin: 0 1px 0 2px;
   border-radius: 0;
   background-color: transparent;
   background-size: 12px 12px;
@@ -42,8 +108,8 @@ windowcontrols button.restore:backdrop {
 windowcontrols button image {
   color: transparent;
   -gtk-icon-size: 8px;
-  min-width: 12px;
-  min-height: 12px;
+  min-width: 14px;
+  min-height: 14px;
   padding: 0;
   margin: 0;
   border-radius: 0;

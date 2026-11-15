@@ -1,3 +1,69 @@
+@define-color accent_color #99ebff;
+@define-color accent_bg_color #0078d4;
+@define-color accent_fg_color #ffffff;
+@define-color destructive_color #ff99a4;
+@define-color destructive_bg_color #ff99a4;
+@define-color destructive_fg_color #ffffff;
+@define-color success_color #6ccb5f;
+@define-color warning_color #fce100;
+@define-color error_color #ff99a4;
+@define-color window_bg_color #202020;
+@define-color window_fg_color #ffffff;
+@define-color view_bg_color #1c1c1c;
+@define-color view_fg_color #ffffff;
+@define-color headerbar_bg_color #202020;
+@define-color headerbar_fg_color #ffffff;
+@define-color headerbar_backdrop_color #202020;
+@define-color headerbar_border_color rgba(255, 255, 255, 0.082);
+@define-color headerbar_shade_color rgba(0, 0, 0, 0.1);
+@define-color sidebar_bg_color #202020;
+@define-color sidebar_fg_color #ffffff;
+@define-color sidebar_backdrop_color #202020;
+@define-color sidebar_border_color rgba(255, 255, 255, 0.082);
+@define-color secondary_sidebar_bg_color #202020;
+@define-color secondary_sidebar_backdrop_color #202020;
+@define-color card_bg_color rgba(255, 255, 255, 0.051);
+@define-color card_fg_color #ffffff;
+@define-color dialog_bg_color #202020;
+@define-color dialog_fg_color #ffffff;
+@define-color popover_bg_color #2c2c2c;
+@define-color popover_fg_color #ffffff;
+@define-color thumbnail_bg_color #202020;
+@define-color borders rgba(255, 255, 255, 0.082);
+
+:root {
+  --accent-color: #99ebff;
+  --accent-bg-color: #0078d4;
+  --accent-fg-color: #ffffff;
+  --destructive-color: #ff99a4;
+  --destructive-bg-color: #ff99a4;
+  --success-color: #6ccb5f;
+  --warning-color: #fce100;
+  --error-color: #ff99a4;
+  --window-bg-color: #202020;
+  --window-fg-color: #ffffff;
+  --view-bg-color: #1c1c1c;
+  --view-fg-color: #ffffff;
+  --headerbar-bg-color: #202020;
+  --headerbar-fg-color: #ffffff;
+  --headerbar-backdrop-color: #202020;
+  --headerbar-border-color: rgba(255, 255, 255, 0.082);
+  --headerbar-shade-color: rgba(0, 0, 0, 0.1);
+  --sidebar-bg-color: #202020;
+  --sidebar-fg-color: #ffffff;
+  --sidebar-backdrop-color: #202020;
+  --sidebar-border-color: rgba(255, 255, 255, 0.082);
+  --secondary-sidebar-bg-color: #202020;
+  --secondary-sidebar-backdrop-color: #202020;
+  --card-bg-color: rgba(255, 255, 255, 0.051);
+  --card-fg-color: #ffffff;
+  --dialog-bg-color: #202020;
+  --dialog-fg-color: #ffffff;
+  --popover-bg-color: #2c2c2c;
+  --popover-fg-color: #ffffff;
+  --thumbnail-bg-color: #202020;
+  --border-color: rgba(255, 255, 255, 0.082);
+}
 windowcontrols {
   margin: 0;
 }
@@ -19,7 +85,7 @@ windowcontrols button.restore {
 }
 
 windowcontrols button image {
-  -gtk-icon-size: 10px;
+  -gtk-icon-size: 16px;
   min-width: 46px;
   min-height: 32px;
   padding: 0;

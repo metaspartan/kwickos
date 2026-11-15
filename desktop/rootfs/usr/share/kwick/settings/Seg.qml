@@ -8,7 +8,7 @@ Rectangle {
     implicitHeight: 30
     implicitWidth: row.implicitWidth + 6
     radius: 9
-    color: "#3a3a41"
+    color: Theme.line
 
     Row {
         id: row
@@ -23,7 +23,7 @@ Rectangle {
                 width: label.implicitWidth + 22
                 height: 24
                 radius: 7
-                color: on ? Theme.accent : "transparent"
+                color: on ? Theme.control : "transparent"
                 Text {
                     id: label
                     anchors.centerIn: parent

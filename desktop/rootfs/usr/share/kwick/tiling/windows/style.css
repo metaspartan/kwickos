@@ -1,6 +1,6 @@
 * {
   font-family: "@UI@", "FontAwesome", sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   min-height: 0;
   border: none;
   border-radius: 0;
@@ -13,22 +13,36 @@ window#waybar {
 }
 
 #custom-start,
-#custom-search,
-#custom-files,
-#custom-web,
-#custom-term {
-  min-width: 40px;
+#custom-search {
+  min-width: 36px;
   min-height: 40px;
-  margin: 4px 2px;
-  border-radius: 6px;
+  margin: 4px 1px;
+  border-radius: 4px;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 24px 24px;
+  background-size: 28px 28px;
+}
+
+#custom-files,
+#custom-web,
+#custom-term,
+#custom-editor,
+#custom-store,
+#custom-steam,
+#custom-settings {
+  min-width: 64px;
+  min-height: 44px;
+  margin: 2px 1px;
+  border-radius: 4px;
+  background-repeat: no-repeat;
+  background-position: center, 0 100%;
+  background-size: 32px 32px, 100% 3px;
 }
 
 #custom-search {
   background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/edit-find.svg");
-  background-size: 20px 20px;
+  background-size: 22px 22px;
+  margin-right: 5px;
 }
 
 #custom-start {
@@ -36,7 +50,7 @@ window#waybar {
 }
 
 #custom-files {
-  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/system-file-manager.svg");
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-files.svg");
 }
 
 #custom-web {
@@ -47,34 +61,118 @@ window#waybar {
   background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/utilities-terminal.svg");
 }
 
+#custom-editor {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-editor.svg");
+}
+
+#custom-store {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-software.svg");
+}
+
+#custom-steam {
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/steam.svg");
+}
+
+#custom-settings {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/preferences/kwick-settings.svg");
+}
+
+#custom-files.running {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-files.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-web.running {
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/firefox.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-term.running {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/utilities-terminal.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-editor.running {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-editor.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-store.running {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-software.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-steam.running {
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/steam.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-settings.running {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/preferences/kwick-settings.svg"), linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
+}
+
+#custom-files.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-files.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
+#custom-web.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/firefox.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
+#custom-term.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/utilities-terminal.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
+#custom-editor.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-editor.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
+#custom-store.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-software.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
+#custom-steam.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/steam.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
+#custom-settings.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/preferences/kwick-settings.svg"), linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
+}
+
 #custom-start:hover,
 #custom-search:hover,
 #custom-files:hover,
 #custom-web:hover,
-#custom-term:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+#custom-term:hover,
+#custom-editor:hover,
+#custom-store:hover,
+#custom-steam:hover,
+#custom-settings:hover {
+  background-color: rgba(255, 255, 255, 0.059);
 }
 
 #taskbar button {
-  min-width: 36px;
-  padding: 0 6px;
-  margin: 4px 2px;
-  background: transparent;
-  border-radius: 6px;
-  border-bottom: 3px solid transparent;
-}
-
-#taskbar button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-#taskbar button.active {
-  background-color: rgba(255, 255, 255, 0.08);
-  background-image: linear-gradient(to right, rgba(96, 205, 255, 0) 0, rgba(96, 205, 255, 0) 36%, #60cdff 36%, #60cdff 64%, rgba(96, 205, 255, 0) 64%);
+  min-width: 32px;
+  min-height: 44px;
+  padding: 0 16px;
+  margin: 2px 1px;
+  border-radius: 4px;
+  background-color: transparent;
+  background-image: linear-gradient(to right, transparent 45%, #9d9d9d 45%, #9d9d9d 55%, transparent 55%);
   background-size: 100% 3px;
   background-position: 0 100%;
   background-repeat: no-repeat;
-  border-bottom: 3px solid transparent;
+  box-shadow: none;
+}
+
+#taskbar button:hover {
+  background-color: rgba(255, 255, 255, 0.059);
+}
+
+#taskbar button.active {
+  background-color: rgba(255, 255, 255, 0.082);
+  background-image: linear-gradient(to right, transparent 38%, #60cdff 38%, #60cdff 62%, transparent 62%);
 }
 
 #tray,
@@ -124,7 +222,8 @@ window#waybar {
   background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/actions/battery-low.svg");
 }
 
-#clock {
+#clock,
+#custom-clock {
   padding: 0 14px 0 8px;
   font-size: 12px;
 }
@@ -138,8 +237,8 @@ window#waybar {
 }
 
 tooltip {
-  background: #2b2b2b;
-  border: 1px solid #3a3a3a;
+  background: #2c2c2c;
+  border: 1px solid rgba(117, 117, 117, 0.4);
   border-radius: 8px;
 }
 

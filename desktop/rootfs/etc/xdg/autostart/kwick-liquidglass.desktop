@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Liquid Glass
+Comment=Turns Liquid Glass on when KWin renders on a GPU and off with software rendering
+Exec=kwick-effects auto
+NoDisplay=true
+X-KDE-autostart-phase=1
+OnlyShowIn=KDE;

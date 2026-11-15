@@ -1,0 +1,154 @@
+#!/bin/sh
+set -u
+mode=${1:-status}
+NAME=kwick-liquidglass
+DATA=${XDG_DATA_HOME:-$HOME/.local/share}
+D=$DATA/plasma/desktoptheme/$NAME
+cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
+prevf=$cfg/liquidglass.prev
+kr() { kreadconfig6 --file "$1" --group "$2" --key "$3" --default "$4" 2>/dev/null || echo "$4"; }
+kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
+
+frame() {
+  f=$1 R=$2 M=$3 A=$4 S=$5 SA=$6 T=${7:-0}
+  [ "$R" -lt 2 ] && R=2
+  E=10; F=$((2 * R + E)); MX=$((F + 20)); SY=$((F + 20)); G=$((2 * S + E)); HX=$((MX + F + 20))
+  corner() {
+    id=$1 x=$2 y=$3 fill=$4 op=$5
+    case $id in
+      *topleft) p="M$x,$((y + R)) A$R,$R 0 0 1 $((x + R)),$y L$((x + R)),$((y + R)) Z" ;;
+      *topright) p="M$x,$y A$R,$R 0 0 1 $((x + R)),$((y + R)) L$x,$((y + R)) Z" ;;
+      *bottomleft) p="M$((x + R)),$((y + R)) A$R,$R 0 0 1 $x,$y L$((x + R)),$y Z" ;;
+      *bottomright) p="M$((x + R)),$y A$R,$R 0 0 1 $x,$((y + R)) L$x,$y Z" ;;
+    esac
+    printf '<path id="%s" d="%s" fill="%s" fill-opacity="%s"/>\n' "$id" "$p" "$fill" "$op"
+  }
+  rect() { printf '<rect id="%s" x="%s" y="%s" width="%s" height="%s" fill="%s" fill-opacity="%s"/>\n' "$@"; }
+  block() {
+    pre=$1 ox=$2 fill=$3 op=$4
+    corner "${pre}topleft" "$ox" 0 "$fill" "$op"
+    rect "${pre}top" $((ox + R)) 0 $E "$R" "$fill" "$op"
+    corner "${pre}topright" $((ox + R + E)) 0 "$fill" "$op"
+    rect "${pre}left" "$ox" "$R" "$R" $E "$fill" "$op"
+    rect "${pre}center" $((ox + R)) "$R" $E $E "$fill" "$op"
+    rect "${pre}right" $((ox + R + E)) "$R" "$R" $E "$fill" "$op"
+    corner "${pre}bottomleft" "$ox" $((R + E)) "$fill" "$op"
+    rect "${pre}bottom" $((ox + R)) $((R + E)) $E "$R" "$fill" "$op"
+    corner "${pre}bottomright" $((ox + R + E)) $((R + E)) "$fill" "$op"
+  }
+  {
+    printf '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%s" height="%s" viewBox="0 0 %s %s">\n' $((HX + 20)) $((SY + G + 10)) $((HX + 20)) $((SY + G + 10))
+    printf '<defs>\n'
+    printf '<linearGradient id="gv" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity="%s"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>\n' "$SA"
+    printf '<linearGradient id="gvd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="%s"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>\n' "$SA"
+    printf '<linearGradient id="gh" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity="%s"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>\n' "$SA"
+    printf '<linearGradient id="ghr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="%s"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>\n' "$SA"
+    for c in "tl 1 1" "tr 0 1" "bl 1 0" "br 0 0"; do
+      set -- $c
+      printf '<radialGradient id="g%s" cx="%s" cy="%s" r="1" fx="%s" fy="%s"><stop offset="0" stop-color="#000" stop-opacity="%s"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>\n' "$1" "$2" "$3" "$2" "$3" "$SA"
+    done
+    printf '</defs>\n'
+    block "" 0 "#10131a" "$A"
+    block "mask-" "$MX" "#000000" 1
+    [ "$S" -gt 0 ] && {
+    printf '<rect id="shadow-topleft" x="0" y="%s" width="%s" height="%s" fill="url(#gtl)"/>\n' "$SY" "$S" "$S"
+    printf '<rect id="shadow-top" x="%s" y="%s" width="%s" height="%s" fill="url(#gv)"/>\n' "$S" "$SY" $E "$S"
+    printf '<rect id="shadow-topright" x="%s" y="%s" width="%s" height="%s" fill="url(#gtr)"/>\n' $((S + E)) "$SY" "$S" "$S"
+    printf '<rect id="shadow-left" x="0" y="%s" width="%s" height="%s" fill="url(#gh)"/>\n' $((SY + S)) "$S" $E
+    printf '<rect id="shadow-right" x="%s" y="%s" width="%s" height="%s" fill="url(#ghr)"/>\n' $((S + E)) $((SY + S)) "$S" $E
+    printf '<rect id="shadow-bottomleft" x="0" y="%s" width="%s" height="%s" fill="url(#gbl)"/>\n' $((SY + S + E)) "$S" "$S"
+    printf '<rect id="shadow-bottom" x="%s" y="%s" width="%s" height="%s" fill="url(#gvd)"/>\n' "$S" $((SY + S + E)) $E "$S"
+    printf '<rect id="shadow-bottomright" x="%s" y="%s" width="%s" height="%s" fill="url(#gbr)"/>\n' $((S + E)) $((SY + S + E)) "$S" "$S"
+    }
+    printf '<rect id="hint-top-margin" x="%s" y="0" width="2" height="%s" fill="none"/>\n' "$HX" "$M"
+    printf '<rect id="hint-bottom-margin" x="%s" y="0" width="2" height="%s" fill="none"/>\n' $((HX + 4)) "$M"
+    printf '<rect id="hint-left-margin" x="%s" y="%s" width="%s" height="2" fill="none"/>\n' "$HX" $((M + 10)) "$M"
+    printf '<rect id="hint-right-margin" x="%s" y="%s" width="%s" height="2" fill="none"/>\n' "$HX" $((M + 16)) "$M"
+    [ "$T" -gt 0 ] && {
+    printf '<rect id="thick-center" x="%s" y="%s" width="10" height="10" fill="#10131a" fill-opacity="%s"/>\n' $((HX + 8)) $((M + 24)) "$A"
+    printf '<rect id="thick-hint-top-margin" x="%s" y="0" width="2" height="%s" fill="none"/>\n' $((HX + 8)) "$T"
+    printf '<rect id="thick-hint-bottom-margin" x="%s" y="0" width="2" height="%s" fill="none"/>\n' $((HX + 12)) "$T"
+    printf '<rect id="thick-hint-left-margin" x="%s" y="%s" width="%s" height="2" fill="none"/>\n' "$HX" $((M + 40)) "$T"
+    printf '<rect id="thick-hint-right-margin" x="%s" y="%s" width="%s" height="2" fill="none"/>\n' "$HX" $((M + 46)) "$T"
+    }
+    printf '</svg>\n'
+  } > "$f"
+}
+
+generate() {
+  prev=$1 r=$2
+  rm -rf "$D"; mkdir -p "$D/widgets" "$D/dialogs" "$D/solid/widgets" "$D/solid/dialogs"
+  dr=$(( r / 2 )); [ "$dr" -lt 3 ] && dr=3; [ "$dr" -gt 8 ] && dr=8
+  frame "$D/widgets/panel-background.svg" 4 4 0.01 0 0 8
+  frame "$D/dialogs/background.svg" "$dr" 8 0.03 0 0
+  frame "$D/widgets/tooltip.svg" 4 4 0.03 0 0
+  cp "$D/widgets/panel-background.svg" "$D/widgets/tooltip.svg" "$D/solid/widgets/"
+  cp "$D/dialogs/background.svg" "$D/solid/dialogs/"
+  cat > "$D/metadata.json" <<EOF
+{
+    "KPlugin": {
+        "Authors": [{"Email": "dev@kwickos.org", "Name": "KwickOS"}],
+        "Description": "Clear panels, dialogs and tooltips for the KwickOS Liquid Glass effect, on top of $prev",
+        "Id": "$NAME",
+        "License": "MIT",
+        "Name": "KwickOS Liquid Glass",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "5.0"
+}
+EOF
+  cat > "$D/plasmarc" <<EOF
+[Settings]
+FallbackTheme=$prev
+FallbackImageSet=$prev
+
+[ContrastEffect]
+enabled=false
+
+[BlurBehindEffect]
+enabled=true
+
+[AdaptiveTransparency]
+enabled=false
+EOF
+}
+
+apply() {
+  if command -v plasma-apply-desktoptheme >/dev/null 2>&1 && [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+    plasma-apply-desktoptheme "$1" >/dev/null 2>&1 || kw plasmarc Theme name "$1"
+  else
+    kw plasmarc Theme name "$1"
+  fi
+}
+
+cur=$(kr plasmarc Theme name default)
+case $mode in
+  on)
+    if [ "$cur" != "$NAME" ]; then printf '%s\n' "$cur" > "$prevf"; fi
+    prev=$(cat "$prevf" 2>/dev/null || echo default)
+    [ -z "$prev" ] || [ "$prev" = "$NAME" ] && prev=default
+    generate "$prev" "$(kr kwinrc Round-Corners Size 12)"
+    if [ "$cur" = "$NAME" ]; then apply "$prev"; fi
+    apply "$NAME"
+    mo=$(kr breezerc Style MenuOpacity 100)
+    [ -f "$cfg/liquidglass.menuopacity" ] || printf '%s\n' "$mo" > "$cfg/liquidglass.menuopacity"
+    kw breezerc Style MenuOpacity 45
+    echo on ;;
+  off)
+    prev=$(cat "$prevf" 2>/dev/null || echo default)
+    [ -z "$prev" ] || [ "$prev" = "$NAME" ] && prev=default
+    [ "$cur" = "$NAME" ] && apply "$prev"
+    rm -rf "$D"
+    if [ -f "$cfg/liquidglass.menuopacity" ]; then
+      kw breezerc Style MenuOpacity "$(cat "$cfg/liquidglass.menuopacity")"
+      rm -f "$cfg/liquidglass.menuopacity"
+    fi
+    echo off ;;
+  refresh)
+    [ "$cur" = "$NAME" ] || { echo off; exit 0; }
+    prev=$(cat "$prevf" 2>/dev/null || echo default)
+    generate "$prev" "$(kr kwinrc Round-Corners Size 12)"
+    apply "$prev"; apply "$NAME"
+    echo on ;;
+  *) [ "$cur" = "$NAME" ] && echo on || echo off ;;
+esac

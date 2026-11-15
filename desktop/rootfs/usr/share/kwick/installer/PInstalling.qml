@@ -190,7 +190,7 @@ PageFrame {
             Layout.fillWidth: true
             implicitHeight: Math.max(140, Math.min(240, p.height - 420))
             radius: 10
-            color: Theme.dark ? "#141417" : "#fafafc"
+            color: Theme.dark ? "#141414" : "#fafafc"
             border.width: 1
             border.color: Theme.line
 

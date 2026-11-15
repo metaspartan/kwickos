@@ -3,6 +3,8 @@ color-scheme='prefer-dark'
 icon-theme='KwickOS'
 font-name='Inter 10'
 monospace-font-name='JetBrains Mono 10'
+cursor-theme='breeze_cursors'
+cursor-size=24
 enable-hot-corners=false
 
 [org.gnome.desktop.wm.preferences]

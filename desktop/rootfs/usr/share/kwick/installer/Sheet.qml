@@ -39,7 +39,7 @@ FocusScope {
         height: col.implicitHeight + 40
         anchors.centerIn: parent
         radius: 16
-        color: Theme.dark ? "#2e2e33" : "#f6f6f8"
+        color: Theme.dark ? "#323232" : "#f6f6f8"
         border.width: 1
         border.color: Theme.dark ? "#26ffffff" : "#1a000000"
         opacity: sh.shown ? 1 : 0
