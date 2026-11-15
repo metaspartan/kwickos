@@ -7,7 +7,9 @@ case "$TERM" in
 	xterm*|screen*|tmux*|linux|vt100|vt220|alacritty|foot*|kitty*|wezterm) color=1 ;;
 	*) color= ;;
 esac
-if [ -n "$color" ]; then
+if [ -r /usr/share/kwick/shell/prompt.sh ]; then
+	. /usr/share/kwick/shell/prompt.sh
+elif [ -n "$color" ]; then
 	if [ "$(id -u)" -eq 0 ]; then
 		PS1='\[\e[1;31m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
 	else

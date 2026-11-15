@@ -6,7 +6,7 @@ vmlogin $S >/dev/null
 sh2 $S "wget -qO /usr/local/bin/asuser http://10.0.2.2:8080/x/asuser.sh" 30 >/dev/null
 RUN="su kwick -s /bin/sh -c"
 for n in 1 2 3; do
-  sh2 $S "$RUN \"XDG_CURRENT_DESKTOP=$DESK asuser setsid foot >/dev/null 2>&1 &\"" 30 >/dev/null
+  sh2 $S "$RUN \"XDG_CURRENT_DESKTOP=$DESK asuser env SHELL=/bin/bash setsid foot >/dev/null 2>&1 &\"" 30 >/dev/null
   sleep 3
 done
 for L in macos windows linux; do

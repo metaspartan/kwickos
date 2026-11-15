@@ -2,7 +2,13 @@ case $- in
 *i*)
 	kc=
 	if [ -n "${TERM:-}" ] && [ "$TERM" != dumb ] && [ -z "${NO_COLOR:-}" ]; then kc=1; fi
-	if [ -n "$kc" ]; then
+	if [ -r /usr/share/kwick/shell/prompt.sh ]; then
+		. /usr/share/kwick/shell/prompt.sh
+		if [ -n "$kc" ]; then
+			alias ls='ls --color=auto'
+			alias grep='grep --color=auto'
+		fi
+	elif [ -n "$kc" ]; then
 		if [ "$(id -u)" -eq 0 ]; then ku='1;31'; else ku='1;32'; fi
 		PS1='\[\e['$ku'm\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
 		alias ls='ls --color=auto'

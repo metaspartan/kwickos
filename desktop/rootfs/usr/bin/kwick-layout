@@ -209,6 +209,8 @@ files() {
   mkdir -p "$D/kxmlgui5/dolphin" "$D/locale/en_KW/LC_MESSAGES"
   cp "$F/$want/dolphinrc" "${XDG_CONFIG_HOME:-$HOME/.config}/dolphinrc"
   cp "$F/$want/dolphinui.rc" "$D/kxmlgui5/dolphin/dolphinui.rc"
+  S=${XDG_STATE_HOME:-$HOME/.local/state}; mkdir -p "$S"
+  cp "$F/$want/dolphinstaterc" "$S/dolphinstaterc"
   sed "s|@HOME@|$HOME|g" "$F/common/user-places.xbel" > "$D/user-places.xbel"
   cp "$F/$want/kio6.mo" "$D/locale/en_KW/LC_MESSAGES/kio6.mo" 2>/dev/null || rm -f "$D/locale/en_KW/LC_MESSAGES/kio6.mo"
   mkdir -p "$D/dolphin/view_properties/global"

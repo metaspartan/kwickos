@@ -109,7 +109,7 @@
 .kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:ltr:first-child,
 .kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:ltr:last-child,
 .kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:ltr:last-child {
-  padding: 3px 13px 7px 13px;
+  padding: 8px 13px 3px 13px;
   border-radius: 6px;
 }
 
@@ -117,4 +117,41 @@
 .kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-separator {
   margin: 16px 6px 24px 6px;
   width: 1px;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app.running .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile.running .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app.running .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile.running .overview-icon {
+  background-color: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile .overview-icon {
+  padding-top: 1px;
+  padding-bottom: 12px;
 }

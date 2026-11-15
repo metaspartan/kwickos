@@ -204,6 +204,7 @@ G["clipboard"] = G["paste"]
 G["font2"] = G["font"]
 G["recent"] = C(12, 12, 9) + P("M12 7v5l3 2.4")
 G["tools"] = G["wrench"]
+G["sliders"] = P("M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1") + C(15, 7, 2) + C(9, 12, 2) + C(17, 17, 2)
 G["pkg"] = P("M12 3l8.4 4.2v9.6L12 21l-8.4-4.2V7.2z") + P("M3.8 7.4L12 11.6l8.2-4.2M12 11.6V20.6")
 G["pencil"] = G["edit"]
 G["monitor2"] = R(3.4, 3.4, 11, 8, 2) + R(9.6, 12.6, 11, 8, 2)
@@ -539,7 +540,8 @@ def build():
         for d in os.listdir(os.path.join(OUT, "scalable")) if os.path.isdir(os.path.join(OUT, "scalable")) else []:
             shutil.rmtree(os.path.join(OUT, "scalable", d))
 
-    pref("preferences-system org.kde.systemsettings systemsettings kwick-settings preferences-other preferences-system-settings applications-system-settings", "gear", "gray")
+    pref("preferences-system kwick-settings preferences-other preferences-system-settings applications-system-settings", "gear", "gray")
+    pref("org.kde.systemsettings systemsettings", "sliders", "slate")
     pref("preferences-desktop org.kde.plasma.settings.open preferences-desktop-plasma preferences-desktop-personal", "desktop", "indigo")
     pref("preferences-desktop-wallpaper preferences-desktop-wallpaper-symbolic", "image", "teal")
     pref("preferences-desktop-theme-global systemsettings-quick-settings preferences-desktop-color preferences-desktop-theme preferences-desktop-plasma-theme preferences-desktop-theme-applications preferences-desktop-plasma preferences-desktop-theme-style preferences-desktop-appearance kcm_colors kcm_style kcm_lookandfeel", "palette", "violet")

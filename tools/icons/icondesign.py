@@ -97,6 +97,30 @@ def o_gear(tone, c1, c2, d):
     return defs, body, f'<path d="{g}" fill="S"/>'
 
 
+def o_sliders(tone, c1, c2, d):
+    defs = (
+        lg("o1", [(0, "#f7f8fb"), (1, "#c3c9d6")], d)
+        + lg("o2", [(0, "#6db8ff"), (1, "#1f66d8")])
+        + rg("o3", [(0, "#ffffff"), (1, "#d3d8e3")], 0.4, 0.3, 0.8)
+    )
+    rows = ((30, 62), (50, 34), (70, 52))
+    parts = ""
+    for y, x in rows:
+        parts += (
+            f'<rect x="24" y="{y - 2.5}" width="52" height="5" rx="2.5" fill="#8f98ab" fill-opacity="0.55"/>'
+            f'<rect x="24" y="{y - 2.5}" width="{x - 24}" height="5" rx="2.5" fill="url(#o2)"/>'
+            f'<circle cx="{x}" cy="{y}" r="8.2" fill="#000" fill-opacity="0.18" transform="translate(0 1.6)"/>'
+            f'<circle cx="{x}" cy="{y}" r="8" fill="url(#o3)"/>'
+            f'<circle cx="{x}" cy="{y}" r="8" fill="none" stroke="#7f889c" stroke-opacity="0.7" stroke-width="1"/>'
+        )
+    body = (
+        '<rect x="12" y="12" width="76" height="76" rx="16" fill="url(#o1)"/>'
+        '<rect x="12.5" y="12.5" width="75" height="75" rx="15.5" fill="none" stroke="#fff" stroke-opacity="0.9"/>'
+        + parts
+    )
+    return defs, body, '<rect x="12" y="12" width="76" height="76" rx="16" fill="S"/>'
+
+
 def o_editor(tone, c1, c2, d):
     defs = (
         lg("o1", [(0, "#ffffff"), (1, "#dfe6f2")])
@@ -329,7 +353,7 @@ OBJECTS = {
     "folder": o_folder, "folderfill": o_folder, "terminal": o_terminal, "gear": o_gear, "pencilpage": o_editor,
     "bag": o_bag, "image": o_photo, "book": o_book, "archive": o_archive, "screenshot": o_camera, "camera": o_camera,
     "calc": o_calc, "pulse": o_monitor, "display": o_display, "mail": o_mail, "calendar": o_calendar,
-    "music": o_music, "video": o_video, "search": o_search, "globe": o_globe,
+    "music": o_music, "video": o_video, "search": o_search, "globe": o_globe, "sliders": o_sliders,
 }
 
 
