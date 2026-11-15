@@ -7,7 +7,7 @@
 **A Linux distribution smaller and faster than Alpine that installs software like Debian, with an optional
 desktop that looks like macOS, Windows 11 or a Linux shell at the flip of a switch.**
 
-KwickOS is built from scratch on the latest stable kernel (7.3.x) with a **5.5 MB** base. It runs `apt install` against the
+KwickOS is built from scratch on the latest stable kernel (7.3.x) with a **6.2 MB** base. It runs `apt install` against the
 **unmodified Debian 13 "trixie" archive** (about 69,000 packages, glibc included), pulled in only when you install something that needs
 them. The same base boots as a container, a microVM, a cloud/VM disk or a live ISO on **amd64, arm64 and riscv64**.
 
@@ -45,12 +45,12 @@ Measured, details in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 | | Alpine 3.24.4 | **KwickOS** |
 |---|---:|---:|
-| container image (uncompressed / gzip) | 8.43 / 3.72 MB | **5.53 / 2.60 MB** |
-| memory of a `sh` in a container (anon + page tables) | 88 KiB | **56 KiB** |
-| VM boot to shell prompt (QEMU/KVM, live ISO, wall time) | 3.73 s | **1.17 s** |
-| guest boot time at shell (`/proc/uptime`) | 3.10 s | **0.75 s** (0.22 s as microVM) |
-| memory in use after boot | 69.7 MiB | **38.3 MiB** |
-| live ISO | 70 MB | **24 MB** |
+| container image (uncompressed / gzip) | 8.43 / 3.72 MB | **6.21 / 2.91 MB** |
+| memory of a `sh` in a container (anon + page tables) | 84-88 KiB | **56-60 KiB** |
+| VM boot to shell prompt (QEMU/KVM, live ISO, wall time) | 3.23 s | **1.04 s** |
+| guest boot time at shell (`/proc/uptime`) | 2.81 s | **0.66 s** (0.20 s as microVM) |
+| memory in use after boot | 66.1 MiB | **37.8 MiB** |
+| live ISO | 70 MB | **53 MB** (generic kernel and modules) |
 | packages available | ~20k (musl) | **~69k (Debian 13, glibc)** |
 
 Real software from the Debian archive passes a 31-package compatibility matrix (PostgreSQL 17, MariaDB 11.8, Docker, OpenJDK 21,
@@ -416,6 +416,42 @@ vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by de
 * `apk add <pkg>` works next to `apt`: Alpine (musl) and Debian (glibc) packages coexist, and the apk bootstrap is signature-verified.
   `tests/ecosystems.sh` checks that `apk add nodejs`, `apt install python3` and the official Bun installer work side by side.
 
+### kfetch
+
+`kfetch` prints a system summary with the K logo in the cyan-to-violet brand gradient, on both editions: OS and edition, kernel, host or
+board model, uptime, package counts (dpkg and apk), shell, init, terminal, CPU, GPU, memory, disk, local IP and, on the desktop, the
+session, layout and theme. It is a 6 KB POSIX shell script that runs under BusyBox `ash`, takes about 15 ms, reads `/proc` and `/sys`
+directly and skips whatever a machine does not have. `kfetch --small` is a compact version, `kfetch --json` prints one JSON object and
+`--no-logo` drops the logo. Colour is off when `NO_COLOR` is set and the logo is dropped when stdout is not a terminal. No `neofetch`
+or `fastfetch` symlinks are installed, because both names belong to Debian packages with different options.
+
+![kfetch](docs/img/kfetch.png)
+
+### Out of the box
+
+What the base can do before you install anything, and what is one `apt install` away. Sizes in the last column were measured
+on a fresh base and include the dependencies it lacks: the first Debian package pulls in glibc, about 16 MB, which every later package then shares.
+
+| need | in the base | with apt |
+|---|---|---|
+| network | DHCP and static IPv4 (`/etc/network/interfaces`, `ip`, `ifconfig`, `route`), IPv6 SLAAC and `udhcpc6`, DNS (`nslookup`, `/etc/resolv.conf`), `ping`, `ping6`, `traceroute`, `nc`, `telnet`, `netstat`, `brctl`, `rfkill`, NTP client (`ntpd`, `systemctl enable --now ntpd`) | `dnsutils` (`dig`, 44 MB), `iproute2` (`ss`), `tcpdump` (54 MB) |
+| Wi-Fi | `cfg80211`, `mac80211` and `iwlwifi` modules in the generic kernel, `rfkill` | `wpasupplicant` or `iwd` (20 MB), plus the card's firmware package (Debian's `non-free-firmware` component, which is not enabled by default) |
+| HTTPS downloads | `wget` with TLS (no certificate validation, see below) | `ca-certificates` (42 MB with its dependencies) and `curl` (60 MB) for validated TLS |
+| remote access | `nc`, `telnet`, `ssl_client` | `openssh-client` (61 MB), `openssh-server` (89 MB), `rsync` (28 MB) |
+| time zones and keymaps | `TZ=` with POSIX rules (`TZ=CET-1CEST,M3.5.0,M10.5.0/3`), clock via `hwclock` | `tzdata` (31 MB), `kbd` (18 MB) for `loadkeys` |
+| editors, pager, shell | `vi`, `less`, `ash` (history, line editing), `watch` | `nano` (21 MB), `bash` (fetched when something needs it) and `bash-completion` |
+| users and privilege | `adduser`, `addgroup`, `passwd`, `su`, `chpasswd` | `sudo` (51 MB) |
+| scheduling and logs | `crond`, `crontab`, `syslogd`, `logread`, `dmesg` | `rsyslog`, `logrotate` |
+| disks | `fdisk`, `mkfs.ext2`, `mkfs.vfat`, `mkswap`, `mount` (loop, CIFS; vfat, ext4, `ntfs3` and `exfat` in the kernel), `lsblk`, `blkid`, `losetup`, `fsck` | `e2fsprogs` (19 MB), `parted` (21 MB), `exfatprogs` (17 MB), `ntfs-3g` (57 MB), `xfsprogs`, `btrfs-progs` |
+| archives | `tar`, `gzip`, `bzip2`, `xz`, `unzip`, `cpio` | `zstd` (23 MB), `p7zip` |
+| hardware and processes | `lspci`, `lsusb`, `lsmod`, `modprobe`, `top`, `ps`, `free`, `lsof`, `kfetch` | `htop` (18 MB), `pciutils`, `usbutils`, `strace` |
+| containers | `unshare`, `nsenter`, `chroot` and a kernel with namespaces and cgroups | `podman` (197 MB), `docker.io` (see the compatibility matrix) |
+| installer | `kwick-install`, `kwick-installer` | fetches `fdisk`, `e2fsprogs`, GRUB and so on when needed |
+
+`wget` in the base uses BusyBox's built-in TLS client, which encrypts but does not validate certificates; install `ca-certificates` and
+`curl` when that matters. The base has no `sudo`: log in as root or install it. Enabling anything at boot is left to you, so the base
+starts only `networking` and `syslog`.
+
 ### Homebrew (on demand)
 
 `kwick-brew install` sets up [Homebrew](https://brew.sh) (Linuxbrew) at `/home/linuxbrew/.linuxbrew` using the official installer. Nothing
@@ -482,3 +518,6 @@ The kernel version is pinned in [`KERNEL_VERSION`](KERNEL_VERSION); the build ve
 ## License
 
 KwickOS sources are MIT-licensed. Images also contain GPL-2.0 software (Linux, BusyBox) and others; see [LICENSE](LICENSE).
+The native KWin effect plugins link against KWin (GPL-2.0-or-later): the Flip plugin's source in `src/kwin-flip` is MIT, and its compiled
+`kwick_flip.so` (like the third-party KDE-Rounded-Corners plugin) is distributed under the GPL-2.0-or-later, with a note in
+`/usr/share/doc/kwick-flip/copyright`.

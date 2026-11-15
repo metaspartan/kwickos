@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KwickOS</title>
-<meta name="description" content="KwickOS: smaller than Alpine, installs like Debian. A 5.5 MB Linux for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
+<meta name="description" content="KwickOS: smaller than Alpine, installs like Debian. A 6.2 MB Linux for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
 <meta name="theme-color" content="#070a1a">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="KwickOS">
-<meta property="og:description" content="Smaller than Alpine. Installs like Debian. A 5.5 MB Linux for every architecture.">
+<meta property="og:description" content="Smaller than Alpine. Installs like Debian. A 6.2 MB Linux for every architecture.">
 <meta property="og:image" content="img/desktop.png">
 <link rel="icon" href="img/kwickos-logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,7 +47,7 @@
     <img class="hero-logo" src="img/kwickos-logo.svg" alt="KwickOS logo" width="120" height="139">
     <h1>KwickOS</h1>
     <p class="tagline">Smaller than Alpine. Installs like Debian.</p>
-    <p class="lede">A 5.5&nbsp;MB Linux for every architecture. <code>apt</code> pulls straight from Debian&nbsp;13, Alpine&rsquo;s <code>apk</code> works right next to it, and an optional desktop looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
+    <p class="lede">A 6.2&nbsp;MB Linux for every architecture. <code>apt</code> pulls straight from Debian&nbsp;13, Alpine&rsquo;s <code>apk</code> works right next to it, and an optional desktop looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso">Download desktop ISO</a>
       <a class="btn btn-ghost" href="#download">All downloads <span aria-hidden="true">&rarr;</span></a>
@@ -64,10 +64,10 @@
 <section class="stats" aria-label="Key numbers">
   <div class="wrap">
     <ul class="stat-grid">
-      <li class="reveal"><strong>5.5<small>&nbsp;MB</small></strong><span>base system</span></li>
-      <li class="reveal"><strong>1.17<small>&nbsp;s</small></strong><span>VM boot to shell</span></li>
-      <li class="reveal"><strong>38.3<small>&nbsp;MiB</small></strong><span>memory after boot</span></li>
-      <li class="reveal"><strong>24<small>&nbsp;MB</small></strong><span>live ISO</span></li>
+      <li class="reveal"><strong>6.2<small>&nbsp;MB</small></strong><span>base system</span></li>
+      <li class="reveal"><strong>1.04<small>&nbsp;s</small></strong><span>VM boot to shell</span></li>
+      <li class="reveal"><strong>37.8<small>&nbsp;MiB</small></strong><span>memory after boot</span></li>
+      <li class="reveal"><strong>53<small>&nbsp;MB</small></strong><span>live ISO</span></li>
       <li class="reveal"><strong>~69k</strong><span>Debian 13 packages, plus Alpine apk</span></li>
     </ul>
   </div>
@@ -338,6 +338,10 @@
         <h3>NAS ready</h3>
         <p>Prebuilt OpenZFS modules for every KwickOS kernel, a mergerfs and SnapRAID parity array, SMB and NFS shares, iSCSI, SMART, UPS, Docker and VMs, managed from Cockpit or <code>kwick-storage</code>.</p>
       </article>
+      <article class="card reveal">
+        <h3>kfetch</h3>
+        <p>A 6&nbsp;KB system summary in plain shell on both editions, with the K logo, GPU, packages, init, disk and IP. <code>kfetch --json</code> and <code>--small</code> included, about 15&nbsp;ms.</p>
+      </article>
     </div>
   </div>
 </section>
@@ -387,12 +391,12 @@
         <caption>KwickOS against Alpine 3.24.4</caption>
         <thead><tr><th scope="col"></th><th scope="col">Alpine</th><th scope="col">KwickOS</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Container image, uncompressed / gzip</th><td>8.43 / 3.72 MB</td><td>5.53 / 2.60 MB</td></tr>
-          <tr><th scope="row">Memory of a <code>sh</code> in a container</th><td>88 KiB</td><td>56 KiB</td></tr>
-          <tr><th scope="row">VM boot to shell prompt</th><td>3.73 s</td><td>1.17 s</td></tr>
-          <tr><th scope="row">Guest boot time at shell</th><td>3.10 s</td><td>0.75 s <small>(0.22 s as microVM)</small></td></tr>
-          <tr><th scope="row">Memory in use after boot</th><td>69.7 MiB</td><td>38.3 MiB</td></tr>
-          <tr><th scope="row">Live ISO</th><td>70 MB</td><td>24 MB</td></tr>
+          <tr><th scope="row">Container image, uncompressed / gzip</th><td>8.43 / 3.72 MB</td><td>6.21 / 2.91 MB</td></tr>
+          <tr><th scope="row">Memory of a <code>sh</code> in a container</th><td>84-88 KiB</td><td>56-60 KiB</td></tr>
+          <tr><th scope="row">VM boot to shell prompt</th><td>3.23 s</td><td>1.04 s</td></tr>
+          <tr><th scope="row">Guest boot time at shell</th><td>2.81 s</td><td>0.66 s <small>(0.20 s as microVM)</small></td></tr>
+          <tr><th scope="row">Memory in use after boot</th><td>66.1 MiB</td><td>37.8 MiB</td></tr>
+          <tr><th scope="row">Live ISO</th><td>70 MB</td><td>53 MB</td></tr>
           <tr><th scope="row">Packages available</th><td>~20k (musl)</td><td>~69k (Debian 13, glibc)</td></tr>
         </tbody>
       </table>
