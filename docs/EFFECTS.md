@@ -70,13 +70,20 @@ tooltips and OSDs, and optionally under window title bars.
 How it is drawn, per glass surface:
 
 * The shape is the bounding box of the surface's blur region (the mask Plasma and Breeze already send to KWin), drawn as a
-  rounded rectangle with a signed distance field. The radii follow Tahoe and scale with the window corner radius setting (26 px
-  by default in the macOS layout): the dock is 0.36 of its height (26 px on the 72 px dock), menus 11 px, applet popups 18 px,
-  notifications 20 px, OSDs and the dock's name labels are capsules. A bar that spans the screen, like the menu bar, only gets a
-  bevel on its free edge and a fainter rim.
+  rounded rectangle with a signed distance field. The dock is 0.36 of its height (26 px on the 72 px dock), menus 10.5 px,
+  applet popups 16 px, notifications 20 px, OSDs and the dock's name labels are capsules; they scale a little with the window
+  corner radius setting. A bar that spans the screen, like the menu bar, only gets a bevel on its free edge and a fainter rim.
+* Menus, popups, notifications and tooltips use a neutral material: the colours behind are desaturated and darkened so the glass
+  refracts the content without tinting itself with it. The dock keeps the more saturated, clearer look.
 * Menus, popups, notifications, labels and OSDs are drawn offscreen and cut to that rounded shape with an anti-aliased mask, so
   the app's own square or small-radius background corners never show outside the glass.
 * Floating surfaces get a soft contact shadow drawn by the same pass, where the window has room for it.
+* Ordinary windows are rounded by the same offscreen pass (it replaces the rounded-corners effect while Liquid Glass is on): the
+  window is cut to the corner radius from Settings (10 px by default in the macOS layout), gets a 1 px white inner hairline (13% on
+  the active window, 7% on others), and a soft drop shadow computed from the same rounded-rectangle distance field, offset down
+  (12 px active, 7 px inactive), so the shadow stays concentric with the corner at any radius. The window corners are taken out of
+  its opaque region so whatever is behind shows through. Windows with a blur region, like a translucent Konsole, get their blur
+  from the glass pass, cut to the same shape. Maximized and full-screen windows are left square.
 * The screen behind the surface is copied once and blurred with a dual-Kawase pyramid (3 or 4 levels at half resolution and below).
 * A fragment shader treats the rim as a convex glass bevel: the SDF gives the edge normal, a quarter-circle height profile gives the
   surface slope, and `refract()` with an index of 1.5 bends the view inward, so the content behind is pulled and magnified along the
@@ -103,16 +110,24 @@ toggle switch it by hand.
 While it is on, `kwick-effects` switches Plasma to a small generated desktop theme, `kwick-liquidglass` in
 `~/.local/share/plasma/desktoptheme`, that makes the panel, dialog and tooltip backgrounds nearly clear, falls back to your
 previous Plasma theme for everything else and turns the background contrast filter off. It also draws the menu bar item
-highlight as a translucent white rounded pill. Breeze menus get `MenuOpacity=45` so the glass shows through them. Switching
-Liquid Glass off restores the previous theme and menu opacity.
+highlight as a translucent white rounded pill. Breeze menus get `MenuOpacity=25` so the glass shows through them, and the
+translucency effect keeps menus opaque. Switching Liquid Glass off restores the previous theme and menu opacity.
+
+Menus are drawn by `KwickMac`, a small Qt widget style (`src/kwick-macstyle`, built by `scripts/mkmacstylepkg.sh`) that the macOS
+layout selects. It is a proxy over Breeze, so everything else keeps the Breeze look and the dark palette; it only replaces menu
+items: 22 px rows, a 5 px rounded accent highlight inset 5 px from the menu edge with white text and icons, 1 px separators
+inset 10 px at 12% white, right-aligned shortcuts in the secondary label colour, disabled items at 25%, 5 px top and bottom
+padding, checkmarks and submenu chevrons drawn as thin strokes. Kvantum was considered; a full Kvantum theme would restyle every
+widget and fight the palette, while the proxy changes menus only.
 
 Notification popups use a Tahoe-style card from `/usr/local/share/plasma/plasmoids/org.kde.plasma.notifications` (Plasma 6.3.6's
-notifications applet with a new popup delegate): the app icon on the left, a bold title with "now", the body in secondary grey,
-and a round close button that appears at the top left on hover.
+notifications applet with a new popup delegate): 344 px wide with a 20 px radius, a 32 px app icon on the left, the title in
+semibold, the body in the secondary label colour clamped to two lines, a "now" / "5m ago" timestamp at the top right, and a round
+close button that appears over the icon's corner on hover.
 
 Tuning lives in `kwinrc`, group `[Effect-kwick_liquidglass]`, values in percent: `Refraction` (60), `Blur` (50), `Dispersion` (35),
 `Specular` (70), `Tint` (100), `Style` (0 adaptive dark, 1 light, 2 clear), `TitleBars` (false, glass under translucent title
-bars), `Interactive` (true) and `Profile` (0; 1 logs the animated frame interval and the glass GPU time every 600 frames to the
+bars), `Interactive` (true), `Windows` (true, round and shadow ordinary windows) and `Profile` (0; 1 logs the animated frame interval and the glass GPU time every 600 frames to the
 KWin log, 2 does the same with the glass skipped so the plain blur effect draws instead, for a baseline). Apply
 changes with `qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwick_liquidglass`.
 

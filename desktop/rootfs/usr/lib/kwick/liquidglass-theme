@@ -124,7 +124,7 @@ generate() {
   mkdir -p "$D/widgets" "$D/dialogs" "$D/solid/widgets" "$D/solid/dialogs"
   dr=$(( r / 2 )); [ "$dr" -lt 3 ] && dr=3; [ "$dr" -gt 8 ] && dr=8
   frame "$D/widgets/panel-background.svg" 4 2 0.01 0 0 2
-  frame "$D/dialogs/background.svg" "$dr" 8 0.03 0 0
+  frame "$D/dialogs/background.svg" "$dr" 10 0.03 0 0
   frame "$D/widgets/tooltip.svg" 4 4 0.03 0 0
   menubar "$D/widgets/menubaritem.svg"
   cp "$D/widgets/panel-background.svg" "$D/widgets/tooltip.svg" "$D/solid/widgets/"
@@ -177,7 +177,7 @@ case $mode in
     apply "$NAME"
     mo=$(kr breezerc Style MenuOpacity 100)
     [ -f "$cfg/liquidglass.menuopacity" ] || printf '%s\n' "$mo" > "$cfg/liquidglass.menuopacity"
-    kw breezerc Style MenuOpacity 45
+    kw breezerc Style MenuOpacity 25
     echo on ;;
   off)
     prev=$(cat "$prevf" 2>/dev/null || echo default)

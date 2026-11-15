@@ -26,8 +26,8 @@ NotificationsApplet.NotificationWindow {
     // Maximum width the popup can take to not break out of the screen geometry.
     readonly property int availableWidth: globals.screenRect.width - globals.popupEdgeDistance * 2 - leftPadding - rightPadding
 
-    readonly property int minimumContentWidth: popupWidth
-    readonly property int maximumContentWidth: Math.min((availableWidth > 0 ? availableWidth : Number.MAX_VALUE), popupWidth * 3)
+    readonly property int minimumContentWidth: 344 - leftPadding - rightPadding
+    readonly property int maximumContentWidth: minimumContentWidth
 
     property alias modelInterface: notificationItem.modelInterface
 
@@ -99,10 +99,11 @@ NotificationsApplet.NotificationWindow {
         DraggableDelegate {
             anchors {
                 fill: parent
-                topMargin: modelInterface.closable || modelInterface.dismissable || modelInterface.configurable ? -notificationPopup.topPadding : 0
+                topMargin: 2
+                bottomMargin: 2
             }
-            leftPadding: 0
-            rightPadding: 0
+            leftPadding: 2
+            rightPadding: 2
             hoverEnabled: true
             draggable: notificationItem.notificationType != NotificationManager.Notifications.JobType
             onDismissRequested: popupNotificationsModel.close(popupNotificationsModel.index(index, 0))
@@ -176,7 +177,7 @@ NotificationsApplet.NotificationWindow {
                 Layout.preferredHeight: implicitHeight // Why is this necessary?
 
                 modelInterface {
-                    maximumLineCount: 8
+                    maximumLineCount: 2
                     bodyCursorShape: notificationPopup.hasDefaultAction ? Qt.PointingHandCursor : 0
 
                     popupLeftPadding: notificationPopup.leftPadding

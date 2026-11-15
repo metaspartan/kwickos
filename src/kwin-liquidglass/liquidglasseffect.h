@@ -56,6 +56,7 @@ private:
         Tooltip,
         Osd,
         Frame,
+        Window,
     };
 
     struct Pass
@@ -98,6 +99,9 @@ private:
         int levels = 3;
         float offset = 2.5f;
         float tint = 1.0f;
+        float sat = 1.32f;
+        float darkMin = 0.04f;
+        float darkMax = 0.30f;
     };
 
     void slotWindowAdded(EffectWindow *w);
@@ -113,6 +117,7 @@ private:
     Look lookFor(Kind kind) const;
     bool ensureShaders();
     bool ensurePasses(Render &render, const QSize &size, GLenum format, int levels);
+    bool roundable(EffectWindow *w) const;
     bool drawClipped(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w, Glass &glass, int mask, const QRegion &region, const WindowPaintData &data);
     bool paintGlass(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w, Glass &glass, const QRegion &region, const WindowPaintData &data);
 
@@ -140,6 +145,8 @@ private:
     bool m_interactive = true;
     bool m_profile = false;
     bool m_bypass = false;
+    bool m_roundWindows = true;
+    EffectWindow *m_lastActive = nullptr;
 
     void profileCollect(bool wait);
 

@@ -263,7 +263,7 @@ def win_buttons(kind, st):
     return f'{bg}<path d="{g}" stroke="{fg}" stroke-width="1" fill="none" stroke-linecap="square"/>'
 
 
-aurorae("KwickGlass", 34, 1, 26, ("#323232", 1), ("#282828", 1), ("#323232", 1),
+aurorae("KwickGlass", 34, 1, 10, ("#323232", 1), ("#282828", 1), ("#323232", 1),
         mac_buttons, 14, 14, 5, 7, "Center", grey(over(MAC["label"], MAC["window"])),
         grey(over(MAC["tertiary"], MAC["under"])), 28, shadow=(24, 36, 54, 0.40, 0.20))
 aurorae("KwickFluent", 32, 1, 8, ("#202020", 1), ("#202020", 1), ("#202020", 1),

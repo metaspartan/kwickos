@@ -24,8 +24,8 @@ QtObject {
     property var gaming: ({})
     property string loginShell: "zsh"
     property string accentName: "blue"
-    property int radius: 26
-    property int radiusDefault: 26
+    property int radius: 10
+    property int radiusDefault: 10
 
     property bool dockAvailable: false
     property bool dockFloatingSupported: false

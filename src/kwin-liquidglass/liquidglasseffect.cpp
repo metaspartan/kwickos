@@ -57,6 +57,16 @@ LiquidGlassEffect::LiquidGlassEffect()
     connect(effects, &EffectsHandler::mouseChanged, this, [this](const QPointF &pos) {
         slotMouseChanged(pos);
     });
+    connect(effects, &EffectsHandler::windowActivated, this, [this](EffectWindow *w) {
+        if (m_lastActive && m_windows.count(m_lastActive)) {
+            effects->addRepaint(m_lastActive->expandedGeometry().toAlignedRect());
+        }
+        if (w) {
+            effects->addRepaint(w->expandedGeometry().toAlignedRect());
+        }
+        m_lastActive = w;
+    });
+
     const auto stackingOrder = effects->stackingOrder();
     for (EffectWindow *window : stackingOrder) {
         slotWindowAdded(window);
@@ -104,6 +114,7 @@ void LiquidGlassEffect::reconfigure(ReconfigureFlags flags)
     m_style = std::clamp(group.readEntry("Style", 0), 0, 2);
     m_titleBars = group.readEntry("TitleBars", false);
     m_interactive = group.readEntry("Interactive", true);
+    m_roundWindows = group.readEntry("Windows", true);
     const int profile = group.readEntry("Profile", 0);
     m_profile = profile > 0;
     m_bypass = profile == 2;
@@ -165,6 +176,9 @@ LiquidGlassEffect::Kind LiquidGlassEffect::classify(EffectWindow *w) const
     if (m_titleBars && w->hasDecoration() && w->decorationHasAlpha() && !w->isFullScreen()) {
         return Kind::Frame;
     }
+    if (m_roundWindows && w->hasDecoration() && (w->isNormalWindow() || w->isDialog()) && !w->isFullScreen()) {
+        return Kind::Window;
+    }
     return Kind::None;
 }
 
@@ -198,6 +212,9 @@ void LiquidGlassEffect::slotWindowAdded(EffectWindow *w)
 
 void LiquidGlassEffect::slotWindowDeleted(EffectWindow *w)
 {
+    if (m_lastActive == w) {
+        m_lastActive = nullptr;
+    }
     if (auto it = m_windows.find(w); it != m_windows.end()) {
         effects->makeOpenGLContextCurrent();
         m_windows.erase(it);
@@ -260,7 +277,7 @@ void LiquidGlassEffect::updateWindow(EffectWindow *w)
         }
     }
 
-    if (content.has_value() || frame.has_value()) {
+    if (content.has_value() || frame.has_value() || kind == Kind::Window) {
         Glass &glass = m_windows[w];
         const bool changed = glass.kind != kind || glass.content != content || glass.frame != frame;
         glass.kind = kind;
@@ -321,23 +338,23 @@ double LiquidGlassEffect::radiusFor(EffectWindow *w, const Glass &glass, const Q
 {
     Q_UNUSED(w)
     const double cross = std::min(shape.width(), shape.height());
-    const double s = std::clamp(m_radius / 26.0, 0.0, 1.4);
+    const double s = std::clamp(m_radius / 10.0, 0.5, 1.3);
     double radius = 0.0;
     switch (glass.kind) {
     case Kind::Dock:
-        radius = cross * 0.36 * s;
+        radius = cross * 0.36 * std::clamp(s, 0.7, 1.2);
         break;
     case Kind::Bar:
         radius = 0.0;
         break;
     case Kind::Menu:
-        radius = 11.0 * std::clamp(s, 0.5, 1.2);
+        radius = 10.5 * std::clamp(s, 0.8, 1.2);
         break;
     case Kind::Popup:
-        radius = 18.0 * std::clamp(s, 0.5, 1.2);
+        radius = 16.0 * std::clamp(s, 0.8, 1.2);
         break;
     case Kind::Notification:
-        radius = 20.0 * std::clamp(s, 0.5, 1.2);
+        radius = 20.0 * std::clamp(s, 0.8, 1.2);
         break;
     case Kind::Osd:
         radius = cross / 2.0;
@@ -346,6 +363,7 @@ double LiquidGlassEffect::radiusFor(EffectWindow *w, const Glass &glass, const Q
         radius = std::min(cross / 2.0, 11.0);
         break;
     case Kind::Frame:
+    case Kind::Window:
     case Kind::None:
         radius = m_radius;
         break;
@@ -363,22 +381,25 @@ LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
         look = {0.55f, 0.6f, 10.0f, 3, 3.0f, 1.0f};
         break;
     case Kind::Menu:
-        look = {0.6f, 0.88f, 14.0f, 4, 3.2f, 1.1f};
+        look = {0.45f, 1.0f, 10.0f, 4, 3.4f, 1.0f, 0.38f, 0.56f, 0.68f};
         break;
     case Kind::Popup:
-        look = {0.75f, 0.85f, 18.0f, 4, 3.2f, 1.1f};
+        look = {0.6f, 1.0f, 14.0f, 4, 3.4f, 1.0f, 0.4f, 0.52f, 0.64f};
         break;
     case Kind::Notification:
-        look = {0.75f, 0.85f, 18.0f, 4, 3.2f, 1.1f};
+        look = {0.6f, 0.95f, 14.0f, 4, 3.2f, 1.0f, 0.35f, 0.5f, 0.62f};
         break;
     case Kind::Tooltip:
-        look = {0.5f, 0.75f, 9.0f, 3, 2.5f, 1.1f};
+        look = {0.5f, 0.95f, 9.0f, 3, 2.5f, 1.0f, 0.4f, 0.5f, 0.62f};
         break;
     case Kind::Osd:
-        look = {0.85f, 0.6f, 18.0f, 3, 3.0f, 1.0f};
+        look = {0.8f, 0.85f, 16.0f, 3, 3.0f, 1.0f, 0.45f, 0.46f, 0.6f};
         break;
     case Kind::Frame:
         look = {0.5f, 0.7f, 10.0f, 3, 3.0f, 1.0f};
+        break;
+    case Kind::Window:
+        look = {0.0f, 1.0f, 1.0f, 4, 3.2f, 0.0f, 1.0f, 0.0f, 0.0f};
         break;
     case Kind::None:
         break;
@@ -446,6 +467,17 @@ void LiquidGlassEffect::prePaintScreen(ScreenPrePaintData &data, std::chrono::mi
 void LiquidGlassEffect::prePaintWindow(EffectWindow *w, WindowPrePaintData &data, std::chrono::milliseconds presentTime)
 {
     effects->prePaintWindow(w, data, presentTime);
+
+    if (auto win = m_windows.find(w); win != m_windows.end() && win->second.kind == Kind::Window && m_radius > 0 && !data.opaque.isEmpty()) {
+        const QRect f = w->frameGeometry().toAlignedRect();
+        const int r = m_radius + 1;
+        QRegion corners;
+        corners += QRect(f.left(), f.top(), r, r);
+        corners += QRect(f.right() - r + 1, f.top(), r, r);
+        corners += QRect(f.left(), f.bottom() - r + 1, r, r);
+        corners += QRect(f.right() - r + 1, f.bottom() - r + 1, r, r);
+        data.opaque -= corners;
+    }
 
     const QRegion oldOpaque = data.opaque;
     if (data.opaque.intersects(m_currentGlass)) {
@@ -625,7 +657,7 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     vbo->reset();
     vbo->setAttribLayout(std::span(GLVertexBuffer::GLVertex2DLayout), sizeof(GLVertex2D));
 
-    const int shadowPad = kind == Kind::Bar || kind == Kind::Frame ? 1 : int(std::ceil(14 * scale));
+    const int shadowPad = kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 1 : int(std::ceil(14 * scale));
     const QRect drawRect = snapToPixelGrid(scaledRect(shape, scale)).adjusted(-shadowPad, -shadowPad, shadowPad, shadowPad) & device;
     if (drawRect.isEmpty()) {
         return true;
@@ -755,15 +787,17 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     shader->setUniform("uBevel", float(look.bevel * scale));
     shader->setUniform("uRefract", look.refract);
     shader->setUniform("uFrost", look.frost);
-    shader->setUniform("uDisperse", float(m_dispersion));
-    shader->setUniform("uSpec", float(kind == Kind::Bar ? m_specular * 0.35 : m_specular));
+    shader->setUniform("uDisperse", float(kind == Kind::Window ? 0.0 : m_dispersion));
+    shader->setUniform("uSpec", float(kind == Kind::Window ? 0.0 : (kind == Kind::Bar ? m_specular * 0.35 : m_specular)));
+    shader->setUniform("uSat", look.sat);
+    shader->setUniform("uDark", QVector2D(look.darkMin, look.darkMax));
     shader->setUniform("uTint", look.tint);
     shader->setUniform("uStyle", float(m_style));
     shader->setUniform("uOpacity", opacity);
     shader->setUniform("uScale", float(scale));
     shader->setUniform("uLight", light);
-    shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame ? 0.0f : 0.32f);
-    shader->setUniform("uPointer",QVector3D(float(pointer.x()), float(pointer.y()), float(m_interactive ? glass.hover : 0.0)));
+    shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 0.0f : 0.32f);
+    shader->setUniform("uPointer",QVector3D(float(pointer.x()), float(pointer.y()), float(m_interactive && kind != Kind::Window ? glass.hover : 0.0)));
 
     glActiveTexture(GL_TEXTURE2);
     render.passes[last].texture->bind();
@@ -837,11 +871,36 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
         painted = paintGlass(renderTarget, viewport, w, it->second, region, data);
     }
     const Kind kind = it->second.kind;
+    if (kind == Kind::Window) {
+        if (roundable(w)) {
+            it->second.clipShape = w->frameGeometry();
+            it->second.clipRadius = m_radius;
+            if (drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
+                return;
+            }
+        }
+        effects->drawWindow(renderTarget, viewport, w, painted ? (mask | PAINT_WINDOW_TRANSFORMED) : mask, region, data);
+        return;
+    }
     const bool clipKind = kind == Kind::Menu || kind == Kind::Popup || kind == Kind::Notification || kind == Kind::Osd || kind == Kind::Tooltip;
     if (painted && clipKind && it->second.clipRadius > 0.5 && drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
         return;
     }
     effects->drawWindow(renderTarget, viewport, w, painted ? (mask | PAINT_WINDOW_TRANSFORMED) : mask, region, data);
+}
+
+bool LiquidGlassEffect::roundable(EffectWindow *w) const
+{
+    if (w->isFullScreen()) {
+        return false;
+    }
+    const QRectF frame = w->frameGeometry();
+    const QRectF area = effects->clientArea(MaximizeArea, w);
+    if (frame.width() >= area.width() - 1.0 && frame.height() >= area.height() - 1.0) {
+        return false;
+    }
+    const QRectF expanded = w->expandedGeometry();
+    return expanded.width() > frame.width() + 4.0 && expanded.height() > frame.height() + 4.0;
 }
 
 bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w, Glass &glass, int mask, const QRegion &region, const WindowPaintData &data)
@@ -919,6 +978,11 @@ bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const Rend
     shader->setUniform("uTex", 0);
     shader->setUniform("uRect", QVector4D(float(shapeDevice.center().x()), float(shapeDevice.center().y()), float(shapeDevice.width() / 2.0), float(shapeDevice.height() / 2.0)));
     shader->setUniform("uRadius", float(glass.clipRadius * scale));
+    const bool window = glass.kind == Kind::Window;
+    const bool active = w == effects->activeWindow();
+    shader->setUniform("uShadow", window ? QVector3D(active ? 0.42f : 0.22f, float((active ? 12.0 : 7.0) * scale), float((active ? 15.0 : 10.0) * scale)) : QVector3D(0.0f, 0.0f, 1.0f));
+    shader->setUniform("uStroke", window ? (active ? 0.13f : 0.07f) : 0.0f);
+    shader->setUniform("uScale", float(scale));
 
     const QRegion logicalClip = region == infiniteRegion() ? QRegion(geometry.translated(shift).toAlignedRect()) : region;
     const QRegion clipRegion = viewport.mapToRenderTarget(logicalClip);

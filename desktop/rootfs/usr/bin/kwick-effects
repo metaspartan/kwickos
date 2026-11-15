@@ -107,9 +107,10 @@ glass_ok() { ls /usr/lib/*/qt6/plugins/kwin/effects/plugins/kwick_liquidglass.so
 glass_theme() { [ -x /usr/lib/kwick/liquidglass-theme ] && /usr/lib/kwick/liquidglass-theme "$1" >/dev/null 2>&1; return 0; }
 glass() {
   if [ "$1" = 1 ] && glass_ok && [ "$(gl)" = gpu ]; then
-    pl blur 1; pl kwick_liquidglass 1; glass_theme on
+    pl blur 1; pl kwick_liquidglass 1; pl kwin4_effect_shapecorners 0; glass_theme on
+    for k in Menus DropdownMenus PopupMenus; do kw kwinrc Effect-translucency $k 100; done
   else
-    pl kwick_liquidglass 0; glass_theme off
+    pl kwick_liquidglass 0; [ -n "$(ls /usr/lib/*/qt6/plugins/kwin/effects/plugins/kwin4_effect_shapecorners.so 2>/dev/null)" ] && pl kwin4_effect_shapecorners 1; glass_theme off
   fi
   return 0
 }
@@ -228,7 +229,7 @@ preset_kde() {
             kw kwinrc Effect-blur NoiseStrength 4
             kw kwinrc Effect-translucency Dialogs 92
             kw kwinrc Effect-translucency Inactive 88
-            kw kwinrc Effect-translucency Menus 95
+            isplug kwick_liquidglass false || kw kwinrc Effect-translucency Menus 95
             kw kwinrc Effect-diminactive Strength 22 ;;
   esac
   [ "$1" != full ] && { kw kwinrc Effect-blur BlurStrength 7; kw kwinrc Effect-blur NoiseStrength 2; }

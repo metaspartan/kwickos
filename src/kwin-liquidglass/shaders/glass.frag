@@ -19,6 +19,8 @@ uniform float uScale;
 uniform vec2 uLight;
 uniform vec3 uPointer;
 uniform float uShadow;
+uniform float uSat;
+uniform vec2 uDark;
 
 in vec2 vUv;
 
@@ -101,7 +103,7 @@ void main()
 
     float frost = uFrost * mix(0.3, 1.0, smoothstep(0.0, 0.7, x));
     vec3 col = mix(sharp, soft, frost);
-    col = max(mix(vec3(luma(col)), col, 1.32), vec3(0.0));
+    col = max(mix(vec3(luma(col)), col, uSat), vec3(0.0));
 
     vec2 sc = uShape.xy;
     vec2 sh = uShape.zw;
@@ -111,7 +113,7 @@ void main()
     float m = mix(luma(m3), luma(soft), 0.35);
 
     if (uStyle < 0.5) {
-        float darken = uTint * mix(0.04, 0.30, smoothstep(0.3, 0.92, m));
+        float darken = uTint * mix(uDark.x, uDark.y, smoothstep(0.3, 0.92, m));
         float lift = uTint * (1.0 - smoothstep(0.03, 0.25, m)) * 0.08;
         col = mix(col, vec3(0.05, 0.055, 0.07), clamp(darken, 0.0, 0.9)) + vec3(lift);
     } else if (uStyle < 1.5) {

@@ -4,7 +4,7 @@ usage() {
 usage: kwick-layout [macos|windows|linux]
   with a name: apply that layout to the running session and remember it for new logins
   without:     print the current layout
-usage: kwick-layout radius [0-32|default]
+usage: kwick-layout radius [0-24|default]
   set the window corner radius for the current layout, or print "current default"
 USAGE
 }
@@ -25,9 +25,9 @@ kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
 icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
 
-defrad() { if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprdef "$@"; return; fi; case ${1:-$want} in macos) echo 26 ;; *) echo 8 ;; esac; }
+defrad() { if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprdef "$@"; return; fi; case ${1:-$want} in macos) echo 10 ;; *) echo 8 ;; esac; }
 
-hyprdef() { case ${1:-$want} in macos) echo 26 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
+hyprdef() { case ${1:-$want} in macos) echo 10 ;; windows) echo 8 ;; *) echo 6 ;; esac; }
 
 curradius() {
   r=$(cat "$cfg/radius" 2>/dev/null)
@@ -148,6 +148,7 @@ kde() {
   kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals Icons Theme "$ICO"
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
+  kw kdeglobals KDE widgetStyle "$(if [ "$want" = macos ] && ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then echo KwickMac; else echo Breeze; fi)"
   kw kdeglobals KDE DefaultDarkLookAndFeel "org.kwickos.$want"
   kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
@@ -176,7 +177,12 @@ kde() {
 corners() {
   rad=$(curradius); [ -n "$rad" ] || rad=$(defrad)
   g=Round-Corners
-  kw kwinrc Plugins kwin4_effect_shapecornersEnabled true
+  if [ "$(kreadconfig6 --file kwinrc --group Plugins --key kwick_liquidglassEnabled --default false)" = true ]; then
+    kw kwinrc Plugins kwin4_effect_shapecornersEnabled false
+    qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_shapecorners >/dev/null 2>&1 || true
+  else
+    kw kwinrc Plugins kwin4_effect_shapecornersEnabled true
+  fi
   kw kwinrc $g Size "$rad"
   kw kwinrc $g InactiveCornerRadius "$rad"
   kw kwinrc $g OutlineThickness 1
@@ -296,7 +302,7 @@ radius_main() {
     query) r=$(curradius); echo "${r:-$(defrad)} $(defrad)"; return 0 ;;
     default) rm -f "$cfg/radius" ;;
     ''|*[!0-9]*) usage >&2; return 1 ;;
-    *) [ "$rcmd" -le 32 ] || { usage >&2; return 1; }; echo "$rcmd" > "$cfg/radius" ;;
+    *) [ "$rcmd" -le 24 ] || { usage >&2; return 1; }; echo "$rcmd" > "$cfg/radius" ;;
   esac
   r=$(curradius)
   case $de in
