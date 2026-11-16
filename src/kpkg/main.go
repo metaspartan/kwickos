@@ -112,10 +112,7 @@ func die(err error) {
 }
 
 func main() {
-	// Index parsing allocates a lot of short-lived memory: a lower GC target
-	// keeps peak RSS small on tiny VMs and embedded boards.
-	debug.SetGCPercent(50)
-	debug.SetMemoryLimit(96 << 20) // soft cap: keeps `apt install` usable on 512 MiB microVMs
+	tuneGC()
 	name := filepath.Base(os.Args[0])
 	args := os.Args[1:]
 	if name == "kpkg" && len(args) > 0 {
@@ -157,4 +154,33 @@ func main() {
 		rc = mainApt(name, args)
 	}
 	os.Exit(rc)
+}
+
+func memTotal() int64 {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, l := range strings.Split(string(data), "\n") {
+		if v, ok := strings.CutPrefix(l, "MemTotal:"); ok {
+			f := strings.Fields(v)
+			if len(f) > 0 {
+				var n int64
+				fmt.Sscan(f[0], &n)
+				return n << 10
+			}
+		}
+	}
+	return 0
+}
+
+func tuneGC() {
+	total := memTotal()
+	if total < 1<<30 {
+		debug.SetGCPercent(50)
+		debug.SetMemoryLimit(96 << 20)
+		return
+	}
+	debug.SetGCPercent(200)
+	debug.SetMemoryLimit(max(256<<20, total/4))
 }

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"io"
 	"strings"
+	"unsafe"
 )
 
 // Paragraph is an ordered deb822 stanza.
@@ -51,28 +51,69 @@ func (p *Paragraph) Write822(w io.Writer) {
 	io.WriteString(w, b.String())
 }
 
-// ParseParagraphs streams deb822 stanzas to fn. keep (optional) filters
-// which fields are stored, which keeps memory low for huge indexes.
+func newParagraphSized() *Paragraph {
+	return &Paragraph{Keys: make([]string, 0, 16), M: make(map[string]string, 16)}
+}
+
 func ParseParagraphs(r io.Reader, keep map[string]bool, fn func(*Paragraph) error) error {
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 1<<20), 16<<20)
-	p := NewParagraph()
+	var s string
+	if sr, ok := r.(*strings.Reader); ok && sr.Len() == int(sr.Size()) {
+		var b strings.Builder
+		b.Grow(sr.Len())
+		io.Copy(&b, sr)
+		s = b.String()
+	} else {
+		b, err := io.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		if len(b) > 0 {
+			s = unsafe.String(unsafe.SliceData(b), len(b))
+		}
+	}
+	return parseParagraphString(s, keep, fn)
+}
+
+func blankLine(l string) bool {
+	for i := 0; i < len(l); i++ {
+		switch l[i] {
+		case ' ', '\t', '\r', '\v', '\f':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func parseParagraphString(s string, keep map[string]bool, fn func(*Paragraph) error) error {
+	p := newParagraphSized()
 	last := ""
+	lastEnd := -1
 	flush := func() error {
 		if len(p.Keys) == 0 {
 			return nil
 		}
 		err := fn(p)
-		p = NewParagraph()
+		p = newParagraphSized()
 		last = ""
+		lastEnd = -1
 		return err
 	}
-	for sc.Scan() {
-		line := sc.Text()
-		if strings.HasSuffix(line, "\r") {
-			line = line[:len(line)-1]
+	pos := 0
+	for pos < len(s) {
+		lineStart := pos
+		lineEnd := len(s)
+		if nl := strings.IndexByte(s[pos:], '\n'); nl >= 0 {
+			lineEnd = pos + nl
+			pos = lineEnd + 1
+		} else {
+			pos = len(s)
 		}
-		if strings.TrimSpace(line) == "" {
+		if lineEnd > lineStart && s[lineEnd-1] == '\r' {
+			lineEnd--
+		}
+		line := s[lineStart:lineEnd]
+		if blankLine(line) {
 			if err := flush(); err != nil {
 				return err
 			}
@@ -80,7 +121,14 @@ func ParseParagraphs(r io.Reader, keep map[string]bool, fn func(*Paragraph) erro
 		}
 		if line[0] == ' ' || line[0] == '\t' {
 			if last != "" {
-				p.M[last] += "\n" + line
+				cur := p.M[last]
+				if lastEnd >= 0 && lineStart == lastEnd+1 {
+					p.M[last] = s[lastEnd-len(cur) : lineEnd]
+					lastEnd = lineEnd
+				} else {
+					p.M[last] = cur + "\n" + line
+					lastEnd = -1
+				}
 			}
 			continue
 		}
@@ -94,13 +142,24 @@ func ParseParagraphs(r io.Reader, keep map[string]bool, fn func(*Paragraph) erro
 		k := line[:i]
 		if keep != nil && !keep[k] {
 			last = ""
+			lastEnd = -1
 			continue
 		}
-		p.Set(k, strings.TrimSpace(line[i+1:]))
+		a := i + 1
+		for a < len(line) && (line[a] == ' ' || line[a] == '\t') {
+			a++
+		}
+		e := len(line)
+		for e > a && (line[e-1] == ' ' || line[e-1] == '\t' || line[e-1] == '\v' || line[e-1] == '\f') {
+			e--
+		}
+		p.Set(k, line[a:e])
 		last = k
-	}
-	if err := sc.Err(); err != nil {
-		return err
+		if e == len(line) {
+			lastEnd = lineEnd
+		} else {
+			lastEnd = -1
+		}
 	}
 	return flush()
 }

@@ -26,6 +26,7 @@ while IFS= read -r p; do
   p=${p#/}; [ -n "$p" ] || continue
   case "$p" in bin/*|sbin/*) p="usr/$p";; esac
   [ "$p" = usr/bin/busybox ] && continue
+  [ -e "$SRC/rootfs/$p" ] && continue
   [ -e "$p" ] || [ -L "$p" ] || ln -s /usr/bin/busybox "$p"
   echo "/$p" >> usr/share/kwick/busybox.links
 done < <(sed 's/\r$//' "$U/busybox.links")
@@ -41,7 +42,7 @@ for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dp
 
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
 find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" "$R/usr/sbin/kwick-kernel" "$R/usr/bin/kwick-shell" "$R/usr/sbin/add-shell" "$R/usr/sbin/remove-shell" "$R/usr/share/kwick/zsh" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/bin/kwick-shell usr/sbin/add-shell usr/sbin/remove-shell usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-kernel usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb
+chmod 0755 usr/bin/kwick-shell usr/sbin/add-shell usr/sbin/remove-shell usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-kernel usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/bin/setpriv usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd

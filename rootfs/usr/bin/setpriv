@@ -1,0 +1,29 @@
+#!/bin/sh
+need=
+for a; do
+  case $a in
+    --) break ;;
+    --reuid*|--ruid*|--euid*|--regid*|--rgid*|--egid*|--init-groups|--clear-groups|--keep-groups) need=1 ;;
+  esac
+done
+[ -n "$need" ] || exec /usr/bin/busybox setpriv "$@"
+user=
+while [ $# -gt 0 ]; do
+  case $1 in
+    --reuid|--ruid|--euid) user=$2; shift 2 ;;
+    --reuid=*|--ruid=*|--euid=*) user=${1#*=}; shift ;;
+    --regid|--rgid|--egid) shift 2 ;;
+    --regid=*|--rgid=*|--egid=*|--init-groups|--clear-groups|--keep-groups) shift ;;
+    --) shift; break ;;
+    -*) echo "setpriv: unsupported option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+[ $# -gt 0 ] || { echo "setpriv: no command given" >&2; exit 1; }
+[ -n "$user" ] || exec "$@"
+case $user in
+  *[!0-9]*) ;;
+  *) user=$(awk -F: -v u="$user" '$3==u{print $1; exit}' /etc/passwd) ;;
+esac
+[ -n "$user" ] || { echo "setpriv: unknown user" >&2; exit 1; }
+exec /usr/bin/busybox su -s /bin/sh -c 'exec "$0" "$@"' -- "$user" "$@"

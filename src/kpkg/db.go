@@ -2,13 +2,20 @@ package main
 
 import (
 	"bufio"
-	"compress/gzip"
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"unsafe"
+
+	"github.com/klauspost/compress/gzip"
 )
 
 // Pkg is a package version (available from a repo, a local .deb, or installed).
@@ -52,16 +59,21 @@ func (p *Pkg) Provides() []Provided {
 	return p.provides
 }
 
-func (p *Pkg) Size() int64          { n, _ := strconv.ParseInt(p.Field("Size"), 10, 64); return n }
-func (p *Pkg) InstalledSize() int64 { n, _ := strconv.ParseInt(p.Field("Installed-Size"), 10, 64); return n * 1024 }
-func (p *Pkg) Essential() bool      { return p.Field("Essential") == "yes" || p.Field("Protected") == "yes" }
-func (p *Pkg) MultiArchSame() bool  { return p.Field("Multi-Arch") == "same" }
+func (p *Pkg) Size() int64 { n, _ := strconv.ParseInt(p.Field("Size"), 10, 64); return n }
+func (p *Pkg) InstalledSize() int64 {
+	n, _ := strconv.ParseInt(p.Field("Installed-Size"), 10, 64)
+	return n * 1024
+}
+func (p *Pkg) Essential() bool     { return p.Field("Essential") == "yes" || p.Field("Protected") == "yes" }
+func (p *Pkg) MultiArchSame() bool { return p.Field("Multi-Arch") == "same" }
 
 // InfoName is the dpkg database name (pkg, or pkg:arch for M-A: same and
 // foreign-architecture packages).
 func (p *Pkg) InfoName() string { return infoNameFor(p.Name, p.Arch, p.MultiArch()) }
 
-func (p *Pkg) archOK() bool { return p.Arch == cfg.Arch || p.Arch == "all" || contains(cfg.Foreign, p.Arch) }
+func (p *Pkg) archOK() bool {
+	return p.Arch == cfg.Arch || p.Arch == "all" || contains(cfg.Foreign, p.Arch)
+}
 
 // Installed is a package entry in /var/lib/dpkg/status.
 type Installed struct {
@@ -104,8 +116,114 @@ func OpenDB() (*DB, error) {
 	return db, nil
 }
 
-// LoadAvailable reads all compact indexes. Lazily called only by commands
-// that need repository data, so `dpkg -l` etc. stay instant.
+type idxJob struct {
+	src  *Source
+	path string
+	pkgs []*Pkg
+}
+
+func readKidx(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	defer zr.Close()
+	var out []byte
+	if n := len(data); n >= 18 {
+		isize := int(binary.LittleEndian.Uint32(data[n-4:]))
+		if isize >= n && isize < 1<<30 {
+			out = make([]byte, isize)
+			got, err := io.ReadFull(zr, out)
+			out = out[:got]
+			if err != nil && err != io.ErrUnexpectedEOF {
+				return "", err
+			}
+			if err == nil {
+				rest, err := io.ReadAll(zr)
+				if err != nil {
+					return "", err
+				}
+				out = append(out, rest...)
+			}
+		}
+	}
+	if out == nil {
+		if out, err = io.ReadAll(zr); err != nil {
+			return "", err
+		}
+	}
+	if len(out) == 0 {
+		return "", nil
+	}
+	return unsafe.String(unsafe.SliceData(out), len(out)), nil
+}
+
+func splitParagraphChunks(s string, n int) []string {
+	if n < 2 || len(s) < 1<<20 {
+		return []string{s}
+	}
+	var out []string
+	size := len(s) / n
+	start := 0
+	for len(out) < n-1 {
+		cut := start + size
+		if cut >= len(s) {
+			break
+		}
+		j := strings.Index(s[cut:], "\n\n")
+		if j < 0 {
+			break
+		}
+		end := cut + j + 1
+		out = append(out, s[start:end])
+		start = end
+	}
+	return append(out, s[start:])
+}
+
+func parseIndexPkgs(s string, src *Source) []*Pkg {
+	chunks := splitParagraphChunks(s, runtime.GOMAXPROCS(0))
+	parts := make([][]*Pkg, len(chunks))
+	var wg sync.WaitGroup
+	for i, c := range chunks {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var pkgs []*Pkg
+			parseParagraphString(c, nil, func(p *Paragraph) error {
+				pk := newPkg(p)
+				if !pk.archOK() {
+					return nil
+				}
+				pk.Src = src
+				if p.Get("Provides") != "" {
+					pk.Provides()
+				}
+				pkgs = append(pkgs, pk)
+				return nil
+			})
+			parts[i] = pkgs
+		}()
+	}
+	wg.Wait()
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	total := 0
+	for _, p := range parts {
+		total += len(p)
+	}
+	all := make([]*Pkg, 0, total)
+	for _, p := range parts {
+		all = append(all, p...)
+	}
+	return all
+}
+
 func (db *DB) LoadAvailable() error {
 	if db.provAvail != nil {
 		return nil
@@ -113,36 +231,40 @@ func (db *DB) LoadAvailable() error {
 	db.provAvail = map[string][]provider{}
 	srcs, _ := LoadSources()
 	missing := 0
+	var jobs []*idxJob
 	for _, s := range srcs {
 		found := false
 		for _, arch := range allArches() {
 			if len(s.Arches) > 0 && !contains(s.Arches, arch) {
 				continue
 			}
-			f, err := os.Open(s.indexPath(arch))
-			if err != nil {
+			p := s.indexPath(arch)
+			if _, err := os.Stat(p); err != nil {
 				continue
 			}
 			found = true
-			zr, err := gzip.NewReader(bufio.NewReaderSize(f, 1<<16))
-			if err != nil {
-				f.Close()
-				continue
-			}
-			src := s
-			ParseParagraphs(zr, nil, func(p *Paragraph) error {
-				pk := newPkg(p)
-				if !pk.archOK() {
-					return nil
-				}
-				pk.Src = src
-				db.addAvail(pk)
-				return nil
-			})
-			f.Close()
+			jobs = append(jobs, &idxJob{src: s, path: p})
 		}
 		if !found {
 			missing++
+		}
+	}
+	var wg sync.WaitGroup
+	for _, j := range jobs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s, err := readKidx(j.path)
+			if err != nil || s == "" {
+				return
+			}
+			j.pkgs = parseIndexPkgs(s, j.src)
+		}()
+	}
+	wg.Wait()
+	for _, j := range jobs {
+		for _, pk := range j.pkgs {
+			db.addAvail(pk)
 		}
 	}
 	for _, vs := range db.Avail {
@@ -173,8 +295,8 @@ func (db *DB) addAvail(pk *Pkg) {
 	}
 }
 
-func statusPath() string  { return filepath.Join(cfg.Admin, "status") }
-func infoDir() string     { return filepath.Join(cfg.Admin, "info") }
+func statusPath() string   { return filepath.Join(cfg.Admin, "status") }
+func infoDir() string      { return filepath.Join(cfg.Admin, "info") }
 func extStatePath() string { return filepath.Join(cfg.Root, "var/lib/apt/extended_states") }
 
 func (db *DB) loadStatus() error {
