@@ -4,10 +4,10 @@ ARCH=${1:?arch}; FLAVOR=${2:?variant}; KVER=${3:-${KVER:-}}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
 mkdir -p "$BUILD" "$CACHE"
 [ -f "$SRC/config/kernel/$FLAVOR.config" ] || { echo "no config/kernel/$FLAVOR.config"; exit 1; }
-GIT=; COMMIT=; DEFCONFIG=defconfig; DTBS=
+GIT=; COMMIT=; DEFCONFIG=defconfig; DTBS=; FIT_STUB_DTB=
 if [ -f "$SRC/config/kernel/$FLAVOR.source" ]; then
   . <(sed 's/\r$//' "$SRC/config/kernel/$FLAVOR.source")
-  KVER=${COMMIT:0:12}
+  [ -z "$GIT" ] || KVER=${COMMIT:0:12}
 fi
 [ -n "$KVER" ] || KVER=$(tr -d '\r\n' < "$SRC/KERNEL_VERSION")
 MAJOR=${KVER%%.*}
@@ -131,8 +131,54 @@ if [ -n "${DT_ENABLE:-}" ]; then
     "$DTC" -q -I dts -O dtb -o "$D/dtbs/$t" "$O/board.dts"
   done
 fi
+if [ -n "${RAMOOPS:-}" ]; then
+  for t in $DTBS; do
+    "$DTC" -q -I dtb -O dts "$D/dtbs/$t" > "$O/board.dts"
+    cat >> "$O/board.dts" <<EOT
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		ramoops@${RAMOOPS#0x} {
+			compatible = "ramoops";
+			reg = <0x0 $RAMOOPS 0x0 0x200000>;
+			record-size = <0x20000>;
+			console-size = <0x80000>;
+			pmsg-size = <0x20000>;
+		};
+	};
+};
+EOT
+    "$DTC" -q -I dts -O dtb -o "$D/dtbs/$t" "$O/board.dts"
+  done
+fi
 if [ -n "${FIT_LOAD:-}" ]; then
   cp "$O/$IMG" "$O/fit-Image"
+  if [ -n "$FIT_STUB_DTB" ]; then
+    KLOAD=$FIT_LOAD
+    FIT_LOAD=$(printf '0x%x' $((KLOAD - 4096)))
+    cat > "$O/fit-stub.S" <<EOT
+	.option norvc
+	.globl _start
+_start:
+	csrw sie, zero
+	csrci sstatus, 2
+	lwu t0, 0(a1)
+	li t1, 0xedfe0dd0
+	beq t0, t1, 1f
+	li a0, 0
+	li a1, $FIT_STUB_DTB
+1:
+	fence.i
+	li t0, $KLOAD
+	jr t0
+EOT
+    "${CROSS}as" -march=rv64imac_zicsr_zifencei -o "$O/fit-stub.o" "$O/fit-stub.S"
+    "${CROSS}objcopy" -O binary "$O/fit-stub.o" "$O/fit-stub.bin"
+    truncate -s 4096 "$O/fit-stub.bin"
+    cat "$O/fit-stub.bin" "$O/$IMG" > "$O/fit-Image"
+  fi
   cat > "$O/fit.its" <<EOT
 /dts-v1/;
 / {
@@ -162,6 +208,7 @@ EOT
   (cd "$O" && "$DTC" -q -I dts -O dtb -o "$D/Image.itb" fit.its)
   echo "$FIT_LOAD" > "$D/load-address"
 fi
+[ ! -f "$SRC/config/kernel/$FLAVOR.uboot" ] || sed 's/\r$//' "$SRC/config/kernel/$FLAVOR.uboot" > "$D/uboot.txt"
 if [ -n "${FW_URL:-}" ]; then
   FW="$CACHE/$FLAVOR-$(basename "$FW_URL")-${FW_SHA256:0:12}"
   [ -f "$FW" ] || curl -fsSL --retry 3 -o "$FW" "$FW_URL"

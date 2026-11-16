@@ -8,4 +8,4 @@ while ! ip -4 addr show 2>/dev/null | grep "inet " | grep -vq " 127\."; do
 done
 sleep 60
 dmesg > /var/log/boot-dmesg 2>&1
-/usr/sbin/kwick-bootctl mark-good && echo "$(date) boot confirmed" >> /var/log/kwick-boot.log
+/usr/sbin/kwick-bootctl mark-good && : > /run/kwick-boot-ok && echo "$(date) boot confirmed" >> /var/log/kwick-boot.log

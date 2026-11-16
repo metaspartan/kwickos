@@ -19,25 +19,19 @@ kwick-bootctl - boot control for U-Boot boards with the KwickOS boot env (Banana
 EOF
 }
 
-find_bootpart() {
-	for d in /dev/mmcblk0p1 /dev/mmcblk1p1 /dev/sda1; do
-		[ -b "$d" ] || continue
-		echo "$d"
-		return 0
-	done
-	return 1
-}
-
 mount_boot() {
 	if grep -q " $MNT " /proc/mounts 2>/dev/null; then return 0; fi
-	dev=$(find_bootpart) || { echo "kwick-bootctl: no SD boot partition found" >&2; exit 1; }
 	mkdir -p "$MNT"
-	mount -t vfat "$dev" "$MNT"
-	if [ ! -f "$MNT/env_k1-x.txt" ] || ! grep -q '^kwick_boot=' "$MNT/env_k1-x.txt"; then
+	for dev in /dev/mmcblk0p1 /dev/mmcblk1p1 /dev/mmcblk2p1 /dev/sda1; do
+		[ -b "$dev" ] || continue
+		mount -t vfat "$dev" "$MNT" 2>/dev/null || continue
+		if [ -f "$MNT/env_k1-x.txt" ] && grep -q '^kwick_boot=' "$MNT/env_k1-x.txt"; then
+			return 0
+		fi
 		umount "$MNT"
-		echo "kwick-bootctl: $dev has no KwickOS boot env (env_k1-x.txt with kwick_boot)" >&2
-		exit 1
-	fi
+	done
+	echo "kwick-bootctl: no SD boot partition with the KwickOS boot env (env_k1-x.txt with kwick_boot)" >&2
+	exit 1
 }
 
 done_boot() {
@@ -72,6 +66,8 @@ kernel_files() {
 	[ -n "$dtb" ] || { echo "kwick-bootctl: no K1 DTB in $src/dtbs" >&2; exit 1; }
 	rd=""
 	[ -f "$src/initrd.img" ] && rd="$src/initrd.img"
+	uenv=""
+	[ -f "$src/uboot.txt" ] && uenv="$src/uboot.txt"
 }
 
 cmd=${1:-status}
@@ -144,6 +140,10 @@ case "$cmd" in
 			"kwick_c_root=$root" \
 			"kwick_c_knl=kwick/$rel/Image.itb" "kwick_c_dtb=kwick/$rel/board.dtb" "$rdline" \
 			"kwick_c_extra=${KWICK_BOOT_EXTRA:-}"
+		if [ -n "$uenv" ]; then
+			cat "$MNT/kwick.txt" "$uenv" > "$MNT/kwick.tmp"
+			mv "$MNT/kwick.tmp" "$MNT/kwick.txt"
+		fi
 		done_boot
 		echo "next boot: $rel (an unconfirmed boot falls back to Armbian; restore with: kwick-bootctl rollback)" ;;
 	*) usage; exit 1 ;;

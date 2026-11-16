@@ -185,6 +185,14 @@ static const char *cmdline_get(const char *key)
 	return found;
 }
 
+static const char *cmdline_dup(const char *key, char *buf, size_t sz)
+{
+	const char *v = cmdline_get(key);
+	if (!v) return NULL;
+	snprintf(buf, sz, "%s", v);
+	return buf;
+}
+
 /* ------------------------------------------------------- stage 0 (initramfs) */
 
 /* Read a filesystem label/uuid directly from the superblock so the
@@ -389,9 +397,10 @@ static void stage0(void)
 	mount("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755");
 	stage0_watchdog();
 
-	const char *root = cmdline_get("root");
-	const char *fstype = cmdline_get("rootfstype");
-	const char *flags = cmdline_get("rootflags");
+	static char rootb[256], fstypeb[64], flagsb[256];
+	const char *root = cmdline_dup("root", rootb, sizeof rootb);
+	const char *fstype = cmdline_dup("rootfstype", fstypeb, sizeof fstypeb);
+	const char *flags = cmdline_dup("rootflags", flagsb, sizeof flagsb);
 	int ro = cmdline_get("ro") != NULL;
 	char spec[256];
 	snprintf(spec, sizeof spec, "%s", root ? root : "");

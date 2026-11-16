@@ -9,7 +9,7 @@ mkdir -p "$P/DEBIAN" "$P/usr/lib/kwick/kernels/$KREL"
 cp "$K/vmlinuz" "$K/config" "$P/usr/lib/kwick/kernels/$KREL/"
 [ -f "$K/vmlinuz.efi" ] && cp "$K/vmlinuz.efi" "$P/usr/lib/kwick/kernels/$KREL/"
 [ -d "$K/dtbs" ] && cp -r "$K/dtbs" "$P/usr/lib/kwick/kernels/$KREL/"
-for f in Image.itb initrd.img load-address; do [ -f "$K/$f" ] && cp "$K/$f" "$P/usr/lib/kwick/kernels/$KREL/"; done
+for f in Image.itb initrd.img load-address uboot.txt; do [ -f "$K/$f" ] && cp "$K/$f" "$P/usr/lib/kwick/kernels/$KREL/"; done
 if [ -f "$K/modules.tar.zst" ]; then zstd -dc "$K/modules.tar.zst" | tar -C "$P/usr" -x; fi
 echo "$FLAVOR" > "$P/usr/lib/kwick/kernels/$KREL/flavor"
 SIZE=$(du -sk "$P" | cut -f1)

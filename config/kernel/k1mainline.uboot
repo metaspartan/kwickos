@@ -1,0 +1,3 @@
+kwick_entry=0x1ff000
+kwick_wdt=if wdt dev PMIC_WDT; then wdt stop; fi; wdt dev watchdog@D4080000 && wdt start 240000
+kwick_boot=echo "KwickOS: booting ${kwick_kernel} (mainline, SoC watchdog 240 s)"; run kwick_${kwick_kernel}; run kwick_args; if load ${kwick_dev} ${kernel_addr_r} ${kwick_knl}; then if load ${kwick_ddev} ${dtb_addr} ${kwick_dtb}; then if run kwick_wdt; then setenv kwick_nf kwick-attempt; run kwick_note; if fatsize mmc 0:1 kwick-attempt; then setenv fdt_high 0xffffffffffffffff; bootm start ${kernel_addr_r} - ${dtb_addr} && bootm loados && bootm prep && go ${kwick_entry}; fi; fi; fi; fi; echo "KwickOS: boot failed before kernel"; run kwick_fallback

@@ -44,7 +44,7 @@ usage: kwick-kernel <command> [options]
   sync                           rewrite boot entries from the installed kernels
   confirm [--wait]               confirm the running kernel (run at boot by kwick-kernel-confirm.service)
 
-VERSION is 7.3.4, generic-7.3.4, 7.3.4:generic or a kernel release. FLAVOR is generic, virt, k1, gb10, apple.
+VERSION is 7.3.4, generic-7.3.4, 7.3.4:generic or a kernel release. FLAVOR is generic, virt, k1, k1mainline, gb10, apple.
 EOF
 }
 
@@ -87,6 +87,7 @@ flavor_hint() {
 	case $1 in
 	*-gb10-kwick*) echo gb10 ;;
 	*-asahi-kwick*) echo apple ;;
+	*-kwick-k1mainline*) echo k1mainline ;;
 	*-kwick-k1*) echo k1 ;;
 	*) return 1 ;;
 	esac

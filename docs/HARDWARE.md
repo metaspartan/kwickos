@@ -96,7 +96,7 @@ DGX OS ships a recovery environment and firmware updates; keep it. KwickOS has n
 | Hardware | Status |
 | --- | --- |
 | QEMU virt with OpenSBI and UEFI | Verified (boot test in CI) |
-| Banana Pi BPI-F3 (SpacemiT K1) | Verified on the vendor 6.1.15 kernel (eMMC install, both Ethernet ports, ssh, apt). The `k1` flavor (SpacemiT BSP 6.6.63) is built and packaged as `linux-image-kwick-k1`; the mainline `generic` flavor is built but does not boot with the board's 2024 vendor firmware yet. See below |
+| Banana Pi BPI-F3 (SpacemiT K1) | Verified on mainline 7.3.4 (`k1mainline` flavor, the default) and on the vendor 6.1.15 kernel: eMMC install, both Ethernet ports, NVMe, USB, ssh, apt, all with the board's 2024 vendor firmware. The `k1` flavor (SpacemiT BSP 6.6.63) is built and packaged as `linux-image-kwick-k1`. See below |
 | Other SpacemiT K1 boards (Milk-V Jupiter, Muse Pi Pro, Orange Pi RV2) | Upstream: same kernel and mainline device trees, not tried |
 | VisionFive 2, Milk-V, HiFive boards | Unsupported: no board device trees or vendor firmware handling; the generic flavor is built only in release CI |
 
@@ -106,7 +106,16 @@ The board keeps its vendor boot chain (BootROM, FSBL, OpenSBI 1.3 and U-Boot 202
 
 **What boots today.** The SD card's U-Boot imports `/boot/env_k1-x.txt` from the SD card's FAT partition. KwickOS adds a few `kwick_*` variables to that file (the original is kept as `env_k1-x.txt.armbian`). By default U-Boot boots the vendor 6.1.15 kernel, initrd and `k1-x_deb1.dtb` from the SD card with `root=/dev/mmcblk2p2 init=/usr/lib/kwick/init-crumb`, exactly the way Armbian boots except for the root. The vendor kernel needs an initrd: its power-management co-processor loads `esos.elf` at about 4 s, before the root filesystem exists, and without it the boot stalls.
 
-**Fallback.** Before every KwickOS boot U-Boot writes `kwick-attempt` to the SD card's FAT partition. `kwick-boot-ok.service` deletes it once the system has had an IPv4 address for 60 s. If U-Boot finds `kwick-attempt` at the next boot, the previous boot failed: it deletes the file, creates `kwick-mode-armbian` and boots Armbian. A bad kernel therefore costs one power cycle and lands on Armbian, and stays there until switched back. `init-crumb` logs to `/var/log/kinit-start`, starts the SoC watchdog when the device tree enables it, and reboots after 120 s without an IPv4 address (logs in `/var/log/boot-dmesg-safety`).
+**Fallback.** Before every KwickOS boot U-Boot writes `kwick-attempt` to the SD card's FAT partition. `kwick-boot-ok.service` deletes it once the system has had an IPv4 address for 60 s. If U-Boot finds `kwick-attempt` at the next boot, the previous boot failed: it deletes the file, creates `kwick-mode-armbian` and boots Armbian, and stays there until switched back. With the vendor kernels a hang costs one power cycle. The mainline kernel needs none (see the next paragraph). `init-crumb` logs the kernel release to `/var/log/kinit-start`, saves `dmesg` to `/var/log/boot-dmesg-early` at once and to `/var/log/boot-dmesg-25s` after 25 s, starts the SoC watchdog when the device tree enables it, and reboots after 120 s without an IPv4 address (logs in `/var/log/boot-dmesg-safety`).
+
+**Mainline boot path.** `linux-image-kwick-k1mainline` ships `uboot.txt`, which `kwick-bootctl set-kernel` appends to `kwick.txt`. It redefines `kwick_boot` for that kernel only:
+
+1. stop the PMIC watchdog and start the SoC watchdog (`watchdog@D4080000`) with a 240 s timeout (`wdt start 240000`, 256 Hz counter, 255 s maximum);
+2. write `kwick-attempt` as usual;
+3. run `bootm start`, `bootm loados` and `bootm prep` with `fdt_high=0xffffffffffffffff`, so U-Boot loads the FIT, adds the memory nodes, the OpenSBI reserved memory and `bootargs` to the mainline DTB in place;
+4. jump with `go` instead of `bootm go`.
+
+`bootm go` removes all U-Boot devices first, and the SpacemiT watchdog driver stops the watchdog in its remove hook. `go` leaves it running into Linux. Mainline 7.3 has no K1 watchdog driver, so `init-crumb` feeds the watchdog through `/dev/mem` (unlock `0xbaba`/`0xeb10` at `0xd40800b0`/`0xb4`, counter reset at `0xd40800c8`) every 10 s and stops it once `kwick-boot-ok` has confirmed the boot. An unconfirmed boot stops being fed after 900 s. A hang anywhere from U-Boot to userspace therefore resets the board within 240 s, and the attempt counter lands on Armbian without a power cycle. `go` passes `argc` and `argv` instead of the hart id and the DTB, so the FIT kernel image starts with a 4 KiB stub (`FIT_STUB_DTB` in `config/kernel/k1mainline.source`). It loads at `0x1ff000`, disables interrupts, sets `a0=0` and `a1=0x31000000` (the env's `dtb_addr`) unless `a1` already points at a DTB, runs `fence.i` and jumps to the kernel at `0x200000`. A plain `bootm` of the same FIT also works. Panics reboot through the P1 PMIC restart handler: a full reboot to ssh takes about 22 s.
 
 **kwick-bootctl.**
 
@@ -125,15 +134,38 @@ kwick-bootctl list
 
 | Kernel | Status |
 | --- | --- |
-| Vendor 6.1.15 (Armbian `legacy-k1`, from the SD card) | Verified: eMMC, NVMe, USB, both Ethernet ports (`eth0`/`eth1`; Armbian's udev calls them `end0`/`end1`), Wi-Fi modules load, `/dev/dri` (PowerVR BXE-2-32 kernel driver and the SpacemiT HDMI KMS driver) |
-| `k1` flavor: SpacemiT BSP 6.6.63 (`gitee.com/spacemit-buildroot/linux-6.6` tag `k1-bl-v2.2.11-release`, commit `31c449ae`, `k1_defconfig` plus `config/kernel/k1.config`) | Built and packaged (`linux-image-kwick-k1`): FIT `Image.itb` loading at `0x600000`, `k1-x_deb1.dtb` with the watchdog enabled, and an initrd with kinit and the v2.2.11 `esos.elf`. Its device tree expects the v2.2.x firmware memory layout; not yet booted on the 2024 firmware |
-| `generic` flavor, mainline 7.3.x | Built; does not come up on the 2024 vendor firmware |
+| `k1mainline` flavor: kernel.org 7.3.4 (`KERNEL_VERSION`), the generic fragments plus `config/kernel/k1mainline.config`, `spacemit/k1-bananapi-f3.dtb` with a 2 MiB ramoops region at `0x50000000` | Verified, the board's default since 2026-11-16: boots on the 2024 vendor firmware (OpenSBI 1.3, U-Boot 2022.10), all 8 harts, 16 GiB. Package `linux-image-kwick-k1mainline`, release `7.3.4-kwick-k1mainline` |
+| Vendor 6.1.15 (Armbian `legacy-k1`, from the SD card) | Verified: eMMC, NVMe, USB, both Ethernet ports (`eth0`/`eth1`; Armbian's udev calls them `end0`/`end1`), Wi-Fi modules load, `/dev/dri` (PowerVR BXE-2-32 kernel driver and the SpacemiT HDMI KMS driver). With the KwickOS desktop running it dropped off the network three times in a row, 8 to 15 minutes after boot, on 2026-11-15; the one logged case was a hard hang (a heartbeat log stopped at 934 s, temperatures 45 °C), and there is no watchdog to recover |
+| `k1` flavor: SpacemiT BSP 6.6.63 (`gitee.com/spacemit-buildroot/linux-6.6` tag `k1-bl-v2.2.11-release`, commit `31c449ae`, `k1_defconfig` plus `config/kernel/k1.config`) | Built and packaged (`linux-image-kwick-k1`): FIT `Image.itb` loading at `0x600000`, `k1-x_deb1.dtb` with the watchdog enabled, and an initrd with kinit and the v2.2.11 `esos.elf`. Its earlier boot attempts ran into the kinit `rootfstype=` bug described below, which this firmware is not to blame for. It has not been booted again since the kinit fix |
+| `generic` flavor, mainline 7.3.x | Built. Has the same K1 drivers but no FIT image, stub or board DTB handling; use `k1mainline` on the BPI-F3 |
 
-**Firmware.** The newest SpacemiT K1 bootloader release is `k1-bl-v2.2.11-release`; Armbian builds `k1-bl-v2.2.9-release` with an MBR patch. Stock vendor firmware finds OpenSBI, U-Boot and the boot partition by GPT partition name, so it does not boot an MBR card like Armbian's. Neither release adds SBI system reset, so a kernel panic on the vendor kernels only reboots when the watchdog is enabled in the device tree. Back up the first 100 MiB of the card (bootinfo, FSBL, OpenSBI at sector 1280, U-Boot at sector 2048) before writing new firmware.
+**Hardware on mainline 7.3.4 compared with vendor 6.1.15.** Measured on a 16 GiB BPI-F3 with a 128 GB eMMC, a 256 GB SDXC card and a 1 TB NVMe SSD.
 
-**Graphics.** The PowerVR GPU needs SpacemiT's closed userspace driver, which Debian does not ship, so a desktop on the vendor kernels renders with Mesa's llvmpipe on the HDMI KMS output.
+| Part | Mainline 7.3.4 (`k1mainline`) | Vendor 6.1.15 |
+| --- | --- | --- |
+| CPU, SMP | 8 harts through SBI HSM, cpufreq-dt 614 MHz to 1.6 GHz, 5 thermal zones | 8 harts |
+| eMMC | HS400 enhanced strobe, 214 MB/s sequential read (`mmcblk0`) | works (`mmcblk2`) |
+| SD card | UHS-I SDR104 (`mmcblk1`); 9.5 MB/s O_DIRECT read with 1 MiB blocks on this card | works (`mmcblk0`) |
+| NVMe (PCIe port 1) | works, link trains at Gen1 x2, 314 MB/s sequential read | works |
+| Second PCIe controller | root port enumerates, no link (nothing fitted) | not tested |
+| USB | DWC3 host, VIA VL817 USB 3 hub and the USB 2 hub | works |
+| Ethernet | both K1 EMACs (`end0`/`end1`), link at 1 Gb/s, 52 MB/s download from cdn.kernel.org | works |
+| Wi-Fi, Bluetooth (on-board RTL8852BS, SDIO) | not available: the mainline BPI-F3 device tree has no SDIO controller for it | vendor driver loads |
+| HDMI, GPU | no display driver, no `/dev/dri`; the desktop needs the vendor kernel | SpacemiT HDMI KMS and PowerVR kernel driver |
+| Audio, camera, video codecs | no drivers | vendor drivers |
+| PMIC (P1) | regulators, RTC (`rtc0`, sets the clock at boot), power-off and restart | works |
+| Watchdog | no driver; fed from `init-crumb`, see above | vendor driver |
+| LEDs | `sys-led` heartbeat | works |
 
-U-Boot numbers the SD card `mmc 0` and the eMMC `mmc 2`; the vendor kernels name them `mmcblk0` and `mmcblk2`.
+Boot time, from kernel start: the mainline kernel mounts the root at 2.3 s and runs `init-crumb` at 2.5 s, the Ethernet link is up at 4.9 s and ssh answers by 15 s (22 s for a whole `reboot`, firmware included). The vendor kernel goes through Armbian's initrd and the `esos.elf` load and mounts the root at 7.8 s.
+
+**The kinit `rootfstype=` bug.** Until 2026-11-16 kinit's `cmdline_get()` returned a pointer into one static buffer, so reading `rootfstype=ext4` after `root=` replaced the root spec with `ext4`. Any kernel that let the embedded kinit mount the root with `rootfstype=` on the command line (the BPI-F3 env passes it) waited `rootdelay` seconds for a device called `ext4` and rebooted. That, not the firmware, is why the mainline and 6.6 kernels did not come up earlier; the vendor 6.1 kernel was unaffected because Armbian's initrd mounts the root. Stage 0 now copies the values.
+
+**Firmware.** The newest SpacemiT K1 bootloader release is `k1-bl-v2.2.11-release`; Armbian builds `k1-bl-v2.2.9-release` with an MBR patch. Stock vendor firmware finds OpenSBI, U-Boot and the boot partition by GPT partition name, so it does not boot an MBR card like Armbian's. Neither release adds SBI system reset, so a kernel panic on the vendor kernels only reboots when the watchdog is enabled in the device tree. Back up the first 100 MiB of the card (bootinfo, FSBL, OpenSBI at sector 1280, U-Boot at sector 2048) before writing new firmware. Mainline 7.3 does not need new firmware: the 2024 OpenSBI 1.3 provides HSM, IPI and RFENCE, enables Svpbmt, Zicbom, Zicboz and Sstc for S-mode, and U-Boot adds its reserved memory and the memory nodes to the mainline device tree.
+
+**Graphics.** The PowerVR GPU needs SpacemiT's closed userspace driver, which Debian does not ship, so a desktop on the vendor kernels renders with Mesa's llvmpipe on the HDMI KMS output. Mainline has no K1 display driver yet, so for a local desktop switch back with `kwick-bootctl set-kernel vendor`.
+
+U-Boot numbers the SD card `mmc 0` and the eMMC `mmc 2`; the vendor kernels name them `mmcblk0` and `mmcblk2`, mainline names the eMMC `mmcblk0` and the SD card `mmcblk1`. The root is found by `PARTLABEL=kwick-root` and `kwick-bootctl` looks for the SD boot partition by its `env_k1-x.txt`, so both work with either kernel.
 
 ## What to do when something does not work
 

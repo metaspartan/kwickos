@@ -1,6 +1,16 @@
 #!/bin/sh
 mount -o remount,rw / 2>/dev/null
-echo "$(date) init-crumb pid=$$" >> /var/log/kinit-start
+own=""
+[ -e /proc/self ] || { mount -t proc proc /proc && own="/proc"; }
+[ -d /sys/kernel ] || { mount -t sysfs sysfs /sys && own="/sys $own"; }
+echo "$(date) init-crumb pid=$$ $(uname -r) up=$(cut -d' ' -f1 /proc/uptime)" >> /var/log/kinit-start
+dmesg > /var/log/boot-dmesg-early 2>&1
+sync
+(
+	sleep 25
+	dmesg > /var/log/boot-dmesg-25s 2>&1
+	sync
+) &
 if [ -e /dev/watchdog ]; then
 	(
 		i=0
@@ -9,6 +19,26 @@ if [ -e /dev/watchdog ]; then
 			i=$((i + 1))
 			sleep 3
 		done
+	) &
+elif grep -qs spacemit /proc/device-tree/compatible && [ $(($(busybox devmem 0xd40800b8 32 2>/dev/null || echo 0) & 1)) = 1 ]; then
+	(
+		wdt() {
+			busybox devmem 0xd40800b0 32 0xbaba
+			busybox devmem 0xd40800b4 32 0xeb10
+			busybox devmem "$1" 32 "$2"
+		}
+		i=0
+		while [ $i -lt 90 ]; do
+			if [ -e /run/kwick-boot-ok ]; then
+				wdt 0xd40800b8 0
+				echo "$(date) SoC watchdog stopped after boot confirmation" >> /var/log/kinit-start
+				exit 0
+			fi
+			wdt 0xd40800c8 1
+			i=$((i + 1))
+			sleep 10
+		done
+		echo "$(date) boot not confirmed in 900 s, SoC watchdog left to expire" >> /var/log/kinit-start
 	) &
 fi
 (
@@ -25,4 +55,5 @@ fi
 		reboot -f
 	fi
 ) &
+for m in $own; do umount "$m"; done
 exec /usr/sbin/kinit

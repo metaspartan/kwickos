@@ -165,7 +165,7 @@ jobs:
           docker build -t kwick-builder -f docker/Dockerfile.builder docker
           mkdir -p out
           for a in amd64 arm64 riscv64; do
-            for f in virt generic k1; do
+            for f in virt generic k1 k1mainline; do
               d=dl/kwickos-$a/kernel-$f
               [ -f "$d/version" ] || continue
               mkdir -p out/$a/kernel-$f && cp -r $d/. out/$a/kernel-$f/
