@@ -1,0 +1,135 @@
+name: rpi
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches: [main]
+    paths:
+      - 'rpi/**'
+      - 'config/rpi-firmware.env'
+      - 'config/kernel/rpi.config'
+      - 'config/kernel/rpi.source'
+      - 'scripts/build-kernel-variant.sh'
+      - 'scripts/mkkernelpkg.sh'
+      - 'scripts/mkkernelhdrpkg.sh'
+      - 'scripts/mkrpifwpkg.sh'
+      - 'scripts/mkrpiimage.sh'
+      - 'tests/rpi-boot.sh'
+      - 'src/kinit/**'
+      - '.github/workflows/rpi.yml'
+  pull_request:
+    paths:
+      - 'rpi/**'
+      - 'config/rpi-firmware.env'
+      - 'config/kernel/rpi.config'
+      - 'config/kernel/rpi.source'
+      - 'scripts/build-kernel-variant.sh'
+      - 'scripts/mkrpifwpkg.sh'
+      - 'scripts/mkrpiimage.sh'
+      - 'tests/rpi-boot.sh'
+      - '.github/workflows/rpi.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rpi:
+    name: arm64-rpi
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    env:
+      ARCH: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker system prune -af >/dev/null
+          df -h /
+
+      - name: Builder image
+        run: |
+          docker build -t kwick-builder -f docker/Dockerfile.builder docker
+          docker volume create kwick-cache
+          docker volume create kwick-build
+          mkdir -p out
+
+      - name: Archive public key
+        env:
+          KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
+          KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}
+        run: |
+          if [ -z "$KWICK_SIGNING_KEY" ]; then echo "no signing key: the image is built without the KwickOS apt source"; exit 0; fi
+          mkdir -p keys
+          export GNUPGHOME=$(mktemp -d)
+          bash scripts/gpgimport.sh
+          gpg --batch --armor --export > keys/archive-key.asc
+          test -s keys/archive-key.asc
+
+      - name: Userland, kpkg and base root filesystem
+        run: |
+          if [ -s keys/archive-key.asc ]; then
+            export KWICK_REPO_URL=https://metaspartan.github.io/kwickos KWICK_REPO_KEY=/src/keys/archive-key.asc
+          fi
+          make userland kpkg rootfs ARCH=arm64
+
+      - name: Raspberry Pi kernel (raspberrypi/linux rpi-7.3.y, 4K pages)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache \
+            kwick-builder bash /src/scripts/build-kernel-variant.sh arm64 rpi
+
+      - name: Packages (kernel, headers, firmware)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache kwick-builder bash -c '
+            bash /src/scripts/mkrpifwpkg.sh &&
+            bash /src/scripts/mkkernelpkg.sh arm64 rpi &&
+            bash /src/scripts/mkkernelhdrpkg.sh arm64 rpi &&
+            ls -l /out/repo/pool/main'
+
+      - name: Package sanity checks
+        run: |
+          docker run --rm -v "$PWD/out:/out" kwick-builder bash -c '
+            set -e
+            cd /out/repo/pool/main
+            for d in linux-image-kwick-rpi_*.deb linux-headers-kwick-rpi_*.deb kwick-rpi-firmware_*.deb; do
+              dpkg-deb -I "$d" | grep -E "Package|Version|Architecture|Depends"
+            done
+            KREL=$(cat /out/arm64/kernel-rpi/version)
+            T=$(mktemp -d); dpkg-deb -x linux-image-kwick-rpi_*.deb "$T"
+            K="$T/usr/lib/kwick/kernels/$KREL"
+            for b in bcm2711-rpi-4-b bcm2711-rpi-400 bcm2711-rpi-cm4 bcm2712-rpi-5-b bcm2712d0-rpi-5-b bcm2712-rpi-500 bcm2712-rpi-cm5-cm5io; do
+              test -f "$K/dtbs/broadcom/$b.dtb"
+            done
+            test -f "$K/dtbs/overlays/vc4-kms-v3d-pi5.dtbo"
+            test -f "$K/dtbs/overlays/overlay_map.dtb"
+            for o in ARM64_4K_PAGES MMC_SDHCI_IPROC MMC_SDHCI_BRCMSTB PCIE_BRCMSTB MFD_RP1 MACB BCMGENET USB_DWC3 USB_STORAGE USB_UAS BLK_DEV_NVME EXT4_FS; do
+              grep -q "^CONFIG_$o=y" "$K/config"
+            done
+            find "$T/usr/lib/modules/$KREL" -name "v3d.ko*" | grep -q .
+            find "$T/usr/lib/modules/$KREL" -name "vc4.ko*" | grep -q .
+            head -c 64 "$K/vmlinuz" | od -An -tx1 | tr -d " \n" | cut -c 113-120 | grep -qx 41524d64
+            H=$(mktemp -d); dpkg-deb -x linux-headers-kwick-rpi_*.deb "$H"
+            test -f "$H/usr/src/linux-headers-$KREL/Module.symvers"'
+
+      - name: Disk image
+        run: |
+          docker run --rm -e KEEP_IMG=1 -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build kwick-builder \
+            bash /src/scripts/mkrpiimage.sh
+
+      - name: Boot test (QEMU raspi4b)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/tests/rpi-boot.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwickos-arm64-rpi
+          path: |
+            out/arm64/kwickos-arm64-rpi.img.zst
+            out/arm64/kernel-rpi/version
+            out/arm64/kernel-rpi/config
+            out/repo/pool/main/linux-image-kwick-rpi_*.deb
+            out/repo/pool/main/linux-headers-kwick-rpi_*.deb
+            out/repo/pool/main/kwick-rpi-firmware_*.deb
+          retention-days: 14

@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}
-OUT=${OUT:-/out}; K="$OUT/$ARCH/kernel-$FLAVOR"
+OUT=${OUT:-/out}; SRC=${SRC:-/src}; K="$OUT/$ARCH/kernel-$FLAVOR"
+DEP=
+[ ! -f "$SRC/config/kernel/$FLAVOR.source" ] || DEP=$(sed -n "s/^PKG_DEPENDS=//p" "$SRC/config/kernel/$FLAVOR.source" | tr -d "\r\"")
 KREL=$(cat "$K/version")
 KVER=${KREL%%-kwick*}
 P=$(mktemp -d)
@@ -22,7 +24,8 @@ Section: kernel
 Priority: optional
 Installed-Size: $SIZE
 Provides: linux-image, linux-image-$KREL
-Description: Linux $KVER kernel for KwickOS ($FLAVOR flavor)
+${DEP:+Depends: $DEP
+}Description: Linux $KVER kernel for KwickOS ($FLAVOR flavor)
  Self-contained UEFI kernel image with the kinit root finder embedded.
  Installing it makes it the next boot kernel; the previous one is kept
  for rollback and can be chosen again (kwick-kernel list, default, try, rollback).

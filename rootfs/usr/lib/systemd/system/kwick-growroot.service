@@ -1,0 +1,10 @@
+[Unit]
+Description=Grow the root partition and filesystem to fill the disk
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/kwick-growroot /
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

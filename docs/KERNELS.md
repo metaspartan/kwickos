@@ -9,7 +9,7 @@ and the Settings app shows it on the GPU page.
 kwick-kernel list                      installed kernels (version, flavor, size, running, default) and what the repo offers
 kwick-kernel install latest            newest kernel of the running flavor, through apt
 kwick-kernel install 7.3.3             a specific version  (7.3.3:generic, generic-7.3.3 pick the flavor)
-kwick-kernel install generic           newest kernel of another flavor (generic, virt, k1, k1mainline, gb10, apple)
+kwick-kernel install generic           newest kernel of another flavor (generic, virt, k1, k1mainline, gb10, rpi, apple)
 kwick-kernel default 7.3.3             boot this one from now on
 kwick-kernel try 7.3.4                 boot it once, the default boots again if the boot is not confirmed
 kwick-kernel try 7.3.4 --promote       ... and make it the default once the boot is confirmed
@@ -25,8 +25,10 @@ Installing needs root. `list` and `status` do not.
 ## How it fits together
 
 * **Flavors and versions.** The repository has one package per flavor (`linux-image-kwick-generic`, `-virt`, `-k1`,
-  `-k1mainline`, `-gb10`, `kwick-kernel-asahi` for Apple). `k1` is SpacemiT's 6.6 BSP and `k1mainline` the kernel.org
-  kernel for the Banana Pi BPI-F3; both are built by `scripts/build-kernel-variant.sh` (see [HARDWARE](HARDWARE.md)). A kernel is identified as `FLAVOR-VERSION`, for example `generic-7.3.4`.
+  `-k1mainline`, `-gb10`, `-rpi`, `kwick-kernel-asahi` for Apple). `k1` is SpacemiT's 6.6 BSP and `k1mainline` the kernel.org
+  kernel for the Banana Pi BPI-F3, `rpi` the Raspberry Pi Foundation's `rpi-7.3.y` tree for the Raspberry Pi 4 and 5; all
+  three are built by `scripts/build-kernel-variant.sh` (see [HARDWARE](HARDWARE.md)). The `rpi` kernel's version is the
+  version of the Foundation's tree (7.3.5 at the pinned commit) and does not follow `KERNEL_VERSION` bumps. A kernel is identified as `FLAVOR-VERSION`, for example `generic-7.3.4`.
   A bare version works when it is unambiguous, `7.3.4:virt` otherwise. `install` resolves versions with
   `apt-cache madison` and installs `package=version`, so older versions are a normal downgrade. `install` also takes
   `--no-default` (install, do not switch the default) and `--no-update`.
@@ -44,6 +46,7 @@ Installing needs root. `list` and `status` do not.
 | GRUB (UEFI or BIOS) | `grub.cfg` has one entry per kernel (`/EFI/kwick/k/<id>/` or `/boot/k/<id>/`), the default is `saved_entry` in `grubenv` | `next_entry` in `grubenv`, which `grub.cfg` clears before booting (the same mechanism as `grub-reboot`) | `next_entry` is already gone, the next boot uses the default |
 | systemd-boot | one `loader/entries/kwick-<id>.conf` per kernel, `default` in `loader.conf` plus `bootctl set-default` | `bootctl set-oneshot` (or the `LoaderEntryOneShot` EFI variable directly) | the boot loader clears the one-shot variable |
 | U-Boot boards (BPI-F3) | `kwick-bootctl set-kernel <release>`, which also appends the kernel's own `uboot.txt` (the mainline flavor uses it to boot with the SoC watchdog armed) | the same call; `kwick-bootctl` falls back to the vendor system when the boot is unconfirmed | `kwick-kernel confirm` restores the previous kernel selection after a failed trial |
+| Raspberry Pi 4 and 5 (Pi firmware) | `kwick-rpi-boot install <release>` copies `kernel8.img`, the bcm2711/bcm2712 device trees and the overlays of that kernel to `/boot/firmware` (the previous image stays as `kernel8.prev.img`); `config.txt` and `cmdline.txt` are written only when missing | not available | none; `kwick-rpi-boot rollback` or `kwick-kernel rollback` restores the previous kernel from a running system, otherwise copy `kernel8.prev.img` over `kernel8.img` on another computer |
 | Apple Silicon | `kwick-apple-boot install <release>` | not available | none |
 | containers, direct-kernel boot | nothing to switch (the kernel is stored under `/usr/lib/kwick/kernels`) | | |
 

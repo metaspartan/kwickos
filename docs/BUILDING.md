@@ -22,6 +22,20 @@ make headless-iso-grub             # the same with a GRUB menu (live, safe graph
 
 The kernel version is pinned in [`KERNEL_VERSION`](../KERNEL_VERSION). The build verifies the tarball checksum against kernel.org.
 
+Raspberry Pi 4 and 5 (arm64, after `make userland kpkg rootfs ARCH=arm64`; this is what `.github/workflows/rpi.yml` runs).
+The kernel comes from `raspberrypi/linux` `rpi-7.3.y` at the commit in `config/kernel/rpi.source`, the firmware blobs
+from the release pinned in `config/rpi-firmware.env`. The image lands in `out/arm64/kwickos-arm64-rpi.img(.zst)` and
+`tests/rpi-boot.sh` boots it under QEMU `raspi4b`:
+
+```sh
+docker run --rm -v $PWD:/src -v $PWD/out:/out -v kwick-build:/build -v kwick-cache:/cache kwick-builder bash -c '
+  bash /src/scripts/build-kernel-variant.sh arm64 rpi &&
+  bash /src/scripts/mkrpifwpkg.sh &&
+  bash /src/scripts/mkkernelpkg.sh arm64 rpi && bash /src/scripts/mkkernelhdrpkg.sh arm64 rpi &&
+  KEEP_IMG=1 bash /src/scripts/mkrpiimage.sh &&
+  bash /src/tests/rpi-boot.sh'
+```
+
 Optional packages are built by their own scripts in `scripts/` (`mkdesktoppkg.sh`, `mkgamingpkg.sh`, `mkpenpkg.sh`,
 `mkagentspkg.sh`, `mkstoragepkg.sh`, `mkzfspkg.sh`, `mkgpupkg.sh`, `mkdarlingpkg.sh` and others). The release workflow and
 `tools/vmlab/buildrepo.sh` build them next to the base.

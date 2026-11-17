@@ -1,0 +1,109 @@
+#!/bin/sh
+set -eu
+BOOT=${KWICK_RPI_BOOT:-/boot/firmware}
+FW=${KWICK_RPI_FW:-/usr/lib/kwick/rpi-firmware}
+SHARE=${KWICK_RPI_SHARE:-/usr/share/kwick/rpi}
+KDIR=${KWICK_KDIR:-/usr/lib/kwick/kernels}
+LABEL=KWICKBOOT
+
+usage() {
+	cat <<EOF
+usage: kwick-rpi-boot <command>
+
+  status            board, boot partition, installed kernel and firmware
+  install RELEASE   copy kernel8.img, device trees and overlays of $KDIR/RELEASE to $BOOT
+  firmware          refresh start4.elf and fixup4.dat, write config.txt and cmdline.txt if missing
+  rollback          boot kernel8.prev.img again
+EOF
+}
+
+die() { printf 'kwick-rpi-boot: %s\n' "$*" >&2; exit 1; }
+
+mount_boot() {
+	[ -n "${KWICK_NOMOUNT:-}" ] && return 0
+	grep -qs " $BOOT " /proc/mounts && return 0
+	mkdir -p "$BOOT"
+	mount "$BOOT" 2>/dev/null && return 0
+	dev=$(findfs "LABEL=$LABEL" 2>/dev/null) || return 1
+	mount -t vfat "$dev" "$BOOT"
+}
+
+need_boot() {
+	mount_boot || die "no Raspberry Pi boot partition (FAT label $LABEL, mounted at $BOOT)"
+	[ -d "$BOOT" ] || die "$BOOT missing"
+}
+
+put() {
+	cmp -s "$1" "$2" 2>/dev/null && return 0
+	cp "$1" "$2.new"
+	mv -f "$2.new" "$2"
+}
+
+firmware() {
+	need_boot
+	for f in start4.elf fixup4.dat LICENCE.broadcom; do
+		[ -f "$FW/$f" ] && put "$FW/$f" "$BOOT/$f"
+	done
+	for f in config.txt cmdline.txt; do
+		[ -f "$BOOT/$f" ] || { [ -f "$SHARE/$f" ] && cp "$SHARE/$f" "$BOOT/$f"; }
+	done
+	[ -f "$FW/VERSION" ] && cp "$FW/VERSION" "$BOOT/kwick-firmware"
+	sync
+}
+
+install_kernel() {
+	rel=$1
+	src=$KDIR/$rel
+	[ -f "$src/vmlinuz" ] || die "$src/vmlinuz not found"
+	need_boot
+	if [ -f "$BOOT/kernel8.img" ] && ! cmp -s "$BOOT/kernel8.img" "$src/vmlinuz"; then
+		cp "$BOOT/kernel8.img" "$BOOT/kernel8.prev.img"
+		[ -f "$BOOT/kwick-current" ] && cp "$BOOT/kwick-current" "$BOOT/kwick-previous"
+	fi
+	for d in "$src"/dtbs/broadcom/*.dtb; do
+		[ -f "$d" ] && put "$d" "$BOOT/${d##*/}"
+	done
+	if [ -d "$src/dtbs/overlays" ]; then
+		mkdir -p "$BOOT/overlays"
+		for o in "$src"/dtbs/overlays/*; do
+			[ -f "$o" ] && put "$o" "$BOOT/overlays/${o##*/}"
+		done
+	fi
+	put "$src/vmlinuz" "$BOOT/kernel8.img"
+	echo "$rel" > "$BOOT/kwick-current"
+	firmware
+	echo "kwick-rpi-boot: $rel installed as $BOOT/kernel8.img"
+}
+
+rollback() {
+	need_boot
+	[ -f "$BOOT/kernel8.prev.img" ] || die "no previous kernel in $BOOT"
+	cp "$BOOT/kernel8.img" "$BOOT/kernel8.rollback-from.img"
+	put "$BOOT/kernel8.prev.img" "$BOOT/kernel8.img"
+	[ -f "$BOOT/kwick-previous" ] && cp "$BOOT/kwick-previous" "$BOOT/kwick-current"
+	sync
+	echo "kwick-rpi-boot: previous kernel restored, reboot to use it"
+}
+
+status() {
+	model=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo unknown)
+	printf 'board      %s\n' "$model"
+	printf 'running    %s\n' "$(uname -r)"
+	if mount_boot 2>/dev/null && [ -d "$BOOT" ]; then
+		printf 'boot       %s\n' "$BOOT"
+		printf 'kernel     %s\n' "$(cat "$BOOT/kwick-current" 2>/dev/null || echo unknown)"
+		printf 'previous   %s\n' "$(cat "$BOOT/kwick-previous" 2>/dev/null || echo none)"
+		printf 'firmware   %s\n' "$(cat "$BOOT/kwick-firmware" 2>/dev/null || echo unknown)"
+	else
+		printf 'boot       not found (FAT label %s)\n' "$LABEL"
+	fi
+}
+
+case ${1:-} in
+	status) status ;;
+	install) [ -n "${2:-}" ] || die "usage: kwick-rpi-boot install RELEASE"; install_kernel "$2" ;;
+	firmware) firmware ;;
+	rollback) rollback ;;
+	-h|--help|help|"") usage ;;
+	*) usage >&2; exit 2 ;;
+esac

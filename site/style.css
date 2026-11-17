@@ -236,7 +236,7 @@ code {
 .term .p { color: var(--cyan); }
 .term + .cards { margin-top: clamp(40px, 6vw, 64px); }
 
-.arch { margin-top: 20px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.arch { margin-top: 20px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .arch div { padding: 16px 18px; border-radius: 16px; border: 1px dashed rgba(160, 170, 255, 0.22); color: var(--ink-2); font-size: 14px; }
 .arch span { display: block; font-family: var(--mono); color: var(--ink); font-size: 15px; margin-bottom: 2px; }
 

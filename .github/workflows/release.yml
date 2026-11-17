@@ -57,6 +57,11 @@ jobs:
     needs: plan
     uses: ./.github/workflows/desktop.yml
 
+  rpi:
+    needs: [plan, preflight]
+    uses: ./.github/workflows/rpi.yml
+    secrets: inherit
+
   hyprland:
     strategy:
       fail-fast: false
@@ -85,7 +90,7 @@ jobs:
           path: hyprland-out/repo/pool/main/kwick-hyprland_*.deb
 
   publish:
-    needs: [plan, build, desktop, hyprland]
+    needs: [plan, build, desktop, hyprland, rpi]
     # headless must be green; desktop images are published for whichever archs built
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -106,6 +111,8 @@ jobs:
             cp dl/kwickos-$a/kwickos-* release/ 2>/dev/null || true
             [ -d dl/kwickos-desktop-$a ] && find dl/kwickos-desktop-$a -name "kwickos-$a-desktop.iso" -exec cp {} release/ \; || true
           done
+          f=$(find dl/kwickos-arm64-rpi -name kwickos-arm64-rpi.img.zst 2>/dev/null | head -n 1)
+          if [ -n "$f" ]; then cp "$f" release/; else echo "::warning::no Raspberry Pi image in this release"; fi
           # disk images are sparse 1 GiB; ship them compressed
           for f in release/*.img; do [ -f "$f" ] && zstd -19 -T0 --rm -q "$f"; done
           # GitHub release assets are limited to 2 GiB each: split oversized files (cat parts > file)
@@ -121,6 +128,7 @@ jobs:
             echo
             echo "Headless: \`kwickos-<arch>.iso | .qcow2 | .img.zst | .efi | -initramfs.cpio.zst | -rootfs.tar.gz\`"
             echo "Desktop (KDE Plasma 6): \`kwickos-<arch>-desktop.iso\`"
+            echo "Raspberry Pi 4, 400, 5 and 500: \`kwickos-arm64-rpi.img.zst\` (write it to an SD card or USB drive)"
             echo "Container: \`docker run -it ghcr.io/metaspartan/kwickos:$VERSION\`"
             echo "Kernel updates: \`apt update && apt upgrade\` (signed repo at https://metaspartan.github.io/kwickos)."
             echo; echo '```'; (cd release && cat SHA256SUMS); echo '```'
@@ -182,6 +190,7 @@ jobs:
           for a in arm64 riscv64; do docker run --rm --platform linux/$a -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-$a && bash /src/scripts/mkglasspkg.sh /out/kwin-liquidglass-$a && bash /src/scripts/mkmacstylepkg.sh /out/kwin-macstyle-$a && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-$a"; done
           for a in amd64 arm64 riscv64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
+          find dl/kwickos-arm64-rpi -name "*.deb" -exec cp {} out/repo/pool/main/ \; 2>/dev/null || true
           . config/darling.env; mkdir -p out/repo/pool/main
           GH_TOKEN=${{ secrets.GITHUB_TOKEN }} gh release download "darling-${DARLING_TAG#v}-${DARLING_PKG_REVISION}" -p 'kwick-darling_*.deb' -D out/repo/pool/main || true
           docker run --rm -e KWICK_SIGNING_KEY -e KWICK_SIGNING_PASSPHRASE -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkrepo.sh stable

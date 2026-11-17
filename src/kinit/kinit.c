@@ -1768,6 +1768,7 @@ static int cmd_power(const char *how, int argc, char **argv)
 }
 
 #include "syscompat.c"
+#include "growroot.c"
 
 int main(int argc, char **argv)
 {
@@ -1782,6 +1783,7 @@ int main(int argc, char **argv)
 	if (!strcmp(self, "update-rc.d")) return 0;
 	if (!strcmp(self, "systemd-sysusers")) return cmd_sysusers(argc, argv);
 	if (!strcmp(self, "systemd-tmpfiles")) return cmd_tmpfiles(argc, argv);
+	if (!strcmp(self, "kwick-growroot")) return cmd_growroot(argc, argv);
 	if (!strcmp(self, "poweroff") || !strcmp(self, "reboot") || !strcmp(self, "halt")) return cmd_power(self, argc, argv);
 	if (argc > 1 && !strcmp(argv[1], "--version")) { puts("kinit " KINIT_VERSION); return 0; }
 	if (argc > 1 && !strcmp(argv[1], "--supervisor")) return supervisor();

@@ -1,19 +1,19 @@
 #!/bin/sh
 set -u
 PROG=kwick-gpu
-KNOWN="amd intel nvidia apple vm"
+KNOWN="amd intel nvidia apple rpi vm"
 usage() {
   cat <<EOF
 usage: $PROG [command] [options]
   status                 show detected GPUs, kernel drivers and what is installed (default)
-  detect                 print one detected vendor per line: amd intel nvidia apple vm
+  detect                 print one detected vendor per line: amd intel nvidia apple rpi vm
   install [options]      install drivers and firmware for the detected hardware
       --list             only print the packages that would be installed
       --i386 | --no-i386 force or skip the 32-bit (i386) Mesa/Vulkan set (default: on for amd64 desktops)
       --rocm             also install the ROCm compute stack (AMD)
   rocm [--list]          install the ROCm compute stack (AMD)
   steam [--list]         prepare the machine for Steam: udev rules, uinput, GameMode, MangoHud, 32-bit GL/Vulkan
-environment: KWICK_GPU_VENDOR=amd,intel,nvidia,apple,vm overrides detection
+environment: KWICK_GPU_VENDOR=amd,intel,nvidia,apple,rpi,vm overrides detection
 EOF
 }
 
@@ -45,6 +45,7 @@ detect_vendors() {
     done
   fi
   if [ -r /proc/device-tree/compatible ] && tr '\0' ' ' < /proc/device-tree/compatible | grep -q 'apple,'; then found="$found apple"; fi
+  if [ -r /proc/device-tree/compatible ] && tr '\0' ' ' < /proc/device-tree/compatible | grep -qE 'brcm,bcm271[12]'; then found="$found rpi"; fi
   printf '%s\n' $found | sort -u
 }
 
@@ -65,6 +66,7 @@ build_pkgs() {
              [ "$arch" = amd64 ] && pkgs="$pkgs intel-media-va-driver-non-free" ;;
       nvidia) pkgs="$pkgs firmware-nvidia-graphics libdrm-nouveau2 mesa-va-drivers mesa-vdpau-drivers mesa-opencl-icd nvtop" ;;
       apple) pkgs="$pkgs mesa-libgallium"; ;;
+      rpi) pkgs="$pkgs mesa-libgallium libgles2 firmware-brcm80211" ;;
       vm) ;;
     esac
   done
@@ -202,6 +204,7 @@ case $cmd in
         apple) if [ -x /usr/lib/kwick/gpu-apple ]; then /usr/lib/kwick/gpu-apple status; else echo "  Apple Silicon: install the kwick-apple variant (Asahi kernel) for GPU, audio and display support."; fi ;;
         amd) echo "  AMD: amdgpu + RADV/radeonsi; 'kwick-gpu rocm' adds the compute stack." ;;
         intel) echo "  Intel: i915/xe + ANV/iris; media-va-driver-non-free for hardware video." ;;
+        rpi) echo "  Raspberry Pi 4/5: vc4 KMS display + v3d render (Mesa v3d/vc4 OpenGL ES 3.1, v3dv Vulkan); needs dtoverlay=vc4-kms-v3d in /boot/firmware/config.txt." ;;
         vm) echo "  Virtual GPU: virtio-gpu/vmware/qxl via Mesa llvmpipe/virgl." ;;
       esac
     done

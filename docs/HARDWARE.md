@@ -17,6 +17,7 @@ KwickOS itself has no hardware lab. Anything that needs physical hardware that i
 | generic | amd64, arm64, riscv64 | broad bare-metal hardware, modules | `linux-image-kwick-generic` |
 | apple | arm64 | Asahi tree, 16K pages, Apple Silicon Macs | `kwick-kernel-asahi` |
 | gb10 | arm64 | NVIDIA DGX Spark (GB10), ACPI, SMMUv3, NUMA, mlx5 | `linux-image-kwick-gb10` |
+| rpi | arm64 | Raspberry Pi 4 and 5 (Raspberry Pi Foundation `rpi-7.3.y` tree), 4K pages, Pi firmware boot | `linux-image-kwick-rpi` |
 
 Every flavor has a matching `linux-headers-kwick-<flavor>` (or `kwick-kernel-asahi-headers`) package that provides `/lib/modules/<release>/build`, so DKMS and out-of-tree modules work. That was checked by building NVIDIA's open modules against the extracted amd64 headers package.
 
@@ -41,13 +42,14 @@ Notes:
 
 Apple Silicon support is the Asahi Linux project's work. KwickOS packages their pinned kernel tree, m1n1 and U-Boot and uses their installer.
 
+**Intel Macs are not a target.** KwickOS supports Macs only through Apple Silicon (arm64). There are no Intel Mac or T2 packages, kernel options, drivers or boot handling, none are planned, and Intel Macs are not tested. Reports about Intel Macs are out of scope.
+
 | Generation | Kernel | GPU | Status |
 | --- | --- | --- | --- |
 | M1, M1 Pro, M1 Max, M1 Ultra | Asahi tree | `asahi` DRM driver with Mesa asahi (OpenGL) and honeykrisp (Vulkan) from trixie-backports | Built |
 | M2, M2 Pro, M2 Max, M2 Ultra | Asahi tree | same | Built |
 | M3 family | boots in the Asahi tree, work in progress (daily use is not yet realistic per Asahi) | not supported | Unsupported for now; device trees are present, nothing else is promised |
 | M4 and M5 | device trees only reached the mailing list | none | Unsupported |
-| Intel Macs (T2 or not) | not an Apple Silicon target | | Unsupported by this variant; the generic amd64 kernel may boot, T2 hardware needs out-of-tree drivers |
 
 What was verified for the Built entries: the pinned Asahi tag `asahi-7.3.3-2` was configured and compiled to completion in the KwickOS builder (defconfig, `asahi.config`, KwickOS fragments, Rust enabled with Debian trixie rustc 1.85.1 and bindgen 0.71.1). The result is a 47 MB EFI-stub `Image`, 1666 modules including `asahi` and `apple` DRM, device trees for all Apple SoCs, and `nvme_apple`, DART, SART, AIC, PCIe, USB and SMC drivers built in so the root partition is reachable with the embedded kinit. It was not booted on a Mac.
 
@@ -87,9 +89,76 @@ DGX OS ships a recovery environment and firmware updates; keep it. KwickOS has n
 | --- | --- |
 | QEMU virt (virtio), UEFI | Verified |
 | ServerReady (SBSA) servers and VMs with UEFI and ACPI (Ampere, Graviton, Azure Cobalt, Hetzner CAX, Oracle A1) | Upstream: the generic arm64 flavor has the common NIC, NVMe, and virtio drivers; not specifically tested |
-| Raspberry Pi 4 and 5 | Unsupported: no board firmware or device tree handling is shipped and nothing was tried. A UEFI firmware for the Pi (edk2) might let the generic flavor boot, untested |
+| Raspberry Pi 4, 400, CM4, 5, 500, CM5 | Built: `rpi` flavor and `kwickos-arm64-rpi.img.zst`, booted under QEMU `raspi4b` only; see [Raspberry Pi 4 and 5](#raspberry-pi-4-and-5) |
 | Other Arm boards with device trees (Rockchip, Allwinner, Amlogic, i.MX) | Unsupported |
 | Apple Silicon virtualization (UTM, Lima, Parallels) | Verified with the arm64 virt images |
+
+## Raspberry Pi 4 and 5
+
+One image, `kwickos-arm64-rpi.img.zst`, and one kernel flavor, `rpi` (`linux-image-kwick-rpi`, `linux-headers-kwick-rpi`), cover the Raspberry Pi 4, 400 and Compute Module 4 (BCM2711) and the Raspberry Pi 5, 500 and Compute Module 5 (BCM2712).
+
+| Board | Device tree shipped | Status |
+| --- | --- | --- |
+| Raspberry Pi 4 Model B | `bcm2711-rpi-4-b.dtb` | Built. The image's kernel, device tree, SD driver, root mount by label, first-boot growth and userland were booted under QEMU `raspi4b` (see below); not booted on a real Pi 4 |
+| Raspberry Pi 400 | `bcm2711-rpi-400.dtb` | Built |
+| Compute Module 4 (and CM4S) | `bcm2711-rpi-cm4.dtb`, `bcm2711-rpi-cm4s.dtb` | Built; eMMC variants boot from eMMC like an SD card |
+| Raspberry Pi 5 (C1 and D0 steppings) | `bcm2712-rpi-5-b.dtb`, `bcm2712d0-rpi-5-b.dtb` | Built; nothing can emulate it (QEMU has no `raspi5`) |
+| Raspberry Pi 500 | `bcm2712-rpi-500.dtb` | Built |
+| Compute Module 5 (and CM5 Lite) on the CM5 or CM4 IO board | `bcm2712-rpi-cm5-cm5io.dtb`, `bcm2712-rpi-cm5-cm4io.dtb`, `bcm2712-rpi-cm5l-*.dtb` | Built |
+| Raspberry Pi 3 and older, Zero 2 W | none | Unsupported |
+
+### Kernel: the Raspberry Pi Foundation tree, not mainline
+
+The `rpi` flavor is built from `raspberrypi/linux` branch `rpi-7.3.y` at commit `b005af6699cc67413be78028a201e87fe40dcb50` (Linux 7.3.5, the same version as the kernel.org `KERNEL_VERSION` the other flavors use since 2026-11-17) with `bcm2711_defconfig` plus `config/kernel/rpi.config` (pinned in `config/kernel/rpi.source`). The decision, checked on 2026-11-17:
+
+* **What mainline 7.3.4 has.** The KwickOS 7.3.4 tree carries `bcm2712-rpi-5-b.dts` and `bcm2712-d-rpi-5-b.dts`, the RP1 driver (`drivers/misc/rp1`, mainline since 6.17), RP1 Ethernet in `macb` (`raspberrypi,rp1-gem`), RP1 USB through `dwc3`, the BCM2712 SD controller (`sdhci-brcmstb`), BCM2712 PCIe (`pcie-brcmstb`), the BCM2712 display pipeline in `vc4` (HVS, pixel valves, both HDMI ports) and V3D 7.1 in `v3d` (`brcm,2712-v3d`). The code for Pi 5 Ethernet, USB, SD, HDMI and v3d is present.
+* **Why it is not used.** Mainline has no device tree for the Pi 500, the CM5 or the CM5 Lite, and names the Pi 5 D0 tree `bcm2712-d-rpi-5-b.dtb` where the firmware looks for `bcm2712d0-rpi-5-b.dtb`. The RP1 PWM driver that runs the Pi 5 active cooler's fan was still under review in June 2026 (v5 of the series), as were the BCM2712 IOMMU driver (July 2026) and a `macb` TX-stall recovery for RP1 Ethernet (June 2026). The one public report of RP1 Ethernet on mainline (v6.18-rc3, LKML, October 2025) saw the PHY and the link come up but no traffic, and nothing later shows it working. Every `dtoverlay=` and `dtparam=` the firmware applies from `config.txt` (`vc4-kms-v3d`, `pciex1` for M.2 HATs, HATs, cameras, displays) is written against the Foundation's device trees and does not apply to mainline ones. Pi 5 Ethernet on mainline could not be shown to work, so the requirement for using mainline was not met.
+* **Revisit** when mainline has the RP1 PWM driver, Pi 500 and CM5 device trees and a confirmed working RP1 Ethernet. The Foundation's default branch is `rpi-6.18.y`, which Raspberry Pi OS ships; `rpi-7.3.y` follows the kernel.org 7.3 stable series and is less widely deployed.
+* **Page size.** 4K pages (`CONFIG_ARM64_4K_PAGES=y`). Raspberry Pi OS boots a 16K-page `kernel_2712.img` on the Pi 5 for a few percent more speed, but 16K pages break some Debian software (jemalloc built for 4K, some JITs and Chromium builds), so KwickOS boots the same 4K `kernel8.img` on the Pi 4 and the Pi 5, and `config.txt` names it (`kernel=kernel8.img`).
+* **Built in, so the embedded kinit can mount the root:** SD and eMMC (`MMC_SDHCI_IPROC` and `MMC_BCM2835` on the Pi 4, `MMC_SDHCI_BRCMSTB` on the Pi 5), USB mass storage and UAS (`USB_XHCI_PCI` behind the Pi 4's VL805, `MFD_RP1` and `USB_DWC3` on the Pi 5), NVMe over PCIe (`PCIE_BRCMSTB`, `BLK_DEV_NVME`), ext4, and both Ethernet drivers (`BCMGENET` on the Pi 4, `MACB` on the Pi 5). `vc4` and `v3d` are modules; the fan (`PWM_RP1`, `SENSORS_PWM_FAN`) is built in.
+
+### Boot partition and image layout
+
+The Raspberry Pi has no UEFI; its firmware reads a FAT partition. The Pi 4 runs `start4.elf` and `fixup4.dat` from that partition; the Pi 5 has its bootloader in EEPROM and reads only `config.txt`, the kernel and the device trees. KwickOS uses no U-Boot.
+
+`kwickos-arm64-rpi.img.zst` is an MBR disk, which every Pi 4 and Pi 5 bootloader version reads:
+
+| Partition | Size | Contents |
+| --- | --- | --- |
+| 1, FAT32, type `0x0c`, label `KWICKBOOT`, from 4 MiB | 256 MiB | `kernel8.img` (the kernel with kinit embedded), `bcm2711-*.dtb`, `bcm2712*.dtb`, `overlays/` (the 387 overlays of the same kernel build, with `overlay_map.dtb`), `start4.elf`, `fixup4.dat`, `LICENCE.broadcom`, `config.txt`, `cmdline.txt`; mounted at `/boot/firmware` |
+| 2, ext4, type `0x83`, label `kwick-root` | 1 GiB in the image | the KwickOS root; `kwick-growroot.service` grows the partition and the filesystem to the end of the card on first boot |
+
+`config.txt` sets `arm_64bit=1`, `kernel=kernel8.img`, `enable_uart=1`, `dtoverlay=vc4-kms-v3d` (full KMS for the desktop and the console), `display_auto_detect=1`, and `dtparam=pciex1` under `[pi5]` so an NVMe drive on an M.2 HAT is visible. `cmdline.txt` is `console=serial0,115200 console=tty1 root=LABEL=kwick-root rootfstype=ext4 rootwait rootdelay=60`. MBR partitions have no partition names, so the root is found by its ext4 label; `rootdelay=60` gives kinit a minute for slow USB drives (kinit ignores `rootwait`, the kernel never waits itself because kinit is the initramfs). Both files are written only when missing and are never overwritten.
+
+The firmware blobs come from `raspberrypi/firmware` release `1.20260915` (commit `6f0881cba8be`), are checked against the SHA-256 sums in `config/rpi-firmware.env`, and ship only in the `kwick-rpi-firmware` package and the Pi image, never in the base. `kwick-rpi-firmware` also carries `kwick-rpi-boot`, the counterpart of Debian's `raspi-firmware` hooks. `linux-image-kwick-rpi` depends on it; its `postinst` runs `kwick-kernel-install`, `kwick-kernel` recognises the `rpi` boot path from the device tree and calls `kwick-rpi-boot install <release>`, which copies `kernel8.img` (keeping the previous one as `kernel8.prev.img`), the device trees and the overlays of that kernel to `/boot/firmware` and refreshes `start4.elf` and `fixup4.dat`. `kwick-kernel default`, `rollback` and `list` work; `try` does not (the firmware's `tryboot` mode is not wired up). Root growth is a small kinit applet, `kwick-growroot`: it rewrites the last MBR partition entry, tells the kernel with `BLKPG_RESIZE_PARTITION` and grows ext4 online, so the base needs neither `growpart`, `sfdisk` nor `resize2fs`.
+
+### Desktop
+
+`apt install kwick-desktop` is meant to work on the Pi image: the desktop package accepts `linux-image-kwick-rpi` in place of the generic kernel, and `kwick-gpu` detects the Pi from the device tree (`brcm,bcm2711`, `brcm,bcm2712`) and installs Mesa (`libgl1-mesa-dri`, `mesa-libgallium`, `mesa-vulkan-drivers` with v3dv, `libgles2`) and `firmware-brcm80211` for the on-board Wi-Fi. Rendering is hardware OpenGL ES 3.1 and OpenGL 3.1 through Mesa's `v3d` driver with `vc4` as the KMS display device; the KWin plugins are built for arm64 by the release workflow. The desktop has not been run on a Pi; plan on a 4 GB board or larger for Plasma.
+
+### What was tested without hardware
+
+* Built locally and in CI (`.github/workflows/rpi.yml`, on a native arm64 runner): the kernel (`7.3.5-kwick-rpi`, a 29 MB `Image`, 1886 modules), `linux-image-kwick-rpi`, `linux-headers-kwick-rpi` (complete `Module.symvers` and arm64 `scripts/`), `kwick-rpi-firmware`, and the image (47 MB compressed). The workflow checks the device trees, overlays, required kernel options, the `vc4` and `v3d` modules and the arm64 `Image` header.
+* `tests/rpi-boot.sh` boots the image under QEMU 10.0 `-M raspi4b` (2 GB) from a 4 GiB SD card. `kernel8.img` and `bcm2711-rpi-4-b.dtb` are taken from the image's FAT partition and loaded directly, because QEMU cannot run the VideoCore firmware; the console is the PL011, because QEMU's mini UART does not probe, and the Bluetooth node is removed from a copy of the device tree so the PL011 is free. Evidence from 2026-11-17:
+
+  ```
+  Machine model: Raspberry Pi 4 Model B
+  mmcblk1: mmc1:eaf4 QEMU! 4.00 GiB
+  EXT4-fs (mmcblk1p2): mounted filesystem 8392c7dc-... r/w with ordered data mode.
+  kinit: KwickOS 0.6.0 ready in 3831 ms (since kernel start)
+  growroot: partition 2 of mmcblk1 grown from 1024 to 3836 MiB
+  KW-REL 7.3.5-kwick-rpi
+  /dev/mmcblk1p1 /boot/firmware vfat rw,noatime,...
+  boot path      rpi
+  partition 2: 3836 MiB, ext4: 3836 MiB, card: 4G
+  RESULT raspi4b ok wall_s=38
+  ```
+
+  QEMU's `raspi4b` has no PCIe, USB, Ethernet, GPU, VideoCore firmware or Pi 5 model, so this exercises the kernel, the Pi 4 device tree, the SD driver, kinit's root search by label, `kwick-growroot`, the `/boot/firmware` mount and `kwick-kernel`'s boot path detection, and nothing else.
+
+### Not verified on real hardware
+
+Everything that needs a Pi: the VideoCore firmware loading `kernel8.img` with this `config.txt` on a Pi 4, the Pi 5 EEPROM bootloader doing the same, the firmware's translation of `console=serial0`, Ethernet (GENET on the Pi 4, RP1 on the Pi 5), USB, NVMe and USB boot (both also need the EEPROM `BOOT_ORDER`, which KwickOS does not change), HDMI and the KMS desktop, `v3d` acceleration, Wi-Fi and Bluetooth, the Pi 5 fan, the Pi 400, CM4, Pi 500 and CM5, and `kwick-growroot` on a real card. KwickOS does not update the EEPROM; do that with Raspberry Pi OS or Raspberry Pi Imager if it is old. Reports move entries from Built to Verified.
 
 ## riscv64
 

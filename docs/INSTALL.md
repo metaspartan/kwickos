@@ -14,6 +14,7 @@ Every file is on the [latest release](https://github.com/metaspartan/kwickos/rel
 | `kwickos-amd64.efi` | the kernel itself (virt flavor), a UEFI app and `-kernel` image for QEMU/Firecracker |
 | `kwickos-amd64-initramfs.cpio.zst` | the whole OS as an initramfs (microVMs, CI sandboxes) |
 | `kwickos-rootfs-amd64.tar.gz` | rootfs tarball (containers, chroots, WSL) |
+| `kwickos-arm64-rpi.img.zst` | Raspberry Pi 4, 400, 5 and 500 (and CM4/CM5) SD card or USB image: FAT boot partition with the Pi firmware + ext4 root that grows on first boot |
 | `ghcr.io/metaspartan/kwickos` | multi-arch container image |
 | `SHA256SUMS` | checksums for the release files |
 
@@ -137,6 +138,16 @@ qemu-system-x86_64 -M microvm,accel=kvm -cpu host -m 256 -nodefaults -nographic 
 
 Use the arm64 qcow2 or ISO with UTM, Lima, Parallels or any Virtualization.framework VM. Bare-metal Asahi support is built but not
 yet booted on a Mac; see [HARDWARE.md](HARDWARE.md#apple-silicon).
+
+## Raspberry Pi
+
+Write `kwickos-arm64-rpi.img.zst` to a microSD card or USB drive (decompress it with `unzstd` and use Raspberry Pi Imager's "Use custom" or balenaEtcher with the `.img`,
+or run `zstd -dc kwickos-arm64-rpi.img.zst | sudo dd of=/dev/sdX bs=4M conv=fsync`). On first boot the root partition
+and filesystem grow to fill the card (`kwick-growroot.service`). Login, autologin on the console and DHCP on `eth0` are the
+same as on every other KwickOS image. The boot partition is mounted at `/boot/firmware`; `config.txt` and `cmdline.txt`
+there are yours to edit and are never overwritten. Kernel updates arrive with `apt upgrade` (`linux-image-kwick-rpi`), and
+`kwick-kernel` and `kwick-rpi-boot` manage them. For the desktop run `apt install kwick-desktop`. Details and what has and
+has not been verified are in [HARDWARE.md](HARDWARE.md#raspberry-pi-4-and-5).
 
 ## Limitations
 

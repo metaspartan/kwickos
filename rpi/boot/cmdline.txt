@@ -1,0 +1,1 @@
+console=serial0,115200 console=tty1 root=LABEL=kwick-root rootfstype=ext4 rootwait rootdelay=60

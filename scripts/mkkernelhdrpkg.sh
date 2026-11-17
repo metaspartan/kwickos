@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}
-OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
+OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; SRC=${SRC:-/src}
 K="$OUT/$ARCH/kernel-$FLAVOR"; O="$BUILD/kernel-$ARCH-$FLAVOR"
 KREL=$(cat "$K/version")
-KVER=${KREL%-kwick}
+KVER=${KREL%%-kwick*}
 case $ARCH in
   amd64) KARCH=x86_64; CROSS= ;;
   arm64) KARCH=arm64; CROSS=aarch64-linux-gnu- ;;
@@ -16,6 +16,9 @@ if [ "$FLAVOR" = apple ]; then
   KSRC="$BUILD/src/asahi-linux"; PKG=kwick-kernel-asahi-headers; IMGPKG=kwick-kernel-asahi
 else
   KSRC="$BUILD/src/linux-${KREL%%-*}"; PKG=linux-headers-kwick-$FLAVOR; IMGPKG=linux-image-kwick-$FLAVOR
+  GIT=; COMMIT=
+  [ ! -f "$SRC/config/kernel/$FLAVOR.source" ] || . <(sed 's/\r$//' "$SRC/config/kernel/$FLAVOR.source")
+  if [ -n "$GIT" ]; then KSRC="$BUILD/src/$FLAVOR-${COMMIT:0:12}"; O="$KSRC"; fi
 fi
 [ -f "$O/Module.symvers" ] || { echo "no Module.symvers in $O: the flavor must be built with modules"; exit 1; }
 [ -f "$KSRC/Makefile" ] || { echo "no kernel source at $KSRC"; exit 1; }

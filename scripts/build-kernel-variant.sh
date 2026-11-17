@@ -4,7 +4,7 @@ ARCH=${1:?arch}; FLAVOR=${2:?variant}; KVER=${3:-${KVER:-}}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
 mkdir -p "$BUILD" "$CACHE"
 [ -f "$SRC/config/kernel/$FLAVOR.config" ] || { echo "no config/kernel/$FLAVOR.config"; exit 1; }
-GIT=; COMMIT=; DEFCONFIG=defconfig; DTBS=; FIT_STUB_DTB=
+GIT=; COMMIT=; DEFCONFIG=defconfig; DTBS=; FIT_STUB_DTB=; DTB_OVERLAYS=
 if [ -f "$SRC/config/kernel/$FLAVOR.source" ]; then
   . <(sed 's/\r$//' "$SRC/config/kernel/$FLAVOR.source")
   [ -z "$GIT" ] || KVER=${COMMIT:0:12}
@@ -84,6 +84,7 @@ REQ="DEVTMPFS BLK_DEV_INITRD EXT4_FS EROFS_FS OVERLAY_FS TMPFS CGROUPS NAMESPACE
 VREQ=""
 case $FLAVOR in
   gb10) VREQ="ACPI ARM_SMMU_V3 NUMA ZONE_DEVICE MMU_NOTIFIER PCI_DOE BLK_DEV_NVME ARM64_4K_PAGES SERIAL_AMBA_PL011_CONSOLE MLX5_CORE MLX5_INFINIBAND R8169 MT7925E" ;;
+  rpi) VREQ="ARM64_4K_PAGES MMC_SDHCI_IPROC MMC_SDHCI_BRCMSTB MMC_BCM2835 PCIE_BRCMSTB MFD_RP1 MACB BCMGENET USB_XHCI_PLATFORM USB_DWC3 USB_STORAGE USB_UAS BLK_DEV_SD DRM_VC4 DRM_V3D" ;;
 esac
 dropped=""
 for f in $FILES; do
@@ -102,8 +103,9 @@ fi
 
 T0=$(date +%s)
 TARGETS="$(basename $IMG) modules"
-[ "$ARCH" = arm64 ] && TARGETS="$TARGETS vmlinuz.efi"
+[ "$ARCH" = arm64 ] && grep -q "^CONFIG_EFI_ZBOOT=y" "$O/.config" && TARGETS="$TARGETS vmlinuz.efi"
 [ -n "$DTBS" ] && TARGETS="$TARGETS $DTBS"
+[ -n "$DTB_OVERLAYS" ] && TARGETS="$TARGETS dtbs"
 "${M[@]}" $TARGETS > "$O/build.log" 2>&1 || { tail -40 "$O/build.log"; exit 1; }
 echo ">> built in $(( $(date +%s) - T0 ))s"
 
@@ -113,6 +115,11 @@ cp "$O/$IMG" "$D/vmlinuz"
 [ -f "$O/arch/$KARCH/boot/vmlinuz.efi" ] && cp "$O/arch/$KARCH/boot/vmlinuz.efi" "$D/vmlinuz.efi"
 cp "$O/.config" "$D/config"
 for t in $DTBS; do mkdir -p "$D/dtbs/$(dirname "$t")"; cp "$O/arch/$KARCH/boot/dts/$t" "$D/dtbs/$t"; done
+if [ -n "$DTB_OVERLAYS" ]; then
+  mkdir -p "$D/dtbs/overlays"
+  cp "$O"/arch/$KARCH/boot/dts/overlays/*.dtbo "$D/dtbs/overlays/"
+  for f in overlay_map.dtb README; do [ ! -f "$O/arch/$KARCH/boot/dts/overlays/$f" ] || cp "$O/arch/$KARCH/boot/dts/overlays/$f" "$D/dtbs/overlays/"; done
+fi
 KREL=$(cat "$O/include/config/kernel.release")
 echo "$KREL" > "$D/version"
 DTC="$O/scripts/dtc/dtc"

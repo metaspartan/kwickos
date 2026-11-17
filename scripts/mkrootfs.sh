@@ -33,7 +33,7 @@ done < <(sed 's/\r$//' "$U/busybox.links")
 
 install -m 0755 "$U/kinit" usr/sbin/kinit
 ln -s kinit usr/sbin/init
-for l in poweroff reboot halt service invoke-rc.d update-rc.d; do ln -sf kinit usr/sbin/$l; done
+for l in poweroff reboot halt service invoke-rc.d update-rc.d kwick-growroot; do ln -sf kinit usr/sbin/$l; done
 for l in systemctl journalctl deb-systemd-helper deb-systemd-invoke systemd-sysusers systemd-tmpfiles; do ln -sf ../sbin/kinit usr/bin/$l; done
 
 install -m 0755 "$U/kpkg" usr/bin/kpkg

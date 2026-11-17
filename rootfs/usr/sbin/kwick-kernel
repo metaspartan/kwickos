@@ -44,7 +44,7 @@ usage: kwick-kernel <command> [options]
   sync                           rewrite boot entries from the installed kernels
   confirm [--wait]               confirm the running kernel (run at boot by kwick-kernel-confirm.service)
 
-VERSION is 7.3.4, generic-7.3.4, 7.3.4:generic or a kernel release. FLAVOR is generic, virt, k1, k1mainline, gb10, apple.
+VERSION is 7.3.4, generic-7.3.4, 7.3.4:generic or a kernel release. FLAVOR is generic, virt, k1, k1mainline, gb10, rpi, apple.
 EOF
 }
 
@@ -88,6 +88,7 @@ flavor_hint() {
 	*-gb10-kwick*) echo gb10 ;;
 	*-asahi-kwick*) echo apple ;;
 	*-kwick-k1mainline*) echo k1mainline ;;
+	*-kwick-rpi*) echo rpi ;;
 	*-kwick-k1*) echo k1 ;;
 	*) return 1 ;;
 	esac
@@ -403,6 +404,10 @@ boot_path() {
 	fi
 	if [ -x /usr/sbin/kwick-bootctl ] && grep -qs spacemit /proc/device-tree/compatible 2>/dev/null; then
 		echo uboot
+		return 0
+	fi
+	if [ -x /usr/sbin/kwick-rpi-boot ] && grep -qs raspberrypi /proc/device-tree/compatible 2>/dev/null; then
+		echo rpi
 		return 0
 	fi
 	b=$(sed -n 's/^BOOTLOADER=//p' "$ICONF" 2>/dev/null)
@@ -820,6 +825,11 @@ ap_default() {
 	/usr/sbin/kwick-apple-boot install "$(entry_rel "$1")" || die "kwick-apple-boot install failed"
 }
 
+rp_default() {
+	materialize "$1" || die "kernel $1 is not available for kwick-rpi-boot"
+	/usr/sbin/kwick-rpi-boot install "$(entry_rel "$1")" || die "kwick-rpi-boot install failed"
+}
+
 bp_supports_try() {
 	case $1 in
 	efistub | grub | systemd-boot | uboot) return 0 ;;
@@ -834,6 +844,7 @@ bp_add() {
 	systemd-boot) sd_add "$1" ;;
 	uboot) materialize "$1" ;;
 	apple) materialize "$1" ;;
+	rpi) materialize "$1" ;;
 	esac
 }
 
@@ -844,6 +855,7 @@ bp_default() {
 	systemd-boot) sd_default "$1" ;;
 	uboot) ub_default "$1" ;;
 	apple) ap_default "$1" ;;
+	rpi) rp_default "$1" ;;
 	*) die "no supported boot path on this machine (container or direct kernel boot): the kernel is stored under $KDIR" ;;
 	esac
 }
@@ -879,7 +891,7 @@ detect_default() {
 	efistub) es_detect ;;
 	grub) gr_detect ;;
 	systemd-boot) sd_detect ;;
-	uboot | apple) running_id ;;
+	uboot | apple | rpi) running_id ;;
 	*) return 1 ;;
 	esac
 }
