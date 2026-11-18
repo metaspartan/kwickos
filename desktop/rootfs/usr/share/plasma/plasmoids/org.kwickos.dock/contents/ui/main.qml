@@ -287,6 +287,37 @@ PlasmoidItem {
                     kickTimer.restart();
                 }
 
+                function publishGeometry() {
+                    if (!running || !task.Window.window) {
+                        return;
+                    }
+                    const p = icon.mapToGlobal(0, 0);
+                    tasksModel.requestPublishDelegateGeometry(tasksModel.makeModelIndex(index), Qt.rect(p.x, p.y, icon.width, icon.height), task);
+                }
+
+                onAlongChanged: publishTimer.restart()
+                onRunningChanged: publishTimer.restart()
+                onWidthChanged: publishTimer.restart()
+                onHeightChanged: publishTimer.restart()
+                Component.onCompleted: publishTimer.restart()
+
+                Timer {
+                    id: publishTimer
+                    interval: 250
+                    onTriggered: task.publishGeometry()
+                }
+
+                Connections {
+                    target: task.Window.window
+                    function onXChanged() { publishTimer.restart(); }
+                    function onYChanged() { publishTimer.restart(); }
+                    function onWidthChanged() { publishTimer.restart(); }
+                    function onHeightChanged() { publishTimer.restart(); }
+                }
+
+                readonly property int kids: model.ChildCount || 0
+                onKidsChanged: publishTimer.restart()
+
                 x: root.vertical ? 0 : along
                 y: root.vertical ? along : 0
                 width: root.vertical ? root.thickness : root.cell

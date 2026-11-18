@@ -138,7 +138,7 @@ void LiquidGlassEffect::reconfigure(ReconfigureFlags flags)
 
 int LiquidGlassEffect::requestedEffectChainPosition() const
 {
-    return 19;
+    return 90;
 }
 
 bool LiquidGlassEffect::blocksDirectScanout() const
@@ -851,11 +851,14 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
     const bool scaled = !qFuzzyCompare(data.xScale(), 1.0) || !qFuzzyCompare(data.yScale(), 1.0);
     const bool translated = data.xTranslation() || data.yTranslation();
     if (it->second.kind == Kind::Window) {
+        const QRectF view = viewport.renderRect();
+        const QRectF expanded = w->expandedGeometry();
+        const bool redirected = std::abs(view.width() - expanded.width()) < 2.0 && std::abs(view.height() - expanded.height()) < 2.0;
         const bool moved = scaled || translated || data.rotationAngle() != 0.0;
         const bool dragging = w->isUserMove() || w->isUserResize();
-        const bool deformed = (mask & PAINT_WINDOW_TRANSFORMED) && !moved && (!dragging || effects->isEffectLoaded(QStringLiteral("wobblywindows")));
-        if (!deformed && !effects->activeFullScreenEffect() && roundable(w)) {
-            const bool painted = moved ? false : paintGlass(renderTarget, viewport, w, it->second, region, data);
+        const bool deformed = !redirected && (mask & PAINT_WINDOW_TRANSFORMED) && !moved && (!dragging || effects->isEffectLoaded(QStringLiteral("wobblywindows")));
+        if (!deformed && (redirected || !effects->activeFullScreenEffect()) && roundable(w)) {
+            const bool painted = (moved || redirected) ? false : paintGlass(renderTarget, viewport, w, it->second, region, data);
             Q_UNUSED(painted)
             const bool rigid = !scaled && data.rotationAngle() == 0.0;
             it->second.clipShape = rigid ? w->frameGeometry().translated(data.xTranslation(), data.yTranslation()) : w->frameGeometry();

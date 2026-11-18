@@ -162,6 +162,7 @@ kde() {
   kw kwinrc org.kde.kdecoration2 ButtonsOnLeft "$L"
   kw kwinrc org.kde.kdecoration2 ButtonsOnRight "$R"
   kw plasmarc Theme name "$(case $want in macos) echo kwick-glass ;; windows) echo kwick-fluent ;; *) echo default ;; esac)"
+  kw kwinrc Effect-kwick_liquidglass MenuBar "$( [ "$want" = macos ] && echo false || echo true )"
   corners
   files
   gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null || true

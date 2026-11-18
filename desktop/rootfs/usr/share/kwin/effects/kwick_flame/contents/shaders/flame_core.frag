@@ -255,7 +255,7 @@ void main() {
     float hot = exp(-max(d, 0.0) / 5.5) * (0.65 + 0.5 * detail) * (0.85 + 0.15 * sin(t * 17.0 + w * 9.0));
     vec3 rgb = surf * alive;
     rgb += blackbody(0.55 + 0.4 * hot, blue) * (hot * 1.1 + vein * 0.7) * src.a * alive * edgeOn;
-    rgb += blackbody(0.5, blue) * exp(-max(d, 0.0) / 38.0) * 0.22 * src.rgb * act * fadeU;
+    rgb += blackbody(0.5, blue) * exp(-max(d, 0.0) / 38.0) * 0.22 * src.rgb * act * fadeU * alive;
     float a = src.a * alive;
 
     float flake = smoothstep(0.78, 0.86, vnoise(P / 2.6 + sd * 5.0)) * smoothstep(-11.0, -1.0, d) * (1.0 - alive) * edgeOn;

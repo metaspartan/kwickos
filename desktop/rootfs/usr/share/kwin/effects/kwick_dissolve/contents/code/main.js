@@ -39,8 +39,8 @@ class KwickDissolveEffect {
     }
 
     hold(w) {
-        w.setData(Effect.WindowForceBackgroundContrastRole, true);
-        w.setData(Effect.WindowForceBlurRole, true);
+        w.setData(Effect.WindowForceBackgroundContrastRole, false);
+        w.setData(Effect.WindowForceBlurRole, false);
     }
 
     release(w) {
