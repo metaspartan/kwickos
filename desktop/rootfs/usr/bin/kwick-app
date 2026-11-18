@@ -3,7 +3,7 @@ role=${1:?usage: kwick-app <role> [args]}; shift
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 [ -n "${SWAYSOCK:-}${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && de=tiling
 case $role in
-  editor)          kde="kate"; gnome="gnome-text-editor"; any="mousepad kate gnome-text-editor" ;;
+  editor)          kde="kate"; gnome="gnome-text-editor"; any="gnome-text-editor mousepad kate" ;;
   software)        kde="plasma-discover"; gnome="gnome-software"; any="plasma-discover gnome-software" ;;
   image-viewer)    kde="gwenview"; gnome="loupe eog"; any="imv loupe eog gwenview" ;;
   document-viewer) kde="okular"; gnome="papers evince"; any="zathura papers evince okular" ;;

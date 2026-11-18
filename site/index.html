@@ -504,7 +504,7 @@
     <p class="sub center reveal">Manual setup:</p>
     <div class="code reveal">
       <div class="code-bar"><span>Add the repository</span><button type="button" class="copy" data-copy="c2">Copy</button></div>
-<pre id="c2"><code>curl -fsSL https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc -o /usr/share/keyrings/kwickos-archive-keyring.asc
+<pre id="c2"><code>wget -qO /usr/share/keyrings/kwickos-archive-keyring.asc https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc
 printf 'Types: deb\nURIs: https://metaspartan.github.io/kwickos\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' &gt; /etc/apt/sources.list.d/kwickos.sources</code></pre>
     </div>
     <p class="note reveal">Kernel updates arrive with <code>apt update &amp;&amp; apt upgrade</code>. <code>kwick-kernel-install --list | --rollback</code> manages kernels.</p>

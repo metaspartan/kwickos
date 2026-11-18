@@ -4,6 +4,10 @@ name: desktop
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,7 +39,22 @@ jobs:
       - name: Builder image
         run: docker build -t kwick-builder -f docker/Dockerfile.builder docker
 
+      - name: Archive public key (release builds)
+        if: inputs.release
+        env:
+          KWICK_SIGNING_KEY: ${{ secrets.KWICK_SIGNING_KEY }}
+          KWICK_SIGNING_PASSPHRASE: ${{ secrets.KWICK_SIGNING_PASSPHRASE }}
+        run: |
+          mkdir -p keys
+          export GNUPGHOME=$(mktemp -d)
+          bash scripts/gpgimport.sh
+          gpg --batch --armor --export > keys/archive-key.asc
+          test -s keys/archive-key.asc
+
       - name: Base build (userland, kpkg, generic kernel, rootfs)
+        env:
+          KWICK_REPO_URL: ${{ inputs.release && 'https://metaspartan.github.io/kwickos' || '' }}
+          KWICK_REPO_KEY: ${{ inputs.release && '/src/keys/archive-key.asc' || '' }}
         run: |
           docker volume create kwick-cache
           mkdir -p out

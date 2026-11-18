@@ -71,7 +71,7 @@ Plasma, GNOME and Hyprland:
 | Linux | `KwickOS-Linux` | Tokyo Night squircles |
 
 Menubar status glyphs (volume, network, battery, brightness, devices, notifications, bluetooth, updates) come from
-`tools/icons/gen-tray.py <icon-theme-dir>`, run after `gen-icons.py macos` on `desktop/rootfs/usr/share/icons/KwickOS`. They
+`tools/icons/gen-tray.py <icon-theme-dir>`, run by `gen-icons.py macos` on `desktop/rootfs/usr/share/icons/KwickOS`. They
 are white 22x22 glyphs in one 14 px optical box (battery, hard disk and the expander arrow are optical exceptions). Plasma 6
 no longer reads `icons/*.svg` from a Plasma style, so these live in the icon theme.
 

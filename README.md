@@ -80,7 +80,7 @@ reboot
 **Add the apt repository by hand** (it is preconfigured on KwickOS images):
 
 ```sh
-curl -fsSL https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc -o /usr/share/keyrings/kwickos-archive-keyring.asc
+wget -qO /usr/share/keyrings/kwickos-archive-keyring.asc https://metaspartan.github.io/kwickos/kwickos-archive-keyring.asc
 printf 'Types: deb\nURIs: https://metaspartan.github.io/kwickos\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/kwickos-archive-keyring.asc\n' > /etc/apt/sources.list.d/kwickos.sources
 ```
 

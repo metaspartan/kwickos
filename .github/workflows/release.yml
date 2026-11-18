@@ -56,6 +56,9 @@ jobs:
   desktop:
     needs: plan
     uses: ./.github/workflows/desktop.yml
+    secrets: inherit
+    with:
+      release: true
 
   rpi:
     needs: [plan, preflight]
