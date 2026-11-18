@@ -91,9 +91,25 @@ windowcontrols button image {
   padding: 0;
   margin: 0;
   border-radius: 0;
+  -gtk-icon-filter: opacity(0);
   background-image: none;
   background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
   box-shadow: none;
+}
+
+windowcontrols button.minimize image {
+  background-image: -gtk-recolor(url("file:///usr/share/kwick/gtk/windows/window-minimize-symbolic.svg"));
+}
+
+windowcontrols button.maximize image {
+  background-image: -gtk-recolor(url("file:///usr/share/kwick/gtk/windows/window-maximize-symbolic.svg"));
+}
+
+windowcontrols button.close image {
+  background-image: -gtk-recolor(url("file:///usr/share/kwick/gtk/windows/window-close-symbolic.svg"));
 }
 
 windowcontrols button.minimize:hover image,

@@ -1,0 +1,18 @@
+windowcontrols button image {
+  -gtk-icon-filter: opacity(0);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+windowcontrols button.minimize image {
+  background-image: -gtk-recolor(url("file:///usr/share/kwick/gtk/linux/window-minimize-symbolic.svg"));
+}
+
+windowcontrols button.maximize image {
+  background-image: -gtk-recolor(url("file:///usr/share/kwick/gtk/linux/window-maximize-symbolic.svg"));
+}
+
+windowcontrols button.close image {
+  background-image: -gtk-recolor(url("file:///usr/share/kwick/gtk/linux/window-close-symbolic.svg"));
+}

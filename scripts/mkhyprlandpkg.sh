@@ -47,6 +47,102 @@ DESTDIR=$STAGE cmake --install build
 cmake --install build
 cd "$W"
 git clone -q --depth 1 --branch "$HYPRPLUGINS" https://github.com/hyprwm/hyprland-plugins.git hyprland-plugins
+git -C hyprland-plugins apply <<'PATCH'
+diff --git a/hyprbars/barDeco.cpp b/hyprbars/barDeco.cpp
+index 6c7d906..dbdec28 100644
+--- a/hyprbars/barDeco.cpp
++++ b/hyprbars/barDeco.cpp
+@@ -234,6 +234,42 @@ void CHyprBar::renderText(SP<CTexture> out, const std::string& text, const CHypr
+     cairo_paint(CAIRO);
+     cairo_restore(CAIRO);
+ 
++    const bool GLYPHCLOSE = text == "\u2715", GLYPHMAX = text == "\u2610", GLYPHMIN = text == "\u2500";
++    if (GLYPHCLOSE || GLYPHMAX || GLYPHMIN) {
++        const double px = std::max(1.0, std::round((double)scale));
++        const double s  = std::round(10.0 * scale);
++        const double x0 = std::round((bufferSize.x - s) / 2.0);
++        const double y0 = std::round((bufferSize.y - s) / 2.0);
++        cairo_set_source_rgba(CAIRO, color.r, color.g, color.b, color.a);
++        cairo_set_line_width(CAIRO, px);
++        if (GLYPHCLOSE) {
++            const double h = px * M_SQRT1_2;
++            cairo_move_to(CAIRO, x0, y0 + h);
++            cairo_line_to(CAIRO, x0 + h, y0);
++            cairo_line_to(CAIRO, x0 + s, y0 + s - h);
++            cairo_line_to(CAIRO, x0 + s - h, y0 + s);
++            cairo_close_path(CAIRO);
++            cairo_fill(CAIRO);
++            cairo_move_to(CAIRO, x0 + s, y0 + h);
++            cairo_line_to(CAIRO, x0 + s - h, y0);
++            cairo_line_to(CAIRO, x0, y0 + s - h);
++            cairo_line_to(CAIRO, x0 + h, y0 + s);
++            cairo_close_path(CAIRO);
++            cairo_fill(CAIRO);
++        } else if (GLYPHMAX) {
++            const double l = x0 + px / 2.0, t = y0 + px / 2.0, r = x0 + s - px / 2.0, b = y0 + s - px / 2.0, rad = px;
++            cairo_new_sub_path(CAIRO);
++            cairo_arc(CAIRO, r - rad, t + rad, rad, -M_PI / 2.0, 0);
++            cairo_arc(CAIRO, r - rad, b - rad, rad, 0, M_PI / 2.0);
++            cairo_arc(CAIRO, l + rad, b - rad, rad, M_PI / 2.0, M_PI);
++            cairo_arc(CAIRO, l + rad, t + rad, rad, M_PI, 3.0 * M_PI / 2.0);
++            cairo_close_path(CAIRO);
++            cairo_stroke(CAIRO);
++        } else {
++            cairo_rectangle(CAIRO, x0, y0 + std::round(s / 2.0), s, px);
++            cairo_fill(CAIRO);
++        }
++    } else {
+     // draw title using Pango
+     PangoLayout* layout = pango_cairo_create_layout(CAIRO);
+     pango_layout_set_text(layout, text.c_str(), -1);
+@@ -263,6 +299,7 @@ void CHyprBar::renderText(SP<CTexture> out, const std::string& text, const CHypr
+     pango_cairo_show_layout(CAIRO, layout);
+ 
+     g_object_unref(layout);
++    }
+ 
+     cairo_surface_flush(CAIROSURFACE);
+ 
+@@ -583,6 +620,38 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+         glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+     }
+ 
++    static auto* const PPARTOFWINDOW = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_part_of_window")->getDataStaticPtr();
++    if (ROUNDING && **PPARTOFWINDOW && PWINDOW->m_wlSurface && !PWINDOW->m_wlSurface->small()) {
++        const auto SURFACE = PWINDOW->m_wlSurface->resource();
++        if (SURFACE && SURFACE->m_current.texture) {
++            CBox contentBox = {PWINDOW->m_realPosition->value().x + PWINDOW->m_floatingOffset.x - pMonitor->m_position.x,
++                               PWINDOW->m_realPosition->value().y + PWINDOW->m_floatingOffset.y - pMonitor->m_position.y, PWINDOW->m_realSize->value().x,
++                               PWINDOW->m_realSize->value().y};
++            contentBox.translate(WORKSPACEOFFSET);
++            const auto UNSCALED = contentBox.size();
++            contentBox.scale(pMonitor->m_scale).round();
++            CRegion band = CRegion(CBox{contentBox.x, contentBox.y, contentBox.w, std::ceil(ROUNDING * pMonitor->m_scale) + 1});
++            CRegion damage = g_pHyprOpenGL->m_renderData.damage;
++            band.intersect(damage);
++            if (!band.empty()) {
++                const auto OLDCLIPBOX    = g_pHyprOpenGL->m_renderData.clipBox;
++                CRegion    OLDCLIPREGION = g_pHyprOpenGL->m_renderData.clipRegion;
++                g_pHyprOpenGL->m_renderData.clipBox    = {};
++                g_pHyprOpenGL->m_renderData.clipRegion = band;
++                g_pHyprOpenGL->m_renderData.currentWindow = PWINDOW;
++                g_pHyprOpenGL->m_renderData.surface       = SURFACE;
++                g_pHyprRenderer->calculateUVForSurface(PWINDOW, SURFACE, pMonitor, true, contentBox.size(), UNSCALED, false);
++                g_pHyprOpenGL->renderTexture(SURFACE->m_current.texture, contentBox, a * PWINDOW->m_activeInactiveAlpha->value(), 0, 2.0f, false, true);
++                g_pHyprOpenGL->m_renderData.currentWindow.reset();
++                g_pHyprOpenGL->m_renderData.surface.reset();
++                g_pHyprOpenGL->m_renderData.primarySurfaceUVTopLeft     = Vector2D(-1, -1);
++                g_pHyprOpenGL->m_renderData.primarySurfaceUVBottomRight = Vector2D(-1, -1);
++                g_pHyprOpenGL->m_renderData.clipBox                     = OLDCLIPBOX;
++                g_pHyprOpenGL->m_renderData.clipRegion                  = OLDCLIPREGION;
++            }
++        }
++    }
++
+     if (SHOULDBLUR)
+         g_pHyprOpenGL->renderRectWithBlur(titleBarBox, color, scaledRounding, m_pWindow->roundingPower(), a);
+     else
+PATCH
 if [ -f hyprland-plugins/hyprbars/CMakeLists.txt ]; then
   cmake -S hyprland-plugins/hyprbars -B hyprland-plugins/hyprbars/build -G Ninja -DCMAKE_BUILD_TYPE=Release
   cmake --build hyprland-plugins/hyprbars/build -j8
