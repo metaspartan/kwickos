@@ -55,7 +55,7 @@ for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-repor
 done
 for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do
   mkdir -p /etc/systemd/system/$u.service.d
-  printf '[Service]\nExecStartPre=/usr/lib/kwick/wait-for dbus\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf
+  printf '[Service]\nExecStartPre=/bin/sh -c "[ ! -x /usr/lib/kwick/wait-for ] || exec /usr/lib/kwick/wait-for dbus"\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf
 done
 command -v kwick-shell >/dev/null && kwick-shell --default zsh >/dev/null 2>&1 || true
 if ! id kwick >/dev/null 2>&1; then
@@ -88,6 +88,27 @@ nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-fronte
 echo "KwickOS Desktop installed. Reboot to start the desktop (kernel: generic flavor via kwick-kernel-install)."
 EOF
 chmod 755 "$P/DEBIAN/postinst"
+cat > "$P/DEBIAN/postrm" <<'EOF'
+#!/bin/sh
+set -e
+case "$1" in remove|purge) ;; *) exit 0 ;; esac
+W=/etc/systemd/system/multi-user.target.wants
+for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do
+  rm -f /etc/systemd/system/$u.service.d/kwick.conf
+  rmdir /etc/systemd/system/$u.service.d 2>/dev/null || true
+  rm -f $W/$u.service
+done
+for u in sddm kwick-elogind kwick-udev-trigger kwick-session-report; do rm -f $W/$u.service; done
+rm -f /etc/systemd/system/display-manager.service /etc/kinit/no-getty /etc/kwick-edition
+if [ -f /etc/network/interfaces.kwick-headless ] && ! grep -E '^[[:space:]]*iface[[:space:]]' /etc/network/interfaces 2>/dev/null | grep -qvE '^[[:space:]]*iface[[:space:]]+lo[[:space:]]'; then
+  mv /etc/network/interfaces.kwick-headless /etc/network/interfaces
+fi
+if [ -f /usr/lib/systemd/system/networking.service ]; then
+  mkdir -p $W
+  ln -sf /usr/lib/systemd/system/networking.service $W/networking.service
+fi
+EOF
+chmod 755 "$P/DEBIAN/postrm"
 mkdir -p "$OUT/repo/pool/main"
 dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-desktop_${VER}_${ARCH}.deb" >/dev/null
 rm -rf "$P"; echo "packaged kwick-desktop $VER ($ARCH)"

@@ -1202,6 +1202,14 @@ cmd_install() {
 	return 0
 }
 
+native_here() {
+	case $BP in
+	uboot) [ -f "$(entry_dir "$1")/Image.itb" ] ;;
+	rpi) [ "$(entry_flavor "$1")" = rpi ] ;;
+	*) return 0 ;;
+	esac
+}
+
 cmd_register() {
 	need_root "kernel registration"
 	rel=${1:-}
@@ -1219,6 +1227,9 @@ cmd_register() {
 	if [ -f "$KEEPFLAG" ]; then
 		bp_add "$id"
 		say "kwick-kernel: $id installed; the default stays $(st_get default) (try it with: kwick-kernel try $id)"
+	elif ! native_here "$id"; then
+		bp_add "$id"
+		say "kwick-kernel: $id installed but not made the default: it is not built for this board's $BP boot path (the default stays $(st_get default))"
 	else
 		set_default "$id"
 		say "kwick-kernel-install: $id is now the boot kernel (previous kept for rollback)"

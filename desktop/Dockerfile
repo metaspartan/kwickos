@@ -54,7 +54,7 @@ RUN set -e; \
 
 RUN for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do \
       mkdir -p /etc/systemd/system/$u.service.d; \
-      printf '[Service]\nExecStartPre=/usr/lib/kwick/wait-for dbus\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf; \
+      printf '[Service]\nExecStartPre=/bin/sh -c "[ ! -x /usr/lib/kwick/wait-for ] || exec /usr/lib/kwick/wait-for dbus"\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf; \
     done
 
 RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/share/lintian \
