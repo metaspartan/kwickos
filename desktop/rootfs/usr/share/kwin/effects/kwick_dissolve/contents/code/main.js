@@ -22,7 +22,6 @@ class KwickDissolveEffect {
     loadConfig() {
         this.duration = animationTime(effect.readConfig("Duration", 900));
         this.opening = effect.readConfig("Opening", true);
-        this.seeded = true;
 
     }
 
@@ -51,14 +50,34 @@ class KwickDissolveEffect {
 
     run(w, opening) {
         this.loadConfig();
+        if (this.duration <= 1) {
+            return null;
+        }
         this.hold(w);
         const mx = Math.min(Math.max(0.25 * w.width, 80), 280);
         const my = Math.min(Math.max(0.6 * w.height, 160), 460);
         const sx = 1 + 2 * mx / Math.max(1, w.width);
         const sy = 1 + 2 * my / Math.max(1, w.height);
-        if (this.seeded) {
-            effect.setUniform(this.shader, "uSeed", Math.random() * 64.0);
-        }
+        const eg = w.expandedGeometry;
+        const fg = w.geometry;
+        const ew = Math.max(1, eg.width);
+        const eh = Math.max(1, eg.height);
+        const fixed = {
+            uSeed: Math.random() * 64.0,
+            uScaleX: sx,
+            uScaleY: sy,
+            uCenterX: (fg.x + fg.width / 2 - eg.x) / ew,
+            uCenterY: 1 - (fg.y + fg.height / 2 - eg.y) / eh,
+            uWidth: ew
+        };
+        const held = Object.keys(fixed).map(uniform => ({
+            type: Effect.ShaderUniform,
+            fragmentShader: this.shader,
+            uniform: uniform,
+            curve: QEasingCurve.Linear,
+            from: fixed[uniform],
+            to: fixed[uniform]
+        }));
         return animate({
             window: w,
             curve: opening ? QEasingCurve.Linear : QEasingCurve.InQuad,
@@ -81,7 +100,7 @@ class KwickDissolveEffect {
                 curve: QEasingCurve.Linear,
                 from: { value1: sx, value2: sy },
                 to: { value1: sx, value2: sy }
-            }]
+            }].concat(held)
         });
     }
 

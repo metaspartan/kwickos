@@ -6,30 +6,47 @@ uniform vec2 uHalf;
 uniform vec3 uNormal;
 uniform float uEased;
 uniform float uProgress;
-uniform float uClock;
 uniform float uOpacity;
 uniform float uDistance;
 uniform int uPass;
+uniform mat4 uQuad;
+uniform float uSigma;
+uniform float uShadow;
 
 in vec2 texcoord0;
 in vec2 vLocal;
+in vec2 vPos;
 in vec3 vWorld;
 
 out vec4 fragColor;
 
-vec4 blurred(vec2 uv, float radius)
+float erfApprox(float x)
 {
-    vec2 px = radius / vec2(textureSize(sampler, 0));
-    vec4 c = texture(sampler, uv) * 0.25;
-    c += texture(sampler, uv + vec2(px.x, 0.0)) * 0.125;
-    c += texture(sampler, uv - vec2(px.x, 0.0)) * 0.125;
-    c += texture(sampler, uv + vec2(0.0, px.y)) * 0.125;
-    c += texture(sampler, uv - vec2(0.0, px.y)) * 0.125;
-    c += texture(sampler, uv + px) * 0.0625;
-    c += texture(sampler, uv - px) * 0.0625;
-    c += texture(sampler, uv + vec2(px.x, -px.y)) * 0.0625;
-    c += texture(sampler, uv + vec2(-px.x, px.y)) * 0.0625;
-    return c;
+    float s = sign(x);
+    float a = abs(x);
+    float k = 1.0 + (0.278393 + (0.230389 + 0.078108 * a * a) * a) * a;
+    k *= k;
+    return s - s / (k * k);
+}
+
+float quadDistance(vec2 p)
+{
+    float d = 1e20;
+    float s = 1.0;
+    for (int i = 0; i < 4; i++) {
+        int j = (i + 3) - 4 * ((i + 3) / 4);
+        vec2 vi = uQuad[i].xy;
+        vec2 vj = uQuad[j].xy;
+        vec2 e = vj - vi;
+        vec2 w = p - vi;
+        vec2 b = w - e * clamp(dot(w, e) / max(dot(e, e), 1e-6), 0.0, 1.0);
+        d = min(d, dot(b, b));
+        bvec3 c = bvec3(p.y >= vi.y, p.y < vj.y, e.x * w.y > e.y * w.x);
+        if (all(c) || all(not(c))) {
+            s = -s;
+        }
+    }
+    return s * sqrt(d);
 }
 
 void main()
@@ -38,22 +55,18 @@ void main()
     float fade = (1.0 - smoothstep(0.45, 1.0, clamp(uProgress, 0.0, 1.0))) * uOpacity;
 
     if (uPass == 1) {
-        float a = 0.0;
-        float r = 3.0 + 14.0 * e;
-        a += blurred(texcoord0, r).a * 0.5;
-        a += blurred(texcoord0, r * 2.2).a * 0.5;
-        a *= 0.42 * e * fade;
-        fragColor = vec4(0.0, 0.0, 0.02 * a, a);
+        float d = quadDistance(vPos);
+        float sigma = max(uSigma, 0.5);
+        float tight = 0.5 - 0.5 * erfApprox(d / (sigma * 1.41421356));
+        float wide = 0.5 - 0.5 * erfApprox(d / (sigma * 2.54558441));
+        float a = clamp((tight * 0.72 + wide * 0.28) * uShadow, 0.0, 1.0);
+        fragColor = vec4(0.0, 0.0, 0.0, a);
         fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
         fragColor = nitsToDestinationEncoding(fragColor);
         return;
     }
 
     vec4 src = texture(sampler, texcoord0);
-    float soft = e * e * 1.6;
-    if (soft > 0.02) {
-        src = mix(src, blurred(texcoord0, soft), clamp(e * 1.4, 0.0, 1.0));
-    }
 
     vec3 n = normalize(uNormal);
     vec3 V = normalize(vec3(0.0, 0.0, uDistance) - vWorld);
@@ -68,7 +81,7 @@ void main()
     float diff2 = max(dot(n, L2), 0.0);
     float lit = 0.5 + 0.42 * diff + 0.12 * diff2;
     float lit0 = 0.5 + 0.42 * max((L.z + 0.25) / 1.25, 0.0) + 0.12 * L2.z;
-    float shade = mix(1.0, lit / lit0, e);
+    float shade = min(mix(1.0, lit / lit0, e), 1.03);
 
     vec3 H = normalize(L + V);
     float nh = max(dot(n, H), 0.0);
@@ -76,7 +89,7 @@ void main()
     vec3 H2 = normalize(L2 + V);
     float spec2 = pow(max(dot(n, H2), 0.0), 40.0) * 0.28;
 
-    float fres = 0.03 + 0.97 * pow(1.0 - nv, 4.0);
+    float fres = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
     vec3 sky = mix(vec3(0.62, 0.76, 1.0), vec3(0.95, 0.97, 1.0), nv);
 
     float depth = clamp(-vWorld.z / (uDistance * 0.9), 0.0, 1.0);
@@ -87,18 +100,19 @@ void main()
     float cover = clamp(min(inset.x / fw.x, inset.y / fw.y) + 0.5, 0.0, 1.0);
     float solid = smoothstep(0.88, 1.0, src.a);
     float edgeAA = mix(1.0, cover, solid);
+    float halo = mix(1.0 - e, 1.0, cover);
+    float body = cover * smoothstep(0.5, 1.0, src.a) * e;
 
     float edge = max(min(inset.x, inset.y), 0.0);
-    float rim = (1.0 - clamp(edge / 3.0, 0.0, 1.0)) * (0.2 + 0.5 * (1.0 - nv)) * e * solid;
+    float rim = (1.0 - clamp(edge / 3.0, 0.0, 1.0)) * (0.2 + 0.5 * (1.0 - nv)) * solid;
 
-    float a = src.a * fade * edgeAA;
+    float k = fade * edgeAA * halo;
+    float a = src.a * k;
+    vec3 rgb = src.rgb * shade * fog * (1.0 - 0.45 * fres * body) * k;
+    vec3 gloss = vec3(spec + spec2) + sky * (fres * 0.45 + rim);
+    rgb += gloss * body * fade * edgeAA;
 
-    vec3 rgb = src.rgb * shade * fog * fade * edgeAA;
-    rgb += vec3(1.0) * (spec + spec2) * e * src.a * fade * edgeAA;
-    rgb += sky * fres * e * 0.55 * src.a * fade * edgeAA;
-    rgb += sky * rim * src.a * fade * edgeAA;
-
-    fragColor = vec4(min(rgb, vec3(a + 0.45)), a);
+    fragColor = vec4(min(rgb, vec3(a + 0.3 * body * fade)), a);
     fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
     fragColor = nitsToDestinationEncoding(fragColor);
 }

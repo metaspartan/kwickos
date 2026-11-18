@@ -9,11 +9,13 @@ in vec4 texcoord;
 
 out vec2 texcoord0;
 out vec2 vLocal;
+out vec2 vPos;
 out vec3 vWorld;
 
 void main()
 {
     texcoord0 = texcoord.xy;
+    vPos = position.xy;
     vLocal = vec2(position.x - uHalf.x, uHalf.y - position.y);
     vWorld = (uWorld * vec4(position.xy, 0.0, 1.0)).xyz;
     gl_Position = uMvp * vec4(position.xy, 0.0, 1.0);

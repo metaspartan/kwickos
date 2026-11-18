@@ -353,32 +353,47 @@ hypr_status() {
 }
 hypr_write() {
   wob=$(fxv wobbly off); flp=$(fxv flip off); wa=$(wob_amount); wc=$(wob_curve); blr=$(fxv blur off); trn=$(fxv transparency off); dim=$(fxv dim off); sw=$(fxv switch slide)
-  anim=$(fxv anim on)
+  anim=$(fxv anim on); sp=$(fxv speed 1)
+  ds() { awk "BEGIN{printf \"%.1f\", $1 * $sp}"; }
   out=$HOME/.config/hypr/kwick-effects.conf
   mkdir -p "$HOME/.config/hypr"
-  case $sw in slide) ws=$([ "$flp" = on ] && echo "slidefade 25%" || echo slide) ;; fade) ws=fade ;; cube) ws="slidefadevert 40%" ;; *) ws="" ;; esac
+  case $sw in
+    slide) ws="1, $(ds 5), ease, $([ "$flp" = on ] && echo "slidefade 20%" || echo slide)" ;;
+    fade) ws="1, $(ds 4), ease, fade" ;;
+    cube) ws="1, $(ds 8), cube, slidefade 15%" ;;
+    *) ws="0" ;;
+  esac
   {
     echo "animations {"
     echo "  enabled = $([ "$anim" = on ] && echo true || echo false)"
     echo "  bezier = ease, 0.22, 1, 0.36, 1"
+    echo "  bezier = sink, 0.55, 0, 0.8, 0.45"
+    echo "  bezier = spring, 0.32, 1.28, 0.62, 1"
+    echo "  bezier = cube, 0.3, 1.38, 0.6, 1"
     echo "  bezier = wobble, 0.2, $(awk "BEGIN{print 1 + $wa * 0.1 + $wc * 0.08}"), 0.5, 1"
-    echo "  bezier = flip3d, 0.16, 1, 0.3, 1"
     if [ "$flp" = on ]; then
-      echo "  animation = windows, 1, 8, flip3d, popin 35%"
-      echo "  animation = windowsMove, 1, 7, $([ "$wob" = on ] && echo wobble || echo flip3d)"
+      echo "  animation = windowsIn, 1, $(ds 7), spring, popin 60%"
+      echo "  animation = windowsOut, 1, $(ds 7), sink, popin 70%"
+      echo "  animation = fadeIn, 1, $(ds 2.2), ease"
+      echo "  animation = fadeOut, 1, $(ds 7), sink"
+      echo "  animation = windowsMove, 1, $(ds 6), $([ "$wob" = on ] && echo wobble || echo spring)"
     elif [ "$wob" = on ]; then
-      echo "  animation = windows, 1, 9, wobble, popin 60%"
-      echo "  animation = windowsMove, 1, $((6 + wc / 2)), wobble"
+      echo "  animation = windowsIn, 1, $(ds 6), wobble, popin 70%"
+      echo "  animation = windowsOut, 1, $(ds 3), sink, popin 85%"
+      echo "  animation = fadeIn, 1, $(ds 2.5), ease"
+      echo "  animation = fadeOut, 1, $(ds 3), sink"
+      echo "  animation = windowsMove, 1, $(ds $((6 + wc / 2))), wobble"
     else
-      echo "  animation = windows, 1, 5, ease, popin 85%"
-      echo "  animation = windowsMove, 1, 5, ease"
+      echo "  animation = windowsIn, 1, $(ds 3), ease, popin 85%"
+      echo "  animation = windowsOut, 1, $(ds 2.5), sink, popin 85%"
+      echo "  animation = fadeIn, 1, $(ds 2.5), ease"
+      echo "  animation = fadeOut, 1, $(ds 2.5), sink"
+      echo "  animation = windowsMove, 1, $(ds 4), ease"
     fi
-    echo "  animation = fade, 1, 6, ease"
-    echo "  animation = border, 1, 10, ease"
-    if [ -n "$ws" ]; then echo "  animation = workspaces, 1, 7, $([ "$flp" = on ] && echo flip3d || echo ease), $ws"; else echo "  animation = workspaces, 0"; fi
+    echo "  animation = border, 1, $(ds 6), ease"
+    echo "  animation = workspaces, $ws"
     echo "}"
     echo "decoration {"
-    echo "  rounding = 12"
     if [ "$trn" = on ]; then echo "  active_opacity = 0.97"; echo "  inactive_opacity = 0.88"; else echo "  active_opacity = 1.0"; echo "  inactive_opacity = 1.0"; fi
     if [ "$dim" = on ]; then echo "  dim_inactive = true"; echo "  dim_strength = 0.12"; else echo "  dim_inactive = false"; fi
     echo "  blur {"
@@ -388,7 +403,6 @@ hypr_write() {
     echo "  }"
     echo "  shadow {"
     echo "    enabled = $([ "$anim" = on ] && echo true || echo false)"
-    echo "    range = 24"
     echo "  }"
     echo "}"
   } > "$out"
@@ -409,10 +423,10 @@ sway_write() {
 tiling_write() { if [ "$be" = sway ]; then sway_write; else hypr_write; fi; }
 preset_tiling() {
   case $1 in
-    off)    set_fx anim off; set_fx wobbly off; set_fx flip off; set_fx blur off; set_fx transparency off; set_fx dim off; set_fx switch none ;;
-    subtle) set_fx anim on; set_fx wobbly off; set_fx flip off; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
-    fluid)  set_fx anim on; set_fx wobbly on; set_fx flip on; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
-    full)   set_fx anim on; set_fx wobbly on; set_fx flip on; set_fx blur on; set_fx transparency on; set_fx dim on; set_fx switch cube ;;
+    off)    set_fx anim off; set_fx speed 1; set_fx wobbly off; set_fx flip off; set_fx blur off; set_fx transparency off; set_fx dim off; set_fx switch none ;;
+    subtle) set_fx anim on; set_fx speed 0.7; set_fx wobbly off; set_fx flip off; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
+    fluid)  set_fx anim on; set_fx speed 0.8; set_fx wobbly on; set_fx flip on; set_fx blur on; set_fx transparency off; set_fx dim off; set_fx switch slide ;;
+    full)   set_fx anim on; set_fx speed 1; set_fx wobbly on; set_fx flip on; set_fx blur on; set_fx transparency on; set_fx dim on; set_fx switch cube ;;
   esac
   tiling_write
 }

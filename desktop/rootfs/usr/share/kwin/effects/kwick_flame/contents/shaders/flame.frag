@@ -8,6 +8,11 @@ uniform int textureHeight;
 uniform float uProgress;
 uniform float uClock;
 uniform float uSeed;
+uniform float uScaleX;
+uniform float uScaleY;
+uniform float uCenterX;
+uniform float uCenterY;
+uniform float uWidth;
 uniform float uStyle;
 uniform float uHeight;
 
@@ -91,13 +96,15 @@ vec3 legacyRamp(float a) {
 
 void main() {
     vec2 size = vec2(float(textureWidth), float(textureHeight));
+    size /= max(size.x / max(uWidth, 1.0), 0.25);
     float hs = max(uHeight, 0.3);
     float styleId = floor(uStyle + 0.5);
     float inferno = float(styleId > 0.5 && styleId < 1.5);
     float legacy = float(styleId > 3.5);
-    vec2 mg = vec2(clamp(0.09 * size.x, 28.0, 110.0), clamp(0.27 * size.y, 64.0, 250.0)) * hs * (1.0 + 0.15 * inferno);
-    vec2 S = 1.0 + 2.0 * mg / size;
-    vec2 tc = (texcoord0 - 0.5) * S + 0.5;
+    vec2 S = max(vec2(uScaleX, uScaleY), vec2(1.0));
+    vec2 mg = max(0.5 * (S - 1.0) * size, vec2(1.0));
+    vec2 C = vec2(uCenterX, uCenterY);
+    vec2 tc = C + (texcoord0 - C) * S;
     vec2 pxp = (tc - 0.5) * size;
     float ember = float(styleId > 1.5 && styleId < 2.5);
     float blue = float(styleId > 2.5 && styleId < 3.5);
@@ -192,9 +199,7 @@ void main() {
         vec3 rgbF = rgbL * (1.0 - cover * 0.85) + fcol * cover * 0.95 + vec3(1.0, 0.8, 0.35) * pow(core, 3.0) * 0.3 * cover;
         float aF = max(aL, cover * 0.97);
         vec4 oc = vec4(min(rgbF, vec3(aF + 0.6)), clamp(aF, 0.0, 1.0));
-        gl_FragColor = oc;
-        fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
-        fragColor = nitsToDestinationEncoding(fragColor);
+        gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(oc));
         return;
     }
 
@@ -276,7 +281,5 @@ void main() {
 
     vec4 outColor = vec4(min(rgb, vec3(1.6)), clamp(outA, 0.0, 1.0));
     outColor.rgb = min(outColor.rgb, vec3(outColor.a + 0.55 * clamp(rimI + residue + sp + dens, 0.0, 1.0)));
-    gl_FragColor = outColor;
-    fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
-    fragColor = nitsToDestinationEncoding(fragColor);
+    gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(outColor));
 }

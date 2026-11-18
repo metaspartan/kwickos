@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <limits>
 
 using namespace std::chrono_literals;
@@ -116,7 +117,7 @@ bool FlipEffect::wanted(EffectWindow *w) const
 
 void FlipEffect::slotWindowAdded(EffectWindow *w)
 {
-    if (!m_opening || effects->activeFullScreenEffect() || !wanted(w)) {
+    if (!m_opening || effects->animationTimeFactor() <= 0.0 || effects->activeFullScreenEffect() || !wanted(w)) {
         return;
     }
     const void *grab = w->data(WindowAddedGrabRole).value<void *>();
@@ -140,7 +141,7 @@ void FlipEffect::slotWindowClosed(EffectWindow *w)
         dropAnimation(w);
         return;
     }
-    if (effects->activeFullScreenEffect() || !wanted(w) || w->skipsCloseAnimation()) {
+    if (effects->animationTimeFactor() <= 0.0 || effects->activeFullScreenEffect() || !wanted(w) || w->skipsCloseAnimation()) {
         dropAnimation(w);
         return;
     }
@@ -264,12 +265,21 @@ bool FlipEffect::renderOffscreen(Animation &animation, EffectWindow *w, double s
 
     if (!animation.texture || animation.texture->size() != size) {
         animation.framebuffer.reset();
-        animation.texture = GLTexture::allocate(GL_RGBA8, size);
+        const int levels = 1 + int(std::floor(std::log2(double(std::max(size.width(), size.height())))));
+        animation.texture = GLTexture::allocate(GL_RGBA8, size, levels);
+        if (!animation.texture) {
+            animation.texture = GLTexture::allocate(GL_RGBA8, size);
+        }
         if (!animation.texture) {
             return false;
         }
-        animation.texture->setFilter(GL_LINEAR);
+        animation.texture->setFilter(GL_LINEAR_MIPMAP_LINEAR);
         animation.texture->setWrapMode(GL_CLAMP_TO_EDGE);
+        if (epoxy_has_gl_extension("GL_EXT_texture_filter_anisotropic") || epoxy_has_gl_extension("GL_ARB_texture_filter_anisotropic")) {
+            animation.texture->bind();
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 8.0f);
+            animation.texture->unbind();
+        }
         animation.framebuffer = std::make_unique<GLFramebuffer>(animation.texture.get());
         if (!animation.framebuffer->valid()) {
             animation.framebuffer.reset();
@@ -299,6 +309,7 @@ bool FlipEffect::renderOffscreen(Animation &animation, EffectWindow *w, double s
     effects->drawWindow(target, viewport, w, PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, infiniteRegion(), data);
 
     GLFramebuffer::popFramebuffer();
+    animation.texture->generateMipmaps();
 
     if (blurRole.isValid()) {
         w->setData(WindowForceBlurRole, blurRole);
@@ -307,6 +318,18 @@ bool FlipEffect::renderOffscreen(Animation &animation, EffectWindow *w, double s
         w->setData(WindowForceBackgroundContrastRole, contrastRole);
     }
     return true;
+}
+
+static qreal springOpen(qreal t)
+{
+    constexpr qreal zeta = 0.72;
+    constexpr qreal omega = 8.6;
+    const qreal decay = zeta * omega;
+    const qreal damped = omega * std::sqrt(1.0 - zeta * zeta);
+    auto x = [&](qreal s) {
+        return std::exp(-decay * s) * (std::cos(damped * s) + decay / damped * std::sin(damped * s));
+    };
+    return x(t) - x(1.0) * t;
 }
 
 FlipEffect::Pose FlipEffect::pose(EffectWindow *w, const Animation &animation, double scale) const
@@ -319,7 +342,7 @@ FlipEffect::Pose FlipEffect::pose(EffectWindow *w, const Animation &animation, d
     } else {
         const qreal r = 1.0 - t;
         result.progress = r * r * r;
-        result.eased = result.progress;
+        result.eased = springOpen(t);
     }
 
     const QRectF frame = snapToPixels(w->frameGeometry(), scale);
@@ -406,7 +429,7 @@ QRect FlipEffect::bounds(EffectWindow *w, const Animation &animation) const
         right = std::max(right, x);
         bottom = std::max(bottom, y);
     }
-    const int margin = int(0.2 * std::max(ps.half.width(), ps.half.height()) * 2.0) + 6;
+    const int margin = int(0.5 * std::max(ps.half.width(), ps.half.height())) + 80;
     return QRectF(QPointF(left, top), QPointF(right, bottom)).toAlignedRect().adjusted(-margin, -margin, margin, margin);
 }
 
@@ -424,12 +447,14 @@ void FlipEffect::paintFlipped(const RenderTarget &renderTarget, const RenderView
     }
     const QRectF frame = snapToPixels(w->frameGeometry(), scale);
     const QSizeF half = ps.half;
-    const qreal e = ps.eased;
     const qreal p = ps.progress;
+    const qreal e = std::clamp(ps.eased, 0.0, 1.0);
+    const qreal big = ps.depthShift;
 
     QMatrix4x4 device;
     device.scale(float(scale), float(scale), 1.0f);
-    const QMatrix4x4 mvp = viewport.projectionMatrix() * device * ps.transform;
+    const QMatrix4x4 screen = viewport.projectionMatrix() * device;
+    const QMatrix4x4 mvp = screen * ps.transform;
     const QRectF local = animation.textureGeometry.translated(-frame.topLeft());
     const QMatrix4x4 texMatrix = animation.texture->matrix(NormalizedCoordinates);
     auto vertex = [&](const QPointF &position, const QPointF &uv) {
@@ -439,11 +464,50 @@ void FlipEffect::paintFlipped(const RenderTarget &renderTarget, const RenderView
             .texcoord = QVector2D(tc),
         };
     };
+
+    const qreal fadeIn = std::clamp((p - 0.45) / 0.55, 0.0, 1.0);
+    const qreal fadeLevel = (1.0 - fadeIn * fadeIn * (3.0 - 2.0 * fadeIn)) * data.opacity();
+    const qreal sigma = 8.0 + 0.06 * big * e;
+    const qreal strength = 0.6 * e * fadeLevel;
+    QMatrix4x4 quad;
+    bool shadow = strength > 0.004;
+    QRectF shadowRect;
+    if (shadow) {
+        QMatrix4x4 drop;
+        drop.translate(0.0f, float(-0.1 * big * e), float(-0.08 * big * e));
+        const QMatrix4x4 project = ps.perspective * drop * ps.world;
+        const std::array<QPointF, 4> corners{QPointF(0.0, 0.0), QPointF(frame.width(), 0.0), QPointF(frame.width(), frame.height()), QPointF(0.0, frame.height())};
+        qreal left = std::numeric_limits<qreal>::max();
+        qreal top = left;
+        qreal right = std::numeric_limits<qreal>::lowest();
+        qreal bottom = right;
+        for (int i = 0; i < 4; ++i) {
+            const QVector4D v = project.map(QVector4D(float(corners[i].x()), float(corners[i].y()), 0.0f, 1.0f));
+            if (v.w() <= 1e-3f) {
+                shadow = false;
+                break;
+            }
+            const qreal x = v.x() / v.w();
+            const qreal y = v.y() / v.w();
+            quad.setColumn(i, QVector4D(float(x), float(y), 0.0f, 0.0f));
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x);
+            bottom = std::max(bottom, y);
+        }
+        const qreal reach = sigma * 5.5 + 2.0;
+        shadowRect = QRectF(QPointF(left, top), QPointF(right, bottom)).adjusted(-reach, -reach, reach, reach);
+    }
+
     const GLVertex2D tl = vertex(local.topLeft(), QPointF(0.0, 0.0));
     const GLVertex2D tr = vertex(local.topRight(), QPointF(1.0, 0.0));
     const GLVertex2D br = vertex(local.bottomRight(), QPointF(1.0, 1.0));
     const GLVertex2D bl = vertex(local.bottomLeft(), QPointF(0.0, 1.0));
-    const std::array<GLVertex2D, 6> vertices{tl, tr, br, tl, br, bl};
+    const GLVertex2D stl{.position = QVector2D(shadowRect.topLeft()), .texcoord = QVector2D()};
+    const GLVertex2D str{.position = QVector2D(shadowRect.topRight()), .texcoord = QVector2D()};
+    const GLVertex2D sbr{.position = QVector2D(shadowRect.bottomRight()), .texcoord = QVector2D()};
+    const GLVertex2D sbl{.position = QVector2D(shadowRect.bottomLeft()), .texcoord = QVector2D()};
+    const std::array<GLVertex2D, 12> vertices{stl, str, sbr, stl, sbr, sbl, tl, tr, br, tl, br, bl};
 
     GLVertexBuffer *vbo = GLVertexBuffer::streamingBuffer();
     vbo->reset();
@@ -459,9 +523,8 @@ void FlipEffect::paintFlipped(const RenderTarget &renderTarget, const RenderView
     GLShader *shader = binder.shader();
     shader->setUniform("uHalf", QVector2D(float(half.width()), float(half.height())));
     shader->setUniform("uNormal", ps.normal);
-    shader->setUniform("uEased", float(e));
+    shader->setUniform("uEased", float(ps.eased));
     shader->setUniform("uProgress", float(p));
-    shader->setUniform("uClock", float(animation.timeLine.elapsed().count() * 0.001));
     shader->setUniform("uOpacity", float(data.opacity()));
     shader->setUniform("uDistance", float(ps.distance));
     shader->setUniform("sampler", 0);
@@ -478,20 +541,20 @@ void FlipEffect::paintFlipped(const RenderTarget &renderTarget, const RenderView
     vbo->bindArrays();
     animation.texture->bind();
 
-    if (e > 0.01) {
-        QMatrix4x4 drop;
-        drop.translate(float(-0.035 * ps.depthShift * e), float(-0.075 * ps.depthShift * e), float(-0.22 * ps.depthShift * e));
-        const QMatrix4x4 shadowWorld = drop * ps.world;
-        shader->setUniform("uMvp", viewport.projectionMatrix() * device * ps.perspective * shadowWorld);
-        shader->setUniform("uWorld", shadowWorld);
+    if (shadow) {
+        shader->setUniform("uMvp", screen);
+        shader->setUniform("uWorld", QMatrix4x4());
+        shader->setUniform("uQuad", quad);
+        shader->setUniform("uSigma", float(sigma));
+        shader->setUniform("uShadow", float(strength));
         shader->setUniform("uPass", 1);
-        vbo->draw(clipRegion, GL_TRIANGLES, 0, vertices.size(), clipping);
+        vbo->draw(clipRegion, GL_TRIANGLES, 0, 6, clipping);
     }
 
     shader->setUniform("uMvp", mvp);
     shader->setUniform("uWorld", ps.world);
     shader->setUniform("uPass", 0);
-    vbo->draw(clipRegion, GL_TRIANGLES, 0, vertices.size(), clipping);
+    vbo->draw(clipRegion, GL_TRIANGLES, 6, 6, clipping);
 
     animation.texture->unbind();
     vbo->unbindArrays();

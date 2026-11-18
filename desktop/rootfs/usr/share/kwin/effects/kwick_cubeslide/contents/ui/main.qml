@@ -13,9 +13,6 @@ KWinComponents.SceneEffect {
     readonly property real turn: spring(Math.max(0, Math.min(1, (progress - 0.08) / 0.92)))
     readonly property real azimuth: fromAzimuth + (toAzimuth - fromAzimuth) * turn
     readonly property real pull: smoothstep(0, 0.3, progress) * (1 - smoothstep(0.66, 1, progress))
-    readonly property real angularSpeed: Math.abs(toAzimuth - fromAzimuth) * Math.abs(springRate(Math.max(0, Math.min(1, (progress - 0.08) / 0.92)))) / 0.92 / Math.max(300, configuration.Duration) * 16.7
-    readonly property real blur: Math.min(1, angularSpeed / 3.2)
-    readonly property real trail: -Math.sign(toAzimuth - fromAzimuth) * Math.min(3.5, angularSpeed * 0.9)
 
     readonly property var screenComponent: Qt.createComponent("ScreenView.qml")
     delegate: screenComponent
@@ -37,11 +34,6 @@ KWinComponents.SceneEffect {
         const f = 1 - Math.exp(-a * t) * (Math.cos(w * t) + (a / w) * Math.sin(w * t));
         const f1 = 1 - Math.exp(-a) * (Math.cos(w) + (a / w) * Math.sin(w));
         return f + (1 - f1) * t * t * t;
-    }
-
-    function springRate(t) {
-        const h = 0.004;
-        return (spring(Math.min(1, t + h)) - spring(Math.max(0, t - h))) / (Math.min(1, t + h) - Math.max(0, t - h));
     }
 
     onScrubChanged: {

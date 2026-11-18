@@ -8,6 +8,11 @@ uniform int textureHeight;
 uniform float uProgress;
 uniform float uClock;
 uniform float uSeed;
+uniform float uScaleX;
+uniform float uScaleY;
+uniform float uCenterX;
+uniform float uCenterY;
+uniform float uWidth;
 
 in vec2 texcoord0;
 out vec4 fragColor;
@@ -57,9 +62,11 @@ float particles(vec2 pos, float scale, float speed, float seed, float t, float z
 
 void main() {
     vec2 size = vec2(float(textureWidth), float(textureHeight));
-    vec2 mg = vec2(clamp(0.25 * size.x, 80.0, 280.0), clamp(0.6 * size.y, 160.0, 460.0));
-    vec2 S = 1.0 + 2.0 * mg / size;
-    vec2 tc = (texcoord0 - 0.5) * S + 0.5;
+    size /= max(size.x / max(uWidth, 1.0), 0.25);
+    vec2 S = max(vec2(uScaleX, uScaleY), vec2(1.0));
+    vec2 mg = max(0.5 * (S - 1.0) * size, vec2(1.0));
+    vec2 C = vec2(uCenterX, uCenterY);
+    vec2 tc = C + (texcoord0 - C) * S;
     vec2 pxp = (tc - 0.5) * size;
     vec2 inWin = step(vec2(0.0), tc) * step(tc, vec2(1.0));
     float inside = inWin.x * inWin.y;

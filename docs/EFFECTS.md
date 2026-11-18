@@ -36,6 +36,9 @@ on the Effects page of KwickOS Settings.
 
 Only one open/close effect is active at a time. `flame`, `flip`, `dissolve`, `glide` and `fallapart` replace each other.
 
+All Kwick effects follow the global animation speed (`AnimationDurationFactor`, the slider in System Settings). At
+"Instant" the flip, flame and dissolve effects are skipped. The desktop cube does not follow the slider yet.
+
 ## Options
 
 * `kwick-effects wobbly AMOUNT SWAY` takes two numbers from 1 to 10 (`kwick-effects param wobbly` prints them). Amount is how far
@@ -52,7 +55,12 @@ Only one open/close effect is active at a time. `flame`, `flip`, `dissolve`, `gl
   Every style keeps the fire mostly inside the window footprint: at the default height of 100 the flames reach 15 to 25 percent of
   the window height above the top edge and flare only a little at the sides. `flame-height` scales that overflow (and the height of
   the flames inside the window), so 200 gives taller flames.
-* `kwick-effects param flip flip|door|tilt` picks the 3D open/close style.
+* `kwick-effects param flip flip|door|tilt` picks the 3D open/close style. Opening swings in on a damped spring (about 4%
+  overshoot, settled by the end), closing accelerates away. The window is lit by a key and a fill light (Blinn-Phong
+  highlight, Schlick Fresnel sheen, rim), the lighting stays on the window body and never on its shadow, and the texture is
+  mipmapped with anisotropic filtering so text does not shimmer at steep angles. While it turns, the decoration's own
+  shadow fades out and a soft shadow computed from the projected window outline (a Gaussian falloff of its signed distance,
+  in logical pixels, so it is the same size on HiDPI) takes over below it.
 * `kwick-effects param depth 0-10` sets how far windows float off the cube faces while it turns (the "Window depth" slider; default 5).
 * `kwick-effects switch slide|fade|cube|none` sets the desktop switch animation.
 * `kwick-effects tabbox windows|cover|flip|grid` sets the Alt+Tab style.
@@ -146,8 +154,12 @@ changes with `qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffec
 ## GNOME and Hyprland
 
 On GNOME the presets drive the extensions that are installed (wobbly, lamp, burn, cube, blur), and the wobble sliders map to the
-wobbly extension. On Hyprland they write bezier-curve animations (an overshoot curve for wobbly, a 3D-ish pop-in and fading slide for
-flip and the cube setting), blur and dimming.
+wobbly extension. On Hyprland they write bezier-curve animations,
+blur and dimming. Durations scale with the preset like the KDE animation speed (0.7 subtle, 0.8 fluid, 1 full). With flip on,
+windows pop in from 60% on a spring curve with the same small overshoot as the KDE flip and close with an ease-in that fades
+late; the cube setting becomes a horizontal slide-fade on an overshooting curve. The layout keeps its own corner radius and
+shadow size; the effects file only switches the shadow on or off. The defaults in `hyprland.conf` come before the
+`source` lines, so the effects file overrides them.
 
 ## Gallery
 

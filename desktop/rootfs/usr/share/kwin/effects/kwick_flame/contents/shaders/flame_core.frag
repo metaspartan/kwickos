@@ -8,6 +8,11 @@ uniform int textureHeight;
 uniform float uProgress;
 uniform float uClock;
 uniform float uSeed;
+uniform float uScaleX;
+uniform float uScaleY;
+uniform float uCenterX;
+uniform float uCenterY;
+uniform float uWidth;
 uniform float uStyle;
 uniform float uHeight;
 
@@ -92,13 +97,15 @@ vec3 legacyRamp(float a) {
 
 void main() {
     vec2 size = vec2(float(textureWidth), float(textureHeight));
+    size /= max(size.x / max(uWidth, 1.0), 0.25);
     float hs = max(uHeight, 0.3);
     float styleId = floor(uStyle + 0.5);
     float inferno = float(styleId > 0.5 && styleId < 1.5);
     float legacy = float(styleId > 3.5);
-    vec2 mg = vec2(clamp(0.09 * size.x, 28.0, 110.0), clamp(0.27 * size.y, 64.0, 250.0)) * hs * (1.0 + 0.15 * inferno);
-    vec2 S = 1.0 + 2.0 * mg / size;
-    vec2 tc = (texcoord0 - 0.5) * S + 0.5;
+    vec2 S = max(vec2(uScaleX, uScaleY), vec2(1.0));
+    vec2 mg = max(0.5 * (S - 1.0) * size, vec2(1.0));
+    vec2 C = vec2(uCenterX, uCenterY);
+    vec2 tc = C + (texcoord0 - C) * S;
     vec2 pxp = (tc - 0.5) * size;
     float ember = float(styleId > 1.5 && styleId < 2.5);
     float blue = float(styleId > 2.5 && styleId < 3.5);

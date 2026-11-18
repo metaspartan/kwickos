@@ -12,8 +12,6 @@ Item {
     readonly property real viewDistance: 0.5 * height / Math.tan(0.5 * camera.fieldOfView * Math.PI / 180)
     readonly property real pull: effect.pull
     readonly property real cameraRadius: faceDistance + viewDistance + pull * effect.configuration.PullBack * (faceDistance + viewDistance) * 1.1
-    readonly property real blur: effect.blur
-    readonly property real trail: effect.trail
     readonly property real cameraHeight: pull * height * 0.46
     readonly property real tilt: Math.atan2(cameraHeight, cameraRadius) * 180 / Math.PI
     readonly property real floorY: -height / 2 - 14
@@ -599,14 +597,6 @@ Item {
 
             Loader3D {
                 sourceComponent: worldC
-            }
-
-            Loader3D {
-                sourceComponent: worldC
-                active: root.blur > 0.03
-                visible: root.blur > 0.03
-                opacity: Math.min(0.34, root.blur * 0.4)
-                eulerRotation.y: root.trail
             }
         }
     }
