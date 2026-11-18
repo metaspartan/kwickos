@@ -1,50 +1,86 @@
 * {
-  font-family: "@UI@", "FontAwesome", sans-serif;
+  font-family: "@UI@", sans-serif;
   font-size: 13px;
   min-height: 0;
   border: none;
   border-radius: 0;
+  box-shadow: none;
+  text-shadow: none;
 }
 
 window#waybar {
-  background: rgba(30, 30, 30, 0.6);
-  color: rgba(255, 255, 255, 0.847);
-  border-bottom: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  border: none;
+}
+
+window#waybar > box {
+  padding: 5px 0;
 }
 
 #custom-logo {
   min-width: 22px;
-  margin: 3px 4px 3px 7px;
+  margin: 0 5px 0 12px;
   background-image: url("/usr/share/icons/hicolor/scalable/apps/kwickos-menubar.svg");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: contain;
+  background-size: 22px 22px;
 }
 
 #window {
   font-weight: 700;
-  padding: 0 12px;
+  padding: 0 11px;
 }
 
-#clock,
-#battery,
+#workspaces {
+  margin: 0;
+  padding: 0;
+}
+
+#workspaces button {
+  min-width: 0;
+  margin: 0;
+  padding: 0 11px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+#workspaces button.active,
+#workspaces button.focused {
+  color: #ffffff;
+}
+
+#workspaces button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+}
+
+#tray {
+  margin: 0 9px;
+}
+
+#bluetooth,
+#custom-vpn,
 #network,
 #pulseaudio,
-#bluetooth,
-#tray {
-  padding: 0 9px;
+#battery {
+  min-width: 22px;
+  min-height: 22px;
+  margin: 0 9px;
+  padding: 0;
+  color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 22px 22px;
+}
+
+#custom-vpn.off {
+  min-width: 0;
+  margin: 0;
 }
 
 #custom-clock {
-  padding: 0 14px 0 9px;
-}
-
-#battery.warning {
-  color: #ff9f0a;
-}
-
-#battery.critical {
-  color: #ff453a;
+  padding: 0 16px 0 9px;
 }
 
 tooltip {
@@ -53,7 +89,175 @@ tooltip {
   border-radius: 6px;
 }
 
-#custom-vpn {
-  padding: 0 9px;
-  color: rgba(255, 255, 255, 0.847);
+tooltip label {
+  color: rgba(255, 255, 255, 0.9);
 }
+
+#bluetooth {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/bluetooth-active-symbolic.svg");
+}
+
+#bluetooth.off,\n#bluetooth.disabled {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/bluetooth-disabled-symbolic.svg");
+}
+
+#bluetooth.connected {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/bluetooth-connected-symbolic.svg");
+}
+
+#custom-vpn.on {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-vpn-symbolic.svg");
+}
+
+#network {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wired-activated-symbolic.svg");
+}
+
+#network.disconnected,\n#network.disabled {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wired-disconnected-symbolic.svg");
+}
+
+#network.linked {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wired-no-route-symbolic.svg");
+}
+
+#network.wifi {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wireless-100-symbolic.svg");
+}
+
+#network.wifi.s20 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wireless-20-symbolic.svg");
+}
+
+#network.wifi.s40 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wireless-40-symbolic.svg");
+}
+
+#network.wifi.s60 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wireless-60-symbolic.svg");
+}
+
+#network.wifi.s80 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wireless-80-symbolic.svg");
+}
+
+#network.wifi.s100 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wireless-100-symbolic.svg");
+}
+
+#pulseaudio {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/audio-volume-high-symbolic.svg");
+}
+
+#pulseaudio.medium {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/audio-volume-medium-symbolic.svg");
+}
+
+#pulseaudio.low {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/audio-volume-low-symbolic.svg");
+}
+
+#pulseaudio.zero {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/audio-volume-zero-symbolic.svg");
+}
+
+#pulseaudio.muted {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/audio-volume-muted-symbolic.svg");
+}
+
+#battery {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-symbolic.svg");
+}
+
+#battery.b000 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-000-symbolic.svg");
+}
+
+#battery.b000.charging,\n#battery.b000.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-000-charging-symbolic.svg");
+}
+
+#battery.b010 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-010-symbolic.svg");
+}
+
+#battery.b010.charging,\n#battery.b010.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-010-charging-symbolic.svg");
+}
+
+#battery.b020 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-020-symbolic.svg");
+}
+
+#battery.b020.charging,\n#battery.b020.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-020-charging-symbolic.svg");
+}
+
+#battery.b030 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-030-symbolic.svg");
+}
+
+#battery.b030.charging,\n#battery.b030.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-030-charging-symbolic.svg");
+}
+
+#battery.b040 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-040-symbolic.svg");
+}
+
+#battery.b040.charging,\n#battery.b040.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-040-charging-symbolic.svg");
+}
+
+#battery.b050 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-050-symbolic.svg");
+}
+
+#battery.b050.charging,\n#battery.b050.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-050-charging-symbolic.svg");
+}
+
+#battery.b060 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-060-symbolic.svg");
+}
+
+#battery.b060.charging,\n#battery.b060.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-060-charging-symbolic.svg");
+}
+
+#battery.b070 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-070-symbolic.svg");
+}
+
+#battery.b070.charging,\n#battery.b070.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-070-charging-symbolic.svg");
+}
+
+#battery.b080 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-080-symbolic.svg");
+}
+
+#battery.b080.charging,\n#battery.b080.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-080-charging-symbolic.svg");
+}
+
+#battery.b090 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-090-symbolic.svg");
+}
+
+#battery.b090.charging,\n#battery.b090.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-090-charging-symbolic.svg");
+}
+
+#battery.b100 {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-symbolic.svg");
+}
+
+#battery.b100.charging,\n#battery.b100.plugged {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-charging-symbolic.svg");
+}
+
+#battery.full {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-charged-symbolic.svg");
+}
+

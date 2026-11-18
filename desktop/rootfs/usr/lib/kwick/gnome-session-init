@@ -1,0 +1,6 @@
+#!/bin/sh
+c=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
+[ -e "$c/gnome.applied" ] && exit 0
+mkdir -p "$c"
+kwick-layout "$(kwick-layout)" >/dev/null 2>&1
+touch "$c/gnome.applied"

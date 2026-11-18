@@ -273,7 +273,7 @@ tiling() {
   sub x "$T/$want/mako.conf" > "$C/mako/config"
   sub x "$T/$want/fuzzel.ini" > "$C/fuzzel/fuzzel.ini"
   if [ -f "$T/$want/foot.ini" ]; then sub x "$T/$want/foot.ini" > "$C/foot/foot.ini"; else sub x "$T/common/foot.ini" > "$C/foot/foot.ini"; fi
-  sub x "$T/common/swaylock.conf" > "$C/swaylock/config"
+  if [ -f "$T/$want/swaylock.conf" ]; then sub x "$T/$want/swaylock.conf" > "$C/swaylock/config"; else sub x "$T/common/swaylock.conf" > "$C/swaylock/config"; fi
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then
     wm=hyprland; hyprctl reload >/dev/null 2>&1
     if [ -f /usr/lib/kwick/hypr/hyprbars.so ] && ! hyprctl plugin list 2>/dev/null | grep -q hyprbars; then
