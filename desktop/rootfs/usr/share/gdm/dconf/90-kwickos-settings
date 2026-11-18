@@ -1,0 +1,14 @@
+[org/gnome/login-screen]
+logo=''
+disable-user-list=false
+
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'
+accent-color='blue'
+icon-theme='KwickOS'
+cursor-theme='breeze_cursors'
+cursor-size=24
+font-name='Inter 10'
+clock-format='12h'
+clock-show-date=true
+clock-show-weekday=true

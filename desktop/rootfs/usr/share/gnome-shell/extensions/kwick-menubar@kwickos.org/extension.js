@@ -1,5 +1,6 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
@@ -9,6 +10,14 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const FILES = 'org.gnome.Nautilus.desktop';
+const LOGO = '/usr/share/icons/hicolor/scalable/apps/kwickos-menubar.svg';
+
+function clockText(text) {
+    return text
+        .replace(/[\s\u2002\u2003\u2009\u202f]+(?=\d{1,2}[:\u2236]\d)/, '  ')
+        .replace(/\u2236/g, ':')
+        .replace(/(\d)[\u2009\u202f](AM|PM)/, '$1 $2');
+}
 
 function menuButton(name, text, bold) {
     const button = new PanelMenu.Button(0.0, name, false);
@@ -38,7 +47,9 @@ export default class KwickMenubar extends Extension {
                 child.hide();
             }
             this._logo = new St.Icon({
-                gicon: new Gio.ThemedIcon({name: 'kwickos-menubar'}),
+                gicon: Gio.File.new_for_path(LOGO).query_exists(null)
+                    ? new Gio.FileIcon({file: Gio.File.new_for_path(LOGO)})
+                    : new Gio.ThemedIcon({name: 'kwickos-menubar'}),
                 icon_size: 22,
                 y_align: Clutter.ActorAlign.CENTER,
                 x_align: Clutter.ActorAlign.CENTER,
@@ -52,6 +63,16 @@ export default class KwickMenubar extends Extension {
             this._clockParent = this._clock.get_parent();
             this._clockParent.remove_child(this._clock);
             panel._rightBox.add_child(this._clock);
+            this._clockLabel = clock._clockDisplay ?? null;
+            if (this._clockLabel) {
+                const fix = () => {
+                    const t = clockText(this._clockLabel.text ?? '');
+                    if (t !== this._clockLabel.text)
+                        this._clockLabel.text = t;
+                };
+                this._clockId = this._clockLabel.connect('notify::text', fix);
+                fix();
+            }
         }
 
         this._tracker = Shell.WindowTracker.get_default();
@@ -66,6 +87,29 @@ export default class KwickMenubar extends Extension {
         panel.addToStatusArea('kwick-help-menu', this._helpButton, 3, 'left');
         this._focusId = this._tracker.connect('notify::focus-app', () => this._sync());
         this._sync();
+        this._powerTries = 0;
+        this._powerSource = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => this._hookPower());
+    }
+
+    _hookPower() {
+        const sys = Main.panel.statusArea.quickSettings?._system;
+        if (!sys?._indicator) {
+            this._powerTries++;
+            if (this._powerTries < 40)
+                return GLib.SOURCE_CONTINUE;
+            this._powerSource = 0;
+            return GLib.SOURCE_REMOVE;
+        }
+        this._powerSource = 0;
+        this._power = sys;
+        const icon = new Gio.FileIcon({file: this.dir.get_child('power.svg')});
+        const fix = () => {
+            if (sys._indicator.icon_name === 'system-shutdown-symbolic')
+                sys._indicator.gicon = icon;
+        };
+        this._powerId = sys._indicator.connect('notify::icon-name', fix);
+        fix();
+        return GLib.SOURCE_REMOVE;
     }
 
     _app() {
@@ -166,6 +210,21 @@ export default class KwickMenubar extends Extension {
                 child.show();
         }
         this._hidden = null;
+        if (this._powerSource) {
+            GLib.source_remove(this._powerSource);
+            this._powerSource = 0;
+        }
+        if (this._powerId) {
+            this._power._indicator.disconnect(this._powerId);
+            this._powerId = 0;
+            this._power._sync();
+            this._power = null;
+        }
+        if (this._clockId) {
+            this._clockLabel.disconnect(this._clockId);
+            this._clockId = 0;
+            this._clockLabel = null;
+        }
         if (this._clock) {
             panel._rightBox.remove_child(this._clock);
             this._clockParent.insert_child_at_index(this._clock, 0);

@@ -40,8 +40,6 @@ headerbar button.titlebutton.maximize,
 headerbar button.titlebutton.restore {
   min-width: 12px;
   min-height: 12px;
-  max-width: 12px;
-  max-height: 12px;
   padding: 0;
   margin: 0 4px;
   border-radius: 0;
@@ -74,7 +72,6 @@ headerbar button.titlebutton.restore:backdrop {
 
 headerbar button.titlebutton image {
   color: transparent;
-  -gtk-icon-size: 8px;
   min-width: 8px;
   min-height: 8px;
   padding: 0;

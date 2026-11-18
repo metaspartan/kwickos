@@ -165,7 +165,8 @@ wobbly extension. On Hyprland they write bezier-curve animations,
 blur and dimming. Durations scale with the preset like the KDE animation speed (0.7 subtle, 0.8 fluid, 1 full). With flip on,
 windows pop in from 60% on a spring curve with the same small overshoot as the KDE flip and close with an ease-in that fades
 late; the cube setting becomes a horizontal slide-fade on an overshooting curve. The layout keeps its own corner radius and
-shadow size; the effects file only switches the shadow on or off. The defaults in `hyprland.conf` come before the
+shadow size; the effects file only switches the shadow on or off. Window opacity belongs to the effects file alone: the layouts set
+no inactive opacity, so windows are opaque unless transparency is on (0.97 active, 0.88 inactive). The defaults in `hyprland.conf` come before the
 `source` lines, so the effects file overrides them.
 
 ## Gallery

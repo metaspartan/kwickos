@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KwickOS GNOME layout
+Exec=/usr/lib/kwick/gnome-session-init
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Phase=Applications
+X-GNOME-AutoRestart=false

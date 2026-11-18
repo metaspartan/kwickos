@@ -31,7 +31,7 @@ COPY --from=kwinflip /flip/out/ /
 COPY --from=kwinglass /glass/out/ /
 COPY --from=macstyle /style/out/ /
 RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen; locale-gen && update-locale LANG=en_US.UTF-8
-RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all
+RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all && glib-compile-schemas /usr/share/glib-2.0/schemas
 RUN set -e; \
     find /usr/lib/kwick /usr/bin/kwick-* /usr/bin/steam /usr/bin/steamos-session-select -type f -exec chmod 755 {} +; \
     rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
@@ -44,6 +44,7 @@ RUN set -e; \
     adduser --disabled-password --gecos "KwickOS Live" --shell /bin/zsh kwick 2>/dev/null || adduser -D -g "KwickOS Live" -s /bin/zsh kwick; \
     for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done; \
     passwd -d kwick >/dev/null 2>&1 || true; \
+    mkdir -p /var/lib/AccountsService/icons /var/lib/AccountsService/users; cp /usr/share/kwick/faces/kwickos.png /var/lib/AccountsService/icons/kwick; chmod 644 /var/lib/AccountsService/icons/kwick; printf '[User]\nIcon=/var/lib/AccountsService/icons/kwick\nSystemAccount=false\n' > /var/lib/AccountsService/users/kwick; chmod 600 /var/lib/AccountsService/users/kwick; \
     echo 'kwick ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/kwick-live; chmod 440 /etc/sudoers.d/kwick-live; \
     printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf; \
     rm -f /etc/kinit/autologin; \

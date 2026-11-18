@@ -2,13 +2,32 @@
 color-scheme='prefer-dark'
 icon-theme='KwickOS'
 font-name='Inter 10'
+document-font-name='Inter 10'
 monospace-font-name='JetBrains Mono 10'
 cursor-theme='breeze_cursors'
 cursor-size=24
 enable-hot-corners=false
+accent-color='blue'
+clock-format='12h'
+clock-show-date=true
+clock-show-weekday=true
 
 [org.gnome.desktop.wm.preferences]
 button-layout='close,minimize,maximize:'
+titlebar-font='Inter Bold 10'
 
 [org.gnome.shell]
-enabled-extensions=['dash-to-dock@micxgx.gmail.com','blur-my-shell@aunetx','appindicatorsupport@rgcjonas.gmail.com']
+enabled-extensions=['dash-to-dock@micxgx.gmail.com','blur-my-shell@aunetx','ubuntu-appindicators@ubuntu.com','kwick-menubar@kwickos.org']
+favorite-apps=['org.gnome.Nautilus.desktop','firefox-esr.desktop','kwick-terminal.desktop','org.gnome.TextEditor.desktop','kwick-software.desktop','kwick-settings.desktop']
+
+[org.gnome.shell.extensions.dash-to-dock]
+disable-overview-on-startup=true
+dock-position='BOTTOM'
+dock-fixed=true
+intellihide=false
+autohide=false
+extend-height=false
+dash-max-icon-size=48
+show-trash=true
+show-mounts=false
+show-show-apps-button=false

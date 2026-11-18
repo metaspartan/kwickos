@@ -205,6 +205,19 @@ def printer():
     return rect(2.75, 8.25, 16.5, 6.75, 2) + P("M6.5 8.25V4.75h9v3.5") + rect(6.5, 11.75, 9, 5.5, 0.75, ' fill="currentColor"')
 
 
+def leaf():
+    return P("M4.75 17.25C4.75 9.75 9 4.75 17.25 4.75c0 8.25-5 12.5-12.5 12.5z") + P("M4.75 17.25l7.5-7.5")
+
+
+def gauge(angle):
+    x, y = pt(11, 13, 4.5, angle)
+    return arc(11, 13, 7.25, -125, 125) + P(f"M11 13L{f(x)} {f(y)}") + dot(11, 13, 1.5)
+
+
+def padlock():
+    return rect(5, 9.75, 12, 8.25, 2) + P("M7.75 9.75V7.5a3.25 3.25 0 0 1 6.5 0v2.25") + dot(11, 13.9, 1.1)
+
+
 def names():
     n = {}
 
@@ -259,6 +272,21 @@ def names():
     add("battery-low-charging battery-caution-charging", battery(0.2, True))
     add("battery-empty", battery(0))
     add("battery-missing", battery(0, missing=True))
+    for p in range(0, 101, 10):
+        add(f"battery-level-{p}", battery(p / 100))
+        add(f"battery-level-{p}-charging", battery(p / 100, True))
+    add("battery-level-100-charged", battery(1, True))
+    add("power-profile-power-saver", leaf())
+    add("power-profile-balanced", gauge(0))
+    add("power-profile-performance", gauge(60))
+    add("network-vpn network-vpn-acquiring", padlock())
+    add("audio-input-microphone-low audio-input-microphone-medium audio-input-microphone-high", microphone())
+    add("network-cellular-signal-excellent network-cellular-connected", bars(4))
+    add("network-cellular-signal-good", bars(3))
+    add("network-cellular-signal-ok", bars(2))
+    add("network-cellular-signal-weak", bars(1))
+    add("network-cellular-signal-none network-cellular-acquiring", bars(0))
+    add("network-cellular-offline network-cellular-disabled", bars(4, cross=True))
 
     add("brightness-high video-display-brightness display-brightness", sun(True))
     add("brightness-low", sun(False))
