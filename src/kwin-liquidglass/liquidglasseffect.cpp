@@ -113,6 +113,7 @@ void LiquidGlassEffect::reconfigure(ReconfigureFlags flags)
     m_tint = std::clamp(group.readEntry("Tint", 100), 0, 200) / 100.0;
     m_style = std::clamp(group.readEntry("Style", 0), 0, 2);
     m_titleBars = group.readEntry("TitleBars", false);
+    m_menuBar = group.readEntry("MenuBar", false);
     m_interactive = group.readEntry("Interactive", true);
     m_roundWindows = group.readEntry("Windows", true);
     const int profile = group.readEntry("Profile", 0);
@@ -603,6 +604,9 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     if (kind == Kind::Dock && ((leftEdge && rightEdge) || (topEdge && bottomEdge))) {
         kind = Kind::Bar;
     }
+    if (kind == Kind::Bar && topEdge && !m_menuBar) {
+        return false;
+    }
     Glass probe;
     probe.kind = kind;
     probe.content = glass.content;
@@ -848,7 +852,8 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
     const bool translated = data.xTranslation() || data.yTranslation();
     if (it->second.kind == Kind::Window) {
         const bool moved = scaled || translated || data.rotationAngle() != 0.0;
-        const bool deformed = (mask & PAINT_WINDOW_TRANSFORMED) && !moved;
+        const bool dragging = w->isUserMove() || w->isUserResize();
+        const bool deformed = (mask & PAINT_WINDOW_TRANSFORMED) && !moved && (!dragging || effects->isEffectLoaded(QStringLiteral("wobblywindows")));
         if (!deformed && !effects->activeFullScreenEffect() && roundable(w)) {
             const bool painted = moved ? false : paintGlass(renderTarget, viewport, w, it->second, region, data);
             Q_UNUSED(painted)

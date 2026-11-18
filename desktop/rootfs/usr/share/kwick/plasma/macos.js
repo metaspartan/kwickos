@@ -24,7 +24,7 @@ var launchers = dockCfg.pinned.split(",").filter(function (s) { return s.length 
 
 var top = new Panel;
 top.location = "top";
-top.height = Math.round(gridUnit * 1.6);
+top.height = Math.round(gridUnit * 1.8);
 top.floating = false;
 top.hiding = "none";
 top.opacity = "translucent";
@@ -52,7 +52,7 @@ sep1.currentConfigGroup = ["General"];
 sep1.writeConfig("margin", "8");
 var tray = top.addWidget("org.kde.plasma.systemtray");
 tray.currentConfigGroup = ["General"];
-tray.writeConfig("iconSpacing", "6");
+tray.writeConfig("iconSpacing", "8");
 var sep3 = top.addWidget("org.kde.plasma.marginsseparator");
 sep3.currentConfigGroup = ["General"];
 sep3.writeConfig("margin", "6");
@@ -84,7 +84,7 @@ dock.height = parseInt(dockCfg.iconSize, 10) + 24;
 dock.alignment = "center";
 dock.lengthMode = "fit";
 dock.floating = dockCfg.floating !== "off";
-dock.hiding = dockCfg.autohide === "on" ? "autohide" : "dodgewindows";
+dock.hiding = dockCfg.autohide === "on" ? "autohide" : "none";
 dock.opacity = "translucent";
 
 if (knownWidgetTypes.indexOf("org.kwickos.dock") >= 0) {

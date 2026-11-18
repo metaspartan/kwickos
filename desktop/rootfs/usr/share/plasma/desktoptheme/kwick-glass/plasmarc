@@ -2,7 +2,7 @@
 enabled=false
 
 [BlurBehindEffect]
-enabled=true
+enabled=false
 
 [AdaptiveTransparency]
 enabled=true

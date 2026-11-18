@@ -24,7 +24,7 @@ var launchers = dockCfg.pinned.split(",").filter(function (s) { return s.length 
 
 var top = new Panel;
 top.location = "top";
-top.height = Math.round(gridUnit * 1.6);
+top.height = Math.round(gridUnit * 1.8);
 top.floating = false;
 top.hiding = "none";
 top.opacity = "translucent";
@@ -78,7 +78,7 @@ dock.height = parseInt(dockCfg.iconSize, 10) + 20;
 dock.alignment = "center";
 dock.lengthMode = "fit";
 dock.floating = dockCfg.floating !== "off";
-dock.hiding = dockCfg.autohide === "on" ? "autohide" : "dodgewindows";
+dock.hiding = dockCfg.autohide === "on" ? "autohide" : "none";
 dock.opacity = "translucent";
 
 var dl = dock.addWidget("org.kde.plasma.marginsseparator");
