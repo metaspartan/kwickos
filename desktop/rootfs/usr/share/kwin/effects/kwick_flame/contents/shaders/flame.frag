@@ -8,20 +8,22 @@ uniform int textureHeight;
 uniform float uProgress;
 uniform float uClock;
 uniform float uSeed;
-uniform float uScaleX;
-uniform float uScaleY;
-uniform float uCenterX;
-uniform float uCenterY;
-uniform float uWidth;
+uniform float uFrameL;
+uniform float uFrameR;
+uniform float uFrameB;
+uniform float uFrameT;
+uniform float uLogW;
+uniform float uLogH;
+uniform float uOver;
 uniform float uStyle;
 uniform float uHeight;
 
 varying vec2 texcoord0;
 
 float hash(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
+    vec3 q = fract(vec3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
 }
 
 float vnoise(vec2 p) {
@@ -35,56 +37,35 @@ float vnoise(vec2 p) {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    for (int i = 0; i < 5; i++) {
-        v += a * vnoise(p);
-        p = p * 2.02 + vec2(17.1, 9.7);
-        a *= 0.5;
-    }
-    return v;
+float fbm2(vec2 p) {
+    return 0.6667 * vnoise(p) + 0.3333 * vnoise(p * 2.03 + vec2(17.1, 9.7));
 }
 
 float fbm3(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    for (int i = 0; i < 3; i++) {
-        v += a * vnoise(p);
-        p = p * 2.1 + vec2(5.3, 11.9);
-        a *= 0.5;
-    }
-    return v;
+    float v = 0.5714 * vnoise(p);
+    v += 0.2857 * vnoise(p * 2.03 + vec2(17.1, 9.7));
+    return v + 0.1429 * vnoise(p * 4.11 + vec2(5.3, 11.9));
 }
 
-vec3 fireRamp(float h, float blue) {
-    vec3 core = vec3(1.0, 0.97, 0.78);
-    vec3 yellow = vec3(1.0, 0.72, 0.16);
-    vec3 orange = vec3(0.98, 0.34, 0.04);
-    vec3 red = vec3(0.55, 0.07, 0.02);
-    vec3 smoke = vec3(0.1, 0.06, 0.05);
-    vec3 c = mix(core, yellow, smoothstep(0.0, 0.18, h));
-    c = mix(c, orange, smoothstep(0.14, 0.42, h));
-    c = mix(c, red, smoothstep(0.4, 0.74, h));
-    c = mix(c, smoke, smoothstep(0.72, 1.0, h));
-    vec3 d = mix(vec3(0.9, 0.97, 1.0), vec3(0.35, 0.72, 1.0), smoothstep(0.0, 0.2, h));
-    d = mix(d, vec3(0.1, 0.28, 0.95), smoothstep(0.16, 0.45, h));
-    d = mix(d, vec3(0.04, 0.08, 0.35), smoothstep(0.42, 0.76, h));
-    d = mix(d, vec3(0.03, 0.05, 0.1), smoothstep(0.74, 1.0, h));
-    return mix(c, d, blue);
+vec3 blackbody(float T, float blue) {
+    float k = mix(7.0, mix(30.0, 66.0, blue), T * T);
+    float g = clamp(0.39008158 * log(k) - 0.63184144, 0.0, 1.0);
+    float b = clamp(0.54320679 * log(max(k - 10.0, 1.0)) - 1.19625409, 0.0, 1.0);
+    vec3 fire = vec3(1.0, g, b);
+    vec3 gas = vec3(0.08 + 0.9 * b * b, 0.25 * g + 0.6 * b, 1.0);
+    float I = clamp(1.6 * T * sqrt(T), 0.0, 1.0);
+    return mix(fire, gas, blue) * I;
 }
 
-float sparkLayer(vec2 pos, float scale, float speed, float seed, float t, float zone) {
-    vec2 g = vec2(pos.x, -pos.y) / scale;
-    g.y += t * speed / scale;
+float sparks(vec2 P, float cell, float speed, float seed, float t) {
+    vec2 g = vec2(P.x, P.y - t * speed) / cell;
     vec2 id = floor(g);
-    vec2 f = fract(g) - 0.5;
     float h = hash(id + seed);
-    float h2 = hash(id * 1.7 + seed + 3.1);
-    f.x += sin(t * (3.0 + h * 4.0) + h * 6.28) * 0.3;
-    float d = length(f - (vec2(h, h2) - 0.5) * 0.5);
-    float life = fract(h2 * 7.0 + t * 0.35);
-    return smoothstep(0.2, 0.02, d) * step(0.78, h) * (1.0 - life) * zone;
+    float h2 = hash(id.yx + seed * 1.37 + 3.1);
+    vec2 c = vec2(0.5 + 0.35 * sin(t * (2.0 + 3.0 * h) + h2 * 6.283), 0.15 + 0.7 * h2);
+    float r = length((fract(g) - c) * cell);
+    float life = 1.0 - fract(h * 5.3 + t * 0.45);
+    return smoothstep(1.7, 0.4, r) * step(0.84, h) * life * life;
 }
 
 vec3 legacyRamp(float a) {
@@ -94,192 +75,228 @@ vec3 legacyRamp(float a) {
     return mix(c, vec3(0.38, 0.03, 0.01), smoothstep(0.85, 1.0, a));
 }
 
+vec4 finish(vec3 rgb, float a) {
+    rgb += (hash(gl_FragCoord.xy + fract(uClock * 7.0) * 61.0) - 0.5) / 255.0;
+    a = clamp(a, 0.0, 1.0);
+    rgb = clamp(rgb, vec3(0.0), vec3(a));
+    return nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(vec4(rgb, a)));
+}
+
 void main() {
-    vec2 size = vec2(float(textureWidth), float(textureHeight));
-    size /= max(size.x / max(uWidth, 1.0), 0.25);
-    float hs = max(uHeight, 0.3);
-    float styleId = floor(uStyle + 0.5);
-    float inferno = float(styleId > 0.5 && styleId < 1.5);
-    float legacy = float(styleId > 3.5);
-    vec2 S = max(vec2(uScaleX, uScaleY), vec2(1.0));
-    vec2 mg = max(0.5 * (S - 1.0) * size, vec2(1.0));
-    vec2 C = vec2(uCenterX, uCenterY);
-    vec2 tc = C + (texcoord0 - C) * S;
-    vec2 pxp = (tc - 0.5) * size;
-    float ember = float(styleId > 1.5 && styleId < 2.5);
-    float blue = float(styleId > 2.5 && styleId < 3.5);
-    float plumeAmt = mix(mix(1.0, 1.25, inferno), 0.3, ember);
-    float flareW = mix(mix(0.24, 0.55, inferno), 0.06, ember);
-    float densGain = mix(mix(1.0, 1.35, inferno), 0.55, ember);
-    float sparkGain = mix(mix(1.0, 1.4, inferno), 3.2, ember);
-    float tongueScale = mix(1.0, 0.7, inferno);
-    float turb = mix(mix(1.0, 1.6, inferno), 0.7, ember);
-
-    float p = clamp(uProgress, 0.0, 1.0);
-    p = p * p * (3.0 - 2.0 * p);
+    vec2 tc = texcoord0;
+    vec2 logSize = vec2(max(uLogW, 1.0), max(uLogH, 1.0));
+    float dev = max(float(textureWidth) / logSize.x, 0.5);
+    float Wf = max((uFrameR - uFrameL) * logSize.x, 1.0);
+    float Hf = max((uFrameT - uFrameB) * logSize.y, 1.0);
+    vec2 P = (tc - vec2(uFrameL, uFrameB)) * logSize;
+    float ov = max(uOver, 0.0);
     float t = uClock;
+    float styleId = floor(uStyle + 0.5);
+    float legacy = float(styleId > 3.5);
+    float p = clamp(uProgress, 0.0, 1.0);
+    float pp = legacy > 0.5 ? p : p * p * (3.0 - 2.0 * p);
+    bool inTex = tc.y >= 0.0 && tc.y <= 1.0;
+    bool inFrame = P.x >= 0.0 && P.x <= Wf && P.y >= 0.0 && P.y <= Hf;
+    bool inBand = P.x >= 0.0 && P.x <= Wf && P.y >= 0.0 && P.y <= Hf + ov;
+    float hs = max(uHeight, 0.3);
+    float Apx = clamp(0.07 * Hf, 14.0, 46.0);
+    float charW = 26.0;
+    float f0 = -(Apx + charW + 24.0);
+    float f1 = Hf + Apx + 24.0;
+    float fpx = mix(f0, f1, pp);
 
-    vec2 inWin = step(vec2(0.0), tc) * step(tc, vec2(1.0));
-    float inside = inWin.x * inWin.y;
-    vec2 ctc = clamp(tc, 0.0, 1.0);
-    float outDist = abs(tc.x - ctc.x) * size.x / size.y;
+    vec4 shade = vec4(0.0);
+    if (!inFrame) {
+        shade = inTex ? texture2D(sampler, clamp(tc, 0.0, 1.0)) : vec4(0.0);
+        vec2 Pc = clamp(P, vec2(0.0), vec2(Wf, Hf));
+        float shK = smoothstep(-Apx - 14.0, Apx + 10.0, Pc.y - fpx) * (1.0 - smoothstep(0.75, 1.0, pp));
+        if (legacy > 0.5) {
+            shK = smoothstep(-0.06, 0.04, Pc.y / Hf - mix(-0.04, 1.04, pp)) * (1.0 - smoothstep(0.8, 1.0, pp));
+        }
+        shade *= shK;
+        if (!inBand) {
+            if (shade.a <= 0.0) {
+                discard;
+            }
+            gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(shade));
+            return;
+        }
+    }
 
-    float scale = 150.0;
-    vec2 np = vec2(tc.x * size.x, (1.0 - tc.y) * size.y) / scale + vec2(uSeed, uSeed * 0.37);
-
-    float height = tc.y;
-
-    vec2 warp = vec2(fbm3(np * 1.3 + vec2(0.0, -t * 2.4)), fbm3(np * 1.3 + vec2(7.7, -t * 2.9))) - 0.5;
-    warp *= turb;
-    float n = fbm(np + warp * 0.9 + vec2(0.0, -t * 1.7));
-    float n2 = fbm3(np * 2.6 + warp * 1.4 + vec2(t * 0.6, -t * 3.4));
-
-    float s = height + (n - 0.5) * 0.4 + (fbm3(np * 3.4 + warp) - 0.5) * 0.07;
-    float front = mix(-0.22, 1.28, p);
-    float d = s - front;
-
-    float nearFront = exp(-abs(d) * 9.0) * inside;
-    vec2 shimmer = vec2(warp.x, warp.y * 0.5) * 0.035 * nearFront * smoothstep(0.0, 0.06, p) * (1.0 - smoothstep(0.94, 1.0, p));
-    vec4 src = texture2D(sampler, clamp(tc + vec2(shimmer.x, -shimmer.y), 0.001, 0.999)) * inside;
-    float a0 = src.a;
-    vec3 base = src.rgb;
+    vec4 src = inTex ? texture2D(sampler, clamp(tc, 0.0, 1.0)) : vec4(0.0);
+    float edgeAA = 0.75 / dev;
 
     if (legacy > 0.5) {
-        float lp = clamp(uProgress, 0.0, 1.0);
-        float frontL = mix(-0.04, 1.04, lp);
-        float wob = (fbm3(vec2(tc.x * size.x / 90.0, t * 0.8 + uSeed)) - 0.5) * 0.025;
-        float dl = tc.y - frontL - wob;
-        float aliveL = smoothstep(-0.003, 0.012, dl) * inside;
-        vec4 srcL = texture2D(sampler, clamp(tc, 0.001, 0.999)) * inside;
-        vec3 rgbL = srcL.rgb * aliveL;
-        float aL = srcL.a * aliveL;
-        float activeL = step(0.01, lp) * step(lp, 0.985);
-        float hot = exp(-pow((dl - 0.004) / 0.014, 2.0)) * inside * activeL;
-        float glowL = exp(-pow((dl - 0.01) / 0.07, 2.0)) * activeL;
-        rgbL += vec3(1.0, 0.85, 0.4) * hot * 1.1 * srcL.a;
-        rgbL += vec3(1.0, 0.4, 0.06) * glowL * 0.5 * srcL.a * inside;
-        aL = max(aL, hot * 0.8 * srcL.a);
-        vec2 P = tc * size;
+        float Hl = Hf;
+        float frontL = mix(-0.04, 1.04, pp);
+        float riseMax = min(0.5 * Hl, 220.0) * hs;
+        float fy = frontL * Hl;
+        if (P.y > fy + riseMax * 1.3 + 70.0 || P.y < fy - 50.0) {
+            vec4 keep = inFrame ? (P.y < fy - 50.0 ? vec4(0.0) : src) : shade;
+            if (keep.a <= 0.0) {
+                discard;
+            }
+            gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(keep));
+            return;
+        }
+        float body = inFrame ? 1.0 : 0.0;
+        float wob = (fbm2(vec2(P.x / 90.0, t * 0.8 + uSeed)) - 0.5) * 0.025;
+        float dl = P.y / Hl - frontL - wob;
+        float aliveL = smoothstep(-0.003, 0.012, dl) * body;
+        vec3 rgbL = src.rgb * aliveL * body;
+        float aL = src.a * aliveL * body;
+        float activeL = smoothstep(0.0, 0.02, pp) * (1.0 - smoothstep(0.97, 1.0, pp));
+        float hot = exp(-pow((dl - 0.004) / 0.014, 2.0)) * body * activeL;
+        float glowL = exp(-pow((dl - 0.01) / 0.07, 2.0)) * activeL * body;
+        rgbL += vec3(1.0, 0.85, 0.4) * hot * 1.1 * src.a;
+        rgbL += vec3(1.0, 0.4, 0.06) * glowL * 0.5 * src.a;
+        aL = max(aL, hot * 0.8 * src.a);
         float accA = 0.0;
         float ageSum = 0.0;
         float cell = 22.0;
         float life = 0.62;
-        float dtE = life / 12.0;
+        float dtE = life / 8.0;
         float col0 = floor(P.x / cell);
-        float riseMax = min(size.y * 0.5 * hs, mg.y * 2.4);
-        for (int sl = 0; sl < 12; sl++) {
-            float m = floor(lp / dtE) - float(sl);
+        for (int sl = 0; sl < 8; sl++) {
+            float m = floor(pp / dtE) - float(sl);
             for (int dc = -3; dc <= 3; dc++) {
                 float c = col0 + float(dc);
                 float h1 = hash(vec2(c, m) + uSeed);
                 float h2 = hash(vec2(c * 1.3, m * 0.7) + 5.0 + uSeed);
                 float h3 = hash(vec2(m, c) + 9.0);
                 float te = (m + h1) * dtE;
-                float a = (lp - te) / life;
+                float a = (pp - te) / life;
                 float x0 = (c + h2) * cell;
-                if (te < 0.0 || te > 1.0 || a < 0.0 || a > 1.0 || x0 < -cell || x0 > size.x + cell) {
+                if (te < 0.0 || te > 1.0 || a < 0.0 || a > 1.0 || x0 < 0.0 || x0 > Wf) {
                     continue;
                 }
-                float y0 = mix(-0.04, 1.04, te) * size.y;
+                float y0 = mix(-0.04, 1.04, te) * Hl;
                 float rise = pow(a, 0.6) * riseMax * (0.8 + 0.45 * h3);
-                float turb = (vnoise(vec2(h1 * 17.0 + a * 3.0, t * 2.2 + h2 * 9.0)) - 0.5) * 70.0 * a;
-                vec2 pos = vec2(x0 + turb + sin(a * 6.0 + h1 * 6.28) * 14.0 * a, y0 + rise);
+                float tb = (vnoise(vec2(h1 * 17.0 + a * 3.0, t * 2.2 + h2 * 9.0)) - 0.5) * 70.0 * a;
+                vec2 pos = vec2(x0 + tb + sin(a * 6.0 + h1 * 6.28) * 14.0 * a, y0 + rise);
                 float rad = cell * (0.75 + 0.9 * h3) * (1.2 - 0.32 * a) * (1.0 + 0.15 * sin(t * 18.0 + h1 * 40.0));
-                float dd = length(vec2(P.x - pos.x, (P.y - pos.y) * 0.5)) / rad;
-                float w = exp(-dd * dd * 1.5) * (1.0 - pow(a, 2.2)) * (0.8 + 0.4 * h2);
+                vec2 dv = vec2(P.x - pos.x, (P.y - pos.y) * 0.5) / rad;
+                float w = exp(-dot(dv, dv) * 1.5) * (1.0 - pow(a, 2.2)) * (0.8 + 0.4 * h2);
                 accA += w;
                 ageSum += w * a;
             }
         }
         float avgAge = ageSum / max(accA, 0.001);
-        float tongue = 0.7 + 0.6 * fbm3(vec2(P.x / 38.0, P.y / 110.0 - t * 5.5 + uSeed));
-        float cover = (1.0 - exp(-accA * 2.0 * tongue)) * (1.0 - smoothstep(0.55, 1.0, (P.y / size.y - 1.0) / (mg.y / size.y)));
-        float core = 1.0 - exp(-accA * 0.45);
+        float tongue = 0.7 + 0.6 * fbm2(vec2(P.x / 38.0, P.y / 110.0 - t * 5.5 + uSeed));
+        float clip = (1.0 - smoothstep(Hf + 0.25 * ov, Hf + ov, P.y)) * smoothstep(0.0, 6.0, P.x) * smoothstep(0.0, 6.0, Wf - P.x);
+        float cover = (1.0 - exp(-accA * 2.6 * tongue)) * clip;
+        float core = 1.0 - exp(-accA * 0.55);
         vec3 fcol = legacyRamp(clamp(avgAge * 1.35 + 0.04 - core * 0.1, 0.0, 1.0));
         vec3 rgbF = rgbL * (1.0 - cover * 0.85) + fcol * cover * 0.95 + vec3(1.0, 0.8, 0.35) * pow(core, 3.0) * 0.3 * cover;
         float aF = max(aL, cover * 0.97);
-        vec4 oc = vec4(min(rgbF, vec3(aF + 0.6)), clamp(aF, 0.0, 1.0));
-        gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(oc));
+        if (!inFrame) {
+            rgbF += shade.rgb * (1.0 - cover);
+            aF = aF + shade.a * (1.0 - aF);
+        }
+        aF = max(aF, max(rgbF.r, max(rgbF.g, rgbF.b)));
+        gl_FragColor = finish(rgbF, aF);
         return;
     }
 
-    float alive = smoothstep(-0.012, 0.02, d);
-    float charZone = smoothstep(0.1, 0.0, d);
-    float charT = smoothstep(0.075, 0.012, d) * 0.88;
-    vec3 body = base * mix(vec3(1.0), vec3(0.05, 0.03, 0.025), charT);
-    body = mix(body, base * vec3(0.9, 0.55, 0.38), smoothstep(0.35, 0.1, d) * 0.45 * (1.0 - charT));
-    float crack = smoothstep(0.34, 0.56, fbm3(np * 5.0 + uSeed)) * charZone;
-    body += fireRamp(0.28 + 0.5 * (1.0 - n2), blue) * crack * 0.65 * smoothstep(0.1, 0.0, d) * a0;
+    float inferno = float(styleId > 0.5 && styleId < 1.5);
+    float ember = float(styleId > 1.5 && styleId < 2.5);
+    float blue = float(styleId > 2.5 && styleId < 3.5);
+    float plumeK = mix(mix(mix(1.0, 1.3, inferno), 0.38, ember), 0.85, blue);
+    float densK = mix(mix(1.0, 1.25, inferno), 0.65, ember);
+    float tempK = mix(mix(1.0, 1.08, inferno), 0.72, ember);
+    float sparkK = mix(mix(mix(1.0, 1.5, inferno), 3.0, ember), 0.5, blue);
+    float plumeH = clamp(0.2 * Hf, 48.0, 150.0) * hs * plumeK;
+    float act = smoothstep(0.0, 0.1, pp) * (1.0 - smoothstep(0.88, 1.0, pp));
+    float upper = max(plumeH * 1.55 * step(0.001, act), charW * 3.0) + 4.0;
 
-    float rimW = 0.032;
-    float rim = exp(-pow((d - 0.006) / rimW, 2.0));
-    float rimHot = exp(-pow((d - 0.002) / (rimW * 0.45), 2.0));
-    vec3 rimCol = mix(fireRamp(0.22 + 0.25 * n2, blue), fireRamp(0.0, blue), rimHot);
-    float rimI = (0.55 + 0.9 * n2) * rim * (0.75 + 0.5 * sin(t * 18.0 + n * 12.0)) * inside;
+    float dHi = P.y + Apx - fpx;
+    float dLo = P.y - Apx - fpx;
+    if (dHi < -16.0) {
+        if (shade.a <= 0.0) {
+            discard;
+        }
+        gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(shade));
+        return;
+    }
+    if (dLo > upper) {
+        vec4 keep = inFrame ? src : shade;
+        if (keep.a <= 0.0) {
+            discard;
+        }
+        gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(keep));
+        return;
+    }
 
-    float colN = fbm3(vec2(np.x * 1.1, uSeed));
-    float colN2 = fbm3(vec2(np.x * 3.1, uSeed + 4.0));
-    float frontCol = clamp(front, -0.05, 1.05) + (0.5 - colN) * 0.34 + (0.5 - colN2) * 0.08;
-    float act = smoothstep(0.02, 0.14, p) * (1.0 - smoothstep(0.88, 1.0, p));
-    float plumeH = (0.18 + 0.5 * pow(sin(3.14159 * p), 0.7)) * plumeAmt * hs;
-    float hAF = height - frontCol;
-    float qq = hAF / max(plumeH, 0.05);
-    float side = outDist / flareW;
-    vec2 pl = vec2(tc.x * size.x / size.y * 2.4 * tongueScale, hAF * 1.1);
-    float tongue = fbm(pl * vec2(1.0, 0.75) * 1.6 + vec2(warp.x * 2.2, -t * 5.4 + uSeed));
-    float lick = fbm3(pl * vec2(2.4, 1.3) + vec2(warp.y * 2.0, -t * 8.0));
-    float dens = clamp((tongue * 1.75 + lick * 0.4 - 0.12) * densGain - qq * 0.62 - side * 1.0, 0.0, 1.0);
-    dens *= step(0.0, hAF) * smoothstep(0.0, 0.03, hAF + 0.03);
-    float topDist = max(tc.y - 1.0, 0.0) * size.y / max(mg.y, 1.0);
-    float sideDist = max(max(-tc.x, tc.x - 1.0), 0.0) * size.x / max(mg.x, 1.0);
-    float topFade = 1.0 - smoothstep(0.2 + 0.35 * n2, 0.95, topDist);
-    float sideFade = 1.0 - smoothstep(0.25 + 0.3 * n2, 0.95, sideDist);
-    float edgeFade = topFade * topFade * sideFade * sideFade;
-    dens *= edgeFade * act;
-    float colH = clamp(qq * 0.85 + (1.0 - dens) * 0.45 + (0.5 - n2) * 0.22 + side * 0.3, 0.0, 1.0);
-    vec3 flameCol = fireRamp(colH, blue);
-    float flameA = dens * 0.78;
+    vec2 sd = vec2(uSeed, uSeed * 0.37);
+    float en = fbm2(P / 92.0 + sd + vec2(0.0, -t * 0.22));
+    float d = P.y + (en - 0.5) * 2.0 * Apx - fpx;
+    float body = inFrame ? 1.0 : 0.0;
+    float edgeOn = smoothstep(0.0, 0.03, pp) * (1.0 - smoothstep(0.985, 1.0, pp));
 
-    float afterGlow = smoothstep(-0.2, 0.0, d) * step(d, 0.0) * inside;
-    float hole = smoothstep(0.45, 0.62, fbm3(np * 3.2 + vec2(0.0, -t))) * afterGlow;
-    float residue = afterGlow * hole * (0.5 + 0.5 * n2);
-    vec3 residueCol = fireRamp(0.4 + 0.5 * (1.0 - afterGlow), blue);
+    float w = vnoise(vec2(P.x, d) / 46.0 + sd + vec2(3.7, -t * 2.1));
+    float fadeU = smoothstep(upper, upper * 0.5, d);
+    float heatN = exp(-max(d, 0.0) / 44.0) * act * fadeU;
+    vec2 shimmer = vec2(w - 0.5, 0.0) * 2.2 * heatN * body;
+    if (heatN > 0.02 && inFrame) {
+        src = texture2D(sampler, clamp(tc + shimmer / logSize, 0.0, 1.0));
+    }
+    src *= body;
 
-    float smokeN = fbm3(np * 1.0 + vec2(0.0, -t * 1.6));
-    float smokeZone = smoothstep(plumeH * 0.45, plumeH * 1.35, hAF) * (1.0 - smoothstep(plumeH * 1.35, plumeH * 2.1, hAF));
-    smokeZone *= edgeFade * (1.0 - min(side, 1.0) * 0.5) * act;
-    float smokeA = smokeZone * smoothstep(0.4, 0.65, smokeN) * 0.38;
-    vec3 smokeCol = mix(vec3(0.13, 0.1, 0.09), vec3(0.08, 0.1, 0.16), blue);
+    float detail = vnoise(P / 7.0 + sd * 3.0);
+    float scorch = smoothstep(charW * 3.0, charW * 0.4, d);
+    float charT = smoothstep(charW, 0.0, d) * (0.82 + 0.18 * detail);
+    vec3 surf = src.rgb * mix(vec3(1.0), vec3(0.86, 0.6, 0.42), scorch * 0.5 * edgeOn);
+    surf = mix(surf, src.a * vec3(0.035, 0.025, 0.02), charT * edgeOn);
+    float alive = smoothstep(-edgeAA, edgeAA, d);
+    float vein = 1.0 - abs(2.0 * vnoise(P / 11.0 + sd * 1.7) - 1.0);
+    vein = vein * vein;
+    vein = vein * vein * charT;
+    float hot = exp(-max(d, 0.0) / 5.5) * (0.65 + 0.5 * detail) * (0.85 + 0.15 * sin(t * 17.0 + w * 9.0));
+    vec3 rgb = surf * alive;
+    rgb += blackbody(0.55 + 0.4 * hot, blue) * (hot * 1.1 + vein * 0.7) * src.a * alive * edgeOn;
+    rgb += blackbody(0.5, blue) * exp(-max(d, 0.0) / 38.0) * 0.22 * src.rgb * act * fadeU;
+    float a = src.a * alive;
 
-    float sz = smoothstep(-0.5, 0.0, d) * (1.0 - smoothstep(plumeH * 0.4, plumeH * 1.6, hAF)) * (1.0 - min(side, 1.0) * 0.35);
-    sz *= (1.0 - smoothstep(0.85, 1.0, topDist)) * (1.0 - smoothstep(0.85, 1.0, sideDist)) * smoothstep(0.03, 0.14, p) * (1.0 - smoothstep(0.9, 0.99, p));
-    float sp = sparkLayer(pxp, 9.0, 130.0 * (1.0 + p), uSeed, t * 3.0, sz);
-    sp += sparkLayer(pxp, 15.0, 200.0, uSeed + 9.0, t * 3.4, sz) * 0.8;
-    sp += sparkLayer(pxp, 22.0, 290.0, uSeed + 21.0, t * 2.6, sz) * 0.7 * sparkGain;
-    sp *= min(sparkGain, 1.5);
-    vec3 sparkCol = fireRamp(0.04 + 0.2 * hash(floor(pxp / 3.0)), blue);
+    float flake = smoothstep(0.78, 0.86, vnoise(P / 2.6 + sd * 5.0)) * smoothstep(-11.0, -1.0, d) * (1.0 - alive) * edgeOn;
+    rgb += blackbody(0.45 + 0.35 * smoothstep(-11.0, 0.0, d), blue) * flake * src.a;
+    a += flake * src.a * 0.85;
 
-    vec3 rgb = body * alive;
-    float outA = a0 * alive;
+    if (!inFrame) {
+        rgb = shade.rgb;
+        a = shade.a;
+    }
 
-    rgb = rgb * (1.0 - flameA) + flameCol * flameA * 1.15;
-    outA = outA * (1.0 - flameA) + flameA;
+    float side = min(P.x, Wf - P.x);
+    float env = plumeH * (0.55 + 0.85 * vnoise(vec2(P.x / 58.0 + uSeed, t * 1.25))) * mix(0.55, 1.0, smoothstep(0.0, 48.0, side));
+    float turb = mix(mix(1.0, 1.4, inferno), 0.7, ember);
+    vec2 q = vec2(P.x, max(d, 0.0)) / 64.0;
+    float n = fbm3(vec2(q.x + (w - 0.5) * 0.9 * turb, q.y * 0.55 - t * 2.4) + sd);
+    n += 0.16 * (vnoise(vec2(q.x * 3.1 + (w - 0.5) * 1.6 * turb, q.y * 2.2 - t * 6.5) + sd * 2.3) - 0.5);
+    float hr = max(d, 0.0) / env;
+    float dens = smoothstep(0.0, 0.42, (n - 0.17 - 0.62 * hr) * densK);
+    dens *= smoothstep(-3.0, 5.0, d) * act;
+    dens *= smoothstep(0.0, 6.0, side) * (1.0 - smoothstep(Hf + 0.2 * ov, Hf + ov, P.y));
+    float T = clamp(dens * (1.0 - 0.62 * hr) * (0.7 + 0.5 * n) * tempK, 0.0, 1.0);
+    vec3 fcol = blackbody(T, blue);
+    float fa = smoothstep(0.02, 0.6, dens) * 0.94;
+    rgb = rgb * (1.0 - fa) + fcol * fa;
+    a = a * (1.0 - fa) + fa;
 
-    float glowOn = clamp(a0 * 3.0, 0.0, 1.0);
-    rgb += rimCol * rimI * 0.85 * glowOn;
-    outA = max(outA, clamp(rimI * 0.7, 0.0, 1.0) * glowOn);
+    float smoke = smoothstep(0.55, 1.0, hr) * (1.0 - smoothstep(1.0, 1.35, hr)) * (1.0 - smoothstep(plumeH * 1.2, plumeH * 1.5, d)) * smoothstep(0.45, 0.7, n) * 0.22 * act * (1.0 - ember);
+    smoke *= smoothstep(0.0, 12.0, side) * (1.0 - smoothstep(Hf + 0.2 * ov, Hf + ov, P.y));
+    rgb = rgb * (1.0 - smoke) + mix(vec3(0.07, 0.05, 0.045), vec3(0.04, 0.05, 0.09), blue) * smoke;
+    a = a * (1.0 - smoke) + smoke;
 
-    rgb += residueCol * residue * 0.9 * glowOn;
-    outA = max(outA, residue * 0.8 * glowOn);
+    float sz = smoothstep(-2.0, 10.0, d) * (1.0 - smoothstep(plumeH * 0.45, plumeH * 1.45, d)) * act;
+    sz *= smoothstep(0.0, 4.0, side) * (1.0 - smoothstep(Hf + 0.5 * ov, Hf + ov, P.y));
+    if (sz > 0.0) {
+        float sp = sparks(P + sd * 40.0, 13.0, 95.0, uSeed, t) + 0.8 * sparks(P + sd * 70.0, 21.0, 150.0, uSeed + 9.0, t * 1.1);
+        sp = clamp(sp * sz * sparkK, 0.0, 1.0);
+        vec3 sc = blackbody(0.6 + 0.3 * hash(floor(P / 3.0)), blue);
+        rgb = rgb * (1.0 - sp) + sc * sp;
+        a = a * (1.0 - sp) + sp;
+    }
 
-    float sA = smokeA * (1.0 - outA);
-    rgb += smokeCol * sA;
-    outA += sA;
-
-    rgb += sparkCol * sp * 1.4;
-    outA = max(outA, clamp(sp, 0.0, 1.0));
-
-    vec4 outColor = vec4(min(rgb, vec3(1.6)), clamp(outA, 0.0, 1.0));
-    outColor.rgb = min(outColor.rgb, vec3(outColor.a + 0.55 * clamp(rimI + residue + sp + dens, 0.0, 1.0)));
-    gl_FragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(outColor));
+    a = max(a, max(rgb.r, max(rgb.g, rgb.b)));
+    gl_FragColor = finish(rgb, a);
 }

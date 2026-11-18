@@ -45,16 +45,19 @@ All Kwick effects follow the global animation speed (`AnimationDurationFactor`, 
   the window stretches. Sway is how curvy and fluid it is (softer springs and a finer mesh). The defaults are 6 and 7. In Settings
   they are the "Wobble" and "Sway" sliders.
 * `kwick-effects flame-style classic|inferno|ember|blue|legacy` and `kwick-effects flame-height 50-200`:
-  * Classic: orange fire along the burn line, with tongues rising about a fifth of the window height above the title bar.
-  * Inferno: denser and a little wider, flares out slightly at the sides.
+  * Classic: orange fire along the burn line, coloured by temperature (a black-body ramp from dull red tips to yellow-white
+    roots), with drifting embers and a charred, glowing edge.
+  * Inferno: denser, taller and more turbulent.
   * Ember: a subtle burn edge with drifting sparks.
   * Blue: a hot gas flame.
   * Legacy: a particle-system burn. Many additive flame particles along a line sweep up the window, yellow-white to orange to
     deep red, in about one second.
 
-  Every style keeps the fire mostly inside the window footprint: at the default height of 100 the flames reach 15 to 25 percent of
-  the window height above the top edge and flare only a little at the sides. `flame-height` scales that overflow (and the height of
-  the flames inside the window), so 200 gives taller flames.
+  The burn is bounded by the window frame: the window burns away exactly inside its own edges and the fire never spreads past
+  its sides or below its bottom. Only the tips of the last tongues may rise above the title bar, by at most 8 percent of the
+  window height (40 px at the default height of 100) and never further than the window's own shadow reaches, so the effect
+  never covers more than the window and its shadow. The shadow fades out with the part of the window it belongs to.
+  `flame-height` scales the flames inside the window (and that small overflow), so 200 gives taller flames.
 * `kwick-effects param flip flip|door|tilt` picks the 3D open/close style. Opening swings in on a damped spring (about 4%
   overshoot, settled by the end), closing accelerates away. The window is lit by a key and a fill light (Blinn-Phong
   highlight, Schlick Fresnel sheen, rim), the lighting stays on the window body and never on its shadow, and the texture is
@@ -91,8 +94,9 @@ How it is drawn, per glass surface:
   anything coloured are left alone. The dock keeps the more saturated, clearer look.
 * Menus, popups, notifications, labels and OSDs are drawn offscreen and cut to that rounded shape with an anti-aliased mask, so
   the app's own square or small-radius background corners never show outside the glass.
-* Floating surfaces get a soft contact shadow drawn by the same pass, faded out when the window has no margin around the glass
-  for it, so it is never cut off square at the window edge.
+* Floating surfaces get a soft shadow drawn by the same pass (a Gaussian about 5 px wide, offset 2 px down, at 24% plus a short
+  contact term, and a one-pixel darker edge when the backdrop is light so the glass still reads over white), faded out when the
+  window has no margin around the glass for it, so it is never cut off square at the window edge.
 * Ordinary windows are rounded by the same offscreen pass (it replaces the rounded-corners effect while Liquid Glass is on): the
   window is cut to the corner radius from Settings (10 px by default in the macOS layout) with an analytic one-pixel coverage
   edge, gets exactly one device pixel of white hairline inside the shape (9% on the active window, 5% on others) and one pixel of
@@ -105,15 +109,18 @@ How it is drawn, per glass surface:
   the cut follows the transform; while another effect deforms it (wobbly windows, the flame), KWin draws it normally with the
   decoration's own shadow, whose corners are concentric with the same radius. Maximized and full-screen windows are left square.
 * The screen behind the surface is copied once and blurred with a dual-Kawase pyramid (3 or 4 levels at half resolution and below).
-* A fragment shader treats the rim as a convex glass bevel: the SDF gives the edge normal, a quarter-circle height profile gives the
-  surface slope, and `refract()` with an index of 1.5 bends the view inward, so the content behind is pulled and magnified along the
-  edges. Red and blue are refracted a little less and a little more than green for a slight chromatic fringe at the rim.
-* The frosted (blurred) and sharp images are mixed: the rim stays sharper, the middle frostier. Saturation is boosted by about a
-  third.
-* Adaptive tint: the average brightness behind the glass sets how dark it gets. Over bright content the glass darkens so white
-  text stays readable, over dark content it lifts a little and reads as lighter glass.
-* A thin luminous stroke runs round the edge, with a specular rim from a light at the top left, a softer reflection on the opposite
-  edge, a Fresnel brightening on the bevel and a faint inner glow.
+* A fragment shader treats the rim as a convex glass bevel, as on macOS 26: the lensing stays in a narrow band at the edge and the
+  middle is flat, clear glass. The SDF gives the edge normal and a height profile whose slope rises steeply only near the edge
+  (capped at 3) gives the surface slope; `refract()` with an index of 1.5 bends the view inward, so the content behind is pulled
+  and magnified along the edges. The band is 14 px on the dock (about a fifth of its height), 7 px on menus, 9 px on popups and
+  10 px on notifications, and the largest shift is under a band width. Red and blue are refracted a little less and a little
+  more than green for a slight chromatic fringe at the rim.
+* The frosted (blurred) and sharp images are mixed: the dock is 90% frost from a light blur, so what is behind stays recognisable
+  but soft; the outer edge is a little sharper. Saturation is boosted by about 30%.
+* Adaptive tint, kept low: the average brightness behind the glass sets how dark it gets, up to 10% on the dock over white and
+  none over dark content, plus a 5% white lift, so the dock reads as nearly clear glass.
+* A one-pixel luminous rim runs round the edge, brightest where it faces a light at the top left, with a softer reflection on the
+  opposite edge; it reflects the backdrop, so it is brighter over light content. A faint Fresnel brightening sits on the bevel.
 * Moving the pointer over the glass swings the light toward it and adds a soft glow under the pointer.
 
 Performance: the blurred backdrop is cached per surface and output and is only recomputed when something under the glass changes;

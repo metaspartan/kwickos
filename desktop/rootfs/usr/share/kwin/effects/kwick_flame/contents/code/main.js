@@ -26,7 +26,6 @@ class KwickFlameEffect {
         this.heightScale = effect.readConfig("Height", 100) / 100;
         effect.setUniform(this.shader, "uStyle", this.style);
         effect.setUniform(this.shader, "uHeight", this.heightScale);
-
     }
 
     static wanted(w) {
@@ -43,8 +42,8 @@ class KwickFlameEffect {
     }
 
     hold(w) {
-        w.setData(Effect.WindowForceBackgroundContrastRole, true);
-        w.setData(Effect.WindowForceBlurRole, true);
+        w.setData(Effect.WindowForceBackgroundContrastRole, false);
+        w.setData(Effect.WindowForceBlurRole, false);
     }
 
     release(w) {
@@ -52,29 +51,37 @@ class KwickFlameEffect {
         w.setData(Effect.WindowForceBlurRole, null);
     }
 
-    run(w, opening) {
+    run(w, opening, elapsed) {
         this.loadConfig();
         if (this.duration <= 1) {
             return null;
         }
         this.hold(w);
+        const done = Math.min(Math.max(elapsed || 0, 0), this.duration - 1);
+        if (!done) {
+            w.KwickFlameStart = Date.now();
+            w.KwickFlameSeed = Math.random() * 64.0;
+        }
+        const u = 1 - done / this.duration;
+        const start = opening ? u * u * u : 0.0;
         const hs = Math.max(0.3, this.heightScale);
-        const sf = this.style === 1 ? 1.15 : 1.0;
-        const mx = Math.min(Math.max(0.09 * w.width, 28), 110) * hs * sf;
-        const my = Math.min(Math.max(0.27 * w.height, 64), 250) * hs * sf;
-        const sx = 1 + 2 * mx / Math.max(1, w.width);
-        const sy = 1 + 2 * my / Math.max(1, w.height);
         const eg = w.expandedGeometry;
-        const fg = w.geometry;
+        const fg = w.frameGeometry || w.geometry;
         const ew = Math.max(1, eg.width);
         const eh = Math.max(1, eg.height);
+        const fh = Math.max(1, fg.height);
+        const room = Math.max(0, fg.y - eg.y);
+        const over = Math.min(room, Math.round(Math.min(0.08 * fh, 40) * hs * (this.style === 1 ? 1.15 : 1.0)));
+        const bottom = 1 - (fg.y + fg.height - eg.y) / eh;
         const fixed = {
-            uSeed: Math.random() * 64.0,
-            uScaleX: sx,
-            uScaleY: sy,
-            uCenterX: (fg.x + fg.width / 2 - eg.x) / ew,
-            uCenterY: 1 - (fg.y + fg.height / 2 - eg.y) / eh,
-            uWidth: ew
+            uSeed: w.KwickFlameSeed,
+            uFrameL: (fg.x - eg.x) / ew,
+            uFrameR: (fg.x + fg.width - eg.x) / ew,
+            uFrameB: bottom,
+            uFrameT: 1 - (fg.y - eg.y) / eh,
+            uLogW: ew,
+            uLogH: eh,
+            uOver: over
         };
         const held = Object.keys(fixed).map(uniform => ({
             type: Effect.ShaderUniform,
@@ -87,25 +94,20 @@ class KwickFlameEffect {
         return animate({
             window: w,
             curve: opening ? QEasingCurve.OutCubic : QEasingCurve.InQuad,
-            duration: this.duration,
+            duration: this.duration - done,
             animations: [{
                 type: Effect.ShaderUniform,
                 fragmentShader: this.shader,
                 uniform: "uProgress",
-                from: opening ? 1.0 : 0.0,
+                from: opening ? start : 0.0,
                 to: opening ? 0.0 : 1.0
             }, {
                 type: Effect.ShaderUniform,
                 fragmentShader: this.shader,
                 uniform: "uClock",
                 curve: QEasingCurve.Linear,
-                from: 0.0,
+                from: done * 0.001,
                 to: this.duration * 0.001
-            }, {
-                type: Effect.Scale,
-                curve: QEasingCurve.Linear,
-                from: { value1: sx, value2: sy },
-                to: { value1: sx, value2: sy }
             }].concat(held)
         });
     }
@@ -117,7 +119,23 @@ class KwickFlameEffect {
         if (effect.isGrabbed(w, Effect.WindowAddedGrabRole)) {
             return;
         }
+        if (!w.KwickFlameHooked && w.windowFrameGeometryChanged) {
+            w.KwickFlameHooked = true;
+            w.windowFrameGeometryChanged.connect(this.onGeometryChanged.bind(this, w));
+        }
         w.KwickFlameIn = this.run(w, true);
+    }
+
+    onGeometryChanged(w) {
+        if (!w.KwickFlameIn || w.KwickFlameOut) {
+            return;
+        }
+        const elapsed = Date.now() - w.KwickFlameStart;
+        if (elapsed >= this.duration * 0.6) {
+            return;
+        }
+        cancel(w.KwickFlameIn);
+        w.KwickFlameIn = this.run(w, true, Math.max(elapsed, 1));
     }
 
     onWindowClosed(w) {
