@@ -134,6 +134,15 @@ qemu-system-x86_64 -M microvm,accel=kvm -cpu host -m 256 -nodefaults -nographic 
   ... -append "console=ttyS0 kwick.run=apt+update;apt+install+-y+jq"
 ```
 
+## Virtual machines
+
+VirtualBox: choose the type Linux / Debian (64-bit), the VMSVGA graphics controller and USB Tablet as the pointing device (System >
+Motherboard). On Windows hosts with Hyper-V enabled, give the VM 4 virtual CPUs or fewer; more make VirtualBox 7.0 boot very slowly.
+Kernels newer than 7.3.5 include `vboxguest`, which also gives the PS/2 mouse absolute integration, so the pointer is never captured. The
+VirtualBox Guest Additions ISO is not needed and does not install on KwickOS.
+
+VMware, Hyper-V, QEMU/KVM and Proxmox work with their defaults (virtio, vmmouse and Hyper-V input are built in).
+
 ## Apple Silicon
 
 Use the arm64 qcow2 or ISO with UTM, Lima, Parallels or any Virtualization.framework VM. Bare-metal Asahi support is built but not
