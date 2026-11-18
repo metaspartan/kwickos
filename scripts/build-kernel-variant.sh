@@ -19,7 +19,7 @@ if [ -n "$GIT" ]; then
   if [ ! -f "$KSRC/Makefile" ]; then
     rm -rf "$KSRC.part"; mkdir -p "$KSRC.part"
     git -C "$KSRC.part" init -q
-    git -C "$KSRC.part" fetch -q --depth 1 "$GIT" "$COMMIT"
+    n=0; until git -C "$KSRC.part" fetch -q --depth 1 "$GIT" "$COMMIT"; do n=$((n+1)); [ $n -lt 4 ] || exit 1; sleep $((n*15)); done
     git -C "$KSRC.part" checkout -q FETCH_HEAD
     [ "$(git -C "$KSRC.part" rev-parse HEAD)" = "$COMMIT" ] || { echo "commit mismatch for $GIT"; exit 1; }
     rm -rf "$KSRC.part/.git"; mv "$KSRC.part" "$KSRC"
