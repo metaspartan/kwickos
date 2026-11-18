@@ -2,11 +2,11 @@ package main
 
 import (
 	"bufio"
-	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/klauspost/compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
@@ -339,7 +339,11 @@ func (h *hashingReader) Read(p []byte) (int, error) {
 }
 
 func indexEntry(s *Source, arch string, hashes map[string]relEntry) (string, relEntry) {
-	for _, ext := range []string{".xz", ".gz", ""} {
+	exts := []string{".gz", ".xz", ""}
+	if cfg.IndexXZ {
+		exts = []string{".xz", ".gz", ""}
+	}
+	for _, ext := range exts {
 		cand := s.Comp + "/binary-" + arch + "/Packages" + ext
 		if e, ok := hashes[cand]; ok {
 			return cand, e

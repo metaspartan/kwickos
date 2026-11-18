@@ -89,6 +89,18 @@ func (i *Installed) State() string {
 	return ""
 }
 
+func (i *Installed) Held() bool {
+	return strings.HasPrefix(i.Status, "hold ")
+}
+
+func (i *Installed) setState(want, state string) {
+	if want == "install" && i.Held() {
+		want = "hold"
+	}
+	i.Status = want + " ok " + state
+	i.P.Set("Status", i.Status)
+}
+
 type provider struct {
 	pkg *Pkg
 	ver string
@@ -330,24 +342,47 @@ func (db *DB) SaveStatus() error {
 	if err != nil {
 		return err
 	}
-	w := bufio.NewWriter(f)
-	keys := make([]string, 0, len(db.Installed))
-	for k := range db.Installed {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	w := bufio.NewWriterSize(f, 1<<16)
+	for _, k := range sortedKeys(db.Installed) {
 		db.Installed[k].P.Write822(w)
 		w.WriteString("\n")
 	}
-	w.Flush()
-	f.Sync()
-	f.Close()
+	err = w.Flush()
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("unable to write %s: %v", statusPath(), err)
+	}
 	if _, err := os.Stat(statusPath()); err == nil {
 		os.Remove(statusPath() + "-old")
 		os.Link(statusPath(), statusPath()+"-old")
 	}
 	return os.Rename(tmp, statusPath())
+}
+
+func writeFileAtomic(name string, data []byte, perm os.FileMode, sync bool) error {
+	tmp := name + "-new"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err == nil && sync {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, name)
 }
 
 func (db *DB) loadAuto() {
@@ -376,7 +411,7 @@ func (db *DB) SaveAuto() error {
 			fmt.Fprintf(&b, "Package: %s\nArchitecture: %s\nAuto-Installed: 1\n\n", n, a)
 		}
 	}
-	return os.WriteFile(extStatePath(), []byte(b.String()), 0644)
+	return writeFileAtomic(extStatePath(), []byte(b.String()), 0644, true)
 }
 
 func (db *DB) lookupInstalled(name string) *Installed {
@@ -484,7 +519,7 @@ func readList(infoName string) []string {
 
 func writeList(infoName string, files []string) error {
 	os.MkdirAll(infoDir(), 0755)
-	return os.WriteFile(filepath.Join(infoDir(), infoName+".list"), []byte(strings.Join(files, "\n")+"\n"), 0644)
+	return writeFileAtomic(filepath.Join(infoDir(), infoName+".list"), []byte(strings.Join(files, "\n")+"\n"), 0644, false)
 }
 
 func warn(f string, a ...any) { fmt.Fprintf(os.Stderr, "W: "+f+"\n", a...) }

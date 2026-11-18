@@ -29,6 +29,7 @@ type Config struct {
 	Recommends                bool
 	KeepDebs, DownloadOnly    bool
 	Purge, AutoRemove         bool
+	AllowHeld, IndexXZ        bool
 	Quiet                     int
 	TargetRelease             string
 	// Avoid: packages never chosen to satisfy an "a | b" dependency or a
@@ -96,6 +97,8 @@ func setupPaths() {
 				cfg.KeepDebs = on
 			case "assume-yes":
 				cfg.Yes = on
+			case "index-compression":
+				cfg.IndexXZ = v == "xz"
 			case "avoid":
 				cfg.Avoid = map[string]bool{}
 				for _, n := range strings.Fields(v) {

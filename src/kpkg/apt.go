@@ -58,6 +58,8 @@ func parseCommon(args []string) []string {
 			cfg.Purge = true
 		case a == "--autoremove" || a == "--auto-remove":
 			cfg.AutoRemove = true
+		case a == "--allow-change-held-packages":
+			cfg.AllowHeld = true
 		case a == "--root" && i+1 < len(args):
 			cfg.Root = args[i+1]
 			i++
@@ -76,7 +78,7 @@ func parseCommon(args []string) []string {
 			i++
 		case strings.HasPrefix(a, "-o"):
 		case a == "--no-install-suggests" || a == "--fix-broken" || a == "-f" || a == "--fix-missing" ||
-			a == "--allow-downgrades" || a == "--allow-remove-essential" || a == "--allow-change-held-packages" ||
+			a == "--allow-downgrades" || a == "--allow-remove-essential" ||
 			a == "--no-upgrade" || a == "--only-upgrade" || a == "-m" || a == "--force-yes" || a == "--allow-unauthenticated" ||
 			a == "--no-show-upgraded" || a == "-V" || a == "--verbose-versions" || a == "--show-progress" || a == "--no-cache":
 		case (a == "-t" || a == "--target-release" || a == "--default-release") && i+1 < len(args):
@@ -360,6 +362,9 @@ func cmdRemove(args []string, auto bool) error {
 func cmdUpgrade(full bool) error {
 	db := mustDB(true)
 	pl := db.NewPlan(ResolveOpts{Recommends: false, Upgrade: true, NoRemove: !full})
+	if kept := db.heldBack(); len(kept) > 0 {
+		fmt.Printf("The following packages have been kept back:\n  %s\n", strings.Join(kept, " "))
+	}
 	for _, p := range db.Upgradable() {
 		if in := db.lookupInstalled(p.Key()); in != nil && in.Field("X-Kwick-Base") == "yes" {
 			continue
@@ -371,6 +376,70 @@ func cmdUpgrade(full bool) error {
 		return err
 	}
 	return runPlan(pl, true)
+}
+
+func (db *DB) heldBack() []string {
+	var out []string
+	for _, k := range sortedKeys(db.Installed) {
+		in := db.Installed[k]
+		if !in.Held() || cfg.AllowHeld || in.State() != "installed" {
+			continue
+		}
+		if c := db.freeCandidate(in.Key()); c != nil && c.Version != in.Version {
+			out = append(out, in.Key())
+		}
+	}
+	return out
+}
+
+func setSelections(db *DB, sel map[string]string, verbose bool) error {
+	unlock, err := lockDB()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	fresh, err := OpenDB()
+	if err != nil {
+		return err
+	}
+	*db = *fresh
+	changed := false
+	for _, n := range sortedKeys(sel) {
+		want := sel[n]
+		in := db.lookupInstalled(n)
+		if in == nil || in.State() == "not-installed" {
+			warn("package '%s' is not installed, selection ignored", n)
+			continue
+		}
+		cur := strings.Fields(in.Status)
+		if len(cur) != 3 {
+			continue
+		}
+		if cur[0] == want || want == "install" && cur[0] != "hold" {
+			if verbose {
+				if want == "hold" {
+					fmt.Printf("%s was already set on hold.\n", n)
+				} else {
+					fmt.Printf("%s was already not on hold.\n", n)
+				}
+			}
+			continue
+		}
+		in.Status = want + " " + cur[1] + " " + cur[2]
+		in.P.Set("Status", in.Status)
+		changed = true
+		if verbose {
+			if want == "hold" {
+				fmt.Printf("%s set on hold.\n", n)
+			} else {
+				fmt.Printf("Canceled hold on %s.\n", n)
+			}
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return db.SaveStatus()
 }
 
 func cmdList(args []string) error {
@@ -632,8 +701,21 @@ func mainAptMark(args []string) int {
 				fmt.Println(in.Key())
 			}
 		}
-	case "hold", "unhold", "showhold":
-		// holds are recorded in dpkg selections in Debian; accepted for compatibility
+	case "hold", "unhold":
+		sel := map[string]string{}
+		for _, n := range args[1:] {
+			sel[n] = map[bool]string{true: "hold", false: "install"}[args[0] == "hold"]
+		}
+		if err := setSelections(db, sel, true); err != nil {
+			fmt.Fprintln(os.Stderr, "E:", err)
+			return 100
+		}
+	case "showhold":
+		for _, k := range sortedKeys(db.Installed) {
+			if in := db.Installed[k]; in.Held() && (len(args) == 1 || contains(args[1:], in.Name) || contains(args[1:], in.Key())) {
+				fmt.Println(in.Key())
+			}
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "E: Invalid operation %s\n", args[0])
 		return 100

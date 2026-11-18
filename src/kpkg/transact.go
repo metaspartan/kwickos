@@ -171,7 +171,7 @@ func scriptEnv(name, script string) []string {
 		set("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
 	}
 	if triggerFile != "" {
-		set("KPKG_TRIGGER_FILE", triggerFile)
+		set("KPKG_TRIGGER_FILE", path.Join("/var/lib/dpkg", filepath.Base(triggerFile)))
 	}
 	return env
 }
@@ -429,7 +429,7 @@ func (pl *Plan) Execute(purge bool) error {
 	if cfg.DownloadOnly {
 		return nil
 	}
-	tf, _ := os.CreateTemp("", "kpkg-triggers")
+	tf, _ := os.CreateTemp(cfg.Admin, "kpkg-triggers")
 	if tf != nil {
 		triggerFile = tf.Name()
 		tf.Close()
@@ -661,9 +661,13 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		}
 	}
 	// status entry
+	status := "install ok unpacked"
+	if old != nil && old.Held() {
+		status = "hold ok unpacked"
+	}
 	st := NewParagraph()
 	st.Set("Package", p.Name)
-	st.Set("Status", "install ok unpacked")
+	st.Set("Status", status)
 	for _, k := range ctl.Keys {
 		if k == "Package" || k == "Status" {
 			continue
@@ -684,9 +688,8 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 	if old != nil && old.InfoName() != infoName {
 		delete(tx.db.Installed, old.InfoName())
 	}
-	tx.db.Installed[infoName] = &Installed{Pkg: &Pkg{P: st, Name: p.Name, Version: p.Version, Arch: st.Get("Architecture")}, Status: "install ok unpacked"}
-	tx.db.SaveStatus()
-	return nil
+	tx.db.Installed[infoName] = &Installed{Pkg: &Pkg{P: st, Name: p.Name, Version: p.Version, Arch: st.Get("Architecture")}, Status: status}
+	return tx.db.SaveStatus()
 }
 
 func (in *Installed) infoNameOr(d string) string {
@@ -735,16 +738,13 @@ func (tx *Tx) configure(p *Pkg) error {
 	}
 	prev := tx.prevVer[p.Key()]
 	fmt.Printf("Setting up %s (%s) ...\n", p.Key(), p.Version)
-	in.Status = "install ok half-configured"
-	in.P.Set("Status", in.Status)
+	in.setState("install", "half-configured")
 	if err := tx.withHealing(func() error { return runInfoScript(in.InfoName(), "postinst", "configure", prev) }); err != nil {
 		tx.db.SaveStatus()
 		return err
 	}
-	in.Status = "install ok installed"
-	in.P.Set("Status", in.Status)
-	tx.db.SaveStatus()
-	return nil
+	in.setState("install", "installed")
+	return tx.db.SaveStatus()
 }
 
 func (tx *Tx) remove(in *Installed) error {
@@ -797,9 +797,8 @@ func (tx *Tx) remove(in *Installed) error {
 		delete(tx.db.Installed, name)
 	}
 	delete(tx.db.Auto, in.Key())
-	tx.db.SaveStatus()
 	restoreBusyboxLinks()
-	return nil
+	return tx.db.SaveStatus()
 }
 
 // restoreBusyboxLinks re-creates applet links a removed package had

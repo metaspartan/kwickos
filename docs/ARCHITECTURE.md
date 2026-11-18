@@ -95,12 +95,17 @@ archive and pulls in only what nginx really needs (libc6, libssl, pcre2, ...).
   integrity doesn't depend on TLS, kpkg ships a 300-line HTTP/1.1 client
   instead of `net/http`+`crypto/tls`, which saves about 3.5 MB. `https://` sources
   go through curl or wget.
-* **Compact indexes:** `Packages.xz` is stream-parsed into a field-filtered,
+* **Compact indexes:** `Packages.gz` is stream-parsed into a field-filtered,
   gzip'd index (~11 MB for all of Debian main) without ever being fully loaded.
+  It downloads 3.6 MB more than `Packages.xz` but decodes about 4× faster, which cut
+  `apt update` from 2.3 s to 1.6 s on one core. `index-compression = xz` in
+  `/etc/kpkg.conf` switches back for slow links.
 * **dpkg-compatible database:** `/var/lib/dpkg/status`, `info/*.list`,
   maintainer scripts, conffiles (locally modified ones are kept and the new
-  version is saved as `.dpkg-dist`), triggers (explicit and file triggers, e.g.
-  `ldconfig`), `update-alternatives`, `/var/lib/apt/extended_states` (autoremove).
+  version is saved as `.dpkg-dist` only when the package's version changed; deleted
+  ones stay deleted, as with dpkg), triggers (explicit and file triggers, e.g.
+  `ldconfig`), `update-alternatives`, `/var/lib/apt/extended_states` (autoremove),
+  holds (`apt-mark hold`, `dpkg --set-selections`; `--allow-change-held-packages`).
 * **Solver:** alternatives, versioned and virtual Provides,
   Conflicts/Breaks/Replaces with removals, Pre-Depends, and Tarjan SCC ordering.
   Cycles are unpacked fully, then configured Essential-first.
@@ -181,7 +186,7 @@ build and boot matrix then tests.
 * The headless live ISO and the disk images boot through UEFI only. The desktop ISO and `kwickos-amd64-headless.iso` also boot in
   BIOS mode on amd64. Direct `-kernel` boot works everywhere.
 * kpkg implements the commonly used apt/dpkg surface, multiarch and apt's pin priorities (`/etc/apt/preferences(.d)`, `-t`,
-  `APT::Default-Release`, `apt-cache policy`). Holds and source packages are not implemented.
+  `APT::Default-Release`, `apt-cache policy`). Source packages are not implemented.
 * kinit implements the commonly used subset of systemd units: no socket activation, timers or D-Bus, and units start in parallel
   with only the ordering described above.
 * No SELinux/AppArmor policy. Lockdown, Landlock, Yama and seccomp are enabled.

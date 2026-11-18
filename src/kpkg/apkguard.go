@@ -13,8 +13,8 @@ package main
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"fmt"
+	"github.com/klauspost/compress/gzip"
 	"os"
 	"os/exec"
 	"path/filepath"

@@ -29,7 +29,7 @@ func (db *DB) NewPlan(opts ResolveOpts) *Plan {
 	pl := &Plan{db: db, opts: opts, Install: map[string]*Pkg{}, Remove: map[string]*Installed{},
 		NewAuto: map[string]bool{}, Manual: map[string]bool{}, instProv: map[string][]provider{}}
 	for _, in := range db.Installed {
-		if in.State() == "not-installed" {
+		if st := in.State(); st == "not-installed" || st == "config-files" {
 			continue
 		}
 		for _, pv := range in.Provides() {
@@ -110,7 +110,7 @@ func (pl *Plan) choose(d Dep, from string) *Pkg {
 	best := 1 << 30
 	for _, k := range nameKeys(d.Name) {
 		for _, c := range pl.db.Ranked(k) {
-			if !archFits(d.Arch, from, c) || !VersionSatisfies(c.Version, d.Op, d.Ver) {
+			if !archFits(d.Arch, from, c) || !VersionSatisfies(c.Version, d.Op, d.Ver) || pl.db.holdBlocks(c) {
 				continue
 			}
 			if r := archRank(c, from); r < best {
@@ -244,10 +244,31 @@ func (pl *Plan) Resolve() error {
 			changed = true
 		}
 		if !changed {
-			return nil
+			return pl.checkHolds()
 		}
 	}
 	return fmt.Errorf("dependency resolution did not converge")
+}
+
+func (pl *Plan) checkHolds() error {
+	if cfg.AllowHeld {
+		return nil
+	}
+	var held []string
+	for _, k := range sortedKeys(pl.Install) {
+		if pl.db.holdBlocks(pl.Install[k]) {
+			held = append(held, k)
+		}
+	}
+	for _, k := range sortedKeys(pl.Remove) {
+		if pl.Remove[k].Held() {
+			held = append(held, pl.Remove[k].Key())
+		}
+	}
+	if len(held) > 0 {
+		return fmt.Errorf("held packages would be changed: %s (use apt-mark unhold or --allow-change-held-packages)", strings.Join(held, " "))
+	}
+	return nil
 }
 
 func confArchOK(q string, t *Pkg) bool {
@@ -560,12 +581,19 @@ func (db *DB) RemovalPlan(names []string) (*Plan, error) {
 			return nil, fmt.Errorf("removing %s would remove essential package %s", strings.Join(names, " "), k)
 		}
 	}
+	if err := pl.checkHolds(); err != nil {
+		return nil, err
+	}
 	return pl, nil
 }
 
 // Autoremovable lists auto-installed packages nothing manual depends on.
 func (db *DB) Autoremovable() []*Installed {
 	keep := map[string]bool{}
+	live := func(in *Installed) bool {
+		st := in.State()
+		return st != "config-files" && st != "not-installed"
+	}
 	var walk func(p *Pkg)
 	pl := db.NewPlan(ResolveOpts{})
 	walk = func(p *Pkg) {
@@ -578,7 +606,7 @@ func (db *DB) Autoremovable() []*Installed {
 			for _, g := range p.Deps(fld) {
 				for _, d := range g {
 					for _, k := range nameKeys(d.Name) {
-						if in := db.lookupInstalled(k); in != nil && in.Key() == k && archFits(d.Arch, from, in.Pkg) {
+						if in := db.lookupInstalled(k); in != nil && in.Key() == k && live(in) && archFits(d.Arch, from, in.Pkg) {
 							walk(in.Pkg)
 						}
 					}
@@ -592,13 +620,13 @@ func (db *DB) Autoremovable() []*Installed {
 		}
 	}
 	for _, in := range db.Installed {
-		if !db.Auto[in.Key()] || in.Essential() || in.Field("X-Kwick-Base") == "yes" {
+		if live(in) && (!db.Auto[in.Key()] || in.Essential() || in.Held() || in.Field("X-Kwick-Base") == "yes") {
 			walk(in.Pkg)
 		}
 	}
 	var out []*Installed
 	for _, k := range sortedKeys(db.Installed) {
-		if in := db.Installed[k]; !keep[in.Key()] {
+		if in := db.Installed[k]; !keep[in.Key()] && live(in) {
 			out = append(out, in)
 		}
 	}

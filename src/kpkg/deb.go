@@ -5,11 +5,11 @@ import (
 	"bufio"
 	"bytes"
 	"compress/bzip2"
-	"compress/gzip"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/klauspost/compress/gzip"
 	"io"
 	"os"
 	"path"
@@ -285,10 +285,20 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 					sum := md5.Sum(data)
 					newMD5 := hex.EncodeToString(sum[:])
 					res.Conffiles[p] = newMD5
-					if cur, err := os.ReadFile(host); err == nil {
+					old, tracked := oldConf[p]
+					tracked = tracked && old != "" && old != "newconffile"
+					cur, rerr := os.ReadFile(host)
+					if tracked && os.IsNotExist(rerr) {
+						if _, lerr := os.Lstat(host); os.IsNotExist(lerr) {
+							continue
+						}
+					}
+					if rerr == nil {
 						cs := md5.Sum(cur)
 						curMD5 := hex.EncodeToString(cs[:])
-						old, tracked := oldConf[p]
+						if curMD5 != newMD5 && tracked && newMD5 == old {
+							continue
+						}
 						if curMD5 != newMD5 && (!tracked || curMD5 != old) {
 							// locally modified (or pre-existing): keep it
 							if err := writeAtomic(host+".dpkg-dist", data, mode, h); err != nil {

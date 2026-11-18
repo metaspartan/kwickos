@@ -137,11 +137,20 @@ static void mkdir_p(const char *path, mode_t mode)
 	mkdir(tmp, mode);
 }
 
+static void child_signals(void)
+{
+	sigset_t none;
+	sigemptyset(&none);
+	sigprocmask(SIG_SETMASK, &none, NULL);
+	signal(SIGPIPE, SIG_DFL);
+}
+
 static int run_wait(char *const argv[])
 {
 	pid_t p = fork();
 	if (p < 0) return -1;
 	if (p == 0) {
+		child_signals();
 		execvp(argv[0], argv);
 		_exit(127);
 	}
@@ -154,6 +163,7 @@ static void spawn_bg(char *const argv[])
 {
 	pid_t p = fork();
 	if (p == 0) {
+		child_signals();
 		setsid();
 		execvp(argv[0], argv);
 		_exit(127);
@@ -553,8 +563,9 @@ static char *expand_spec(const char *v, const char *name)
 static void add_exec(char **arr, int *n, const char *v, struct svc *s, int is_main)
 {
 	if (!*v) { for (int i = 0; i < *n; i++) free(arr[i]); *n = 0; return; }
+	if (!is_main) { if (*n < MAX_EXEC) arr[(*n)++] = expand_spec(v, s->name); return; }
 	while (*v == '-' || *v == '@' || *v == '+' || *v == '!' || *v == ':') {
-		if (*v == '-' && is_main) s->ignore_main_fail = 1;
+		if (*v == '-') s->ignore_main_fail = 1;
 		v++;
 	}
 	if (*n < MAX_EXEC) arr[(*n)++] = expand_spec(v, s->name);
@@ -718,13 +729,27 @@ static int open_log(const char *name)
 	return open(p, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0640);
 }
 
-static int sh_run(const char *cmd)
+static int sh_run_as(const char *cmd, int drop, const char *user, uid_t uid, gid_t gid)
 {
 	pid_t p = fork();
-	if (p == 0) { execl("/bin/sh", "sh", "-c", cmd, (char *)NULL); _exit(127); }
+	if (p < 0) return 1;
+	if (p == 0) {
+		child_signals();
+		if (drop) {
+			if (user) initgroups(user, gid); else setgroups(0, NULL);
+			if (setgid(gid) || setuid(uid)) _exit(216);
+		}
+		execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+		_exit(127);
+	}
 	int st;
-	while (waitpid(p, &st, 0) < 0 && errno == EINTR) ;
+	while (waitpid(p, &st, 0) < 0) if (errno != EINTR) return 1;
 	return WIFEXITED(st) ? WEXITSTATUS(st) : 1;
+}
+
+static int sh_run(const char *cmd)
+{
+	return sh_run_as(cmd, 0, NULL, 0, 0);
 }
 
 /* Child side of a service start: drop privileges, set env, run pre
@@ -759,12 +784,18 @@ static void svc_child(struct svc *s)
 	make_owned_dirs("/var/log", s->logsdir, uid, gid);
 	make_owned_dirs("/var/cache", s->cachedir, uid, gid);
 	if (s->rtdir[0]) { char p[300]; snprintf(p, sizeof p, "/run/%s", strtok(s->rtdir, " ")); setenv("RUNTIME_DIRECTORY", p, 1); }
+	char uname[64] = "";
+	if (pw) snprintf(uname, sizeof uname, "%s", pw->pw_name);
+	int drop = s->user[0] || s->group[0];
 	for (int i = 0; i < s->npre; i++) {
-		int r = sh_run(s->pre[i]);
-		if (r) { dprintf(2, "kinit: ExecStartPre failed (%d): %s\n", r, s->pre[i]); _exit(r); }
+		const char *c = s->pre[i];
+		size_t k = strspn(c, "-@+!:");
+		int ign = memchr(c, '-', k) != NULL, priv = memchr(c, '+', k) || memchr(c, '!', k);
+		int r = sh_run_as(c + k, drop && !priv, uname[0] ? uname : NULL, uid, gid);
+		if (r && !ign) { dprintf(2, "kinit: ExecStartPre failed (%d): %s\n", r, c + k); _exit(r); }
 	}
-	if (s->user[0] || s->group[0]) {
-		if (pw) initgroups(pw->pw_name, gid); else setgroups(0, NULL);
+	if (drop) {
+		if (uname[0]) initgroups(uname, gid); else setgroups(0, NULL);
 		if (setgid(gid) || setuid(uid)) _exit(216);
 	}
 	if (s->workdir[0] && chdir(s->workdir[0] == '~' ? getenv("HOME") : s->workdir)) _exit(200);
@@ -785,25 +816,28 @@ static void svc_start(struct svc *s)
 	pid_t p = fork();
 	if (p < 0) { s->state = S_FAILED; return; }
 	if (p == 0) svc_child(s);
+	s->restart_at = 0;
 	s->pid = p;
 	s->state = S_STARTING;
 	s->forking_wait = s->type == T_FORKING;
 	s->since = time(NULL);
 	if (s->type == T_SIMPLE) s->state = S_RUNNING;
 	if (verbose) say("started %s (pid %d)", s->name, p);
-	for (int i = 0; i < s->npost; i++) sh_run(s->post[i]);
+	for (int i = 0; i < s->npost; i++) sh_run(s->post[i] + strspn(s->post[i], "-@+!:"));
 }
 
 static pid_t read_pidfile(const char *pf)
 {
 	char b[32];
 	if (!pf[0] || read_file(pf, b, sizeof b) <= 0) return 0;
-	return (pid_t)atoi(b);
+	pid_t p = (pid_t)atoi(b);
+	return p > 1 ? p : 0;
 }
 
 static void svc_stop(struct svc *s)
 {
 	s->want = 0;
+	s->restart_at = 0;
 	if (s->stop && (s->state == S_RUNNING || s->state == S_EXITED)) {
 		char envmp[64];
 		snprintf(envmp, sizeof envmp, "%d", s->pid);
@@ -1135,9 +1169,7 @@ static void spawn_getty(int i)
 {
 	pid_t p = fork();
 	if (p == 0) {
-		sigset_t all;
-		sigemptyset(&all);
-		sigprocmask(SIG_SETMASK, &all, NULL);
+		child_signals();
 		setsid();
 		char dev[64];
 		snprintf(dev, sizeof dev, "/dev/%s", consoles[i]);
@@ -1192,6 +1224,9 @@ static void do_shutdown(int how);
 static void ctl_handle(int c)
 {
 	char buf[1024];
+	struct timeval tmo = { 0, 250000 };
+	setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tmo, sizeof tmo);
+	setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tmo, sizeof tmo);
 	ssize_t n = recv(c, buf, sizeof buf - 1, 0);
 	if (n <= 0) { close(c); return; }
 	buf[n] = 0;
@@ -1199,6 +1234,7 @@ static void ctl_handle(int c)
 	socklen_t cl = sizeof cr;
 	int root = getsockopt(c, SOL_SOCKET, SO_PEERCRED, &cr, &cl) == 0 && cr.uid == 0;
 	char *cmd = strtok(buf, " \n"), *arg = strtok(NULL, " \n");
+	if (arg && (strchr(arg, '/') || arg[0] == '.')) arg = NULL;
 	static char out[65536];
 	int rc = 0;
 	out[0] = 0;
@@ -1430,7 +1466,7 @@ static int stage1(void)
 		for (char *c = cmd; *c; c++) if (*c == '+') *c = ' ';
 		pid_t p = fork();
 		if (p == 0) {
-			sigset_t all; sigemptyset(&all); sigprocmask(SIG_SETMASK, &all, NULL);
+			child_signals();
 			execl("/bin/sh", "sh", "-c", cmd, (char *)NULL); _exit(127);
 		}
 	}
@@ -1443,7 +1479,7 @@ static int supervisor(void)
 	if (fork()) return 0;
 	setsid();
 	int nul = open("/dev/null", O_RDWR);
-	if (nul >= 0) { dup2(nul, 0); dup2(nul, 1); dup2(nul, 2); }
+	if (nul >= 0) { dup2(nul, 0); dup2(nul, 1); dup2(nul, 2); if (nul > 2) close(nul); }
 	mkdir_p("/run", 0755);
 	setup_signals();
 	ctl_listen();

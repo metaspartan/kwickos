@@ -416,6 +416,31 @@ func (db *DB) Ranked(key string) []*Pkg {
 }
 
 func (db *DB) pickCandidate(key string) *Pkg {
+	c := db.freeCandidate(key)
+	in := db.installedByKey(key)
+	if c == nil || in == nil || !in.Held() || cfg.AllowHeld || c.Version == in.Version {
+		return c
+	}
+	for _, r := range db.rank(key) {
+		if r.pk.Version == in.Version {
+			return r.pk
+		}
+	}
+	if in.State() == "installed" {
+		return in.Pkg
+	}
+	return nil
+}
+
+func (db *DB) holdBlocks(p *Pkg) bool {
+	if cfg.AllowHeld {
+		return false
+	}
+	in := db.installedByKey(p.Key())
+	return in != nil && in.Held() && in.Version != p.Version
+}
+
+func (db *DB) freeCandidate(key string) *Pkg {
 	rs := db.rank(key)
 	in := db.lookupInstalled(key)
 	if in != nil && (in.Key() != key || in.State() == "not-installed" || in.State() == "config-files") {

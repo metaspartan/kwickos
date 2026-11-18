@@ -2,10 +2,11 @@ package main
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
-	"compress/gzip"
 	"errors"
 	"fmt"
+	"github.com/klauspost/compress/gzip"
 	"io"
 	"io/fs"
 	"os"
@@ -95,8 +96,21 @@ func mainDpkg(args []string) int {
 	case "--assert-multi-conffiles", "--assert-support-predepends", "--assert-working-epoch",
 		"--assert-long-filenames", "--assert-versioned-provides", "--assert-multi-arch",
 		"--assert-protected-field", "--clear-avail", "--update-avail", "--merge-avail", "--forget-old-unavail",
-		"--set-selections", "--clear-selections", "--verify", "-V":
+		"--clear-selections", "--verify", "-V":
 		return 0
+	case "--set-selections":
+		sel := map[string]string{}
+		sc := bufio.NewScanner(os.Stdin)
+		for sc.Scan() {
+			f := strings.Fields(sc.Text())
+			if len(f) == 2 && !strings.HasPrefix(f[0], "#") && (f[1] == "hold" || f[1] == "install") {
+				sel[f[0]] = f[1]
+			}
+		}
+		if err := setSelections(mustDB(false), sel, false); err != nil {
+			fmt.Fprintln(os.Stderr, "dpkg: error:", err)
+			return 2
+		}
 	case "-i", "--install", "--unpack":
 		return dpkgInstall(rest, cmd == "--unpack")
 	case "-r", "--remove", "-P", "--purge":
@@ -118,8 +132,20 @@ func mainDpkg(args []string) int {
 			return 1
 		}
 	case "--configure", "--triggers-only":
+		unlock, err := lockDB()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "dpkg: error:", err)
+			return 2
+		}
+		defer unlock()
 		db := mustDB(false)
-		tx := &Tx{db: db, activated: map[string]bool{}, prevVer: map[string]string{}}
+		tx := &Tx{db: db, plan: db.NewPlan(ResolveOpts{}), activated: map[string]bool{}, prevVer: map[string]string{}}
+		tx.loadOwners()
+		if tf, err := os.CreateTemp(cfg.Admin, "kpkg-triggers"); err == nil {
+			triggerFile = tf.Name()
+			tf.Close()
+			defer os.Remove(triggerFile)
+		}
 		rc := 0
 		for _, k := range sortedKeys(db.Installed) {
 			in := db.Installed[k]
@@ -131,6 +157,7 @@ func mainDpkg(args []string) int {
 				}
 			}
 		}
+		tx.runTriggers()
 		return rc
 	case "-l", "--list":
 		return dpkgList(rest)
@@ -401,8 +428,21 @@ func mainDpkgQuery(args []string) int {
 	case "-l", "--list":
 		return dpkgList(pats)
 	case "--get-selections":
-		for _, k := range sortedKeys(db.Installed) {
-			fmt.Printf("%-40s\tinstall\n", k)
+		for _, in := range installedSorted(db) {
+			if len(pats) > 0 {
+				ok := false
+				for _, p := range pats {
+					ok = ok || matchInstalledPattern(p, in)
+				}
+				if !ok {
+					continue
+				}
+			}
+			want := "install"
+			if f := strings.Fields(in.Status); len(f) == 3 {
+				want = f[0]
+			}
+			fmt.Printf("%-40s\t%s\n", in.InfoName(), want)
 		}
 	case "-c", "--control-path":
 		for _, n := range pats[1:] {
