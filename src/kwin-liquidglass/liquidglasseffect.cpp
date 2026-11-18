@@ -381,25 +381,25 @@ LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
     Look look;
     switch (kind) {
     case Kind::Dock:
-        look = {1.0f, 0.45f, 22.0f, 3, 2.6f, 0.85f};
+        look = {0.8f, 0.9f, 14.0f, 3, 1.7f, 1.0f, 1.3f, 0.0f, 0.1f, 0.0f, 0.05f};
         break;
     case Kind::Bar:
-        look = {0.55f, 0.6f, 10.0f, 3, 3.0f, 1.0f};
+        look = {0.5f, 0.8f, 8.0f, 3, 2.4f, 1.0f, 1.15f, 0.0f, 0.18f};
         break;
     case Kind::Menu:
-        look = {0.45f, 1.0f, 10.0f, 4, 3.4f, 1.0f, 0.06f, 0.64f, 0.74f, 0.0f};
+        look = {0.5f, 1.0f, 7.0f, 4, 3.4f, 1.0f, 0.06f, 0.64f, 0.74f, 0.0f};
         break;
     case Kind::Popup:
-        look = {0.6f, 1.0f, 14.0f, 4, 3.4f, 1.0f, 0.3f, 0.56f, 0.68f, 0.0f};
+        look = {0.55f, 1.0f, 9.0f, 4, 3.4f, 1.0f, 0.3f, 0.56f, 0.68f, 0.0f};
         break;
     case Kind::Notification:
-        look = {0.6f, 0.9f, 14.0f, 4, 3.2f, 1.0f, 1.4f, 0.27f, 0.38f, 1.0f, 0.15f};
+        look = {0.55f, 0.9f, 10.0f, 4, 3.2f, 1.0f, 1.4f, 0.27f, 0.38f, 1.0f, 0.15f};
         break;
     case Kind::Tooltip:
-        look = {0.5f, 0.95f, 9.0f, 3, 2.5f, 1.0f, 0.4f, 0.5f, 0.62f};
+        look = {0.5f, 0.95f, 6.0f, 3, 2.5f, 1.0f, 0.4f, 0.5f, 0.62f};
         break;
     case Kind::Osd:
-        look = {0.8f, 0.85f, 16.0f, 3, 3.0f, 1.0f, 0.45f, 0.46f, 0.6f};
+        look = {0.7f, 0.85f, 10.0f, 3, 3.0f, 1.0f, 0.45f, 0.46f, 0.6f};
         break;
     case Kind::Frame:
         look = {0.5f, 0.7f, 10.0f, 3, 3.0f, 1.0f};
@@ -810,7 +810,7 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     const QRectF shapeLocal = shapeDevice.translated(-origin);
     const double margin = std::min({shapeLocal.left() - room.left(), shapeLocal.top() - room.top(), room.right() - shapeLocal.right(), room.bottom() - shapeLocal.bottom()});
     const float shadowRoom = float(std::clamp(margin / (10.0 * scale), 0.0, 1.0));
-    shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 0.0f : 0.32f * shadowRoom * shadowRoom);
+    shader->setUniform("uShadow", kind == Kind::Bar || kind == Kind::Frame || kind == Kind::Window ? 0.0f : 0.24f * shadowRoom * shadowRoom);
     shader->setUniform("uVeil", look.veil);
     shader->setUniform("uAdapt", kind == Kind::Notification ? 1.0f : 0.0f);
     shader->setUniform("uPointer",QVector3D(float(pointer.x()), float(pointer.y()), float(m_interactive && kind != Kind::Window ? glass.hover : 0.0)));

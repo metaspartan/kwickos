@@ -70,8 +70,11 @@ void main()
     float d = sdRound(p, b, r);
     float cover = clamp(0.5 - d, 0.0, 1.0);
     if (cover <= 0.0) {
-        float ds = sdRound(p - vec2(0.0, 2.5 * uScale), b, r);
-        float sh = uShadow * uOpacity * exp(-max(ds, 0.0) / (5.0 * uScale)) * clamp(d, 0.0, 1.0);
+        float ds = max(sdRound(p - vec2(0.0, 2.0 * uScale), b, r), 0.0) / uScale;
+        float sh = uShadow * (0.75 * exp(-ds * ds / 50.0) + 0.25 * exp(-ds / 1.5));
+        float bright = smoothstep(0.45, 0.85, luma(texture(uMean, uvAt(uShape.xy)).rgb));
+        sh += uShadow * 0.35 * bright * exp(-max(d - 0.5, 0.0) / (0.8 * uScale));
+        sh *= uOpacity * clamp(d, 0.0, 1.0);
         if (sh < 0.004) {
             discard;
         }
@@ -87,10 +90,10 @@ void main()
     vec2 n2 = edgeNormal(p, b, rn);
 
     float u = 1.0 - x;
-    float slope = min(u / sqrt(max(1.0 - u * u, 0.004)), 7.0);
+    float slope = min(u * u / sqrt(max(1.0 - u * u, 0.01)), 3.0);
     vec3 N = normalize(vec3(n2 * slope, 1.0));
     vec3 T = refract(vec3(0.0, 0.0, -1.0), N, 1.0 / 1.5);
-    float thick = bevel * 1.9 * uRefract;
+    float thick = bevel * 0.8 * uRefract;
     vec2 off = T.xy / max(-T.z, 0.3) * thick;
 
     float spread = 0.2 * uDisperse;
@@ -104,7 +107,7 @@ void main()
     soft.g = texture(uBlur, uvAt(base)).g;
     soft.b = texture(uBlur, uvAt(px + off * (1.0 + spread))).b;
 
-    float frost = uFrost * mix(0.3, 1.0, smoothstep(0.0, 0.7, x));
+    float frost = uFrost * mix(0.55, 1.0, smoothstep(0.0, 0.5, x));
     vec3 col = mix(sharp, soft, frost);
     col = max(mix(vec3(luma(col)), col, uSat), vec3(0.0));
 
@@ -131,19 +134,21 @@ void main()
     float facing = dot(n2, L);
     float lit = max(facing, 0.0);
     float back = max(-facing, 0.0);
-    float thin = exp(-t / (0.9 * uScale));
-    float band = exp(-t / (bevel * 0.3));
-    float spec = thin * (0.16 + 1.15 * pow(lit, 1.2) + 0.45 * pow(back, 1.6));
-    spec += band * (0.24 * pow(lit, 3.0) + 0.10 * pow(back, 3.0));
+    float env = mix(0.8, 1.25, smoothstep(0.1, 0.85, luma(soft)));
+    float thin = exp(-t / (0.75 * uScale));
+    float band = exp(-t / (bevel * 0.25));
+    float spec = thin * (0.22 + 1.1 * pow(lit, 1.5) + 0.4 * pow(back, 2.0));
+    spec += band * (0.08 * pow(lit, 3.0) + 0.03 * pow(back, 3.0));
+    spec *= env;
     float fres = pow(1.0 - N.z, 2.0);
-    float glow = u * u * 0.05;
+    float glow = u * u * u * 0.02;
 
     vec2 dp = px - uPointer.xy;
     float reach = 80.0 * uScale;
     float near = uPointer.z * exp(-dot(dp, dp) / (2.0 * reach * reach));
 
-    col += vec3(spec * uSpec + near * 0.07 + near * thin * 0.55 * uSpec);
-    col = mix(col, vec3(1.0), clamp((fres * 0.14 + glow) * uSpec, 0.0, 1.0));
+    col += vec3(spec * uSpec + near * 0.04 + near * thin * 0.35 * uSpec);
+    col = mix(col, vec3(1.0), clamp((fres * 0.05 + glow) * uSpec, 0.0, 1.0));
     col += vec3((hash(px) - 0.5) / 255.0);
     col = clamp(col, 0.0, 1.0);
 
