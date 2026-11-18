@@ -63,6 +63,15 @@ if ! id kwick >/dev/null 2>&1; then
   for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done
   echo "kwick: set a password with 'passwd kwick' (no password = no login except autologin)"
 fi
+if [ -f /usr/share/kwick/faces/kwickos.png ]; then
+  mkdir -p /var/lib/AccountsService/icons /var/lib/AccountsService/users
+  awk -F: '$3 >= 1000 && $3 < 60000 { print $1 }' /etc/passwd | while read -r u; do
+    [ -e "/var/lib/AccountsService/icons/$u" ] && continue
+    cp /usr/share/kwick/faces/kwickos.png "/var/lib/AccountsService/icons/$u"
+    chmod 644 "/var/lib/AccountsService/icons/$u"
+    [ -e "/var/lib/AccountsService/users/$u" ] || { printf '[User]\nIcon=/var/lib/AccountsService/icons/%s\nSystemAccount=false\n' "$u" > "/var/lib/AccountsService/users/$u"; chmod 600 "/var/lib/AccountsService/users/$u"; }
+  done
+fi
 if command -v locale-gen >/dev/null; then
   grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen 2>/dev/null || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
   locale-gen >/dev/null 2>&1 || true

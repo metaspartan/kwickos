@@ -638,11 +638,11 @@ genv_get() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
 
 gr_write_cfg() {
 	local cl def eid ini
-	cl=$(boot_cmdline)
+	cl="$(boot_cmdline) quiet"
 	def=${CFGDEF:-$(st_get default)}
 	mkdir -p "$(dirname "$GCFG")"
 	{
-		printf 'set timeout=3\nset saved_entry=0\nload_env\n'
+		printf 'set timeout_style=hidden\nset timeout=1\nset saved_entry=0\nload_env\n'
 		printf 'if [ "${next_entry}" ] ; then\n\tset default="${next_entry}"\n\tset next_entry=\n\tsave_env next_entry\nelse\n\tset default="${saved_entry}"\nfi\n'
 		printf 'insmod part_gpt\ninsmod part_msdos\ninsmod fat\ninsmod ext2\ninsmod btrfs\ninsmod xfs\ninsmod gzio\n'
 		printf 'search --no-floppy --fs-uuid --set=root %s\n' "$FSU"
@@ -726,7 +726,7 @@ sd_setup() {
 
 sd_write_entries() {
 	local cl eid
-	cl=$(boot_cmdline)
+	cl="$(boot_cmdline) quiet"
 	rm -f "$ESP"/loader/entries/kwick-*.conf
 	for eid in $(sorted | cut -d'|' -f1); do
 		[ -f "$BOOTDIR/k/$eid/vmlinuz" ] || continue
@@ -741,7 +741,7 @@ sd_write_entries() {
 }
 
 sd_write_loader() {
-	printf 'default kwick-%s.conf\ntimeout 3\nconsole-mode keep\n' "$1" >"$ESP/loader/loader.conf"
+	printf 'default kwick-%s.conf\ntimeout 1\nconsole-mode keep\n' "$1" >"$ESP/loader/loader.conf"
 }
 
 sd_keep_default() {

@@ -1348,6 +1348,14 @@ cfg_users() {
 	if [ ! -e "$T/home/$USERN/.profile" ] && [ -d "$T/etc/skel" ]; then
 		cp -a "$T/etc/skel/." "$T/home/$USERN/" 2>/dev/null
 	fi
+	if [ -f "$T/usr/share/kwick/faces/kwickos.png" ]; then
+		[ -e "$T/home/$USERN/.face.icon" ] || cp "$T/usr/share/kwick/faces/kwickos.png" "$T/home/$USERN/.face.icon"
+		mkdir -p "$T/var/lib/AccountsService/icons" "$T/var/lib/AccountsService/users"
+		cp "$T/usr/share/kwick/faces/kwickos.png" "$T/var/lib/AccountsService/icons/$USERN"
+		[ -e "$T/var/lib/AccountsService/users/$USERN" ] || printf '[User]\nIcon=/var/lib/AccountsService/icons/%s\nSystemAccount=false\n' "$USERN" > "$T/var/lib/AccountsService/users/$USERN"
+		chmod 644 "$T/var/lib/AccountsService/icons/$USERN"
+		chmod 600 "$T/var/lib/AccountsService/users/$USERN"
+	fi
 	chmod 700 "$T/home/$USERN"
 	USER_UID=$uid
 	USER_GID=$gid
@@ -1811,12 +1819,12 @@ install_boot_files() {
 write_grub_cfg() {
 	cfgfile=$1
 	mkdir -p "$(dirname "$cfgfile")"
-	cl=$(boot_cmdline)
+	cl="$(boot_cmdline) quiet"
 	if [ "$FW" = uefi ]; then fsu=$ESP_UUID; else fsu=${BOOT_UUID:-$ROOT_UUID}; fi
 	ini=""
 	[ "$(need_initrd)" = 1 ] && ini="	initrd $BREL/initrd.img"
 	{
-		printf 'set timeout=3\nset default=0\n'
+		printf 'set timeout_style=hidden\nset timeout=1\nset default=0\n'
 		printf 'insmod part_gpt\ninsmod part_msdos\ninsmod fat\ninsmod ext2\ninsmod btrfs\ninsmod xfs\ninsmod gzio\n'
 		printf 'search --no-floppy --fs-uuid --set=root %s\n' "$fsu"
 		printf 'menuentry "KwickOS" {\n\tlinux %s/vmlinuz %s\n%s\n}\n' "$BREL" "$cl" "$ini"
@@ -1825,9 +1833,9 @@ write_grub_cfg() {
 }
 
 write_sdboot_entries() {
-	cl=$(boot_cmdline)
+	cl="$(boot_cmdline) quiet"
 	mkdir -p "$ESPDIR/loader/entries"
-	printf 'default kwickos.conf\ntimeout 3\nconsole-mode keep\n' >"$ESPDIR/loader/loader.conf"
+	printf 'default kwickos.conf\ntimeout 1\nconsole-mode keep\n' >"$ESPDIR/loader/loader.conf"
 	for v in "kwickos:KwickOS:" "kwickos-safe:KwickOS (safe graphics): nomodeset"; do
 		fn=${v%%:*}
 		rest=${v#*:}

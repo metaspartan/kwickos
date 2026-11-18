@@ -26,6 +26,8 @@ cursorTheme=breeze_cursors
 LayoutName=thumbnail_grid
 
 [kwinrc][org.kde.kdecoration2]
+BorderSize=None
+BorderSizeAuto=false
 library=org.kde.kwin.aurorae
 theme=__aurorae__svg__KwickGlass
 ButtonsOnLeft=XIA
