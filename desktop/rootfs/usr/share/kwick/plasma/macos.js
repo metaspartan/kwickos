@@ -51,8 +51,12 @@ var sep1 = top.addWidget("org.kde.plasma.marginsseparator");
 sep1.currentConfigGroup = ["General"];
 sep1.writeConfig("margin", "8");
 var tray = top.addWidget("org.kde.plasma.systemtray");
-tray.currentConfigGroup = ["General"];
-tray.writeConfig("iconSpacing", "8");
+tray.currentConfigGroup = [];
+var trayInner = desktopById(tray.readConfig("SystrayContainmentId"));
+if (trayInner) {
+    trayInner.currentConfigGroup = ["General"];
+    trayInner.writeConfig("iconSpacing", "3");
+}
 var sep3 = top.addWidget("org.kde.plasma.marginsseparator");
 sep3.currentConfigGroup = ["General"];
 sep3.writeConfig("margin", "6");

@@ -4,6 +4,7 @@ usage: gen-icons.py <repo-root> [macos|linux|windows ...]
 Every icon shares one geometry: a 24-unit glyph grid, a continuous-corner squircle for apps and
 settings pages, a folder body for places and bare strokes for actions.
 """
+import importlib.util
 import math, os, re, shutil, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -858,6 +859,11 @@ def build():
     side("folder-publicshare-symbolic", "share")
     act("kwick-taskview", "tabbox")
 
+    if isinstance(STYLE, Mac):
+        spec = importlib.util.spec_from_file_location("gen_tray", os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen-tray.py"))
+        tray = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tray)
+        tray.write_theme(OUT)
     names = {}
     for sub in ("apps", "preferences", "categories", "places", "devices", "actions", "status", "mimetypes"):
         d = os.path.join(OUT, "scalable", sub)
