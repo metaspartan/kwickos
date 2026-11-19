@@ -1,27 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 SRC=${SRC:-/src}; OUT=${OUT:-/out}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 ARCH=arm64; FLAVOR=apple
 K="$OUT/$ARCH/kernel-$FLAVOR"
 KREL=$(cat "$K/version")
 KVER=${KREL%-kwick}
-VER=$(tr -d '\r\n' < "$SRC/VERSION")
-mkdir -p "$OUT/repo/pool/main"
+VER=$(kwick_version)
 
 P=$(mktemp -d)
 mkdir -p "$P/DEBIAN" "$P/usr/lib/kwick/kernels/$KREL"
 cp "$K/vmlinuz" "$K/config" "$P/usr/lib/kwick/kernels/$KREL/"
 zstd -dc "$K/modules.tar.zst" | tar -C "$P/usr" -x
 zstd -dc "$K/dtbs.tar.zst" | tar -C "$P/usr/lib/kwick/kernels/$KREL" -x
-SIZE=$(du -sk "$P" | cut -f1)
-cat > "$P/DEBIAN/control" <<EOT
-Package: kwick-kernel-asahi
-Version: $KVER-1
-Architecture: arm64
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: kernel
-Priority: optional
-Installed-Size: $SIZE
+deb_control "$P" kwick-kernel-asahi "$KVER-1" arm64 kernel <<EOT
 Depends: kwick-apple-boot, kmod
 Provides: linux-image, linux-image-$KREL
 Conflicts: linux-image-kwick-generic, linux-image-kwick-gb10
@@ -30,7 +22,7 @@ Description: Linux $KVER Asahi kernel for Apple Silicon Macs (16K pages)
  Includes the Apple SoC drivers built in for boot (NVMe, DART, SART, AIC, PCIe, USB) and
  the Asahi GPU, display, audio and Wi-Fi/Bluetooth drivers as modules.
 EOT
-cat > "$P/DEBIAN/postinst" <<EOT
+deb_script "$P" postinst <<EOT
 #!/bin/sh
 set -e
 if [ "\$1" = configure ] && [ -x /usr/sbin/kwick-apple-boot ]; then
@@ -38,10 +30,7 @@ if [ "\$1" = configure ] && [ -x /usr/sbin/kwick-apple-boot ]; then
 fi
 exit 0
 EOT
-chmod 755 "$P/DEBIAN/postinst"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-kernel-asahi_${KVER}-1_arm64.deb" >/dev/null
-rm -rf "$P"
-echo "packaged kwick-kernel-asahi $KVER-1"
+deb_build "$P" kwick-kernel-asahi "$KVER-1" arm64
 
 P=$(mktemp -d)
 mkdir -p "$P/DEBIAN" "$P/usr/sbin" "$P/usr/lib/kwick" "$P/etc"
@@ -52,15 +41,7 @@ install -m 755 "$SRC/apple/rootfs/usr/sbin/kwick-apple-grow-root" "$P/usr/sbin/k
 mkdir -p "$P/usr/lib/systemd/system" "$P/etc/systemd/system/multi-user.target.wants"
 install -m 644 "$SRC/apple/rootfs/usr/lib/systemd/system/kwick-apple-grow-root.service" "$P/usr/lib/systemd/system/"
 ln -s /usr/lib/systemd/system/kwick-apple-grow-root.service "$P/etc/systemd/system/multi-user.target.wants/kwick-apple-grow-root.service"
-SIZE=$(du -sk "$P" | cut -f1)
-cat > "$P/DEBIAN/control" <<EOT
-Package: kwick-apple
-Version: $VER
-Architecture: arm64
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: metapackages
-Priority: optional
-Installed-Size: $SIZE
+deb_control "$P" kwick-apple "$VER" arm64 metapackages <<EOT
 Depends: kwick-kernel-asahi, kwick-apple-boot, asahi-fwextract, e2fsprogs, kwick-gpu
 Recommends: speakersafetyd, pipewire, wireplumber, alsa-ucm-conf-asahi, asahi-audio
 Description: Apple Silicon support for KwickOS
@@ -68,7 +49,7 @@ Description: Apple Silicon support for KwickOS
  GPU/audio helper used by kwick-gpu (Mesa with the asahi driver, asahi-audio, speakersafetyd).
 EOT
 echo /etc/m1n1.conf > "$P/DEBIAN/conffiles"
-cat > "$P/DEBIAN/postinst" <<EOT
+deb_script "$P" postinst <<EOT
 #!/bin/sh
 set -e
 if [ "\$1" = configure ] && [ ! -e /etc/kwick-edition-apple ]; then
@@ -76,7 +57,4 @@ if [ "\$1" = configure ] && [ ! -e /etc/kwick-edition-apple ]; then
 fi
 exit 0
 EOT
-chmod 755 "$P/DEBIAN/postinst"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-apple_${VER}_arm64.deb" >/dev/null
-rm -rf "$P"
-echo "packaged kwick-apple $VER"
+deb_build "$P" kwick-apple "$VER" arm64

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; CACHE=${CACHE:-/cache}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 . <(sed 's/\r$//' "$SRC/config/rpi-firmware.env")
 VER="$RPI_FW_TAG-1"
 P=$(mktemp -d); chmod 755 "$P"
@@ -21,15 +22,7 @@ echo "$RPI_FW_TAG $RPI_FW_COMMIT" > "$L/VERSION"
 install -m 755 "$SRC/rpi/rootfs/usr/sbin/kwick-rpi-boot" "$P/usr/sbin/kwick-rpi-boot"
 sed -i 's/\r$//' "$P/usr/sbin/kwick-rpi-boot"
 for f in config.txt cmdline.txt; do sed 's/\r$//' "$SRC/rpi/boot/$f" > "$P/usr/share/kwick/rpi/$f"; done
-SIZE=$(du -sk "$P" | cut -f1)
-cat > "$P/DEBIAN/control" <<EOT
-Package: kwick-rpi-firmware
-Version: $VER
-Architecture: arm64
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: non-free-firmware/kernel
-Priority: optional
-Installed-Size: $SIZE
+deb_control "$P" kwick-rpi-firmware "$VER" arm64 non-free-firmware/kernel <<EOT
 Description: Raspberry Pi 4 and 5 boot firmware and boot partition manager for KwickOS
  The Raspberry Pi 4 GPU firmware (start4.elf, fixup4.dat) from the raspberrypi/firmware
  release $RPI_FW_TAG, checksum-verified at build time, and kwick-rpi-boot, which keeps the
@@ -37,7 +30,7 @@ Description: Raspberry Pi 4 and 5 boot firmware and boot partition manager for K
  bcm2711 and bcm2712 device trees and the overlays of linux-image-kwick-rpi. The Raspberry Pi 5
  boots from its EEPROM bootloader and only needs the kernel, device trees and config.txt.
 EOT
-cat > "$P/DEBIAN/postinst" <<'PI'
+deb_script "$P" postinst <<'PI'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
@@ -46,8 +39,4 @@ if grep -qs raspberrypi /proc/device-tree/compatible; then
 fi
 exit 0
 PI
-chmod 755 "$P/DEBIAN/postinst"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-rpi-firmware_${VER}_arm64.deb" >/dev/null
-rm -rf "$P"
-echo "packaged kwick-rpi-firmware $VER"
+deb_build "$P" kwick-rpi-firmware "$VER" arm64

@@ -12,6 +12,7 @@ on:
       - 'scripts/mknvidiapkg.sh'
       - 'scripts/mkgpunvidiapkg.sh'
       - 'scripts/mkkernelhdrpkg.sh'
+      - 'scripts/deb.sh'
       - 'scripts/fetch-pinned.sh'
       - '.github/workflows/nvidia.yml'
 

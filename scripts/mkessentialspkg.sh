@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
-SRC=${SRC:-/src}; OUT=${OUT:-/out}; VER=$(tr -d '\r\n' < "$SRC/VERSION")
+SRC=${SRC:-/src}; OUT=${OUT:-/out}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
+VER=$(kwick_version)
 join() { local IFS=,; echo "$*" | sed 's/,/, /g'; }
 ESS_DEPENDS=(
   ca-certificates curl wget jq sudo
@@ -23,23 +25,14 @@ pack() {
   local name=$1 size=$2 dep=$3 rec=$4 desc=$5
   local P; P=$(mktemp -d); mkdir -p "$P/DEBIAN" "$P/usr/share/doc/$name"
   {
-    echo "Package: $name"
-    echo "Version: $VER"
-    echo "Architecture: all"
-    echo "Maintainer: KwickOS Developers <dev@kwickos.org>"
-    echo "Section: metapackages"
-    echo "Priority: optional"
-    echo "Installed-Size: $size"
     echo "Depends: $dep"
     [ -z "$rec" ] || echo "Recommends: $rec"
     printf '%s\n' "$desc"
-  } > "$P/DEBIAN/control"
+  } | deb_control "$P" "$name" "$VER" all metapackages "$size"
   printf '%s\n' "$name is a metapackage: it ships no files, only dependencies." > "$P/usr/share/doc/$name/README"
   find "$P" -type d -exec chmod 755 {} +
   find "$P" -type f -exec chmod 644 {} +
-  mkdir -p "$OUT/repo/pool/main"
-  dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/${name}_${VER}_all.deb" >/dev/null
-  rm -rf "$P"; echo "packaged $name $VER"
+  deb_build "$P" "$name" "$VER" all
 }
 pack kwick-essentials 12 "$(join "${ESS_DEPENDS[@]}")" "$(join "${ESS_RECOMMENDS[@]}")" "Description: KwickOS everyday command-line essentials
  The tools most people expect on a Linux box, one package away: curl, wget,

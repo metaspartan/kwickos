@@ -2,6 +2,7 @@
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:-generic}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 eval "$(sed 's/\r$//' "$SRC/config/zfs.env")"
 K="$OUT/$ARCH/kernel-$FLAVOR"; O="$BUILD/kernel-$ARCH-$FLAVOR"
 [ -f "$K/version" ] || { echo "no kernel in $K: build the $FLAVOR kernel first"; exit 1; }
@@ -117,15 +118,7 @@ xz --check=crc32 --lzma2=dict=1MiB "$MD"/*.ko
   echo
   cat "$W/LICENSE" 2>/dev/null || true
 } > "$P/usr/share/doc/$PKG/copyright"
-SIZE=$(du -sk "$P" | cut -f1)
-cat > "$P/DEBIAN/control" <<EOT
-Package: $PKG
-Version: $VER
-Architecture: $ARCH
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: kernel
-Priority: optional
-Installed-Size: $SIZE
+deb_control "$P" "$PKG" "$VER" "$ARCH" kernel <<EOT
 Depends: $IMGPKG (= $KVER-1), kmod
 Provides: zfs-modules (= $ZFS_VERSION), kwick-zfs-modules (= $VER)
 Conflicts: zfs-dkms
@@ -135,7 +128,7 @@ Description: OpenZFS $ZFS_VERSION kernel modules for KwickOS kernel $KREL
  are needed. CDDL-licensed and kept in this separate package; the kernel
  image never contains ZFS code.
 EOT
-cat > "$P/DEBIAN/postinst" <<EOT
+deb_script "$P" postinst <<EOT
 #!/bin/sh
 set -e
 if [ "\$1" = configure ]; then
@@ -143,7 +136,7 @@ if [ "\$1" = configure ]; then
 fi
 exit 0
 EOT
-cat > "$P/DEBIAN/postrm" <<EOT
+deb_script "$P" postrm <<EOT
 #!/bin/sh
 set -e
 if [ "\$1" = remove ] || [ "\$1" = purge ]; then
@@ -151,11 +144,7 @@ if [ "\$1" = remove ] || [ "\$1" = purge ]; then
 fi
 exit 0
 EOT
-chmod 755 "$P/DEBIAN/postinst" "$P/DEBIAN/postrm"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/${PKG}_${VER}_${ARCH}.deb" >/dev/null
-rm -rf "$P"
-echo "packaged $PKG $VER ($ARCH)"
+deb_build "$P" "$PKG" "$VER" "$ARCH" "($ARCH)"
 
 MPKG=kwick-zfs
 [ "$FLAVOR" = generic ] || MPKG=kwick-zfs-$FLAVOR
@@ -164,14 +153,7 @@ P=$(mktemp -d); chmod 755 "$P"
 mkdir -p "$P/DEBIAN" "$P/usr/share/doc/$MPKG"
 printf 'OpenZFS %s for KwickOS: modules from %s, userland from Debian %s (contrib).\nCDDL-1.0, see %s.\n' \
   "$ZFS_VERSION" "$PKG" "$ZFS_USERLAND_SUITE" "/usr/share/doc/$PKG/copyright" > "$P/usr/share/doc/$MPKG/copyright"
-cat > "$P/DEBIAN/control" <<EOT
-Package: $MPKG
-Version: $MVER
-Architecture: $ARCH
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: kernel
-Priority: optional
-Installed-Size: 8
+deb_control "$P" "$MPKG" "$MVER" "$ARCH" kernel 8 <<EOT
 Depends: $PKG (= $VER), zfsutils-linux (>= ${ZFS_VERSION%.*})
 Recommends: zfs-zed
 Conflicts: zfs-dkms
@@ -182,6 +164,4 @@ Description: OpenZFS for KwickOS (prebuilt modules plus Debian userland)
  Use 'kwick-storage install zfs' to set up the $ZFS_USERLAND_SUITE pin for a
  userland that matches the module version.
 EOT
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/${MPKG}_${MVER}_${ARCH}.deb" >/dev/null
-rm -rf "$P"
-echo "packaged $MPKG $MVER ($ARCH)"
+deb_build "$P" "$MPKG" "$MVER" "$ARCH" "($ARCH)"

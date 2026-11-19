@@ -1,19 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-SRC=${SRC:-/src}; OUT=${OUT:-/out}; VER=$(tr -d '\r\n' < "$SRC/VERSION")
+SRC=${SRC:-/src}; OUT=${OUT:-/out}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
+VER=$(kwick_version)
 P=$(mktemp -d); mkdir -p "$P/DEBIAN"
-cp -r --no-preserve=ownership "$SRC/desktop/gaming/rootfs/." "$P/"
-find "$P" -type d -exec chmod 755 {} +
-find "$P" -type f -exec chmod 644 {} +
-chmod 755 "$P"/usr/bin/*
-cat > "$P/DEBIAN/control" <<EOF
-Package: kwick-gaming
-Version: $VER
-Architecture: all
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: games
-Priority: optional
-Installed-Size: 120
+deb_stage_tree "$P" "$SRC/desktop/gaming/rootfs"
+deb_control "$P" kwick-gaming "$VER" all games 120 <<EOF
 Depends: curl, ca-certificates, kwick-gpu
 Recommends: flatpak, sudo
 Replaces: kwick-desktop (<= $VER)
@@ -26,14 +18,11 @@ Description: KwickOS gaming modules
  releases with sha256 only where neither does. x86-only modules refuse to
  install on arm64 and riscv64.
 EOF
-cat > "$P/DEBIAN/postinst" <<'EOF'
+deb_script "$P" postinst <<'EOF'
 #!/bin/sh
 [ "$1" = configure ] || exit 0
 mkdir -p /var/lib/kwick-gaming
 command -v sysctl >/dev/null 2>&1 && sysctl -q -p /etc/sysctl.d/20-kwick-gaming.conf >/dev/null 2>&1 || true
 exit 0
 EOF
-chmod 755 "$P/DEBIAN/postinst"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-gaming_${VER}_all.deb" >/dev/null
-rm -rf "$P"; echo "packaged kwick-gaming $VER"
+deb_build "$P" kwick-gaming "$VER" all

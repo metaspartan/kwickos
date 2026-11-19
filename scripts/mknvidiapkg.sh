@@ -2,6 +2,7 @@
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 . "$SRC/config/nvidia.env"
 K="$OUT/$ARCH/kernel-$FLAVOR"; O="$BUILD/kernel-$ARCH-$FLAVOR"
 KREL=$(cat "$K/version"); KVER=${KREL%-kwick}
@@ -50,15 +51,7 @@ options nvidia-drm modeset=1 fbdev=1
 options nvidia NVreg_PreserveVideoMemoryAllocations=1
 EOT
 cp "$W/COPYING" "$P/usr/share/doc/$PKG/copyright" 2>/dev/null || true
-SIZE=$(du -sk "$P" | cut -f1)
-cat > "$P/DEBIAN/control" <<EOT
-Package: $PKG
-Version: $VER
-Architecture: $ARCH
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: kernel
-Priority: optional
-Installed-Size: $SIZE
+deb_control "$P" "$PKG" "$VER" "$ARCH" kernel <<EOT
 Depends: $IMGPKG (= $KVER-1), kmod
 Provides: kwick-nvidia-kmod, nvidia-kernel-open-dkms (= $VER), nvidia-kernel-dkms-any (= $NVIDIA_DRIVER_VERSION), nvidia-kernel-$NVIDIA_DRIVER_VERSION
 Recommends: firmware-nvidia-gsp (= $NVIDIA_DRIVER_VERSION)
@@ -68,7 +61,7 @@ Description: NVIDIA open GPU kernel modules $NVIDIA_DRIVER_VERSION for KwickOS k
  Satisfies the nvidia-kernel-open-dkms dependency of NVIDIA's userspace packages,
  so no DKMS and no compiler is needed on the target.
 EOT
-cat > "$P/DEBIAN/postinst" <<EOT
+deb_script "$P" postinst <<EOT
 #!/bin/sh
 set -e
 if [ "\$1" = configure ]; then
@@ -76,10 +69,5 @@ if [ "\$1" = configure ]; then
 fi
 exit 0
 EOT
-cp "$P/DEBIAN/postinst" "$P/DEBIAN/postrm"
-sed -i 's/\[ "\$1" = configure \]/[ "$1" = remove ] || [ "$1" = purge ]/' "$P/DEBIAN/postrm"
-chmod 755 "$P/DEBIAN/postinst" "$P/DEBIAN/postrm"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/${PKG}_${VER}_${ARCH}.deb" >/dev/null
-rm -rf "$P"
-echo "packaged $PKG $VER ($ARCH)"
+sed 's/\[ "\$1" = configure \]/[ "$1" = remove ] || [ "$1" = purge ]/' "$P/DEBIAN/postinst" | deb_script "$P" postrm
+deb_build "$P" "$PKG" "$VER" "$ARCH" "($ARCH)"

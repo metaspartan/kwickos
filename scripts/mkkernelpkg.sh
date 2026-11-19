@@ -2,6 +2,7 @@
 set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}
 OUT=${OUT:-/out}; SRC=${SRC:-/src}; K="$OUT/$ARCH/kernel-$FLAVOR"
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 DEP=
 [ ! -f "$SRC/config/kernel/$FLAVOR.source" ] || DEP=$(sed -n "s/^PKG_DEPENDS=//p" "$SRC/config/kernel/$FLAVOR.source" | tr -d "\r\"")
 KREL=$(cat "$K/version")
@@ -14,15 +15,7 @@ cp "$K/vmlinuz" "$K/config" "$P/usr/lib/kwick/kernels/$KREL/"
 for f in Image.itb initrd.img load-address uboot.txt; do [ -f "$K/$f" ] && cp "$K/$f" "$P/usr/lib/kwick/kernels/$KREL/"; done
 if [ -f "$K/modules.tar.zst" ]; then zstd -dc "$K/modules.tar.zst" | tar -C "$P/usr" -x; fi
 echo "$FLAVOR" > "$P/usr/lib/kwick/kernels/$KREL/flavor"
-SIZE=$(du -sk "$P" | cut -f1)
-cat > "$P/DEBIAN/control" <<EOF
-Package: linux-image-kwick-$FLAVOR
-Version: $KVER-1
-Architecture: $ARCH
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: kernel
-Priority: optional
-Installed-Size: $SIZE
+deb_control "$P" "linux-image-kwick-$FLAVOR" "$KVER-1" "$ARCH" kernel <<EOF
 Provides: linux-image, linux-image-$KREL
 ${DEP:+Depends: $DEP
 }Description: Linux $KVER kernel for KwickOS ($FLAVOR flavor)
@@ -30,23 +23,18 @@ ${DEP:+Depends: $DEP
  Installing it makes it the next boot kernel; the previous one is kept
  for rollback and can be chosen again (kwick-kernel list, default, try, rollback).
 EOF
-cat > "$P/DEBIAN/preinst" <<EOF
+deb_script "$P" preinst <<EOF
 #!/bin/sh
 set -e
 if [ -x /usr/sbin/kwick-kernel ]; then
 	/usr/sbin/kwick-kernel _retain || true
 fi
 EOF
-chmod 755 "$P/DEBIAN/preinst"
-cat > "$P/DEBIAN/postinst" <<EOF
+deb_script "$P" postinst <<EOF
 #!/bin/sh
 set -e
 if [ "\$1" = configure ] && [ -x /usr/sbin/kwick-kernel-install ]; then
 	/usr/sbin/kwick-kernel-install $KREL || true
 fi
 EOF
-chmod 755 "$P/DEBIAN/postinst"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/linux-image-kwick-${FLAVOR}_${KVER}-1_${ARCH}.deb" >/dev/null
-rm -rf "$P"
-echo "packaged linux-image-kwick-$FLAVOR $KVER-1 ($ARCH)"
+deb_build "$P" "linux-image-kwick-$FLAVOR" "$KVER-1" "$ARCH" "($ARCH)"

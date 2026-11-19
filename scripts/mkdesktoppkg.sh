@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 ARCH=${1:?arch}; SRC=${SRC:-/src}; OUT=${OUT:-/out}
-VER=$(tr -d '\r\n' < "$SRC/VERSION")
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
+VER=$(kwick_version)
 P=$(mktemp -d); mkdir -p "$P/DEBIAN"
 cp -r --no-preserve=ownership "$SRC/desktop/rootfs/." "$P/"
 find "$P" -type f \( -path '*/usr/lib/kwick/*' -o -path '*/usr/bin/kwick-*' \) -exec chmod 755 {} +
@@ -27,20 +28,13 @@ chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
 deps="linux-image-kwick-generic | linux-image-kwick-rpi, kwick-gpu, kwick-gaming, kwick-essentials, $deps"
-cat > "$P/DEBIAN/control" <<EOF
-Package: kwick-desktop
-Version: $VER
-Architecture: $ARCH
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: metapackages
-Priority: optional
-Installed-Size: 40000
+deb_control "$P" kwick-desktop "$VER" "$ARCH" metapackages 40000 <<EOF
 Depends: $deps
 Description: KwickOS Desktop (KDE Plasma 6, Wayland)
  Turns a headless KwickOS into the desktop edition: Plasma, SDDM, PipeWire,
  NetworkManager, Mesa/GPU firmware, Flatpak, window effects and gaming tools.
 EOF
-cat > "$P/DEBIAN/postinst" <<'EOF'
+deb_script "$P" postinst <<'EOF'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
@@ -96,8 +90,7 @@ command -v flatpak >/dev/null && flatpak remote-add --if-not-exists flathub http
 nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1; /usr/bin/kwick-gaming install overlay >/var/log/kwick-gaming.log 2>&1' >/dev/null 2>&1 &
 echo "KwickOS Desktop installed. Reboot to start the desktop (kernel: generic flavor via kwick-kernel-install)."
 EOF
-chmod 755 "$P/DEBIAN/postinst"
-cat > "$P/DEBIAN/postrm" <<'EOF'
+deb_script "$P" postrm <<'EOF'
 #!/bin/sh
 set -e
 case "$1" in remove|purge) ;; *) exit 0 ;; esac
@@ -117,7 +110,4 @@ if [ -f /usr/lib/systemd/system/networking.service ]; then
   ln -sf /usr/lib/systemd/system/networking.service $W/networking.service
 fi
 EOF
-chmod 755 "$P/DEBIAN/postrm"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-desktop_${VER}_${ARCH}.deb" >/dev/null
-rm -rf "$P"; echo "packaged kwick-desktop $VER ($ARCH)"
+deb_build "$P" kwick-desktop "$VER" "$ARCH" "($ARCH)"

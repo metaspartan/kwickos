@@ -1,19 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-SRC=${SRC:-/src}; OUT=${OUT:-/out}; VER=$(tr -d '\r\n' < "$SRC/VERSION")
+SRC=${SRC:-/src}; OUT=${OUT:-/out}
+. "$(cd "$(dirname "$0")" && pwd)/deb.sh"
+VER=$(kwick_version)
 P=$(mktemp -d); mkdir -p "$P/DEBIAN"
-cp -r --no-preserve=ownership "$SRC/desktop/agents/rootfs/." "$P/"
-find "$P" -type d -exec chmod 755 {} +
-find "$P" -type f -exec chmod 644 {} +
-chmod 755 "$P"/usr/bin/*
-cat > "$P/DEBIAN/control" <<EOF
-Package: kwick-agents
-Version: $VER
-Architecture: all
-Maintainer: KwickOS Developers <dev@kwickos.org>
-Section: utils
-Priority: optional
-Installed-Size: 40
+deb_stage_tree "$P" "$SRC/desktop/agents/rootfs"
+deb_control "$P" kwick-agents "$VER" all utils 40 <<EOF
 Depends: curl, ca-certificates
 Recommends: sudo
 Description: KwickOS AI agent tooling modules
@@ -22,13 +14,10 @@ Description: KwickOS AI agent tooling modules
  and verified against its sha256. Nothing is installed by default. amd64 and
  arm64 only for Cybara.
 EOF
-cat > "$P/DEBIAN/postinst" <<'EOF'
+deb_script "$P" postinst <<'EOF'
 #!/bin/sh
 [ "$1" = configure ] || exit 0
 mkdir -p /var/lib/kwick-agents
 exit 0
 EOF
-chmod 755 "$P/DEBIAN/postinst"
-mkdir -p "$OUT/repo/pool/main"
-dpkg-deb --root-owner-group -Zxz -b "$P" "$OUT/repo/pool/main/kwick-agents_${VER}_all.deb" >/dev/null
-rm -rf "$P"; echo "packaged kwick-agents $VER"
+deb_build "$P" kwick-agents "$VER" all
