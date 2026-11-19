@@ -1,6 +1,3 @@
-# KwickOS installs software from the Debian 13 "trixie" archive.
-# Repository metadata is verified with the Debian archive keys in
-# /etc/apt/trusted.gpg.d, and every package with SHA256, so plain HTTP is safe.
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: trixie trixie-updates
