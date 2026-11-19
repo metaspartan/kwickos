@@ -67,7 +67,7 @@ QtObject {
     }
 
     function elevated(cmd) {
-        return "sudo -n " + cmd + " 2>&1 || pkexec " + cmd
+        return "if sudo -n true 2>/dev/null; then sudo -n " + cmd + " 2>&1; else pkexec " + cmd + "; fi"
     }
 
     function terminal(cmd, cb) {
