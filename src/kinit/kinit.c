@@ -447,6 +447,7 @@ struct svc {
 	char user[64], group[64], workdir[256], pidfile[256];
 	char *env[MAX_ENV]; int nenv;
 	char *envfiles[8]; int nenvfiles;
+	char *cond[16]; int ncond;
 	char rtdir[128], statedir[128], logsdir[128], cachedir[128];
 	int want;
 	int state;
@@ -469,6 +470,7 @@ static void free_svc(struct svc *s)
 	for (int i = 0; i < s->npost; i++) free(s->post[i]);
 	for (int i = 0; i < s->nenv; i++) free(s->env[i]);
 	for (int i = 0; i < s->nenvfiles; i++) free(s->envfiles[i]);
+	for (int i = 0; i < s->ncond; i++) free(s->cond[i]);
 	free(s->stop); free(s->reload);
 	free(s);
 }
@@ -570,6 +572,14 @@ static void parse_unit_file(struct svc *s, const char *path)
 		char *k = trim(l), *v = trim(eq + 1);
 		if (!strcmp(section, "[Unit]")) {
 			if (!strcmp(k, "Description")) snprintf(s->desc, sizeof s->desc, "%s", v);
+			else if (!strncmp(k, "Condition", 9)) {
+				if (!*v) { for (int i = 0; i < s->ncond; i++) free(s->cond[i]); s->ncond = 0; }
+				else if (s->ncond < 16) {
+					size_t n = strlen(k) + strlen(v) + 2;
+					s->cond[s->ncond] = malloc(n);
+					snprintf(s->cond[s->ncond++], n, "%s=%s", k, v);
+				}
+			}
 		} else if (!strcmp(section, "[Service]")) {
 			if (!strcmp(k, "Type")) s->type = !strcmp(v, "forking") ? T_FORKING : !strcmp(v, "oneshot") ? T_ONESHOT : T_SIMPLE;
 			else if (!strcmp(k, "ExecStart")) add_exec(s->start, &s->nstart, v, s, 1);
@@ -767,10 +777,82 @@ static void svc_child(struct svc *s)
 	_exit(127);
 }
 
+static int dir_has_entries(const char *path)
+{
+	DIR *d = opendir(path);
+	if (!d) return 0;
+	struct dirent *de;
+	int any = 0;
+	while (!any && (de = readdir(d))) any = strcmp(de->d_name, ".") && strcmp(de->d_name, "..");
+	closedir(d);
+	return any;
+}
+
+static int needs_update(const char *dir)
+{
+	char p[PATH_MAX];
+	struct stat u, d;
+	snprintf(p, sizeof p, "%s/.updated", dir);
+	if (stat("/usr", &u)) return 0;
+	if (stat(p, &d)) return 1;
+	return u.st_mtim.tv_sec > d.st_mtim.tv_sec ||
+		(u.st_mtim.tv_sec == d.st_mtim.tv_sec && u.st_mtim.tv_nsec > d.st_mtim.tv_nsec);
+}
+
+static int cond_true(const char *k, const char *v)
+{
+	struct stat st;
+	if (!strcmp(k, "ConditionPathExists")) return access(v, F_OK) == 0;
+	if (!strcmp(k, "ConditionPathIsDirectory")) return stat(v, &st) == 0 && S_ISDIR(st.st_mode);
+	if (!strcmp(k, "ConditionPathIsSymbolicLink")) return lstat(v, &st) == 0 && S_ISLNK(st.st_mode);
+	if (!strcmp(k, "ConditionPathIsReadWrite")) return access(v, W_OK) == 0;
+	if (!strcmp(k, "ConditionDirectoryNotEmpty")) return dir_has_entries(v);
+	if (!strcmp(k, "ConditionFileNotEmpty")) return stat(v, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0;
+	if (!strcmp(k, "ConditionFileIsExecutable")) return stat(v, &st) == 0 && S_ISREG(st.st_mode) && (st.st_mode & 0111);
+	if (!strcmp(k, "ConditionNeedsUpdate")) return needs_update(v);
+	if (!strcmp(k, "ConditionKernelCommandLine")) {
+		char key[256];
+		snprintf(key, sizeof key, "%s", v);
+		char *eq = strchr(key, '=');
+		if (eq) *eq = 0;
+		const char *got = cmdline_get(key);
+		return eq ? got && !strcmp(got, eq + 1) : got != NULL;
+	}
+	if (!strcmp(k, "ConditionFirstBoot")) {
+		int first = stat("/etc/machine-id", &st) || st.st_size == 0;
+		return first == (!strcmp(v, "yes") || !strcmp(v, "true") || !strcmp(v, "1"));
+	}
+	return 1;
+}
+
+static int conds_met(const struct svc *s)
+{
+	int trig = 0, trig_ok = 0;
+	for (int i = 0; i < s->ncond; i++) {
+		char k[64];
+		const char *eq = strchr(s->cond[i], '=');
+		snprintf(k, sizeof k, "%.*s", (int)(eq - s->cond[i]), s->cond[i]);
+		const char *v = eq + 1;
+		int is_trig = *v == '|';
+		v += is_trig;
+		int neg = *v == '!';
+		v += neg;
+		int r = cond_true(k, v) != neg;
+		if (is_trig) { trig = 1; trig_ok |= r; }
+		else if (!r) return 0;
+	}
+	return !trig || trig_ok;
+}
+
 static void svc_start(struct svc *s)
 {
 	if (s->state == S_RUNNING || s->state == S_STARTING) return;
 	s->want = 1;
+	if (!conds_met(s)) {
+		s->state = s->remain ? S_EXITED : S_STOPPED;
+		if (verbose) say("skipped %s (condition not met)", s->name);
+		return;
+	}
 	pid_t p = fork();
 	if (p < 0) { s->state = S_FAILED; return; }
 	if (p == 0) svc_child(s);
@@ -839,7 +921,8 @@ static void svc_exited(struct svc *s, int st)
 	if (s->state == S_STOPPING || !s->want) { s->state = S_STOPPED; return; }
 	s->state = (code == 0 || s->ignore_main_fail) ? S_STOPPED : S_FAILED;
 	if (s->restart == R_ALWAYS || (s->restart == R_ONFAIL && code != 0)) {
-		s->fails++;
+		if (time(NULL) - s->since >= 30) s->fails = 0;
+		if (++s->fails > 10) { say("%s keeps exiting, not restarting it again", s->name); return; }
 		long delay = s->fails > 5 ? 5000 : 100L << s->fails;
 		s->restart_at = now_ms(CLOCK_MONOTONIC) + delay;
 	}
@@ -1075,6 +1158,7 @@ static void handle_uevent(void)
 {
 	char buf[4096];
 	ssize_t n;
+	if (access("/run/udev/control", F_OK) == 0) { close(uevfd); uevfd = -1; return; }
 	while ((n = recv(uevfd, buf, sizeof buf - 1, 0)) > 0) {
 		buf[n] = 0;
 		if (strncmp(buf, "add@", 4)) continue;

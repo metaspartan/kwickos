@@ -1,0 +1,33 @@
+#!/bin/sh
+D=/etc/systemd/system
+W=$D/multi-user.target.wants
+BOOT="dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report sddm"
+BUS="NetworkManager bluetooth upower rtkit-daemon udisks2 power-profiles-daemon"
+MASK="systemd-udev-trigger NetworkManager-wait-online"
+
+drop() {
+  rm -f "$D/$1.service.d/kwick.conf" "$W/$1.service"
+  rmdir "$D/$1.service.d" 2>/dev/null
+  true
+}
+
+case ${1:-enable} in
+  enable)
+    mkdir -p "$W"
+    rm -f "$W/networking.service"
+    drop polkit
+    for u in $MASK; do ln -sf /dev/null "$D/$u.service"; done
+    for u in $BOOT $BUS; do
+      f=/usr/lib/systemd/system/$u.service
+      if [ -e "$f" ]; then ln -sf "$f" "$W/$u.service"; else echo "note: no unit $u"; fi
+    done
+    for u in $BUS; do
+      mkdir -p "$D/$u.service.d"
+      printf '[Service]\nExecStartPre=/bin/sh -c "[ ! -x /usr/lib/kwick/wait-for ] || exec /usr/lib/kwick/wait-for dbus"\nRestart=on-failure\n' > "$D/$u.service.d/kwick.conf"
+    done ;;
+  disable)
+    for u in $BUS polkit; do drop "$u"; done
+    for u in $MASK; do [ -L "$D/$u.service" ] && rm -f "$D/$u.service"; done
+    for u in sddm kwick-elogind kwick-udev-trigger kwick-session-report; do rm -f "$W/$u.service"; done ;;
+  *) echo "usage: desktop-units [enable|disable]" >&2; exit 1 ;;
+esac

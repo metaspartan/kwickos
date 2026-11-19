@@ -34,12 +34,7 @@ RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && grep 
 RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all && glib-compile-schemas /usr/share/glib-2.0/schemas
 RUN set -e; \
     find /usr/lib/kwick /usr/bin/kwick-* /usr/bin/steam /usr/bin/steamos-session-select -type f -exec chmod 755 {} +; \
-    rm -f /etc/systemd/system/multi-user.target.wants/networking.service; \
-    W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W; \
-    for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do \
-      f=$(ls /usr/lib/systemd/system/$u.service 2>/dev/null || true); \
-      if [ -n "$f" ]; then ln -sf $f $W/$u.service; else echo "note: no unit $u"; fi; \
-    done; \
+    /usr/lib/kwick/desktop-units enable; \
     kwick-shell --default zsh; \
     adduser --disabled-password --gecos "KwickOS Live" --shell /bin/zsh kwick 2>/dev/null || adduser -D -g "KwickOS Live" -s /bin/zsh kwick; \
     for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done; \
@@ -53,11 +48,6 @@ RUN set -e; \
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true; \
     ls -l /usr/libexec/elogind /usr/lib/systemd/systemd-udevd /usr/bin/startplasma-wayland
 
-RUN for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do \
-      mkdir -p /etc/systemd/system/$u.service.d; \
-      printf '[Service]\nExecStartPre=/bin/sh -c "[ ! -x /usr/lib/kwick/wait-for ] || exec /usr/lib/kwick/wait-for dbus"\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf; \
-    done
-
 RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info /usr/share/help /usr/share/lintian \
  && find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' ! -name 'locale.alias' -exec rm -rf {} + \
  && rm -rf /var/cache/apt /var/lib/apt/lists/*
@@ -66,5 +56,8 @@ RUN rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/p
 
 RUN (for t in KwickOS KwickOS-Fluent KwickOS-Linux hicolor; do gtk-update-icon-cache -f -t /usr/share/icons/$t || true; done) \
  && rm -rf /usr/share/plasma/look-and-feel/org.kde.breeze.desktop /usr/share/plasma/look-and-feel/org.kde.breezedark.desktop /usr/share/plasma/look-and-feel/org.kde.breezetwilight.desktop /usr/share/plasma/look-and-feel/org.debian.desktop \
- && for l in macos windows linux; do cp /usr/share/kwick/plasma/$l.js /usr/share/plasma/look-and-feel/org.kwickos.$l/contents/layouts/org.kde.plasma.desktop-layout.js; done
+ && for l in macos windows linux; do cp /usr/share/kwick/plasma/$l.js /usr/share/plasma/look-and-feel/org.kwickos.$l/contents/layouts/org.kde.plasma.desktop-layout.js; done \
+ && touch -r /usr /etc/.updated /var/.updated \
+ && su -s /bin/sh kwick -c 'cd && XDG_CURRENT_DESKTOP=KDE dbus-run-session /usr/lib/kwick/session-init kde' \
+ && test -e /home/kwick/.config/kwick/kde.applied
 

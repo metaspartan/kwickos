@@ -1530,6 +1530,15 @@ do_configure() {
 	if [ -d "$T/home/$USERN" ]; then
 		chown -R "$USER_UID:$USER_GID" "$T/home/$USERN"
 	fi
+	cfg_prelayout
+}
+
+cfg_prelayout() {
+	[ "$EDITION" = desktop ] && [ -x "$T/usr/lib/kwick/session-init" ] && [ -d "$T/home/$USERN" ] || return 0
+	chroot_mounts
+	xrun chroot "$T" su -s /bin/sh "$USERN" -c 'cd && XDG_CURRENT_DESKTOP=KDE timeout 120 dbus-run-session /usr/lib/kwick/session-init kde' ||
+		log "the desktop layout applies at first login instead"
+	chroot_umounts
 }
 
 find_kernel() {
@@ -1821,7 +1830,7 @@ write_grub_cfg() {
 	ini=""
 	[ "$(need_initrd)" = 1 ] && ini="	initrd $BREL/initrd.img"
 	{
-		printf 'set timeout_style=hidden\nset timeout=1\nset default=0\n'
+		printf 'set default=0\nset timeout_style=hidden\nset timeout=0\nif keystatus --shift; then set timeout_style=menu; set timeout=-1; fi\n'
 		printf 'insmod part_gpt\ninsmod part_msdos\ninsmod fat\ninsmod ext2\ninsmod btrfs\ninsmod xfs\ninsmod gzio\n'
 		printf 'search --no-floppy --fs-uuid --set=root %s\n' "$fsu"
 		printf 'menuentry "KwickOS" {\n\tlinux %s/vmlinuz %s\n%s\n}\n' "$BREL" "$cl" "$ini"
@@ -1832,7 +1841,7 @@ write_grub_cfg() {
 write_sdboot_entries() {
 	cl="$(boot_cmdline) quiet"
 	mkdir -p "$ESPDIR/loader/entries"
-	printf 'default kwickos.conf\ntimeout 1\nconsole-mode keep\n' >"$ESPDIR/loader/loader.conf"
+	printf 'default kwickos.conf\ntimeout 0\nconsole-mode keep\n' >"$ESPDIR/loader/loader.conf"
 	for v in "kwickos:KwickOS:" "kwickos-safe:KwickOS (safe graphics): nomodeset"; do
 		fn=${v%%:*}
 		rest=${v#*:}

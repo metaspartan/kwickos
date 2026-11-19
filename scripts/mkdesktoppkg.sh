@@ -38,19 +38,12 @@ deb_script "$P" postinst <<'EOF'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
-rm -f /etc/systemd/system/multi-user.target.wants/networking.service
 if [ -f /etc/network/interfaces ] && grep -E '^[[:space:]]*iface[[:space:]]' /etc/network/interfaces | grep -qvE '^[[:space:]]*iface[[:space:]]+lo[[:space:]]'; then
   cp /etc/network/interfaces /etc/network/interfaces.kwick-headless
   printf 'auto lo\niface lo inet loopback\n\nsource-directory /etc/network/interfaces.d\n' > /etc/network/interfaces
 fi
-W=/etc/systemd/system/multi-user.target.wants; mkdir -p $W
-for u in dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report NetworkManager bluetooth polkit sddm upower udisks2 power-profiles-daemon rtkit-daemon; do
-  f=$(ls /usr/lib/systemd/system/$u.service 2>/dev/null || true); [ -n "$f" ] && ln -sf "$f" $W/$u.service
-done
-for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do
-  mkdir -p /etc/systemd/system/$u.service.d
-  printf '[Service]\nExecStartPre=/bin/sh -c "[ ! -x /usr/lib/kwick/wait-for ] || exec /usr/lib/kwick/wait-for dbus"\nRestart=on-failure\n' > /etc/systemd/system/$u.service.d/kwick.conf
-done
+/usr/lib/kwick/desktop-units enable >/dev/null
+touch -r /usr /etc/.updated /var/.updated
 command -v kwick-shell >/dev/null && kwick-shell --default zsh >/dev/null 2>&1 || true
 if ! id kwick >/dev/null 2>&1; then
   adduser --disabled-password --gecos "KwickOS" --shell /bin/zsh kwick >/dev/null 2>&1 || true
@@ -90,17 +83,17 @@ command -v flatpak >/dev/null && flatpak remote-add --if-not-exists flathub http
 nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1; /usr/bin/kwick-gaming install overlay >/var/log/kwick-gaming.log 2>&1' >/dev/null 2>&1 &
 echo "KwickOS Desktop installed. Reboot to start the desktop (kernel: generic flavor via kwick-kernel-install)."
 EOF
+deb_script "$P" prerm <<'EOF'
+#!/bin/sh
+set -e
+[ "$1" = remove ] || exit 0
+/usr/lib/kwick/desktop-units disable
+EOF
 deb_script "$P" postrm <<'EOF'
 #!/bin/sh
 set -e
 case "$1" in remove|purge) ;; *) exit 0 ;; esac
 W=/etc/systemd/system/multi-user.target.wants
-for u in NetworkManager bluetooth upower rtkit-daemon polkit udisks2 power-profiles-daemon; do
-  rm -f /etc/systemd/system/$u.service.d/kwick.conf
-  rmdir /etc/systemd/system/$u.service.d 2>/dev/null || true
-  rm -f $W/$u.service
-done
-for u in sddm kwick-elogind kwick-udev-trigger kwick-session-report; do rm -f $W/$u.service; done
 rm -f /etc/systemd/system/display-manager.service /etc/kinit/no-getty /etc/kwick-edition
 if [ -f /etc/network/interfaces.kwick-headless ] && ! grep -E '^[[:space:]]*iface[[:space:]]' /etc/network/interfaces 2>/dev/null | grep -qvE '^[[:space:]]*iface[[:space:]]+lo[[:space:]]'; then
   mv /etc/network/interfaces.kwick-headless /etc/network/interfaces

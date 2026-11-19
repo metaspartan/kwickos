@@ -460,22 +460,25 @@ case "$p" in
     [ "$be" = kde ] && glass_ok || exit 0
     on=0; isplug kwick_liquidglass false && on=1
     if [ "$(gl)" != gpu ]; then
-      [ $on = 1 ] && { glass 0; reload; }
-      exit 0
+      [ $on = 1 ] && glass 0
+      isplug blur true && { blurfx 0; touch "$cfg/blur.auto-off"; }
+    else
+      [ -e "$cfg/blur.auto-off" ] && { rm -f "$cfg/blur.auto-off"; blurfx 1; }
+      case $(get_fx liquidglass_user) in
+        on) want=1 ;;
+        off) want=0 ;;
+        *) case $(cat "$cfg/effects" 2>/dev/null || echo default) in
+             default|fluid|full) want=1 ;;
+             custom) want=$on ;;
+             *) want=0 ;;
+           esac ;;
+      esac
+      if [ $want = 1 ]; then
+        if [ $on = 0 ]; then glass 1
+        elif [ "$(/usr/lib/kwick/liquidglass-theme status 2>/dev/null)" != on ]; then glass_theme on; fi
+      elif [ $on = 1 ]; then glass 0; fi
     fi
-    case $(get_fx liquidglass_user) in
-      on) want=1 ;;
-      off) want=0 ;;
-      *) case $(cat "$cfg/effects" 2>/dev/null || echo default) in
-           default|fluid|full) want=1 ;;
-           custom) want=$on ;;
-           *) want=0 ;;
-         esac ;;
-    esac
-    if [ $want = 1 ]; then
-      if [ $on = 0 ]; then glass 1; reload
-      elif [ "$(/usr/lib/kwick/liquidglass-theme status 2>/dev/null)" != on ]; then glass_theme on; fi
-    elif [ $on = 1 ]; then glass 0; reload; fi
+    [ -n "$touched" ] && reload
     exit 0 ;;
   backend) echo "$be"; exit 0 ;;
   list) q org.kde.KWin /Effects org.kde.kwin.Effects.listOfEffects | sort; exit 0 ;;

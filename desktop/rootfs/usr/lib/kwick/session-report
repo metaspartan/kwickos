@@ -1,8 +1,8 @@
 #!/bin/sh
 say() { echo "$*" > /dev/kmsg 2>/dev/null; echo "$*" > /dev/console 2>/dev/null; }
 i=0
-while [ $i -lt 600 ]; do
-	if pgrep -x plasmashell >/dev/null 2>&1 && pgrep -x kwin_wayland >/dev/null 2>&1; then
+while [ $i -lt 300 ]; do
+	if pgrep -x plasmashell >/dev/null 2>&1; then
 		up=$(cut -d' ' -f1 /proc/uptime)
 		mem=$(awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{printf "%d", (t-a)/1024}' /proc/meminfo)
 		gpu=$(cat /sys/class/drm/card*/device/uevent 2>/dev/null | sed -n 's/^DRIVER=//p' | sort -u | tr '\n' ' ')
@@ -13,7 +13,7 @@ while [ $i -lt 600 ]; do
 		exit 0
 	fi
 	i=$((i + 1))
-	sleep 0.5
+	sleep 1
 done
 say "KWICK-DESKTOP-TIMEOUT: plasma session did not start; see journalctl -u sddm"
 ps -eo pid,user,args | grep -E 'sddm|kwin|plasma|elogind|dbus|udev' > /dev/console 2>/dev/null
