@@ -37,8 +37,11 @@
     "exec": "kwick-vpn waybar",
     "return-type": "json",
     "interval": 5,
-    "format": "{}",
-    "on-click": "foot nmtui"
+    "signal": 10,
+    "format": "{icon}",
+    "format-icons": { "connected": "", "connecting": "", "disconnected": "" },
+    "on-click": "kwick-vpn menu",
+    "on-click-right": "kwick-settings vpn"
   },
   "network": {
     "format-wifi": " {signalStrength}%",

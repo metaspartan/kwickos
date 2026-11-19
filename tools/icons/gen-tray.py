@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
-import math, os, sys
+import importlib.util, math, os, sys
 
+
+def sibling(name):
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), os.path.join(os.path.dirname(os.path.abspath(__file__)), name + ".py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+CUT = sibling("fill-symbolic").CUT
 SW = 1.5
 DIM = 0.32
+BUSY = 0.55
 TEXT = "#ffffff"
 USAGE = "usage: gen-tray.py <icon-theme-dir>"
 
@@ -210,8 +220,54 @@ def gauge(angle):
     return arc(11, 13, 7.25, -125, 125) + P(f"M11 13L{f(x)} {f(y)}") + dot(11, 13, 1.5)
 
 
-def padlock():
-    return rect(5, 9.75, 12, 8.25, 2) + P("M7.75 9.75V7.5a3.25 3.25 0 0 1 6.5 0v2.25") + dot(11, 13.9, 1.1)
+def poly(pts):
+    return "M" + "L".join(f"{f(x)} {f(y)}" for x, y in pts) + "Z"
+
+
+def slant(run, share, rise, t):
+    a = t
+    for _ in range(8):
+        a = t * math.hypot(run - a * share, rise) / rise
+    return a
+
+
+def vee(x0, w, y0, h, t):
+    x1, cx, y1 = x0 + w, x0 + w / 2, y0 + h
+    a = slant(w / 2, 0.5, h, t)
+    yv = y0 + (cx - x0 - a) * h / (cx - x0 - a / 2)
+    return poly([(x0, y0), (x0 + a, y0), (cx, yv), (x1 - a, y0), (x1, y0), (cx + a / 2, y1), (cx - a / 2, y1)])
+
+
+def pee(x0, w, y0, h, t):
+    r = h / 3
+    x1, y1, ym = x0 + w, y0 + h, y0 + 2 * r
+    ri = r - t
+    return (f"M{f(x0)} {f(y1)}V{f(y0)}H{f(x1 - r)}A{f(r)} {f(r)} 0 0 1 {f(x1 - r)} {f(ym)}H{f(x0 + t)}V{f(y1)}Z"
+            f"M{f(x0 + t)} {f(y0 + t)}V{f(ym - t)}H{f(x1 - r)}A{f(ri)} {f(ri)} 0 0 0 {f(x1 - r)} {f(y0 + t)}Z")
+
+
+def enn(x0, w, y0, h, t):
+    x1, y1 = x0 + w, y0 + h
+    a = slant(w, 1, h, t * 0.95)
+    yr = y0 + (x1 - t - x0 - a) / (x1 - x0 - a) * h
+    yl = y0 + t / (x1 - a - x0) * h
+    return poly([(x0, y1), (x0, y0), (x0 + a, y0), (x1 - t, yr), (x1 - t, y0), (x1, y0), (x1, y1), (x1 - a, y1), (x0 + t, yl), (x0 + t, y1)])
+
+
+def vpn_letters(paint, extra=""):
+    t, x, y0, h, gap = 1, 3.5, 8, 6, 1
+    widths = (4.5, 4, 4)
+    out = ""
+    for shape, w in zip((vee, pee, enn), widths):
+        out += f'<path d="{shape(x, w, y0, h, t)}" fill="{paint}" stroke="none"{extra}/>'
+        x += w + gap
+    return out
+
+
+def vpn(state):
+    if state == "off":
+        return rect(1.75, 5.75, 18.5, 10.5, 3) + vpn_letters("currentColor")
+    return frect(1, 5, 20, 12, 3.75, "" if state == "on" else f' opacity="{BUSY}"') + vpn_letters(CUT)
 
 
 def names():
@@ -275,7 +331,9 @@ def names():
     add("power-profile-power-saver", leaf())
     add("power-profile-balanced", gauge(0))
     add("power-profile-performance", gauge(60))
-    add("network-vpn network-vpn-acquiring", padlock())
+    add("network-vpn", vpn("on"))
+    add("network-vpn-acquiring", vpn("wait"))
+    add("network-vpn-disconnected network-vpn-disabled network-vpn-offline", vpn("off"))
     add("audio-input-microphone-low audio-input-microphone-medium audio-input-microphone-high", microphone())
     add("network-cellular-signal-excellent network-cellular-connected", bars(4))
     add("network-cellular-signal-good", bars(3))

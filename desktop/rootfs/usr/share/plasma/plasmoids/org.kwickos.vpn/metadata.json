@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "A macOS style VPN menu: every VPN and WireGuard profile with a switch, connect time and tunnel address, import and VPN Settings",
+        "EnabledByDefault": true,
+        "Icon": "network-vpn",
+        "Id": "org.kwickos.vpn",
+        "License": "GPL-2.0-or-later",
+        "Name": "VPN",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-NotificationArea": "true",
+    "X-Plasma-NotificationAreaCategory": "Hardware"
+}

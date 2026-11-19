@@ -70,7 +70,7 @@ Plasma, GNOME and Hyprland:
 | Windows | `KwickOS-Fluent` | white line icons for places, folders, actions, status and file types, flat Fluent app tiles |
 | Linux | `KwickOS-Linux` | Tokyo Night squircles |
 
-Menubar status glyphs (volume, network, battery, brightness, devices, notifications, bluetooth, updates) come from
+Menubar status glyphs (volume, network, VPN, battery, brightness, devices, notifications, bluetooth, updates) come from
 `tools/icons/gen-tray.py <icon-theme-dir>`, run by `gen-icons.py macos` on `desktop/rootfs/usr/share/icons/KwickOS`. They
 are white 22x22 glyphs in one 14 px optical box (battery, hard disk and the expander arrow are optical exceptions). Plasma 6
 no longer reads `icons/*.svg` from a Plasma style, so these live in the icon theme.
@@ -117,7 +117,9 @@ sysctl, ntsync, I/O schedulers). x86-only modules say so on arm64 and riscv64. D
 
 WireGuard is built into every kernel flavor. The desktop ships NetworkManager plugins for OpenVPN, OpenConnect (AnyConnect,
 GlobalProtect, Fortinet, Pulse), vpnc, L2TP/IPsec, strongSwan and SSTP, so VPNs show up in the Plasma network applet, the GNOME
-quick settings and the Hyprland bar (a lock appears while a tunnel is up). `kwick-vpn` works on both editions; see [VPN.md](VPN.md).
+quick settings and the Hyprland bar. Plasma gets its own VPN menu bar item (`org.kwickos.vpn`): a VPN badge in the macOS menu
+bar next to the network icon, and a tray icon on Windows and Linux, shown while at least one VPN profile exists, with a switch per
+profile, connect time and tunnel address. `kwick-vpn` works on both editions; see [VPN.md](VPN.md).
 
 ## GPUs
 

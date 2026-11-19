@@ -7,6 +7,10 @@ import icondesign as ID
 import placeicons as PI
 import freeicons as FI
 
+spec = importlib.util.spec_from_file_location("gen_tray", os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen-tray.py"))
+TRAY = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(TRAY)
+
 ROOT = sys.argv[1]
 
 
@@ -60,6 +64,24 @@ G["clock"] = C(12, 12, 9) + P("M12 6.6V12l3.6 2.2")
 G["globe"] = C(12, 12, 9) + P("M3 12h18") + P("M12 3c3.2 3 3.2 15 0 18") + P("M12 3c-3.2 3-3.2 15 0 18")
 G["lock"] = R(4.8, 10.4, 14.4, 10.2, 2.8) + P("M8 10.4V8a4 4 0 0 1 8 0v2.4") + dot(12, 15.5, 1.4)
 G["shield"] = P("M12 2.8l7.4 3v5.6c0 4.6-3.1 8-7.4 9.8-4.3-1.8-7.4-5.2-7.4-9.8V5.8z") + P("M8.6 12l2.5 2.5 4.4-4.8")
+
+
+def key(extra=""):
+    return P("M12 7.2a2.1 2.1 0 1 1 0 4.2a2.1 2.1 0 1 1 0-4.2M12 11.4v5.8M12 14.6h2M12 16.9h1.6", extra)
+
+
+def lock_body(extra=""):
+    return R(5, 10.6, 14, 10, 2.6, extra)
+
+
+SHIELD = "M12 2.6l7.6 2.9v6.1c0 4.5-3.2 7.9-7.6 9.8-4.4-1.9-7.6-5.3-7.6-9.8V5.5z"
+LOCK_SHACKLE = P("M8 10.6V8a4 4 0 0 1 8 0v2.6")
+G["vpnshield-on"] = P(SHIELD, 'fill="@"') + key(f'stroke="{TRAY.CUT}"')
+G["vpnshield-wait"] = P(SHIELD) + key('opacity="0.4"')
+G["vpnshield-off"] = P(SHIELD) + key()
+G["vpnlock-on"] = lock_body('fill="@"') + LOCK_SHACKLE + P("M12 14.7v1.7", f'stroke="{TRAY.CUT}" stroke-width="2.4"')
+G["vpnlock-wait"] = lock_body() + LOCK_SHACKLE + dot(9, 15.6) + dot(12, 15.6) + dot(15, 15.6)
+G["vpnlock-off"] = lock_body() + P("M8 10.6V8a4 4 0 0 1 7.8-1.3") + dot(12, 15.6, 1.4)
 G["bell"] = P("M5.8 16.6V11a6.2 6.2 0 0 1 12.4 0v5.6l1.6 2.2H4.2z") + P("M9.8 21.2h4.4")
 G["bolt"] = P("M13.4 2.6L5.2 13.6h6l-1 7.8 8.6-11.4h-6.2z")
 G["battery"] = R(2.4, 7.4, 17, 9.4, 2.4) + P("M21.8 10.6v3") + R(5, 10, 8.4, 4.2, 1, 'fill="@" fill-opacity="0.9" stroke="none"')
@@ -301,6 +323,7 @@ class Style:
 class Glass(Style):
     colors = DEEP
     sw = 1.75
+    vpn = "vpnlock"
     text = "#e8ebf4"
     accent = "#0a84ff"
 
@@ -372,6 +395,7 @@ class Fluent(Style):
     comment = "KwickOS Windows layout icons: Fluent shapes for apps and folders, white line glyphs for the interface"
     inherits = "KwickOS,breeze-dark,hicolor"
     sw = 1.6
+    vpn = "vpnshield"
 
     def tile(self, glyph, pal, dark):
         if glyph == "folder":
@@ -510,7 +534,7 @@ def build():
     pref("preferences-system-network network-wireless preferences-network-wireless network-wireless-connected-100 network-wireless-signal-excellent preferences-system-network-wireless preferences-system-wifi wifi preferences-system-network-wifi", "wifi", "blue")
     pref("network-wired preferences-network-wired preferences-system-network-ethernet network-wired-activated", "ethernet", "teal")
     pref("preferences-system-bluetooth bluetooth preferences-bluetooth", "bluetooth", "blue")
-    pref("preferences-system-network-proxy preferences-network-proxy preferences-system-vpn network-vpn", "shield", "indigo")
+    pref("preferences-system-network-proxy preferences-network-proxy preferences-system-vpn", "shield", "indigo")
     pref("preferences-system-time preferences-system-clock preferences-desktop-datetime", "clock", "orange")
     pref("preferences-desktop-locale preferences-desktop-language preferences-desktop-regional preferences-system-language", "globe", "blue")
     pref("preferences-system-power-management preferences-system-power preferences-system-battery battery", "battery", "green")
@@ -757,8 +781,10 @@ def build():
     tray("audio-volume-low audio-volume-medium audio-volume-high audio-volume-overamplified audio-card", "speaker")
     tray("audio-input-microphone audio-input-microphone-low audio-input-microphone-medium audio-input-microphone-high microphone-sensitivity-low microphone-sensitivity-medium microphone-sensitivity-muted", "mic")
     tray("audio-input-microphone-muted", "mic")
-    tray(" ".join(f"network-wireless-{k}" for k in ("connected", "disconnected", "offline", "acquiring", "disabled", "hotspot", "signal-excellent", "signal-weak", "signal-none", "connected-100", "connected-80", "connected-60", "connected-40", "connected-20", "connected-00", "100", "80", "60", "40", "20", "0", "00", "secure", "secure-connected", "no-route")), "wifi")
-    tray("network-wired-activated network-wired-disconnected network-wired-unavailable network-wired-no-route network-idle network-transmit network-receive network-transmit-receive network-offline network-disconnect network-wireless-off network-mobile network-vpn network-vpn-acquiring network-workgroup", "ethernet")
+    tray(" ".join(f"network-wireless-{k}" for k in ("connected", "disconnected", "offline", "acquiring", "disabled", "hotspot", "signal-excellent", "signal-weak", "signal-none", "connected-100", "connected-80", "connected-60", "connected-40", "connected-20", "connected-00", "100", "80", "60", "40", "20", "0", "00", "100-locked", "80-locked", "60-locked", "40-locked", "20-locked", "0-locked", "secure", "secure-connected", "no-route")), "wifi")
+    tray("network-wired-activated network-wired-activated-locked network-wired-disconnected network-wired-unavailable network-wired-no-route network-idle network-transmit network-receive network-transmit-receive network-offline network-disconnect network-wireless-off network-mobile network-workgroup", "ethernet")
+    for state, names in (("on", "network-vpn"), ("wait", "network-vpn-acquiring"), ("off", "network-vpn-disconnected network-vpn-disabled network-vpn-offline")):
+        tray(names, f"{STYLE.vpn}-{state}")
     tray("bluetooth bluetooth-disabled bluetooth-inactive bluetooth-connected bluetooth-paired bluetooth-offline", "bluetooth")
     tray(" ".join(f"battery-{k}" for k in ("000", "010", "020", "030", "040", "050", "060", "070", "080", "090", "100", "empty", "missing", "full-charged", "full-charging", "good-charging", "low-charging", "caution-charging", "000-charging", "010-charging", "020-charging", "030-charging", "040-charging", "050-charging", "060-charging", "070-charging", "080-charging", "090-charging", "100-charging", "level-0-symbolic", "level-10-symbolic", "level-20-symbolic", "level-30-symbolic", "level-40-symbolic", "level-50-symbolic", "level-60-symbolic", "level-70-symbolic", "level-80-symbolic", "level-90-symbolic", "level-100-symbolic", "level-100-charged-symbolic")) + " ac-adapter battery-profile-performance battery-profile-balanced battery-profile-power-saver battery-profile-performance-symbolic battery-profile-balanced-symbolic battery-profile-power-saver-symbolic", "battery")
     tray("preferences-system-notifications notifications notifications-disabled notification-inactive notification-disabled preferences-desktop-notification", "bell")
@@ -792,10 +818,7 @@ def build():
     act("kwick-taskview", "tabbox")
 
     if isinstance(STYLE, Mac):
-        spec = importlib.util.spec_from_file_location("gen_tray", os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen-tray.py"))
-        tray = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(tray)
-        tray.write_theme(OUT)
+        TRAY.write_theme(OUT)
     subprocess.run(["uv", "run", "--no-project", "--with", "picosvg", "python", "-I",
                     os.path.join(os.path.dirname(os.path.abspath(__file__)), "fill-symbolic.py"), OUT], check=True)
     names = {}

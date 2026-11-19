@@ -243,6 +243,32 @@ tooltip {
 }
 
 #custom-vpn {
-  padding: 0 9px;
-  color: #ffffff;
+  min-width: 22px;
+  padding: 0 7px;
+  color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+}
+
+#custom-vpn.connected {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/status/network-vpn.svg");
+}
+
+#custom-vpn.connecting {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/status/network-vpn-acquiring.svg");
+  animation: vpn-pulse 0.7s ease-in-out infinite alternate;
+}
+
+#custom-vpn.disconnected {
+  background-image: url("/usr/share/icons/KwickOS-Fluent/scalable/status/network-vpn-disconnected.svg");
+}
+
+@keyframes vpn-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
 }

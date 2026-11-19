@@ -101,6 +101,24 @@ tooltip {
 }
 
 #custom-vpn {
-  padding: 0 9px;
-  color: #ffffff;
+  padding: 0 10px;
+  color: #7aa2f7;
+}
+
+#custom-vpn.disconnected {
+  color: #565f89;
+}
+
+#custom-vpn.connecting {
+  color: #e0af68;
+  animation: vpn-pulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes vpn-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
 }
