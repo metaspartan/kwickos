@@ -44,7 +44,7 @@ ColumnLayout {
                         implicitWidth: dl.implicitWidth + 18
                         implicitHeight: 22
                         radius: 11
-                        color: "#1e3a28"
+                        color: Theme.goodBg
                         Text { id: dl; anchors.centerIn: parent; text: "Default"; color: Theme.good; font.family: Theme.sans; font.pixelSize: 12; font.weight: Font.Medium }
                     }
                     Btn { visible: !sr.installed && Object.keys(Sys.sessions).length > 0; text: "Install"; onClicked: Sys.terminal("kwick-desktop install " + sr.modelData.id) }

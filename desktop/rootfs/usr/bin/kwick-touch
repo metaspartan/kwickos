@@ -1,0 +1,314 @@
+#!/bin/sh
+usage() {
+  cat <<'USAGE'
+usage: kwick-touch [status]                   current settings, devices and gestures
+       kwick-touch tablet auto|on|off         tablet mode (auto follows the keyboard and touchscreen)
+       kwick-touch osk on|off                 on-screen keyboard when a text field is touched
+       kwick-touch rotation auto|locked       screen rotation from the accelerometer
+       kwick-touch keyboard show|hide|toggle  show or hide the on-screen keyboard now
+       kwick-touch apply                      apply the settings to the running session
+USAGE
+}
+set -u
+cfg=${XDG_CONFIG_HOME:-$HOME/.config}
+conf=$cfg/kwick/touch
+osk_desktop=/usr/share/applications/org.kde.plasma.keyboard.desktop
+wvkbd="wvkbd-mobintl"
+
+get() { v=$(sed -n "s/^$1=//p" "$conf" 2>/dev/null | tail -n 1); echo "${v:-$2}"; }
+put() {
+  mkdir -p "${conf%/*}"
+  { grep -v "^$1=" "$conf" 2>/dev/null; echo "$1=$2"; } > "$conf.new" && mv -f "$conf.new" "$conf"
+}
+
+tablet=$(get tablet auto)
+osk=$(get osk on)
+rotation=$(get rotation auto)
+layout=$(kwick-layout 2>/dev/null || echo macos)
+
+session() {
+  if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then echo hyprland
+  elif [ -n "${SWAYSOCK:-}" ]; then echo sway
+  else
+    case $(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z') in
+      *kde*) echo kde ;; *gnome*) echo gnome ;; *hyprland*) echo hyprland ;; *sway*) echo sway ;; *) echo none ;;
+    esac
+  fi
+}
+de=$(session)
+
+hasdev() { grep -qs "^E:ID_INPUT_$1=1" /run/udev/data/c13:* 2>/dev/null; }
+hassensor() { ls /sys/bus/iio/devices/*/in_accel_x_raw >/dev/null 2>&1 || grep -qs '^E:ID_INPUT_ACCELEROMETER=1' /run/udev/data/c13:* 2>/dev/null; }
+yn() { if "$@"; then echo yes; else echo no; fi; }
+
+kw() { kwriteconfig6 --notify --file kwinrc --group "$1" --key "$2" "$3"; }
+kwq() { qdbus6 "$@" >/dev/null 2>&1; }
+
+oskhave() {
+  case $de in
+    kde) [ -f "$osk_desktop" ] ;;
+    gnome) true ;;
+    hyprland|sway) command -v "$wvkbd" >/dev/null 2>&1 ;;
+    *) false ;;
+  esac
+}
+
+tabletactive() {
+  case $de in
+    kde) [ "$(qdbus6 org.kde.KWin /org/kde/KWin org.freedesktop.DBus.Properties.Get org.kde.KWin.TabletModeManager tabletMode 2>/dev/null)" = true ] ;;
+    *) [ "$tablet" = on ] || { [ "$tablet" = auto ] && hasdev TOUCHSCREEN && ! hasdev KEYBOARD; } ;;
+  esac
+}
+
+edges() {
+  case $layout in
+    macos) echo "4 None KRunner None" ;;
+    windows) echo "6 None None ApplicationLauncher" ;;
+    *) echo "0 ApplicationLauncher None None" ;;
+  esac
+}
+
+gestures() {
+  case $de in
+    kde)
+      case $layout in
+        macos)
+          echo "touchpad|Swipe up with three fingers|Mission Control"
+          echo "touchpad|Swipe down with three fingers|App windows"
+          echo "touchpad|Swipe left or right with three or four fingers|Switch desktop"
+          echo "touchpad|Pinch with four fingers|Search"
+          echo "touchpad|Spread with four fingers|Show desktop"
+          echo "touchscreen|Swipe up from the bottom edge|Mission Control"
+          echo "touchscreen|Swipe down from the top edge|Search" ;;
+        windows)
+          echo "touchpad|Swipe up with three fingers|Task view"
+          echo "touchpad|Swipe down with three fingers|Show desktop"
+          echo "touchpad|Swipe left or right with three or four fingers|Switch desktop"
+          echo "touchpad|Swipe up with four fingers|Task view"
+          echo "touchscreen|Swipe in from the left edge|Task view"
+          echo "touchscreen|Swipe up from the bottom edge|Start" ;;
+        *)
+          echo "touchpad|Swipe up with four fingers|Overview"
+          echo "touchpad|Swipe down with four fingers|Desktop grid"
+          echo "touchpad|Swipe left or right with three or four fingers|Switch desktop"
+          echo "touchscreen|Swipe down from the top edge|Overview"
+          echo "touchscreen|Swipe in from the left edge|Application launcher" ;;
+      esac
+      echo "touchscreen|Swipe up with three fingers|Overview"
+      echo "touchscreen|Swipe left or right with three fingers|Switch desktop"
+      echo "touchscreen|Touch and hold|Right-click in KDE and GTK apps"
+      echo "touchscreen|Tap a text field|Keyboard" ;;
+    gnome)
+      echo "touchpad|Swipe up with three fingers|Activities"
+      echo "touchpad|Swipe left or right with three fingers|Switch workspace"
+      echo "touchscreen|Swipe up from the bottom edge|Activities"
+      echo "touchscreen|Swipe left or right with three fingers|Switch workspace"
+      echo "touchscreen|Touch and hold|Right-click in GTK apps"
+      echo "touchscreen|Tap a text field|Keyboard" ;;
+    hyprland)
+      echo "touchpad|Swipe left or right with $(hyprfingers) fingers|Switch workspace"
+      echo "touchscreen|Swipe in from the left or right edge|Switch workspace"
+      echo "touchscreen|Tap the keyboard button in the bar|Keyboard" ;;
+  esac
+}
+
+hyprfingers() { [ "$layout" = windows ] && echo 4 || echo 3; }
+
+pad_actions() {
+  case $layout in
+    macos) echo "overview exposeclass search desktop" ;;
+    windows) echo "overview desktop - -" ;;
+    *) echo "- - - -" ;;
+  esac
+}
+
+do_action() {
+  case $1 in
+    overview) kwq org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut Overview ;;
+    exposeclass) kwq org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut ExposeClass ;;
+    desktop) kwq org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut "Show Desktop" ;;
+    search) kwq org.kde.krunner /App org.kde.krunner.App.display ;;
+  esac
+}
+
+gestured() {
+  echo $$ > "$(pidf gestured)"
+  command -v libinput >/dev/null 2>&1 || exit 0
+  set -- $(pad_actions)
+  [ "$*" = "- - - -" ] && exit 0
+  d=
+  for d in /dev/input/event*; do [ -r "$d" ] && break; done
+  [ -r "$d" ] || exit 0
+  watch_session
+  stdbuf -oL libinput debug-events 2>/dev/null |
+    awk -v up="$1" -v down="$2" -v pin="$3" -v pout="$4" -v me="$0" '
+      function fire(a) { if (a != "-") system("(sleep 0.3; " me " do " a ") >/dev/null 2>&1 &") }
+      !/GESTURE_(SWIPE|PINCH)_/ { next }
+      /_BEGIN/ { n = $NF; dx = 0; dy = 0; sc = 1; next }
+      /SWIPE_UPDATE/ { if (match($0, /-?[0-9.]+\/ *-?[0-9.]+/)) { split(substr($0, RSTART, RLENGTH), p, "/"); dx += p[1]; dy += p[2] } next }
+      /PINCH_UPDATE/ { for (i = 2; i <= NF; i++) if ($i == "@") sc = $(i - 1); next }
+      /_END/ {
+        if ($0 ~ /cancelled/) next
+        if ($0 ~ /SWIPE/ && n == 3 && (dy < 0 ? -dy : dy) > 2 * (dx < 0 ? -dx : dx) && (dy < 0 ? -dy : dy) > 60) fire(dy < 0 ? up : down)
+        if ($0 ~ /PINCH/ && n == 4 && sc < 0.75) fire(pin)
+        if ($0 ~ /PINCH/ && n == 4 && sc > 1.35) fire(pout)
+      }'
+}
+
+rotated() {
+  echo $$ > "$(pidf rotated)"
+  command -v monitor-sensor >/dev/null 2>&1 || exit 0
+  hassensor || exit 0
+  mon=$(hyprctl monitors 2>/dev/null | awk '/^Monitor/ { print $2; if ($2 ~ /^eDP|^DSI|^LVDS/) exit }' | tail -n 1)
+  [ -n "$mon" ] || exit 0
+  watch_session
+  dbus-send --system --print-reply --dest=net.hadess.SensorProxy /net/hadess/SensorProxy org.freedesktop.DBus.Properties.Get string:net.hadess.SensorProxy string:HasAccelerometer >/dev/null 2>&1
+  monitor-sensor 2>/dev/null | while read -r l; do
+    case $l in
+      *orientation*normal*) t=0 ;; *orientation*left-up*) t=1 ;; *orientation*bottom-up*) t=2 ;; *orientation*right-up*) t=3 ;; *) continue ;;
+    esac
+    [ "$(get rotation auto)" = locked ] && continue
+    hyprctl --batch "keyword monitor $mon,preferred,auto,1,transform,$t ; keyword input:touchdevice:transform $t ; keyword input:tablet:transform $t" >/dev/null 2>&1
+  done
+}
+
+live() { [ -n "${WAYLAND_DISPLAY:-}" ]; }
+watch_session() {
+  sock=${XDG_RUNTIME_DIR:-/tmp}/${WAYLAND_DISPLAY:-wayland-0}
+  me=$$
+  (while [ -S "$sock" ]; do sleep 15; done; kill -TERM -- "-$me") >/dev/null 2>&1 &
+}
+pidf() { echo "${XDG_RUNTIME_DIR:-/tmp}/kwick-touch-$1.pid"; }
+stopd() { p=$(cat "$(pidf "$1")" 2>/dev/null) && kill -TERM -- "-$p" 2>/dev/null; rm -f "$(pidf "$1")"; }
+daemon() {
+  stopd "$1"
+  [ "${2:-on}" = on ] && live || return 0
+  setsid "$0" "$1" >/dev/null 2>&1 </dev/null &
+}
+
+wvkbd_running() { pgrep -x "$wvkbd" >/dev/null 2>&1; }
+wvkbd_start() {
+  wvkbd_running && return 0
+  command -v "$wvkbd" >/dev/null 2>&1 || return 0
+  rm -f "$(pidf osk-shown)"
+  font=$(kwick-fonts names "$layout" 2>/dev/null | sed -n 1p)
+  case $(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null) in
+    *light*|*default*) set -- d1d3d9f0 ffffff abb0ba abb0ba ffffff 000000 ;;
+    *) set -- 232325f0 5d5d61 3a3a3d 7d7d82 5d5d61 ffffff ;;
+  esac
+  setsid "$wvkbd" --hidden -L 300 -R 14 --fn "${font:-Inter} 20" \
+    --bg "$1" --fg "$2" --fg-sp "$3" --press "$4" --press-sp "$5" --text "$6" --text-sp "$6" >/dev/null 2>&1 </dev/null &
+  sleep 0.4
+}
+
+keyboard() {
+  case $de in
+    kde)
+      case $1 in
+        show) kwq org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard.forceActivate ;;
+        hide) kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard active false ;;
+        toggle)
+          if [ "$(qdbus6 org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Get org.kde.kwin.VirtualKeyboard visible 2>/dev/null)" = true ]; then keyboard hide; else keyboard show; fi ;;
+      esac ;;
+    hyprland|sway)
+      wvkbd_start
+      shown=$(pidf osk-shown)
+      a=$1; [ "$a" = toggle ] && { [ -e "$shown" ] && a=hide || a=show; }
+      if [ "$a" = show ]; then : > "$shown"; pkill -USR2 -x "$wvkbd"; else rm -f "$shown"; pkill -USR1 -x "$wvkbd"; fi ;;
+    gnome) gsettings set org.gnome.desktop.a11y.applications screen-keyboard-enabled "$([ "$1" = hide ] && echo false || echo true)" ;;
+  esac
+}
+
+kde_rotation() {
+  f=$cfg/kwinoutputconfig.json
+  [ -f "$f" ] || return 0
+  if [ "$rotation" = locked ]; then a=InTabletMode b=Never; else a=Never b=InTabletMode; fi
+  grep -q "\"autoRotation\": \"$a\"" "$f" && sed -i "s/\"autoRotation\": \"$a\"/\"autoRotation\": \"$b\"/" "$f"
+  true
+}
+
+apply_kde() {
+  kw Input TabletMode "$tablet"
+  if [ "$osk" = on ] && [ -f "$osk_desktop" ]; then
+    kw Wayland InputMethod "$osk_desktop"; kw Wayland VirtualKeyboardEnabled true
+  else
+    kw Wayland VirtualKeyboardEnabled false
+  fi
+  kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled "$([ "$osk" = on ] && echo true || echo false)"
+  set -- $(edges)
+  kw Effect-overview TouchBorderActivate "$1"
+  kw TouchEdges Left "$2"
+  kw TouchEdges Top "$3"
+  kw TouchEdges Bottom "$4"
+  kw TouchEdges Right None
+  kde_rotation
+  kwq org.kde.KWin /KWin reconfigure
+  daemon gestured
+}
+
+apply_gnome() {
+  gsettings set org.gnome.settings-daemon.peripherals.touchscreen orientation-lock "$([ "$rotation" = locked ] && echo true || echo false)" 2>/dev/null
+  true
+}
+
+apply_tiling() {
+  f=$(hyprfingers)
+  h=$cfg/hypr; mkdir -p "$h"
+  cat > "$h/kwick-touch.conf" <<CONF
+gestures {
+  workspace_swipe = true
+  workspace_swipe_fingers = $f
+  workspace_swipe_touch = true
+  workspace_swipe_cancel_ratio = 0.2
+  workspace_swipe_create_new = false
+}
+CONF
+  if [ "$de" = hyprland ] && command -v hyprctl >/dev/null 2>&1; then
+    hyprctl --batch "keyword gestures:workspace_swipe_fingers $f ; keyword gestures:workspace_swipe_touch true" >/dev/null 2>&1
+    daemon rotated "$([ "$rotation" = auto ] && echo on || echo off)"
+  fi
+  if [ "$osk" = on ] && { hasdev TOUCHSCREEN || [ "$tablet" = on ]; }; then live && { pkill -x "$wvkbd" 2>/dev/null; sleep 0.2; wvkbd_start; }; else pkill -x "$wvkbd" 2>/dev/null; fi
+  pkill -RTMIN+8 -x waybar 2>/dev/null
+  true
+}
+
+apply() {
+  case $de in
+    kde) apply_kde ;; gnome) apply_gnome ;; hyprland|sway) apply_tiling ;;
+  esac
+}
+
+status() {
+  echo "session|$de"
+  echo "layout|$layout"
+  echo "tablet|$tablet"
+  echo "tabletactive|$(yn tabletactive)"
+  echo "osk|$osk"
+  echo "oskhave|$(yn oskhave)"
+  echo "rotation|$rotation"
+  echo "touchscreen|$(yn hasdev TOUCHSCREEN)"
+  echo "touchpad|$(yn hasdev TOUCHPAD)"
+  echo "pen|$(yn hasdev TABLET)"
+  echo "sensor|$(yn hassensor)"
+  gestures | sed 's/^/gesture|/'
+}
+
+bar() {
+  { [ "$osk" = on ] && { hasdev TOUCHSCREEN || [ "$tablet" = on ]; }; } || exit 0
+  printf '{"text":"\357\204\234","tooltip":"Keyboard","class":"keyboard"}\n'
+}
+
+case ${1:-status} in
+  status) status ;;
+  tablet) case ${2:-} in auto|on|off) put tablet "$2"; tablet=$2; apply ;; *) usage >&2; exit 1 ;; esac ;;
+  osk) case ${2:-} in on|off) put osk "$2"; osk=$2; apply ;; *) usage >&2; exit 1 ;; esac ;;
+  rotation) case ${2:-} in auto|locked) put rotation "$2"; rotation=$2; apply ;; *) usage >&2; exit 1 ;; esac ;;
+  keyboard) case ${2:-} in show|hide|toggle) keyboard "$2" ;; *) usage >&2; exit 1 ;; esac ;;
+  apply|session) apply ;;
+  do) do_action "${2:-}" ;;
+  gestured) gestured ;;
+  rotated) rotated ;;
+  bar) bar ;;
+  -h|--help|help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac

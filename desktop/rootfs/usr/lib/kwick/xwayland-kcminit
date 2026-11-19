@@ -1,0 +1,11 @@
+#!/bin/sh
+P=/usr/lib/kwick/kcminit
+set --
+for f in "$P"/plasma/kcminit/*.so; do
+  m=${f##*/}
+  [ -f "$f" ] || continue
+  for s in /usr/lib/*/qt6/plugins/plasma/kcminit/"$m"; do [ -f "$s" ] && continue 2; done
+  set -- "$@" "${m%.so}"
+done
+[ $# -gt 0 ] || exit 0
+QT_PLUGIN_PATH=$P${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH} exec kcminit "$@"

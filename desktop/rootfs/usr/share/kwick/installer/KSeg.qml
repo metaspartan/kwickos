@@ -82,6 +82,8 @@ FocusScope {
                     }
                     MouseArea {
                         anchors.fill: parent
+                        anchors.topMargin: -6
+                        anchors.bottomMargin: -6
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { seg.forceActiveFocus(); seg.picked(item.modelData.id) }
                     }

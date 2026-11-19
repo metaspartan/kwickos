@@ -119,7 +119,7 @@ ColumnLayout {
         Layout.fillWidth: true
         implicitHeight: warnRow.implicitHeight + 28
         radius: 12
-        color: "#2e2412"
+        color: Theme.warnBg
         border.width: 1
         border.color: "#55ff9f0a"
         RowLayout {
@@ -133,7 +133,7 @@ ColumnLayout {
                 text: Sys.compositor === "software"
                       ? "KWin is rendering in software, which disables animations. Install the GPU drivers for your hardware, then log in again."
                       : "No OpenGL compositor is running, so effects cannot animate. Install the GPU drivers (kwick-gpu), then log in again."
-                color: "#f5d9a8"
+                color: Theme.warnText
                 font.family: Theme.sans
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap

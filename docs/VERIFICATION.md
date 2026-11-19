@@ -149,6 +149,40 @@ Not verified for `kwick-kernel`: systemd-boot (the `loader/entries` and `bootctl
 (BPI-F3) and Apple paths, BIOS GRUB, installs that need a generated initramfs (btrfs, xfs, ZFS, LUKS), arm64 and riscv64,
 the Settings page in a running KDE session, and `kwick-kernel-confirm.service` under real systemd (kinit ran it).
 
+## Touch and tablet
+
+VM: overlay on the installed desktop disk (`vpn-1.qcow2`), KVM, virgl, 1600x900 at scale 1.0, `EXTRA='-device virtio-multitouch-pci'`
+(the guest sees "QEMU Virtio MultiTouch" as `ID_INPUT_TOUCHSCREEN`). Touch is injected with `qmp tap` / `qmp swipe`, touchpad
+gestures with `tools/vmlab/touchpad.py` inside the guest (uinput, after `modprobe uinput`). The working-tree files and the
+`plasma-keyboard` build from `scripts/mkkeyboardpkg.sh` were copied into the guest; `iio-sensor-proxy libinput-tools wvkbd
+qt6-virtualkeyboard-plugin qml6-module-org-kde-layershell` came from Debian with apt. The `kwick-desktop` package itself was not rebuilt.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `scripts/mkkeyboardpkg.sh` in a clean `debian:trixie` container | builds, 1.6 MB installed | build log |
+| Tap a text field in Settings (Plasma) | keyboard slides up, KWin moves the window clear of it; typed "Touch" by tapping keys | `touch-osk-dark.png` |
+| Same with the Plasma color scheme switched to BreezeLight | keyboard turns light live | `touch-osk-light.png` |
+| `&123` key | symbols page | `touch-osk-symbols.png` |
+| SDDM: tap the password field, type "kwick" on the keyboard, return | dark keyboard, greeter slides up, login succeeded (new session in `loginctl`) | `touch-sddm.png` |
+| Installer (`kwick-installer-gui --dry-run`): language search | keyboard appears with the sheet, typed text lands in the field at once | `touch-installer.png` |
+| `kwick-touch tablet on` / `auto` | `tabletMode` true then false over D-Bus; Plasma enlarges dock and menu bar, Settings badge says Tablet | `touch-tablet-mode.png` |
+| Touchpad, macOS layout: 3 up, 3 down, 4 spread | Overview, App windows (ExposeClass), show desktop | `touch-gesture-overview.png` |
+| Touchscreen: swipe up from the bottom edge, down from the top edge, 3 fingers up | Overview, KRunner, Overview | `touch-edge-overview.png` |
+| Rotation lock on KDE | `autoRotation` in `kwinoutputconfig.json` flips between `InTabletMode` and `Never` | file contents |
+| Gesture watcher | starts from autostart at login, survives touchpad hotplug | `ps` |
+| Hyprland | `Hyprland --verify-config` ok with `kwick-touch.conf`; live: `workspace_swipe_touch` 1, fingers 3 (4 after `kwick-layout windows`); tapping the bar's keyboard button shows and hides `wvkbd` | `touch-hyprland-osk.png` |
+
+Problems found and fixed on the way: Debian's `qt6-virtualkeyboard-plugin` is required (without it the keyboard draws but every key
+logs "input method is not set"); the keyboard's language popup needs `qml6-module-org-kde-layershell` (without it the keyboard
+crashes on start and KWin gives up after five tries); busybox `grep` has no `--line-buffered`, so the gesture watcher filters in
+`awk`; `wvkbd` 0.15 dies on `SIGRTMIN`, so `kwick-touch` keeps the shown state itself and sends `SIGUSR1`/`SIGUSR2`; SDDM's greeter
+needs `QT_QPA_PLATFORMTHEME=kde` to be dark.
+
+Not verified: real rotation (the VM has no accelerometer; `iio-sensor-proxy` starts on D-Bus activation and exits without
+sensors), a hardware tablet-mode switch, pen input, GNOME (settings are plain gsettings keys, not run), sway, the lock screen
+(same Breeze component and KWin input method as SDDM), a rebuilt `kwick-desktop` package and the desktop ISO, arm64 and riscv64 builds
+of `plasma-keyboard`.
+
 ## Not verified
 
 * Steam client window or login screen (blocked by bug 4).

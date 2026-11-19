@@ -41,6 +41,7 @@ FocusScope {
 
     MouseArea {
         anchors.fill: parent
+        anchors.margins: -10
         enabled: t.enabled
         cursorShape: Qt.PointingHandCursor
         onClicked: { t.forceActiveFocus(); t.toggled(!t.checked) }

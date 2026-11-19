@@ -1,0 +1,169 @@
+#!/bin/sh
+set -u
+
+TAB=$(printf '\t')
+
+die() { printf 'kwick-bluetooth: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+usage() {
+  cat <<'EOF'
+usage: kwick-bluetooth <command> [args]
+
+  status                  print "available yes|no" and "powered yes|no"
+  list                    paired devices: address, name, connected, battery, icon (tab separated)
+  json                    adapter state and paired devices as JSON
+  power on|off|toggle     switch the adapter
+  connect <address>       connect a paired device
+  disconnect <address>    disconnect a device
+  toggle <address>        connect or disconnect
+  menu                    pick a device or action from a fuzzel menu
+  settings                open the Bluetooth settings of the running desktop
+EOF
+}
+
+btctl() { have bluetoothctl || return 1; timeout 6 bluetoothctl "$@" 2>/dev/null; }
+
+available() { btctl show | grep -q '^Controller '; }
+
+powered() { btctl show | grep -q 'Powered: yes'; }
+
+device_line() {
+  btctl info "$1" | awk -v mac="$1" -v tab="$TAB" '
+    /^[[:space:]]*Name:/ { sub(/^[[:space:]]*Name: /, ""); name = $0 }
+    /^[[:space:]]*Alias:/ { sub(/^[[:space:]]*Alias: /, ""); alias = $0 }
+    /^[[:space:]]*Connected:/ { conn = $2 }
+    /^[[:space:]]*Icon:/ { icon = $2 }
+    /^[[:space:]]*Battery Percentage:/ { gsub(/[()]/, "", $4); bat = $4 }
+    END { printf "%s%s%s%s%s%s%s%s%s\n", mac, tab, (alias != "" ? alias : name), tab, (conn == "yes" ? "yes" : "no"), tab, bat, tab, icon }'
+}
+
+paired() {
+  { btctl devices Paired || btctl paired-devices; } | awk '$1 == "Device" {print $2}' | sort -u
+}
+
+cmd_list() {
+  available || return 0
+  for mac in $(paired); do device_line "$mac"; done | sort -t "$TAB" -k3,3r -k2,2f
+}
+
+cmd_status() {
+  if available; then echo "available yes"; else echo "available no"; fi
+  if powered; then echo "powered yes"; else echo "powered no"; fi
+}
+
+json_str() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+cmd_json() {
+  a=false; p=false
+  available && a=true
+  [ "$a" = true ] && powered && p=true
+  printf '{"available":%s,"powered":%s,"devices":[' "$a" "$p"
+  first=1
+  cmd_list | while IFS="$TAB" read -r mac name conn bat icon; do
+    [ $first -eq 1 ] || printf ','
+    first=0
+    printf '{"address":"%s","name":"%s","connected":%s,"battery":%s,"icon":"%s"}' \
+      "$mac" "$(json_str "$name")" "$([ "$conn" = yes ] && echo true || echo false)" "${bat:-null}" "$(json_str "$icon")"
+  done
+  printf ']}\n'
+}
+
+cmd_power() {
+  available || die "no Bluetooth adapter found"
+  want=${1:-toggle}
+  [ "$want" = toggle ] && { if powered; then want=off; else want=on; fi; }
+  case $want in
+    on)
+      out=$(btctl power on)
+      if ! powered; then
+        case $out in *Blocked*|*blocked*) rfkill unblock bluetooth 2>/dev/null; btctl power on >/dev/null ;; esac
+      fi
+      powered || die "could not switch Bluetooth on" ;;
+    off) btctl power off >/dev/null; ! powered || die "could not switch Bluetooth off" ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+
+is_connected() { btctl info "$1" | grep -q 'Connected: yes'; }
+
+cmd_connect() {
+  [ -n "${1:-}" ] || die "missing device address"
+  powered || cmd_power on
+  btctl connect "$1" | grep -q 'Connection successful' || is_connected "$1" || die "could not connect to $(device_name "$1")"
+}
+
+cmd_disconnect() {
+  [ -n "${1:-}" ] || die "missing device address"
+  btctl disconnect "$1" >/dev/null
+  ! is_connected "$1" || die "could not disconnect $(device_name "$1")"
+}
+
+cmd_toggle() {
+  if is_connected "${1:-}"; then cmd_disconnect "$1"; else cmd_connect "$1"; fi
+}
+
+device_name() { device_line "$1" | cut -f2; }
+
+notify() { have notify-send && notify-send -a Bluetooth -i bluetooth-active-symbolic ${3:+-u "$3"} "$1" "$2"; true; }
+
+cmd_settings() {
+  de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+  case $de in
+    *kde*) have kcmshell6 && exec kcmshell6 kcm_bluetooth ;;
+    *gnome*) have gnome-control-center && exec gnome-control-center bluetooth ;;
+  esac
+  have blueman-manager && exec blueman-manager
+  have kcmshell6 && [ -n "$(find /usr/lib -name 'kcm_bluetooth.so' 2>/dev/null | head -n 1)" ] && exec kcmshell6 kcm_bluetooth
+  for t in kwick-terminal foot; do have "$t" && exec "$t" -e bluetoothctl; done
+  die "no Bluetooth settings found"
+}
+
+cmd_menu() {
+  have fuzzel || die "fuzzel is not installed"
+  available || { notify "Bluetooth" "No Bluetooth adapter found"; return 0; }
+  settings="Bluetooth Settings…"
+  if powered; then
+    head="Turn Bluetooth Off"
+    list=$(cmd_list | awk -F"$TAB" 'NF {
+      s = $3 == "yes" ? "Connected" ($4 != "" ? " · " $4 "%" : "") : "Not Connected"
+      printf "%s %s\t%s\t%s\n", ($3 == "yes" ? "●" : "○"), $2, s, $1
+    }')
+  else
+    head="Turn Bluetooth On"
+    list=""
+  fi
+  n=$(printf '%s' "$list" | grep -c '')
+  pick=$(printf '%s\n%s%s\n' "$head" "${list:+$(printf '%s\n' "$list" | cut -f1,2)
+}" "$settings" | fuzzel --dmenu --prompt "Bluetooth  " --lines "$((n + 2))" --width 40 --tabs 4 --index 2>/dev/null) || return 0
+  case $pick in
+    0) if out=$(cmd_power toggle 2>&1); then :; else notify "Bluetooth" "${out#kwick-bluetooth: }" critical; fi ;;
+    "$((n + 1))") cmd_settings ;;
+    *)
+      mac=$(printf '%s\n' "$list" | sed -n "${pick}p" | cut -f3)
+      name=$(printf '%s\n' "$list" | sed -n "${pick}p" | cut -f1 | cut -c 5-)
+      [ -n "$mac" ] || return 0
+      if out=$(cmd_toggle "$mac" 2>&1); then
+        if is_connected "$mac"; then notify "Connected to $name" ""; else notify "Disconnected from $name" ""; fi
+      else
+        notify "Could not change $name" "${out#kwick-bluetooth: }" critical
+        return 1
+      fi ;;
+  esac
+}
+
+cmd=${1:-}
+[ $# -gt 0 ] && shift
+case $cmd in
+  status) cmd_status ;;
+  list|ls) cmd_list ;;
+  json) cmd_json ;;
+  power) cmd_power "$@" ;;
+  connect) cmd_connect "$@" ;;
+  disconnect) cmd_disconnect "$@" ;;
+  toggle) cmd_toggle "$@" ;;
+  menu) cmd_menu ;;
+  settings) cmd_settings ;;
+  ""|-h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

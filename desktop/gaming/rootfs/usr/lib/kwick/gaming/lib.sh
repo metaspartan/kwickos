@@ -1,10 +1,6 @@
 PROG=kwick-gaming
 LIBDIR=/usr/lib/kwick/gaming
 STATE_DIR=/var/lib/kwick-gaming
-SESSION_FILE=/usr/share/wayland-sessions/kwick-gamemode.desktop
-SDDM_DIR=/etc/sddm.conf.d
-BOOT_CONF=$SDDM_DIR/30-kwick-gamemode.conf
-BOOT_FLAG=$STATE_DIR/boot-to-game-mode
 COMPAT_DIR=/usr/share/steam/compatibilitytools.d
 APT_READY=""
 . "$LIBDIR/pins.env"
@@ -52,11 +48,8 @@ marked() { [ -e "$STATE_DIR/$1" ]; }
 pkg_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'; }
 
 pkgs_state() {
-  have=0; total=0
-  for p; do
-    total=$((total + 1))
-    if pkg_installed "$p"; then have=$((have + 1)); fi
-  done
+  total=$#
+  have=$(dpkg-query -W -f='${Package} ${Status}\n' "$@" 2>/dev/null | awk '$NF == "installed" {print $1}' | sort -u | wc -l)
   if [ "$have" -eq "$total" ]; then echo yes; elif [ "$have" -gt 0 ]; then echo part; else echo no; fi
 }
 
@@ -177,43 +170,19 @@ svc_disable() {
   return 0
 }
 
-boot_state() { if [ -e "$BOOT_FLAG" ]; then echo yes; else echo no; fi; }
-
-write_boot_conf() {
-  user=$(cat "$STATE_DIR/boot-user")
-  put "$BOOT_CONF" <<EOF
-[Autologin]
-User=$user
-Session=$1
-Relogin=true
-EOF
+backports_ready() {
+  grep -rqs 'trixie-backports' /etc/apt/sources.list.d /etc/apt/sources.list && return 0
+  put /etc/apt/sources.list.d/kwick-backports.sources <<'SRC'
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie-backports
+Components: main contrib non-free non-free-firmware
+SRC
+  APT_READY=""
 }
 
-session_boot_on() {
-  [ -e "$SESSION_FILE" ] || die "install the gamescope-session module first"
-  [ -d "$SDDM_DIR" ] || command -v sddm >/dev/null 2>&1 || die "boot to Game Mode needs SDDM"
-  mkdir -p "$STATE_DIR"
-  if [ ! -e "$BOOT_FLAG" ]; then
-    s=$(sed -n 's/^Session=//p' "$SDDM_DIR/20-autologin.conf" 2>/dev/null | tail -n 1)
-    echo "${s:-plasma}" > "$STATE_DIR/desktop-session"
-    target_user > "$STATE_DIR/boot-user"
-  fi
-  write_boot_conf kwick-gamemode
-  : > "$BOOT_FLAG"
-  say "Boot to Game Mode is on: the next boot logs in straight to Steam Game Mode."
-}
-
-session_boot_off() {
-  rm -f "$BOOT_CONF" "$BOOT_FLAG"
-  say "Boot to Game Mode is off."
-}
-
-session_select() {
-  is_root || die "session-select needs root"
-  [ -e "$BOOT_FLAG" ] || return 0
-  case ${1:-} in
-    game) write_boot_conf kwick-gamemode ;;
-    desktop) write_boot_conf "$(cat "$STATE_DIR/desktop-session" 2>/dev/null || echo plasma)" ;;
-    *) die "session-select: game or desktop" ;;
-  esac
+apt_get_backports() {
+  backports_ready
+  apt_ready
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -t trixie-backports "$@"
 }

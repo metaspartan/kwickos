@@ -7,8 +7,8 @@
 }
 
 window#waybar {
-  background: rgba(26, 27, 38, 0.92);
-  color: #c0caf5;
+  background: @BAR@;
+  color: #@FG@;
 }
 
 #workspaces {
@@ -18,7 +18,7 @@ window#waybar {
 #workspaces button {
   padding: 0 9px;
   margin: 4px 2px;
-  color: #565f89;
+  color: #@COMMENT@;
   background: transparent;
   border-radius: 6px;
 }
@@ -26,23 +26,23 @@ window#waybar {
 #workspaces button.visible,
 #workspaces button.active,
 #workspaces button.focused {
-  color: #1a1b26;
-  background: #7aa2f7;
+  color: #@BG@;
+  background: #@BLUE@;
   font-weight: bold;
 }
 
 #workspaces button.empty {
-  color: #414868;
+  color: #@BG_ALT@;
 }
 
 #workspaces button.active.empty,
 #workspaces button.focused.empty {
-  color: #1a1b26;
+  color: #@BG@;
 }
 
 #workspaces button:hover {
-  background: #24283b;
-  color: #c0caf5;
+  background: #@BG_HI@;
+  color: #@FG@;
 }
 
 #custom-logo {
@@ -67,50 +67,50 @@ window#waybar {
 #battery,
 #tray {
   padding: 0 10px;
-  color: #a9b1d6;
+  color: #@FG_DIM@;
 }
 
 #cpu {
-  color: #7dcfff;
+  color: #@CYAN@;
 }
 
 #memory {
-  color: #bb9af7;
+  color: #@PURPLE@;
 }
 
 #network {
-  color: #9ece6a;
+  color: #@GREEN@;
 }
 
 #pulseaudio {
-  color: #e0af68;
+  color: #@YELLOW@;
 }
 
 #battery.warning {
-  color: #e0af68;
+  color: #@YELLOW@;
 }
 
 #battery.critical {
-  color: #f7768e;
+  color: #@RED@;
 }
 
 tooltip {
-  background: #1a1b26;
-  border: 1px solid #414868;
+  background: #@BG@;
+  border: 1px solid #@BG_ALT@;
   border-radius: 8px;
 }
 
 #custom-vpn {
   padding: 0 10px;
-  color: #7aa2f7;
+  color: #@BLUE@;
 }
 
 #custom-vpn.disconnected {
-  color: #565f89;
+  color: #@COMMENT@;
 }
 
 #custom-vpn.connecting {
-  color: #e0af68;
+  color: #@YELLOW@;
   animation: vpn-pulse 0.7s ease-in-out infinite alternate;
 }
 
@@ -121,4 +121,8 @@ tooltip {
   to {
     opacity: 0.35;
   }
+}
+
+#custom-osk {
+  padding: 0 10px;
 }

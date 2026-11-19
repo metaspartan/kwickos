@@ -1,25 +1,93 @@
 #!/bin/sh
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+  exec dbus-run-session -- "$0" "$@"
+fi
+
+STATE=${XDG_STATE_HOME:-$HOME/.local/state}/kwick
+LOG=$STATE/gamemode.log
+TRACK=$STATE/gamemode-short
+SWITCHING=$STATE/gamemode-switching
+SHORT=60
+TRIES=3
+mkdir -p "$STATE"
+[ "$(wc -c < "$LOG" 2>/dev/null || echo 0)" -gt 262144 ] && mv -f "$LOG" "$LOG.old"
+exec >>"$LOG" 2>&1
+echo "== $(date '+%F %T') Gaming Mode starting"
+
+select_session() { sudo -n /usr/bin/kwick-gaming session-select "$1" >/dev/null 2>&1; }
+
+short_count() { if [ -r "$TRACK" ]; then wc -l < "$TRACK"; else echo 0; fi; }
+
+fall_back() {
+  echo "Gaming Mode stopped $(short_count) times within ${SHORT}s, opening the desktop"
+  rm -f "$TRACK"
+  : > "$STATE/gamemode-fallback"
+  select_session desktop
+  exit 0
+}
+
+select_session settle
+
 [ -r /etc/kwick/gamescope.conf ] && . /etc/kwick/gamescope.conf
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/kwick/gamescope.conf" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/kwick/gamescope.conf"
 
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=gamescope
+export KWICK_GAMEMODE_PID=$$
+export ENABLE_GAMESCOPE_WSI=1
+export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS=0
+export vk_xwayland_wait_ready=false
+export SRT_URLOPEN_PREFER_STEAM=1
+export QT_IM_MODULE=steam
+export GTK_IM_MODULE=Steam
 export STEAM_MULTIPLE_XWAYLANDS=1
 export STEAM_GAMESCOPE_HAS_TEARING_SUPPORT=1
 export STEAM_GAMESCOPE_TEARING_SUPPORTED=1
 export STEAM_GAMESCOPE_VRR_SUPPORTED=1
+export STEAM_GAMESCOPE_NIS_SUPPORTED=1
+export STEAM_GAMESCOPE_FANCY_SCALING_SUPPORT=1
+export STEAM_GAMESCOPE_DYNAMIC_FPSLIMITER=1
 export STEAM_ENABLE_VOLUME_HANDLER=1
+export STEAM_DISABLE_AUDIO_DEVICE_SWITCHING=1
+export GAMESCOPE_MODE_SAVE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/gamescope/modes.cfg"
+mkdir -p "$(dirname "$GAMESCOPE_MODE_SAVE_FILE")"
+touch "$GAMESCOPE_MODE_SAVE_FILE"
 
-ARGS=${KWICK_GAMESCOPE_ARGS:--e}
-if command -v mangoapp >/dev/null 2>&1; then ARGS="$ARGS --mangoapp"; fi
-STEAM_ARGS=${KWICK_STEAM_ARGS:--steamdeck -steamos3 -steampal -gamepadui}
+ARGS=${KWICK_GAMESCOPE_ARGS:---steam --xwayland-count 2 --hide-cursor-delay 3000 --fade-out-duration 200}
+STEAM_ARGS=${KWICK_STEAM_ARGS:--gamepadui -steamos3 -steampal -steamdeck}
 
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
-  exec dbus-run-session -- "$0" "$@"
+if command -v mangoapp >/dev/null 2>&1; then
+  export STEAM_USE_MANGOAPP=1 STEAM_MANGOAPP_PRESETS_SUPPORTED=1 STEAM_MANGOAPP_HORIZONTAL_SUPPORTED=1 STEAM_DISABLE_MANGOAPP_ATOM_WORKAROUND=1
+  export MANGOHUD_CONFIGFILE="$STATE/mangoapp.conf"
+  echo no_display > "$MANGOHUD_CONFIGFILE"
+  ARGS="$ARGS --mangoapp"
+else
+  case ${KWICK_GAMEMODE_HUD:-off} in
+    fps) preset=1 ;;
+    compact) preset=2 ;;
+    full) preset=4 ;;
+    *) preset="" ;;
+  esac
+  [ -n "$preset" ] && export MANGOHUD=1 MANGOHUD_CONFIG="preset=$preset"
 fi
 
-if command -v gamescope >/dev/null 2>&1; then
-  exec gamescope $ARGS -- steam $STEAM_ARGS
+GS=$(command -v gamescope || { [ -x /usr/games/gamescope ] && echo /usr/games/gamescope; })
+rm -f "$SWITCHING"
+start=$(date +%s)
+echo "gamescope: ${GS:-flatpak} $ARGS -- steam $STEAM_ARGS"
+if [ -n "$GS" ]; then
+  "$GS" $ARGS -- steam $STEAM_ARGS
+else
+  flatpak run --device=all --command=gamescope com.valvesoftware.Steam $ARGS -- steam $STEAM_ARGS
 fi
+rc=$?
+ran=$(( $(date +%s) - start ))
+echo "== $(date '+%F %T') Gaming Mode ended: exit $rc after ${ran}s"
 
-exec flatpak run --device=all --command=gamescope com.valvesoftware.Steam $ARGS -- steam $STEAM_ARGS
+if [ -e "$SWITCHING" ] || [ "$ran" -ge "$SHORT" ]; then
+  rm -f "$TRACK" "$SWITCHING"
+else
+  echo "exit $rc after ${ran}s" >> "$TRACK"
+  if [ "$(short_count)" -ge "$TRIES" ] || [ ! -e /etc/sddm.conf.d/90-kwick-gamemode.conf ]; then fall_back; fi
+fi
+exit 0

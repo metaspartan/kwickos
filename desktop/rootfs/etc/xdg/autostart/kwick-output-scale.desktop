@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Display scale
+Comment=Uses 1x instead of a slightly fractional scale on displays that are not HiDPI
+Exec=/usr/lib/kwick/output-scale
+NoDisplay=true
+X-KDE-autostart-phase=0
+OnlyShowIn=KDE;

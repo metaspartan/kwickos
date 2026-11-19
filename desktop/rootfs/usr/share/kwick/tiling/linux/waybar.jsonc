@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": ["custom/logo", "@WM@/workspaces"],
   "modules-center": ["clock"],
-  "modules-right": ["tray", "cpu", "memory", "bluetooth", "custom/vpn", "network", "pulseaudio", "battery"],
+  "modules-right": ["tray", "cpu", "memory", "bluetooth", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery"],
   "custom/logo": {
     "format": "\u00a0",
     "tooltip": false,
@@ -31,7 +31,16 @@
     "format-off": "",
     "format-connected": " {num_connections}",
     "tooltip-format": "{status}",
-    "on-click": "foot bluetoothctl"
+    "on-click": "kwick-bluetooth menu",
+    "on-click-right": "kwick-bluetooth settings"
+  },
+  "custom/osk": {
+    "exec": "kwick-touch bar",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "kwick-touch keyboard toggle"
   },
   "custom/vpn": {
     "exec": "kwick-vpn waybar",

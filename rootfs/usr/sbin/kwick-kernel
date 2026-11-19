@@ -333,22 +333,20 @@ flavor_of_pkg() {
 
 repo_pkgs() {
 	command -v apt-cache >/dev/null 2>&1 || return 0
-	apt-cache pkgnames linux-image-kwick- 2>/dev/null | grep '^linux-image-kwick-'
-	apt-cache pkgnames kwick-kernel-asahi 2>/dev/null | grep -x 'kwick-kernel-asahi'
+	apt-cache pkgnames 2>/dev/null | grep -E '^(linux-image-kwick-.+|kwick-kernel-asahi)$'
 }
 
 pkg_versions() {
-	m=$(apt-cache madison "$1" 2>/dev/null)
-	case $m in
-	*'|'*) printf '%s\n' "$m" | awk -F'|' 'NF >= 2 { v = $2; gsub(/[ \t]/, "", v); if (v != "") print v }' ;;
-	*) apt-cache policy "$1" 2>/dev/null | awk '/Version table:/ { t = 1; next } t && /^ +(\*\*\* )?[^ ]+ +[0-9]+$/ { print $(NF - 1) }' ;;
-	esac
+	apt-cache policy "$1" 2>/dev/null | awk '/Version table:/ { t = 1; next } t && /^ +(\*\*\* )?[^ ]+ +[0-9]+$/ { print $(NF - 1) }'
 }
 
 repo_versions() {
-	for p in $(repo_pkgs); do
-		fl=$(flavor_of_pkg "$p")
-		pkg_versions "$p" | awk -v p="$p" -v f="$fl" '{ print p "|" $1 "|" f }'
+	pk=$(repo_pkgs)
+	[ -n "$pk" ] || return 0
+	m=$(apt-cache madison $pk 2>/dev/null | awk -F'|' 'NF >= 2 { p = $1; v = $2; gsub(/[ \t]/, "", p); gsub(/[ \t]/, "", v); if (v != "") print p "|" v }')
+	[ -n "$m" ] || m=$(for p in $pk; do pkg_versions "$p" | sed "s/^/$p|/"; done)
+	printf '%s\n' "$m" | while IFS='|' read -r p v; do
+		[ -n "$p" ] && printf '%s|%s|%s\n' "$p" "$v" "$(flavor_of_pkg "$p")"
 	done | awk -F'|' '!seen[$1 "|" $2]++' | awk -F'|' '
 		{
 			v = $2

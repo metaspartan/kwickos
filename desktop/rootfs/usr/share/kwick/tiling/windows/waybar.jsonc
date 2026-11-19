@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": [],
   "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "custom/editor", "custom/store", "custom/steam", "custom/settings", "wlr/taskbar"],
-  "modules-right": ["tray", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
+  "modules-right": ["tray", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/start": { "format": " ", "tooltip-format": "Start", "on-click": "fuzzel" },
   "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "fuzzel" },
   "custom/files": {
@@ -39,9 +39,9 @@
     "on-click": "/usr/lib/kwick/dock-state open 'steam' steam"
   },
   "custom/settings": {
-    "exec": "/usr/lib/kwick/dock-state 'org.qt-project.qml|kwick-settings'",
+    "exec": "/usr/lib/kwick/dock-state 'org.kwickos.settings.qml|kwick-settings'",
     "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "KwickOS Settings",
-    "on-click": "/usr/lib/kwick/dock-state open 'org.qt-project.qml|kwick-settings' kwick-settings"
+    "on-click": "/usr/lib/kwick/dock-state open 'org.kwickos.settings.qml|kwick-settings' kwick-settings"
   },
   "wlr/taskbar": {
     "format": "{icon}",
@@ -50,13 +50,21 @@
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
-    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kde.discover", "org.gnome.Software", "steam", "org.qt-project.qml", "kwick-settings"]
+    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kde.discover", "org.gnome.Software", "steam", "org.kwickos.settings.qml", "kwick-settings"]
   },
   "custom/clock": {
     "exec": "/usr/lib/kwick/bar-clock",
     "return-type": "json",
     "interval": 10,
     "justify": "center"
+  },
+  "custom/osk": {
+    "exec": "kwick-touch bar",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "kwick-touch keyboard toggle"
   },
   "custom/vpn": {
     "exec": "kwick-vpn waybar",

@@ -3,7 +3,7 @@
 `kwick-kernel` manages the kernels of a KwickOS system the way you would hope a kernel manager works: see what is
 installed and what the repository offers, move to the latest or to a specific version, pick the default, boot a kernel
 once to see if it works, and go back. It is a single POSIX shell script (`/usr/sbin/kwick-kernel`) in both editions,
-and the Settings app shows it on the GPU page.
+and the Settings app shows it on the Software Update page ([UPDATES](UPDATES.md)).
 
 ```
 kwick-kernel list                      installed kernels (version, flavor, size, running, default) and what the repo offers
@@ -87,8 +87,11 @@ and `kwick-kernel mainline 7.3.3` installs one. To get a version the repository 
 
 ## Settings
 
-The GPU page of the Settings app has a **Kernel** section: every installed kernel with **Set default** and
-**Try once** buttons (the same commands, run elevated in a terminal), driven by `kwick-kernel list --json`.
+The **Software Update** page of the Settings app has the kernel sections: running, default and previous kernel, a pending
+trial, the last trial result, every installed kernel with **Try Once**, **Make Default** and **Remove**, the versions the
+repository offers with **Install**, **Roll Back** and **Keep**. It reads `kwick-kernel list --json` and runs every change through
+`kwick-update kernel ...` (one polkit action, see [UPDATES](UPDATES.md)). Kernels installed from there, or brought in by
+`kwick-update upgrade`, are tried once with `--promote` before they become the default.
 
 ## Testing
 

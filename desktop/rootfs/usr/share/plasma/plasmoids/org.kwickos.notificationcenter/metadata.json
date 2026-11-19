@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Date and Time",
+        "Description": "Windows 11 style taskbar clock with the notification center, calendar and focus session in one flyout",
+        "Icon": "preferences-system-time",
+        "Id": "org.kwickos.notificationcenter",
+        "License": "GPL-2.0-or-later",
+        "Name": "Clock and Notifications",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

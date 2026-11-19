@@ -1,0 +1,13 @@
+{
+  "KPlugin": {
+    "Id": "KwickFluentLight",
+    "Name": "KwickFluentLight",
+    "Description": "KwickOS window decoration",
+    "Authors": [
+      {
+        "Name": "KwickOS"
+      }
+    ],
+    "License": "MIT"
+  }
+}

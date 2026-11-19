@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Application Launchers",
+        "Description": "A Windows 11 style taskbar button that runs a command, used for Search and Task View",
+        "Icon": "system-run",
+        "Id": "org.kwickos.taskbutton",
+        "License": "GPL-2.0-or-later",
+        "Name": "Taskbar Button",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

@@ -2,7 +2,7 @@
 de=${1:-gnome}
 c=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
 d=${XDG_DATA_HOME:-$HOME/.local/share}
-mkdir -p "$c" "$d/Trash/files" "$d/Trash/info"
+[ -d "$c" ] && [ -d "$d/Trash/info" ] || mkdir -p "$c" "$d/Trash/files" "$d/Trash/info"
 [ -e "$c/$de.applied" ] && exit 0
 kwick-layout "$(kwick-layout)" >/dev/null 2>&1
 touch "$c/$de.applied"

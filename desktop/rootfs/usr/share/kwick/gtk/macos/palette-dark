@@ -1,0 +1,24 @@
+@FG@ rgba(255, 255, 255, 0.847)
+@FG_SECONDARY@ rgba(255, 255, 255, 0.549)
+@FG_DIM@ rgba(255, 255, 255, 0.5)
+@FG_FAINT@ rgba(255, 255, 255, 0.247)
+@FG_DISABLED@ rgba(255, 255, 255, 0.25)
+@WINDOW@ #323232
+@UNDER@ #282828
+@VIEW@ #1e1e1e
+@SEL_IDLE@ #464646
+@BORDER@ rgba(255, 255, 255, 0.098)
+@RIM@ rgba(255, 255, 255, 0.07)
+@CARD@ rgba(255, 255, 255, 0.047)
+@PRESS@ rgba(255, 255, 255, 0.15)
+@SEPARATOR@ rgba(255, 255, 255, 0.12)
+@SHADE@ rgba(0, 0, 0, 0.36)
+@OUTLINE@ rgba(0, 0, 0, 0.55)
+@MENU@ rgba(43, 43, 43, 0.98)
+@IDLE@ #4d4d4d
+@IDLE_ALPHA@ rgba(255, 255, 255, 0.24)
+@ACCENT@ #0a84ff
+@ACCENT_TEXT@ #419cff
+@RED@ #ff453a
+@ORANGE@ #ff9f0a
+@GREEN@ #32d74b

@@ -1,0 +1,11 @@
+singleton Fluent 1.0 Fluent.qml
+Flyout 1.0 Flyout.qml
+Subtle 1.0 Subtle.qml
+TaskbarButton 1.0 TaskbarButton.qml
+IconButton 1.0 IconButton.qml
+Toggle 1.0 Toggle.qml
+FluentSlider 1.0 FluentSlider.qml
+FluentText 1.0 FluentText.qml
+MenuPopup 1.0 MenuPopup.qml
+MenuEntry 1.0 MenuEntry.qml
+Card 1.0 Card.qml

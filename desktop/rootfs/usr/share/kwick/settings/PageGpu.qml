@@ -5,35 +5,9 @@ ColumnLayout {
     id: page
     spacing: 10
 
-    property var kernels: []
-    property var kernelInfo: ({})
-    property bool kernelTool: true
+    property string kernel: ""
 
-    function loadKernels() {
-        Sys.run("kwick-kernel list --json 2>/dev/null", function (out) {
-            try {
-                var j = JSON.parse(out)
-                page.kernels = j.installed
-                page.kernelInfo = j
-                page.kernelTool = true
-            } catch (e) {
-                page.kernelTool = false
-            }
-        })
-    }
-
-    function kernelAct(verb, id) {
-        Sys.terminal(Sys.elevated("kwick-kernel " + verb + " " + id))
-        kernelRefresh.restart()
-    }
-
-    Component.onCompleted: loadKernels()
-
-    Timer {
-        id: kernelRefresh
-        interval: 4000
-        onTriggered: page.loadKernels()
-    }
+    Component.onCompleted: Sys.run("uname -r", function (out) { page.kernel = out.trim() })
 
     SectionTitle { text: "GRAPHICS" }
     Card {
@@ -46,7 +20,7 @@ ColumnLayout {
                 implicitWidth: cl.implicitWidth + 20
                 implicitHeight: 24
                 radius: 12
-                color: Sys.compositor === "gpu" ? "#1e3a28" : Sys.compositor === "software" ? "#3d2e12" : "#40201e"
+                color: Sys.compositor === "gpu" ? Theme.goodBg : Sys.compositor === "software" ? Theme.warnBg : Theme.badBg
                 Text {
                     id: cl
                     anchors.centerIn: parent
@@ -100,33 +74,16 @@ ColumnLayout {
     SectionTitle { text: "KERNEL" }
     Card {
         Cell {
-            visible: !page.kernelTool || page.kernels.length === 0
             last: true
-            title: page.kernelTool ? "No kernels registered" : "kwick-kernel is not available"
-            subtitle: page.kernelTool ? "Install one with: sudo kwick-kernel install latest" : "This system has no kwick-kernel tool."
-        }
-        Repeater {
-            model: page.kernels
-            delegate: Cell {
-                required property var modelData
-                required property int index
-                last: index === page.kernels.length - 1
-                title: modelData.flavor + " " + modelData.version + (modelData.running ? "  (running)" : "")
-                subtitle: modelData.release + "  " + Math.round(modelData.size_kb / 1024) + " MB"
-                          + (modelData.default ? "  default" : "") + (modelData.previous ? "  previous" : "")
-                          + (modelData.trial ? "  trial pending, reboot to run it" : "")
-                Btn { visible: !modelData.default; text: "Set default"; primary: true; onClicked: page.kernelAct("default", modelData.id) }
-                Btn { visible: !modelData.default && page.kernelInfo.boot !== "none" && page.kernelInfo.boot !== "apple"; text: "Try once"; onClicked: page.kernelAct("try", modelData.id) }
+            title: "Linux " + page.kernel
+            subtitle: "Install, try and roll back kernels in Software Update"
+            Btn {
+                text: "Software Update…"
+                onClicked: {
+                    for (var i = 0; i < win.pages.length; i++)
+                        if (win.pages[i].page === "PageUpdate.qml") win.current = i
+                }
             }
         }
-    }
-    Text {
-        visible: page.kernelTool
-        Layout.fillWidth: true
-        text: "Boot path: " + (page.kernelInfo.boot || "unknown") + ".  Try once boots the kernel one time; the default boots again if it does not come up. Reboot to apply."
-        color: Theme.sub
-        font.family: Theme.sans
-        font.pixelSize: 12
-        wrapMode: Text.WordWrap
     }
 }

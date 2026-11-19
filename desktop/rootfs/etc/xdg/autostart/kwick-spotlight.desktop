@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Spotlight Search
+Exec=kwick-spotlight --daemon
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
+NoDisplay=true

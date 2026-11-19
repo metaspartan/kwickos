@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Search
+Name=Spotlight Search
 Icon=edit-find
-Exec=qdbus6 org.kde.krunner /App org.kde.krunner.App.display
+Exec=kwick-search
 NoDisplay=true
 Categories=Utility;

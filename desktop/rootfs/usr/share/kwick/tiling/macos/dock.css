@@ -11,10 +11,10 @@ window#waybar {
 }
 
 #dock {
-  background: rgba(44, 44, 46, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: @DOCK_BG@;
+  border: 1px solid @DOCK_BORDER@;
   border-radius: 18px;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px @DOCK_HILITE@;
   padding: 0 4px;
 }
 
@@ -65,32 +65,32 @@ window#waybar {
 
 #custom-files.running,
 #custom-files.active {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-files.svg"), radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-files.svg"), radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
 }
 
 #custom-web.running,
 #custom-web.active {
-  background-image: url("/usr/share/icons/Papirus/64x64/apps/firefox.svg"), radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: url("/usr/share/icons/Papirus/64x64/apps/firefox.svg"), radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
 }
 
 #custom-term.running,
 #custom-term.active {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/utilities-terminal.svg"), radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/utilities-terminal.svg"), radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
 }
 
 #custom-editor.running,
 #custom-editor.active {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-editor.svg"), radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-editor.svg"), radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
 }
 
 #custom-store.running,
 #custom-store.active {
-  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-software.svg"), radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: url("/usr/share/icons/KwickOS/scalable/apps/kwick-software.svg"), radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
 }
 
 #custom-settings.running,
 #custom-settings.active {
-  background-image: url("/usr/share/icons/KwickOS/scalable/preferences/kwick-settings.svg"), radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: url("/usr/share/icons/KwickOS/scalable/preferences/kwick-settings.svg"), radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
 }
 
 #custom-sep {
@@ -111,7 +111,7 @@ window#waybar {
   padding: 0 4px;
   margin: 0 1px;
   background-color: transparent;
-  background-image: radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0.9) 1.8px, rgba(255, 255, 255, 0) 2.4px);
+  background-image: radial-gradient(circle at 50% 92%, @DOT@ 0, @DOT@ 1.8px, @DOT_CLEAR@ 2.4px);
   box-shadow: none;
 }
 

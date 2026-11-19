@@ -60,6 +60,7 @@ window#waybar > box {
 }
 
 #bluetooth,
+#custom-osk,
 #custom-vpn,
 #network,
 #pulseaudio,
@@ -274,3 +275,7 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-charged-symbolic.svg");
 }
 
+
+#custom-osk {
+  background-image: url("/usr/share/icons/KwickOS/scalable/status/input-keyboard-virtual-symbolic.svg");
+}

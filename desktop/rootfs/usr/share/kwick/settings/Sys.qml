@@ -96,6 +96,7 @@ QtObject {
         var s = sections(text)
         if (s.layout && s.layout.length) sys.layout = s.layout[0].trim()
         if (s.preset && s.preset.length) sys.preset = s.preset[0].trim()
+        if (s.appearance && s.appearance.length) Theme.light = s.appearance[0].trim() === "light"
         var f = {}
         ;(s.status || []).forEach(function (l) {
             var p = l.trim().split(/\s+/)
@@ -206,6 +207,11 @@ QtObject {
     function setLayout(l) {
         sys.layout = l
         run("kwick-layout " + l, refresh)
+    }
+
+    function setAppearance(m) {
+        Theme.light = m === "light"
+        run("kwick-layout appearance " + m, refresh)
     }
 
     function setRadius(n) {

@@ -4,6 +4,10 @@ W=$D/multi-user.target.wants
 BOOT="dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report sddm"
 BUS="NetworkManager bluetooth upower rtkit-daemon udisks2 power-profiles-daemon"
 MASK="systemd-udev-trigger NetworkManager-wait-online"
+ONDEMAND="networking wpa_supplicant strongswan-starter openvpn"
+XKCMS="kcm_fonts_init kcm_style_init"
+LAZY=/usr/lib/kwick/kcminit/plasma/kcminit
+HOOK=/etc/xdg/Xwayland-session.d/50-kwick-kcminit
 
 drop() {
   rm -f "$D/$1.service.d/kwick.conf" "$W/$1.service"
@@ -11,10 +15,18 @@ drop() {
   true
 }
 
+move() {
+  if [ -L "$1" ]; then ln -sf "$(readlink -f "$1")" "$2" && rm -f "$1"; else mv -f "$1" "$2"; fi
+}
+
+kcminit_dir() {
+  for d in /usr/lib/*/qt6/plugins/plasma/kcminit; do [ -d "$d" ] && { echo "$d"; return; }; done
+}
+
 case ${1:-enable} in
   enable)
     mkdir -p "$W"
-    rm -f "$W/networking.service"
+    for u in $ONDEMAND; do rm -f "$W/$u.service"; done
     drop polkit
     for u in $MASK; do ln -sf /dev/null "$D/$u.service"; done
     for u in $BOOT $BUS; do
@@ -24,10 +36,22 @@ case ${1:-enable} in
     for u in $BUS; do
       mkdir -p "$D/$u.service.d"
       printf '[Service]\nExecStartPre=/bin/sh -c "[ ! -x /usr/lib/kwick/wait-for ] || exec /usr/lib/kwick/wait-for dbus"\nRestart=on-failure\n' > "$D/$u.service.d/kwick.conf"
-    done ;;
+    done
+    k=$(kcminit_dir)
+    for m in $XKCMS; do
+      [ -n "$k" ] && [ -e "$k/$m.so" ] || continue
+      mkdir -p "$LAZY"
+      move "$k/$m.so" "$LAZY/$m.so"
+    done
+    [ ! -d "$LAZY" ] || { mkdir -p "${HOOK%/*}"; ln -sf /usr/lib/kwick/xwayland-kcminit "$HOOK"; } ;;
   disable)
     for u in $BUS polkit; do drop "$u"; done
     for u in $MASK; do [ -L "$D/$u.service" ] && rm -f "$D/$u.service"; done
-    for u in sddm kwick-elogind kwick-udev-trigger kwick-session-report; do rm -f "$W/$u.service"; done ;;
+    for u in sddm kwick-elogind kwick-udev-trigger kwick-session-report; do rm -f "$W/$u.service"; done
+    k=$(kcminit_dir)
+    for m in $XKCMS; do [ -n "$k" ] && [ -e "$LAZY/$m.so" ] && move "$LAZY/$m.so" "$k/$m.so"; done
+    rm -f "$HOOK"
+    rmdir -p "$LAZY" 2>/dev/null
+    true ;;
   *) echo "usage: desktop-units [enable|disable]" >&2; exit 1 ;;
 esac

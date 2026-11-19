@@ -139,6 +139,10 @@ G["arrowl"] = P("M19.6 12H5M10.8 6.2L5 12l5.8 5.8")
 G["arrowr"] = P("M4.4 12H19M13.2 6.2L19 12l-5.8 5.8")
 G["arrowu"] = P("M12 19.6V5M6.2 10.8L12 5l5.8 5.8")
 G["arrowd"] = P("M12 4.4V19M6.2 13.2L12 19l5.8-5.8")
+G["chevu"] = P("M5.5 15.25L12 8.75l6.5 6.5")
+G["chevd"] = P("M5.5 8.75L12 15.25l6.5-6.5")
+G["chevl"] = P("M15.25 5.5L8.75 12l6.5 6.5")
+G["chevr"] = P("M8.75 5.5L15.25 12l-6.5 6.5")
 G["refresh"] = P("M19.6 12a7.6 7.6 0 1 1-2.4-5.5") + P("M19.8 4.4v4.4h-4.4")
 G["undo"] = P("M8.4 5.4L4.2 9.6l4.2 4.2") + P("M4.6 9.6h9.8a5.2 5.2 0 0 1 0 10.4H9")
 G["redo"] = P("M15.6 5.4l4.2 4.2-4.2 4.2") + P("M19.4 9.6H9.6a5.2 5.2 0 0 0 0 10.4H15")
@@ -396,6 +400,7 @@ class Fluent(Style):
     inherits = "KwickOS,breeze-dark,hicolor"
     sw = 1.6
     vpn = "vpnshield"
+    arrows = "chev"
 
     def tile(self, glyph, pal, dark):
         if glyph == "folder":
@@ -792,10 +797,11 @@ def build():
     tray("color-picker kcolorchooser color-management preferences-desktop-color", "palette")
     tray("redshift-status-on redshift-status-off night-light night-light-disabled night-light-symbolic preferences-system-night-light preferences-desktop-nightlight", "nightlight")
     tray("user-identity avatar-default system-users system-switch-user kuser user-available user-offline user-away user-busy preferences-desktop-user preferences-desktop-user-password", "user")
-    tray("arrow-down arrow-down-double go-down-skip", "arrowd")
-    tray("arrow-up arrow-up-double go-up-skip", "arrowu")
-    tray("arrow-left arrow-left-double", "arrowl")
-    tray("arrow-right arrow-right-double", "arrowr")
+    arrows = getattr(STYLE, "arrows", "arrow")
+    tray("arrow-down arrow-down-double go-down-skip", arrows + "d")
+    tray("arrow-up arrow-up-double go-up-skip", arrows + "u")
+    tray("arrow-left arrow-left-double", arrows + "l")
+    tray("arrow-right arrow-right-double", arrows + "r")
     tray("drive-removable-media media-removable drive-removable-media-usb device-notifier", "usb")
     tray("kdeconnect-tray kdeconnect smartphone phone", "phone")
     tray("printer printer-printing printer-error", "printer")
@@ -829,7 +835,7 @@ def build():
     ctx = {"apps": "Applications", "preferences": "Applications", "categories": "Categories", "places": "Places",
            "devices": "Devices", "actions": "Actions", "status": "Status", "mimetypes": "MimeTypes"}
     idx = ["[Icon Theme]", f"Name={STYLE.name}", f"Comment={STYLE.comment}",
-           f"Inherits={STYLE.inherits}", "Example=folder",
+           f"Inherits={STYLE.inherits}", "Example=folder", "FollowsColorScheme=true",
            "DesktopDefault=48", "DesktopSizes=16,22,32,48,64,128,256", "ToolbarDefault=22", "ToolbarSizes=16,22,24,32",
            "MainToolbarDefault=22", "MainToolbarSizes=16,22,24,32", "SmallDefault=16", "SmallSizes=16,22",
            "PanelDefault=48", "PanelSizes=16,22,32,48,64", "DialogDefault=32", "DialogSizes=32,48,64,128",
@@ -840,7 +846,7 @@ def build():
     with open(os.path.join(OUT, "index.theme"), "w", newline="\n") as f:
         f.write("\n".join(idx))
     if isinstance(STYLE, Mac):
-        for nm, gl, pl in (("layout", "layout", "blue"), ("dock", "dock", "indigo"), ("effects", "flame", "orange"), ("fonts", "font", "indigo"), ("desktop", "display", "blue"), ("gpu", "chip", "green"), ("gaming", "gamepad", "violet")):
+        for nm, gl, pl in (("layout", "layout", "blue"), ("dock", "dock", "indigo"), ("effects", "flame", "orange"), ("fonts", "font", "indigo"), ("desktop", "display", "blue"), ("gpu", "chip", "green"), ("gaming", "gamepad", "violet"), ("touch", "touch", "teal"), ("about", "info", "sky"), ("update", "gear", "gray")):
             sp = os.path.join(ROOT, "desktop/rootfs/usr/share/kwick/settings/icons", "obj-" + nm + ".svg")
             with open(sp, "w", newline="\n") as f:
                 f.write(FI.free_icon(gl, STYLE.colors, pl, glyph_markup, ID.DV, shadow=False))

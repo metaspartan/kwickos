@@ -4,7 +4,7 @@ import QtQuick.Controls.Basic
 
 ApplicationWindow {
     id: win
-    visible: true
+    visible: false
     width: 1000
     height: 760
     minimumWidth: 860
@@ -20,18 +20,28 @@ ApplicationWindow {
         { name: "Effects", icon: "effects", color: "#bf5af2", page: "PageEffects.qml" },
         { name: "Fonts", icon: "fonts", color: "#8e8e93", page: "PageFonts.qml" },
         { name: "Desktop Session", icon: "desktop", color: "#ff9f0a", page: "PageDesktop.qml" },
+        { name: "Touch & Tablet", icon: "touch", color: "#1f8f8a", page: "PageTouch.qml", keys: "touchscreen keyboard gestures rotation pen trackpad touchpad" },
         { name: "GPU", icon: "gpu", color: "#30d158", page: "PageGpu.qml" },
         { name: "Gaming", icon: "gaming", color: "#ff453a", page: "PageGaming.qml" },
         { name: "Storage", icon: "storage", color: "#64d2ff", page: "PageStorage.qml" },
-        { name: "VPN", icon: "vpn", color: "#2c5aa0", page: "PageVPN.qml" }
+        { name: "VPN", icon: "vpn", color: "#2c5aa0", page: "PageVPN.qml" },
+        { name: "About", icon: "about", color: "#64d2ff", page: "PageAbout.qml" },
+        { name: "Software Update", icon: "update", color: "#8e8e93", page: "PageUpdate.qml", keys: "updates upgrade kernel" }
     ]
 
+    function matches(p, q) {
+        var n = p.name.toLowerCase().replace(/[^a-z0-9]+/g, " ")
+        return n.indexOf(q) === 0 || (n + " " + (p.keys || "")).split(" ").some(function (w) { return w !== "" && w.indexOf(q) === 0 })
+    }
+
     Component.onCompleted: {
+        Qt.application.domain = "settings.kwickos.org"
+        visible = true
         Sys.refreshAll()
         Sys.run("printenv KWICK_SETTINGS_PAGE", function (out) {
-            var want = out.trim().toLowerCase()
+            var want = out.trim().toLowerCase().replace(/[-_]/g, " ")
             for (var j = 0; j < pages.length; j++)
-                if (want !== "" && pages[j].name.toLowerCase().indexOf(want) === 0) current = j
+                if (want !== "" && matches(pages[j], want)) { current = j; break }
         })
     }
 
@@ -116,8 +126,8 @@ ApplicationWindow {
                         required property int index
                         readonly property bool on: win.current === index
                         Layout.fillWidth: true
-                        Layout.topMargin: index === 4 ? 14 : 0
-                        visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0
+                        Layout.topMargin: index === 4 || modelData.name === "About" ? 14 : 0
+                        visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0 || win.matches(modelData, win.query)
                         implicitHeight: 40
                         radius: 9
                         color: on ? Theme.accent : hover.containsMouse ? Theme.hover : "transparent"

@@ -55,6 +55,7 @@ private:
         Notification,
         Tooltip,
         Osd,
+        Search,
         Frame,
         Window,
     };

@@ -8,18 +8,35 @@ straight into it. Installation is covered in [INSTALL.md](INSTALL.md), and all s
 
 `kwick-layout macos|windows|linux` switches the whole look at once: window buttons, panel or dock position, fonts, icons, wallpaper
 and Files sidebar. It applies to **KDE Plasma** (default), **GNOME** and **Hyprland** (the `kwick-hyprland` package). Every layout
-is dark.
+is dark by default; `kwick-layout appearance light|dark` (or Settings, Appearance) switches all of them, the desktop, Qt and GTK
+apps and the KwickOS apps between light and dark. The choice is kept in `~/.config/kwick/appearance`. In light mode the macOS
+layout on Plasma also switches to the light KwickGlassLight wallpaper so the transparent menu bar keeps dark text readable.
 
 * **macOS** (default): a full-width menu bar flush to the screen edges with a white KwickOS mark and a one-line clock
   ("Sun Nov 15  9:41 AM", the `org.kwickos.clock` applet with a calendar popup), a floating dock with 48 px icons, and
   traffic-light buttons at the top left of windows with 10 px corners, a hairline edge and a large soft shadow, and
-  macOS menus from the `KwickMac` widget style. Firefox ESR ships with `browser.tabs.inTitlebar` off
+  macOS menus from the `KwickMac` widget style. The KwickOS mark opens the KwickOS menu (`org.kwickos.applemenu`: About This
+  Computer, System Settings, App Store, Force Quit, Sleep, Restart, Shut Down, Lock Screen, Log Out). Next to the clock sits
+  Control Center (`org.kwickos.controlcenter`): Wi-Fi, Bluetooth with a device list, network, Focus (Do Not Disturb), Night
+  Light, display brightness, sound and now playing; volume and brightness leave the menu bar for it. Every Qt menu (app menus
+  in the menu bar, context menus, dock and tray menus) is drawn like macOS 27: 12 px rounded translucent panels with a soft
+  shadow, 24 px rows with an inset accent highlight, glyph shortcuts (⌃⌥⇧⌘) and icons only in menus where every item has
+  one. Menu bar titles and open menu bar items get the same inset rounded highlight. GTK 3 menus and GTK 4 popover menus
+  follow the same metrics. Firefox ESR ships with `browser.tabs.inTitlebar` off
   (`/usr/lib/firefox-esr/defaults/pref/kwick.js`), so it gets the same title bar, corners and shadow as every other window
   instead of drawing its own tab strip in the title bar. The dock is the `org.kwickos.dock`
   applet: pinned and running apps with a white dot under running ones, no hover or active boxes, a name label in a glass capsule
   above the hovered icon, a gentle magnification (`kwick-dock magnify on|off`, also in Settings), a bounce while an app launches or
   asks for attention, a darker icon while pressed, a thin separator and the Trash (drop files on it, right-click to empty).
-* **Windows 11**: a 48 px centered taskbar with the KwickOS start icon, a small padded clock and Fluent caption buttons on the right.
+* **Windows 11**: a 48 px centered taskbar (24 px icons in 44 px buttons, accent pill under the focused app, grey pill under
+  running ones) with Start, Search and Task View. Start (`org.kwickos.start`) has the search box, Pinned (8 columns, Show all),
+  Recommended, All apps as Category, Grid or List, and the account and power menus; Meta opens it. Quick Settings
+  (`org.kwickos.quicksettings`) groups the network, volume and battery icons and opens Wi-Fi, Bluetooth, VPN, Airplane mode,
+  Energy saver and Night light tiles, brightness and volume sliders, media controls and sound output, Wi-Fi, Bluetooth and VPN
+  pages. The clock (`org.kwickos.notificationcenter`) opens the notification center with the calendar and a Focus session, and
+  its right edge peeks at the desktop. Alt+Tab uses a Windows 11 style card switcher (`kwick_fluent`), flyouts have 8 px corners
+  and a soft shadow, and windows have 32 px title bars with 46x32 caption buttons and a red close hover. The shared Fluent QML
+  controls live in `/usr/share/kwick/qml/fluent`. Light and dark follow `kwick-layout appearance` (KwickFluent / KwickFluentLight).
 * **Linux**: a thin top bar (launcher, centered clock, tray) with a floating dock on the left.
 
 GNOME and Hyprland follow the Plasma layouts. In macOS the 28 px menu bar shows the focused app's name in bold (GNOME adds App,
@@ -56,8 +73,44 @@ Other desktops install with `kwick-desktop install xfce|cinnamon|mate|lxqt` and 
 ## KwickOS Settings
 
 `kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, GPU,
-Gaming, VPN and Storage. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
+Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Software Update (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). The window sets its Wayland app id to `org.kwickos.settings.qml` (`Qt.application.domain` before it maps), which `kwick-settings.desktop` names in `StartupWMClass`, so the dock and taskbar show the Settings icon and other `qml6` apps do not pick it up. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
 the same KwickOS object icons.
+
+## Spotlight Search
+
+<img src="img/spotlight.png" width="420" alt="Spotlight Search, dark"> <img src="img/spotlight-light.png" width="420" alt="Spotlight Search, light">
+
+On Plasma, Cmd+Space (Meta+Space) opens Spotlight Search in every layout, and Win+S does too in the Windows layout (it takes
+Win+S from "Stop Current Activity"). Meta on its own keeps its layout's meaning (nothing on macOS, Start on Windows, the launcher
+on Linux), and Alt+Space stays KRunner. The Search button on the Windows taskbar and `kwick-search` open it as well; on GNOME
+`kwick-search` and Super+Space open the overview search, and on Hyprland Super+Space opens fuzzel.
+
+It is a centered 680 px Liquid Glass bar at a fifth of the screen height that grows into one panel with the results: a Top Hit,
+then groups (Applications, System Settings, Actions, Documents, PDF Documents, Images, Folders, Calculator, Windows and more), up
+to five per group, with the top hit's name completed in grey as you type. It searches:
+
+* apps, System Settings pages and the KwickOS Settings pages (read from the Settings app, so new pages show up by themselves),
+* files and folders in your home folder,
+* actions: Lock Screen, Sleep, Restart, Shut Down, Log Out, Light or Dark Mode (`kwick-layout appearance`), Wi-Fi on or off,
+  connect or disconnect each VPN profile (`kwick-vpn`) and switching the layout,
+* calculations and unit conversions, open windows, paths and shell commands.
+
+There are no web results or suggestions. The four buttons at the right of the bar (Cmd+1 to Cmd+4) browse Applications, Recent
+Files, Actions and the clipboard history (when the clipboard applet runs). Up and Down move, Cmd+Up and Cmd+Down jump between
+groups, Return opens, Cmd+Return shows a file in Files, Tab or Right takes the completion, Esc clears the text and closes on the
+second press, and a click outside closes it. It follows the color scheme (dark or light), the accent color and the window corner
+radius, and keeps the last search for the next time.
+
+`kwick-spotlight` is a small Qt Quick program (`src/kwick-spotlight`) that runs from login and uses KRunner's runner plugins as its
+backend, so it needs no extra service. Its own runner, `krunner_kwick` (also used by KRunner), adds the KwickOS Settings pages,
+the actions and the files. The file index is the names and dates of everything in your home folder except hidden folders,
+`node_modules` and `__pycache__`, kept in memory (a few MB for 100,000 files), built in the background the first time you search
+and refreshed when it is older than 90 seconds as Spotlight opens; there is no indexing daemon and nothing is written to disk.
+Baloo and plocate are not used. The window stays mapped as a 1x1 transparent surface below the desktop while closed, so opening
+it is one configure round trip. The runners can be changed with `Runners=` in the `[General]` group of `~/.config/kwickspotlightrc`
+(the default is `krunner_kwick, krunner_services, krunner_systemsettings, calculator, windows, locations, krunner_shell`);
+`kwick-spotlight --list-runners` lists the installed ones, `--query TEXT` and `--mode apps|files|actions|clipboard` open it with
+text or a browse mode, and `KWICK_SPOTLIGHT_TRACE=1` logs open and keystroke timings.
 
 ## Icons
 
@@ -107,7 +160,8 @@ macOS, "Quick access" on Windows).
 kwick-gaming list | status | install <module...> | remove <module...> | all
 ```
 
-Modules: `steam`, `gamescope-session` (Steam Game Mode on the login screen; `kwick-gaming session boot-on` boots straight into it),
+Modules: `steam`, `gamescope-session` (Gaming Mode: Steam in Gamescope like SteamOS, on the login screen, as a boot target and with
+passwordless Switch to Desktop and Return to Gaming Mode; see [GAMING.md](GAMING.md#gaming-mode)),
 `proton` (ProtonUp-Qt and pinned GE-Proton), `launchers` (Lutris, Heroic, Bottles), `overlay` (MangoHud, GameMode, vkBasalt),
 `controllers`, `handheld` (HHD), `waydroid`, `decky`, `streaming` (Sunshine and Moonlight), `rgb` (OpenRGB) and `tweaks` (zram,
 sysctl, ntsync, I/O schedulers). x86-only modules say so on arm64 and riscv64. Details and the comparison with Bazzite:
@@ -120,6 +174,14 @@ GlobalProtect, Fortinet, Pulse), vpnc, L2TP/IPsec, strongSwan and SSTP, so VPNs 
 quick settings and the Hyprland bar. Plasma gets its own VPN menu bar item (`org.kwickos.vpn`): a VPN badge in the macOS menu
 bar next to the network icon, and a tray icon on Windows and Linux, shown while at least one VPN profile exists, with a switch per
 profile, connect time and tunnel address. `kwick-vpn` works on both editions; see [VPN.md](VPN.md).
+
+## Bluetooth
+
+`kwick-bluetooth` is the shared Bluetooth backend on top of `bluetoothctl`, independent of the layout and the desktop:
+`status`, `list` (address, name, connected, battery, icon), `json`, `power on|off|toggle`, `connect|disconnect|toggle
+<address>`, `menu` (a fuzzel menu with the paired devices) and `settings` (the Bluetooth settings of the running desktop).
+Plasma gets the Bluetooth agent, pairing and settings from `bluedevil` and the device list in Control Center; the Hyprland and
+sway bars open `kwick-bluetooth menu` on click and the settings on right-click; GNOME uses its own Quick Settings.
 
 ## GPUs
 

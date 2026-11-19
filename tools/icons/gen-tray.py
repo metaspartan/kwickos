@@ -190,6 +190,14 @@ def bluetooth(state="on"):
     return body
 
 
+def magnifier():
+    return '<circle cx="9.75" cy="9.75" r="5"/>' + P("M13.5 13.5l4 4")
+
+
+def switches():
+    return rect(3.75, 4.25, 14.5, 5.5, 2.75) + dot(15.5, 7, 1.5) + rect(3.75, 12.25, 14.5, 5.5, 2.75) + dot(6.5, 15, 1.5)
+
+
 def update(badge=False):
     body = P("M11 4.75v8") + P("M7.5 9.5L11 13l3.5-3.5") + P("M4.75 14v1.5a1.75 1.75 0 0 0 1.75 1.75h9a1.75 1.75 0 0 0 1.75-1.75V14")
     return body + dot(16.5, 5.75, 2) if badge else body
@@ -357,6 +365,8 @@ def names():
     add("notification-active notification-new notification-progress-active", bell("active"))
     add("notification-disabled notifications-disabled", bell("off"))
 
+    add("kwick-controlcenter", switches())
+    add("kwick-spotlight", magnifier())
     add("update-none", update(False))
     add("update-low update-medium update-high", update(True))
     add("arrow-down", chevron(True))

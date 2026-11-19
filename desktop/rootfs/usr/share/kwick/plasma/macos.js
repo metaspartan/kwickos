@@ -14,7 +14,7 @@ for (var j = 0; j < desktopsArray.length; j++) {
     var d = desktopsArray[j];
     d.wallpaperPlugin = "org.kde.image";
     d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-    d.writeConfig("Image", "file:///usr/share/wallpapers/KwickGlass/contents/images/2560x1440.png");
+    d.writeConfig("Image", "file:///usr/share/wallpapers/" + (typeof KWICK_APPEARANCE !== "undefined" && KWICK_APPEARANCE === "light" ? "KwickGlassLight" : "KwickGlass") + "/contents/images/2560x1440.png");
     d.writeConfig("FillMode", "2");
 }
 panels().forEach(function (p) { p.remove(); });
@@ -35,10 +35,14 @@ var edgeL = top.addWidget("org.kde.plasma.marginsseparator");
 edgeL.currentConfigGroup = ["General"];
 edgeL.writeConfig("margin", "10");
 
-var k = top.addWidget("org.kde.plasma.kickoff");
-k.currentConfigGroup = ["General"];
-k.writeConfig("icon", "kwickos-menubar");
-k.writeConfig("showAppsByName", "true");
+if (knownWidgetTypes.indexOf("org.kwickos.applemenu") >= 0) {
+    top.addWidget("org.kwickos.applemenu");
+} else {
+    var k = top.addWidget("org.kde.plasma.kickoff");
+    k.currentConfigGroup = ["General"];
+    k.writeConfig("icon", "kwickos-menubar");
+    k.writeConfig("showAppsByName", "true");
+}
 
 var gapL = top.addWidget("org.kde.plasma.marginsseparator");
 gapL.currentConfigGroup = ["General"];
@@ -60,6 +64,21 @@ if (trayInner) {
 var sep3 = top.addWidget("org.kde.plasma.marginsseparator");
 sep3.currentConfigGroup = ["General"];
 sep3.writeConfig("margin", "6");
+if (knownWidgetTypes.indexOf("org.kwickos.spotlight") >= 0) {
+    top.addWidget("org.kwickos.spotlight");
+    var sep5 = top.addWidget("org.kde.plasma.marginsseparator");
+    sep5.currentConfigGroup = ["General"];
+    sep5.writeConfig("margin", "2");
+}
+if (knownWidgetTypes.indexOf("org.kwickos.controlcenter") >= 0) {
+    if (trayInner) {
+        trayInner.writeConfig("hiddenItems", ["org.kde.plasma.volume", "org.kde.plasma.brightness"]);
+    }
+    top.addWidget("org.kwickos.controlcenter");
+    var sep4 = top.addWidget("org.kde.plasma.marginsseparator");
+    sep4.currentConfigGroup = ["General"];
+    sep4.writeConfig("margin", "6");
+}
 
 if (knownWidgetTypes.indexOf("org.kwickos.clock") >= 0) {
     top.addWidget("org.kwickos.clock");

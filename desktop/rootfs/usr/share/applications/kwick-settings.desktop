@@ -6,10 +6,10 @@ Comment=Desktop layout, accent color, window effects, dock, fonts, GPU and gamin
 Icon=kwick-settings
 Exec=kwick-settings
 Categories=Settings;DesktopSettings;Qt;
-Keywords=layout;theme;effects;animation;wobbly;cube;dock;fonts;gpu;steam;
-StartupWMClass=org.qt-project.qml
+Keywords=layout;theme;effects;animation;wobbly;cube;dock;fonts;gpu;steam;update;upgrade;kernel;
+StartupWMClass=org.kwickos.settings.qml
 Terminal=false
-Actions=Appearance;Dock;Effects;
+Actions=Appearance;Dock;Effects;SoftwareUpdate;
 
 [Desktop Action Appearance]
 Name=Appearance
@@ -22,3 +22,7 @@ Exec=kwick-settings dock
 [Desktop Action Effects]
 Name=Effects
 Exec=kwick-settings effects
+
+[Desktop Action SoftwareUpdate]
+Name=Software Update
+Exec=kwick-settings software-update

@@ -1,35 +1,35 @@
-@define-color theme_bg_color #202020;
-@define-color theme_fg_color #ffffff;
-@define-color theme_base_color #1c1c1c;
-@define-color theme_text_color #ffffff;
-@define-color theme_selected_bg_color #0078d4;
+@define-color theme_bg_color @BASE@;
+@define-color theme_fg_color @FG@;
+@define-color theme_base_color @VIEW@;
+@define-color theme_text_color @FG@;
+@define-color theme_selected_bg_color @ACCENT@;
 @define-color theme_selected_fg_color #ffffff;
-@define-color theme_unfocused_bg_color #202020;
-@define-color theme_unfocused_fg_color rgba(255, 255, 255, 0.773);
-@define-color theme_unfocused_base_color #1c1c1c;
-@define-color theme_unfocused_text_color #ffffff;
-@define-color theme_unfocused_selected_bg_color #2d2d2d;
+@define-color theme_unfocused_bg_color @BASE@;
+@define-color theme_unfocused_fg_color @FG_SECONDARY@;
+@define-color theme_unfocused_base_color @VIEW@;
+@define-color theme_unfocused_text_color @FG@;
+@define-color theme_unfocused_selected_bg_color @SEL_IDLE@;
 @define-color theme_unfocused_selected_fg_color #ffffff;
-@define-color insensitive_fg_color rgba(255, 255, 255, 0.365);
-@define-color borders rgba(255, 255, 255, 0.082);
-@define-color unfocused_borders rgba(255, 255, 255, 0.082);
-@define-color accent_color #99ebff;
-@define-color accent_bg_color #0078d4;
+@define-color insensitive_fg_color @FG_DISABLED@;
+@define-color borders @BORDER@;
+@define-color unfocused_borders @BORDER@;
+@define-color accent_color @ACCENT_TEXT@;
+@define-color accent_bg_color @ACCENT@;
 @define-color accent_fg_color #ffffff;
-@define-color window_bg_color #202020;
-@define-color window_fg_color #ffffff;
-@define-color view_bg_color #1c1c1c;
-@define-color view_fg_color #ffffff;
-@define-color headerbar_bg_color #202020;
-@define-color headerbar_fg_color #ffffff;
-@define-color headerbar_backdrop_color #202020;
-@define-color sidebar_bg_color #202020;
-@define-color popover_bg_color #2c2c2c;
-@define-color dialog_bg_color #202020;
-@define-color card_bg_color rgba(255, 255, 255, 0.051);
-@define-color success_color #6ccb5f;
-@define-color warning_color #fce100;
-@define-color error_color #ff99a4;
+@define-color window_bg_color @BASE@;
+@define-color window_fg_color @FG@;
+@define-color view_bg_color @VIEW@;
+@define-color view_fg_color @FG@;
+@define-color headerbar_bg_color @BASE@;
+@define-color headerbar_fg_color @FG@;
+@define-color headerbar_backdrop_color @BASE@;
+@define-color sidebar_bg_color @BASE@;
+@define-color popover_bg_color @POPOVER@;
+@define-color dialog_bg_color @BASE@;
+@define-color card_bg_color @CARD@;
+@define-color success_color @GREEN@;
+@define-color warning_color @YELLOW@;
+@define-color error_color @RED@;
 headerbar .titlebar-buttons {
   margin: 0;
 }
@@ -47,11 +47,10 @@ headerbar button.titlebutton.restore {
   background-color: transparent;
   box-shadow: none;
   outline: none;
-  color: #ffffff;
+  color: @FG@;
 }
 
 headerbar button.titlebutton image {
-  -gtk-icon-size: 10px;
   min-width: 46px;
   min-height: 32px;
   padding: 0;
@@ -65,7 +64,7 @@ headerbar button.titlebutton image {
 headerbar button.titlebutton.minimize:hover image,
 headerbar button.titlebutton.maximize:hover image,
 headerbar button.titlebutton.restore:hover image {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: @CAPTION_HOVER@;
 }
 
 headerbar button.titlebutton.close:hover image {
@@ -83,17 +82,17 @@ window.csd decoration {
 
 headerbar,
 .titlebar:not(headerbar) {
-  background-color: #202020;
+  background-color: @BASE@;
   background-image: none;
-  border-color: rgba(255, 255, 255, 0.082);
-  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.082);
-  color: #ffffff;
+  border-color: @BORDER@;
+  box-shadow: inset 0 -1px @BORDER@;
+  color: @FG@;
 }
 
 headerbar:backdrop,
 .titlebar:not(headerbar):backdrop {
-  background-color: #202020;
-  color: rgba(255, 255, 255, 0.529);
+  background-color: @BASE@;
+  color: @FG_BACKDROP@;
 }
 
 headerbar button:not(.titlebutton) {
@@ -104,15 +103,15 @@ headerbar button:not(.titlebutton) {
 }
 
 headerbar button:not(.titlebutton):hover {
-  background-color: rgba(255, 255, 255, 0.059);
+  background-color: @HOVER@;
 }
 
 headerbar button:not(.titlebutton):active,
 headerbar button:not(.titlebutton):checked {
-  background-color: rgba(255, 255, 255, 0.039);
+  background-color: @PRESS@;
 }
 
 .background:not(.csd):not(.solid-csd),
 window.background {
-  background-color: #202020;
+  background-color: @BASE@;
 }

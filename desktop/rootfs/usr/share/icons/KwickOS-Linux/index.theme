@@ -3,6 +3,7 @@ Name=KwickOS-Linux
 Comment=KwickOS Linux variant: Tokyo Night glass squircles and folders
 Inherits=KwickOS,Papirus-Dark,breeze-dark,hicolor
 Example=folder
+FollowsColorScheme=true
 DesktopDefault=48
 DesktopSizes=16,22,32,48,64,128,256
 ToolbarDefault=22

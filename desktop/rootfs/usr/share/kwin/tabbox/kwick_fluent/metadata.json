@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "KWin/WindowSwitcher",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Description": "A Windows 11 style window switcher: a row of window cards with icon, title and live thumbnail",
+        "Icon": "preferences-system-windows-switcher-thumbnail-grid",
+        "Id": "kwick_fluent",
+        "License": "GPL",
+        "Name": "KwickOS Fluent"
+    },
+    "X-Plasma-API": "declarativeappletscript"
+}

@@ -1,6 +1,8 @@
 #!/bin/sh
 echo "[layout]"
 kwick-layout 2>/dev/null
+echo "[appearance]"
+kwick-layout appearance 2>/dev/null
 echo "[preset]"
 kwick-effects 2>/dev/null
 echo "[status]"

@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Windows and Tasks",
+        "Description": "The KwickOS menu at the left of the macOS menu bar: About This Computer, System Settings, App Store, Force Quit, Sleep, Restart, Shut Down, Lock Screen and Log Out",
+        "Icon": "kwickos-menubar",
+        "Id": "org.kwickos.applemenu",
+        "License": "GPL-2.0-or-later",
+        "Name": "KwickOS Menu",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

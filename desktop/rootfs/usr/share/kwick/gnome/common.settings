@@ -18,3 +18,6 @@ org.gnome.shell.extensions.dash-to-dock multi-monitor false
 org.gnome.shell.extensions.dash-to-dock hot-keys false
 org.gnome.shell.extensions.dash-to-dock isolate-workspaces false
 org.gnome.desktop.interface clock-format '24h'
+org.gnome.desktop.wm.keybindings switch-input-source ['XF86Keyboard']
+org.gnome.desktop.wm.keybindings switch-input-source-backward ['<Shift>XF86Keyboard']
+org.gnome.shell.keybindings toggle-overview ['<Super>s', '<Super>space']

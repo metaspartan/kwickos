@@ -156,6 +156,9 @@ LiquidGlassEffect::Kind LiquidGlassEffect::classify(EffectWindow *w) const
     if (w->isDesktop() || w->isLockScreen() || w->isOutline() || w->isInputMethod() || w->isDNDIcon()) {
         return Kind::None;
     }
+    if (w->windowClass().startsWith(QLatin1String("kwick-spotlight"))) {
+        return Kind::Search;
+    }
     if (w->isDock()) {
         return Kind::Dock;
     }
@@ -365,6 +368,9 @@ double LiquidGlassEffect::radiusFor(EffectWindow *w, const Glass &glass, const Q
     case Kind::Osd:
         radius = cross / 2.0;
         break;
+    case Kind::Search:
+        radius = std::min(cross / 2.0, std::round(26.0 * std::clamp(s, 0.8, 1.2)));
+        break;
     case Kind::Tooltip:
         radius = std::min(cross / 2.0, 11.0);
         break;
@@ -400,6 +406,9 @@ LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
         break;
     case Kind::Osd:
         look = {0.7f, 0.85f, 10.0f, 3, 3.0f, 1.0f, 0.45f, 0.46f, 0.6f};
+        break;
+    case Kind::Search:
+        look = {0.6f, 1.0f, 10.0f, 4, 3.4f, 1.0f, 1.1f, 0.34f, 0.46f};
         break;
     case Kind::Frame:
         look = {0.5f, 0.7f, 10.0f, 3, 3.0f, 1.0f};
@@ -907,7 +916,7 @@ void LiquidGlassEffect::drawWindow(const RenderTarget &renderTarget, const Rende
         painted = paintGlass(renderTarget, viewport, w, it->second, region, data);
     }
     const Kind kind = it->second.kind;
-    const bool clipKind = kind == Kind::Menu || kind == Kind::Popup || kind == Kind::Notification || kind == Kind::Osd || kind == Kind::Tooltip;
+    const bool clipKind = kind == Kind::Menu || kind == Kind::Popup || kind == Kind::Notification || kind == Kind::Osd || kind == Kind::Search || kind == Kind::Tooltip;
     if (painted && clipKind && it->second.clipRadius > 0.5 && drawClipped(renderTarget, viewport, w, it->second, mask, region, data)) {
         return;
     }

@@ -1,0 +1,19 @@
+@BASE@ #202020
+@VIEW@ #1c1c1c
+@POPOVER@ #2c2c2c
+@SEL_IDLE@ #2d2d2d
+@FG@ #ffffff
+@FG_SECONDARY@ rgba(255, 255, 255, 0.773)
+@FG_BACKDROP@ rgba(255, 255, 255, 0.529)
+@FG_DISABLED@ rgba(255, 255, 255, 0.365)
+@BORDER@ rgba(255, 255, 255, 0.082)
+@CARD@ rgba(255, 255, 255, 0.051)
+@CAPTION_HOVER@ rgba(255, 255, 255, 0.1)
+@HOVER@ rgba(255, 255, 255, 0.059)
+@PRESS@ rgba(255, 255, 255, 0.039)
+@SHADE@ rgba(0, 0, 0, 0.1)
+@ACCENT_TEXT@ #99ebff
+@ACCENT@ #0078d4
+@RED@ #ff99a4
+@YELLOW@ #fce100
+@GREEN@ #6ccb5f

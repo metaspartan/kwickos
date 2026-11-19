@@ -123,16 +123,12 @@ ColumnLayout {
     Card {
         Cell {
             title: "Appearance"
-            subtitle: "Every KwickOS layout is dark"
+            subtitle: "Light or dark for every layout, desktop and app"
             last: true
-            Rectangle {
-                implicitWidth: 74
-                implicitHeight: 26
-                radius: 13
-                color: Theme.control
-                border.width: 1
-                border.color: Theme.lineStrong
-                Text { anchors.centerIn: parent; text: "Dark"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13 }
+            Seg {
+                options: [{ id: "light", label: "Light" }, { id: "dark", label: "Dark" }]
+                current: Theme.light ? "light" : "dark"
+                onPicked: id => Sys.setAppearance(id)
             }
         }
     }

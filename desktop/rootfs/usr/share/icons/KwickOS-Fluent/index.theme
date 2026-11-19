@@ -3,6 +3,7 @@ Name=KwickOS-Fluent
 Comment=KwickOS Windows layout icons: Fluent shapes for apps and folders, white line glyphs for the interface
 Inherits=KwickOS,breeze-dark,hicolor
 Example=folder
+FollowsColorScheme=true
 DesktopDefault=48
 DesktopSizes=16,22,32,48,64,128,256
 ToolbarDefault=22

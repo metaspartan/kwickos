@@ -6,12 +6,24 @@ usage: kwick-layout [macos|windows|linux]
   without:     print the current layout
 usage: kwick-layout radius [0-24|default]
   set the window corner radius for the current layout, or print "current default"
+usage: kwick-layout appearance [dark|light]
+  switch every layout and desktop to dark or light, or print the current appearance
 USAGE
 }
 set -u
 cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
 want=${1:-}
 if [ -z "$want" ]; then cat "$cfg/layout" 2>/dev/null || echo macos; exit 0; fi
+MODE=$(cat "$cfg/appearance" 2>/dev/null)
+[ "$MODE" = light ] || MODE=dark
+if [ "$want" = appearance ]; then
+  case ${2:-} in
+    '') echo "$MODE"; exit 0 ;;
+    dark|light) MODE=$2; echo "$MODE" > "$cfg/appearance" ;;
+    *) usage >&2; exit 1 ;;
+  esac
+  want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
+fi
 rcmd=
 if [ "$want" = radius ]; then
   rcmd=${2:-query}
@@ -22,6 +34,15 @@ else
 fi
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
+
+light() { [ "$MODE" = light ]; }
+
+palette() { [ -f "$1/palette-$MODE" ] && sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/' "$1/palette-$MODE"; true; }
+
+colorscheme() {
+  gsettings set org.gnome.desktop.interface color-scheme "$(light && echo default || echo prefer-dark)" 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface gtk-theme "$(light && echo Adwaita || echo Adwaita-dark)" 2>/dev/null || true
+}
 
 icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
 
@@ -75,7 +96,7 @@ gtkstyle() {
     mkdir -p "$GC/$v"
     t=/usr/share/kwick/gtk/$want/$v.css
     if [ -f "$t" ]; then
-      sed "s/@RADIUS@/$rad/g" "$t" > "$GC/$v/gtk.css"
+      sed -e "s/@RADIUS@/$rad/g" -e "$(palette "${t%/*}")" "$t" > "$GC/$v/gtk.css"
     elif [ -n "$(curradius)" ]; then
       : > "$GC/$v/gtk.css"
     elif [ -f "$GC/$v/gtk.css" ] && grep -q -e 'window.csd' -e 'button.close' -e 'titlebutton.close' "$GC/$v/gtk.css"; then
@@ -145,11 +166,12 @@ CONF
 kde() {
   fontconf kde
   case $want in
-    macos)   SCHEME=KwickGlass;  ACC="10,132,255"; LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickGlass;  L=XIA; R="" ;;
-    windows) SCHEME=KwickFluent; ACC="0,120,212";  LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickFluent; L=M;   R=IAX ;;
-    linux)   SCHEME=KwickDark;   ACC="94,129,244"; LIB=org.kde.breeze;       DECO=Breeze;                      L=M;   R=IAX ;;
+    macos)   SCHEME=KwickGlass$(light && echo Light); ACC=$(light && echo 0,122,255 || echo 10,132,255); LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__$SCHEME; L=XIA; R="" ;;
+    windows) SCHEME=KwickFluent$(light && echo Light); ACC="0,120,212"; LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__$SCHEME; L=M; R=IAX ;;
+    linux)   SCHEME=Kwick$(light && echo Light || echo Dark); ACC=$(light && echo 46,125,233 || echo 94,129,244); LIB=org.kde.breeze; DECO=Breeze; L=M; R=IAX ;;
   esac
   ICO=$(icontheme)
+  kw kdeglobals General ColorScheme none
   plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
   kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals Icons Theme "$ICO"
@@ -159,7 +181,7 @@ kde() {
   kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
   kw kdeglobals General fixed "$MONO,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
-  kw kdeglobals WM activeFont "$UI,-1,5,$( [ "$want" = macos ] && echo 700 || echo 600 ),0,0,0,0,0,0,0,0,0,0,1"
+  kw kdeglobals WM activeFont "$UI,-1,5,$(case $want in macos) echo 700 ;; windows) echo 400 ;; *) echo 600 ;; esac),0,0,0,0,0,0,0,0,0,0,1"
   kw konsolerc "Desktop Entry" DefaultProfile "$(konsoleprofile)"
   kw kwinrc org.kde.kdecoration2 library "$LIB"
   kw kwinrc org.kde.kdecoration2 theme "$DECO"
@@ -167,17 +189,18 @@ kde() {
   kw kwinrc org.kde.kdecoration2 BorderSizeAuto false
   kw kwinrc org.kde.kdecoration2 ButtonsOnLeft "$L"
   kw kwinrc org.kde.kdecoration2 ButtonsOnRight "$R"
-  kw plasmarc Theme name "$(case $want in macos) echo kwick-glass ;; windows) echo kwick-fluent ;; *) echo default ;; esac)"
+  kw kwinrc TabBox LayoutName "$( [ "$want" = windows ] && echo kwick_fluent || echo thumbnail_grid )"
+  kw plasmarc Theme name "$(case $want in macos) echo kwick-glass$(light && echo -light) ;; windows) echo kwick-fluent$(light && echo -light) ;; *) echo default ;; esac)"
   kw kwinrc Effect-kwick_liquidglass MenuBar "$( [ "$want" = macos ] && echo false || echo true )"
   corners
   files
-  gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null || true
+  colorscheme
   gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
   gtkstyle
   refresh_icons
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   js=/usr/share/kwick/plasma/$want.js
-  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$( [ "$want" = macos ] && kwick-dock preamble 2>/dev/null; cat "$js")" >/dev/null 2>&1 \
+  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(echo "var KWICK_APPEARANCE = \"$MODE\";"; [ "$want" = macos ] && kwick-dock preamble 2>/dev/null; cat "$js")" >/dev/null 2>&1 \
     || echo "plasmashell not running: panels and wallpaper apply at next login"
 }
 
@@ -233,17 +256,19 @@ gnome() {
   G=/usr/share/kwick/gnome
   GSETTINGS_SCHEMA_DIR=$(ls -d /usr/share/gnome-shell/extensions/*/schemas 2>/dev/null | tr "
 " ":"); export GSETTINGS_SCHEMA_DIR
-  for f in "$G/common.settings" "$G/$want.settings"; do
+  for f in "$G/common.settings" "$G/$want.settings" "$G/$want-$MODE.settings"; do
+    [ -f "$f" ] || continue
     while read -r schema key val; do
       [ -n "$schema" ] && gsettings set "$schema" "$key" "$val" 2>/dev/null
     done < "$f"
   done
+  colorscheme
   dtp=$(sed -n 's/.*"version": *\([0-9][0-9]*\).*/\1/p' /usr/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com/metadata.json 2>/dev/null | head -n 1)
   [ -z "$dtp" ] || gsettings set org.gnome.shell.extensions.dash-to-panel extension-version "$dtp" 2>/dev/null || true
   gsettings set org.gnome.desktop.interface font-name "$(printf '%s' "$UI" | sed 's/,/ /')"
   gsettings set org.gnome.desktop.interface document-font-name "$(printf '%s' "$UI" | sed 's/,/ /')"
   gsettings set org.gnome.desktop.interface monospace-font-name "$(printf '%s' "$MONO" | sed 's/,/ /')"
-  gsettings set org.gnome.desktop.wm.preferences titlebar-font "$(printf '%s' "$UI" | sed 's/,.*//') Bold 10"
+  gsettings set org.gnome.desktop.wm.preferences titlebar-font "$(printf '%s' "$UI" | sed 's/,.*//') $( [ "$want" = windows ] && echo 9 || echo Bold 10)"
   gnometerm
   true
 }
@@ -251,17 +276,20 @@ gnome() {
 tiling() {
   T=/usr/share/kwick/tiling; C=${XDG_CONFIG_HOME:-$HOME/.config}
   ui=$(kwick-fonts names "$want" | sed -n 1p); mono=$(kwick-fonts names "$want" | sed -n 2p)
-  sub() { sed -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" -e "s|@APPID@|$([ "$1" = hyprland ] && echo class || echo app_id)|g" "$2"; }
+  sub() { sed -e "$(palette "$T/$want")" -e "s|@UI@|$ui|g" -e "s|@MONO@|$mono|g" -e "s|@HOME@|$HOME|g" -e "s|@WM@|$1|g" -e "s|@APPID@|$([ "$1" = hyprland ] && echo class || echo app_id)|g" "$2"; }
   case $want in macos) wp=KwickGlass ;; windows) wp=KwickFluent ;; *) wp=KwickOS ;; esac
   ICO=$(icontheme)
   fontconf tiling
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$C/$v"
-    sed -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" -e "s|^gtk-font-name=.*|gtk-font-name=$ui $pt|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
+    sed -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" -e "s|^gtk-font-name=.*|gtk-font-name=$ui $pt|" \
+      -e "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=$(light && echo 0 || echo 1)|" \
+      -e "s|^gtk-theme-name=.*|gtk-theme-name=Breeze$(light || echo -Dark)|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
     echo "gtk-decoration-layout=$(gtklayout)" >> "$C/$v/settings.ini"
   done
   gtkstyle
   gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
+  colorscheme
   gsettings set org.gnome.desktop.wm.preferences button-layout "$(gtklayout)" 2>/dev/null || true
   mkdir -p "$C/hypr" "$C/sway" "$C/waybar" "$C/mako" "$C/fuzzel" "$C/foot" "$C/swaylock"
   ln -sf "/usr/share/wallpapers/$wp/contents/images/2560x1440.png" "$cfg/wallpaper"
@@ -272,7 +300,7 @@ tiling() {
 }
 ' "$(curradius)" >> "$C/hypr/kwick-layout.conf"
   [ -f "$C/hypr/kwick-effects.conf" ] || : > "$C/hypr/kwick-effects.conf"
-  if [ -f "$T/$want/hyprbars.conf" ]; then cp "$T/$want/hyprbars.conf" "$C/hypr/kwick-bars.conf"; else : > "$C/hypr/kwick-bars.conf"; fi
+  if [ -f "$T/$want/hyprbars.conf" ]; then sub x "$T/$want/hyprbars.conf" > "$C/hypr/kwick-bars.conf"; else : > "$C/hypr/kwick-bars.conf"; fi
   sub sway "$T/common/sway.conf" > "$C/sway/config"
   sub sway "$T/$want/sway.conf" > "$C/sway/kwick-layout.conf"
   for wm in hyprland sway; do sub $wm "$T/$want/waybar.jsonc" > "$C/waybar/$wm.jsonc"; done
@@ -335,6 +363,7 @@ radius_main() {
 }
 
 if [ -n "$rcmd" ]; then radius_main; exit $?; fi
+command -v kwick-touch >/dev/null 2>&1 && kwick-touch apply >/dev/null 2>&1
 case $de in
   *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) tiling ;;
   *) echo "Layout '$want' saved; it is applied at your next desktop login." ;;

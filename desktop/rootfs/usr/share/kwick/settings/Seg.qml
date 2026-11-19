@@ -28,12 +28,12 @@ Rectangle {
                     id: label
                     anchors.centerIn: parent
                     text: item.modelData.label
-                    color: item.on ? "#ffffff" : Theme.text
+                    color: item.on ? Theme.onControl : Theme.text
                     font.family: Theme.sans
                     font.pixelSize: 12
                     font.weight: item.on ? Font.Medium : Font.Normal
                 }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: seg.picked(item.modelData.id) }
+                MouseArea { anchors.fill: parent; anchors.topMargin: -10; anchors.bottomMargin: -10; cursorShape: Qt.PointingHandCursor; onClicked: seg.picked(item.modelData.id) }
             }
         }
     }

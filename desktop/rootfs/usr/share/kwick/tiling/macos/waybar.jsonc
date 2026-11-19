@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": ["custom/logo", "@WM@/window", "@WM@/workspaces"],
   "modules-center": [],
-  "modules-right": ["tray", "bluetooth", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
+  "modules-right": ["tray", "bluetooth", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/logo": {
     "format": " ",
     "tooltip": false,
@@ -16,7 +16,7 @@
     "format": "{@APPID@}",
     "max-length": 40,
     "separate-outputs": true,
-    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.qt-project.qml": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "steam": "Steam" }
+    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.kwickos.settings.qml": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "steam": "Steam" }
   },
   "@WM@/workspaces": {
     "format": "{name}",
@@ -33,7 +33,17 @@
     "format-disabled": " ",
     "format-off": " ",
     "format-connected": " ",
-    "tooltip-format": "{status}"
+    "tooltip-format": "{status}",
+    "on-click": "kwick-bluetooth menu",
+    "on-click-right": "kwick-bluetooth settings"
+  },
+  "custom/osk": {
+    "exec": "kwick-touch bar",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "kwick-touch keyboard toggle"
   },
   "custom/vpn": {
     "exec": "kwick-vpn waybar",

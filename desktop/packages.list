@@ -1,5 +1,5 @@
 # KwickOS Desktop package set (KDE Plasma 6 default, GNOME selectable, Hyprland/sway tiling selectable)
-plasma-desktop plasma-workspace kwin-wayland plasma-nm plasma-pa plasma-systemmonitor kscreen powerdevil breeze-gtk-theme
+plasma-desktop plasma-workspace kwin-wayland plasma-nm plasma-pa bluedevil plasma-systemmonitor kscreen powerdevil breeze-gtk-theme
 sddm sddm-theme-breeze qt6-wayland xwayland dolphin konsole kate ark gwenview okular kde-spectacle kcalc kde-config-gtk-style zenity xdg-desktop-portal-kde
 gnome-shell gnome-session gnome-control-center gnome-tweaks nautilus gnome-terminal gnome-text-editor xdg-desktop-portal-gnome
 gnome-shell-extension-dash-to-panel gnome-shell-extension-dashtodock gnome-shell-extension-blur-my-shell gnome-shell-extension-appindicator
@@ -19,3 +19,4 @@ kwin-addons systemsettings
 locales
 fdisk e2fsprogs dosfstools cryptsetup-bin btrfs-progs xfsprogs grub-common grub2-common systemd-boot-efi tzdata
 wireguard-tools openvpn openconnect network-manager-openvpn network-manager-openconnect network-manager-vpnc network-manager-l2tp network-manager-strongswan network-manager-sstp network-manager-openvpn-gnome network-manager-vpnc-gnome network-manager-l2tp-gnome network-manager-sstp-gnome
+iio-sensor-proxy libinput-tools wvkbd qt6-virtualkeyboard-plugin qml6-module-org-kde-layershell

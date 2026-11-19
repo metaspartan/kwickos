@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Id": "KwickGlassLight",
+        "License": "CC-BY-SA-4.0",
+        "Name": "KwickGlassLight"
+    }
+}

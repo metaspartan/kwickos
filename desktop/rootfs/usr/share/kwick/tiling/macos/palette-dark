@@ -1,0 +1,7 @@
+@MENU_BG@ 323232
+@MENU_TEXT@ ffffff
+@DOCK_BG@ rgba(44, 44, 46, 0.72)
+@DOCK_BORDER@ rgba(255, 255, 255, 0.16)
+@DOCK_HILITE@ rgba(255, 255, 255, 0.08)
+@DOT@ rgba(255, 255, 255, 0.9)
+@DOT_CLEAR@ rgba(255, 255, 255, 0)

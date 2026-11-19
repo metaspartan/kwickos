@@ -1,0 +1,20 @@
+#!/bin/sh
+seen=${XDG_STATE_HOME:-$HOME/.local/state}/kwick/output-scale
+[ -f "$seen" ] || { mkdir -p "${seen%/*}"; : > "$seen"; }
+ids() {
+  for s in /sys/class/drm/card*-*/status; do
+    read -r st < "$s" && [ "$st" = connected ] || continue
+    d=${s%/status}; n=${d##*/}
+    set -- $(cksum < "$d/edid")
+    printf '%s:%s\n' "${n#card*-}" "$1"
+  done
+}
+new=$(ids)
+[ ! -s "$seen" ] || new=$(printf '%s\n' "$new" | grep -vxF -f "$seen")
+[ -n "$new" ] || exit 0
+set --
+for o in $(kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | awk '/^Output:/ { n = $3 } /^[[:space:]]*Scale:/ && $2 > 1 && $2 < 1.25 { print n }'); do
+  printf '%s\n' "$new" | grep -q "^$o:" && set -- "$@" "output.$o.scale.1"
+done
+[ $# -eq 0 ] || kscreen-doctor "$@" >/dev/null 2>&1
+printf '%s\n' "$new" >> "$seen"

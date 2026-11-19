@@ -82,6 +82,8 @@ FocusScope {
     MouseArea {
         id: area
         anchors.fill: parent
+        anchors.topMargin: -5
+        anchors.bottomMargin: -5
         hoverEnabled: true
         enabled: b.enabled && !b.busy
         cursorShape: Qt.PointingHandCursor

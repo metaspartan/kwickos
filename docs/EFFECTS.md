@@ -125,7 +125,7 @@ How it is drawn, per glass surface:
 
 * The shape is the bounding box of the surface's blur region (the mask Plasma and Breeze already send to KWin), drawn as a
   rounded rectangle with a signed distance field. The dock is 0.36 of its height (26 px on the 72 px dock), menus 10.5 px,
-  applet popups 16 px, notifications 20 px, OSDs and the dock's name labels are capsules; they scale a little with the window
+  applet popups 16 px, notifications 20 px, OSDs and the dock's name labels are capsules, Spotlight Search is a capsule that becomes a 26 px rounded panel with results; they scale a little with the window
   corner radius setting. A bar that spans the screen, like the menu bar, only gets a bevel on its free edge and a fainter rim.
 * Menus, popups and tooltips use a neutral dark frost: the colours behind are almost fully desaturated and darkened toward a
   neutral grey, so a red or orange wallpaper does not turn the menu brown. Notification banners adapt to what is behind them:

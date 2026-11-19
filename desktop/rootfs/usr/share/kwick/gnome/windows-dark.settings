@@ -1,0 +1,10 @@
+org.gnome.shell.extensions.dash-to-panel trans-bg-color '#202020'
+org.gnome.shell.extensions.dash-to-panel trans-panel-opacity 0.85
+org.gnome.shell.extensions.dash-to-panel dot-color-1 '#60cdff'
+org.gnome.shell.extensions.dash-to-panel dot-color-2 '#60cdff'
+org.gnome.shell.extensions.dash-to-panel dot-color-3 '#60cdff'
+org.gnome.shell.extensions.dash-to-panel dot-color-4 '#60cdff'
+org.gnome.shell.extensions.dash-to-panel dot-color-unfocused-1 '#9d9d9d'
+org.gnome.shell.extensions.dash-to-panel dot-color-unfocused-2 '#9d9d9d'
+org.gnome.shell.extensions.dash-to-panel dot-color-unfocused-3 '#9d9d9d'
+org.gnome.shell.extensions.dash-to-panel dot-color-unfocused-4 '#9d9d9d'

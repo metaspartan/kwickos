@@ -44,4 +44,8 @@ ButtonsOnRight=
 LatencyPolicy=Medium
 
 [Wayland]
-InputMethod[$e]=
+InputMethod[$e]=/usr/share/applications/org.kde.plasma.keyboard.desktop
+VirtualKeyboardEnabled=true
+
+[Input]
+TabletMode=auto

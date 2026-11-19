@@ -1,35 +1,35 @@
-@define-color theme_bg_color #323232;
-@define-color theme_fg_color rgba(255, 255, 255, 0.847);
-@define-color theme_base_color #1e1e1e;
-@define-color theme_text_color rgba(255, 255, 255, 0.847);
-@define-color theme_selected_bg_color #0a84ff;
+@define-color theme_bg_color @WINDOW@;
+@define-color theme_fg_color @FG@;
+@define-color theme_base_color @VIEW@;
+@define-color theme_text_color @FG@;
+@define-color theme_selected_bg_color @ACCENT@;
 @define-color theme_selected_fg_color #ffffff;
-@define-color theme_unfocused_bg_color #282828;
-@define-color theme_unfocused_fg_color rgba(255, 255, 255, 0.549);
-@define-color theme_unfocused_base_color #1e1e1e;
-@define-color theme_unfocused_text_color rgba(255, 255, 255, 0.847);
-@define-color theme_unfocused_selected_bg_color #464646;
+@define-color theme_unfocused_bg_color @UNDER@;
+@define-color theme_unfocused_fg_color @FG_SECONDARY@;
+@define-color theme_unfocused_base_color @VIEW@;
+@define-color theme_unfocused_text_color @FG@;
+@define-color theme_unfocused_selected_bg_color @SEL_IDLE@;
 @define-color theme_unfocused_selected_fg_color #ffffff;
-@define-color insensitive_fg_color rgba(255, 255, 255, 0.247);
-@define-color borders rgba(255, 255, 255, 0.098);
-@define-color unfocused_borders rgba(255, 255, 255, 0.098);
-@define-color accent_color #419cff;
-@define-color accent_bg_color #0a84ff;
+@define-color insensitive_fg_color @FG_FAINT@;
+@define-color borders @BORDER@;
+@define-color unfocused_borders @BORDER@;
+@define-color accent_color @ACCENT_TEXT@;
+@define-color accent_bg_color @ACCENT@;
 @define-color accent_fg_color #ffffff;
-@define-color window_bg_color #323232;
-@define-color window_fg_color rgba(255, 255, 255, 0.847);
-@define-color view_bg_color #1e1e1e;
-@define-color view_fg_color rgba(255, 255, 255, 0.847);
-@define-color headerbar_bg_color #323232;
-@define-color headerbar_fg_color rgba(255, 255, 255, 0.847);
-@define-color headerbar_backdrop_color #282828;
-@define-color sidebar_bg_color #282828;
-@define-color popover_bg_color #323232;
-@define-color dialog_bg_color #323232;
-@define-color card_bg_color rgba(255, 255, 255, 0.047);
-@define-color success_color #32d74b;
-@define-color warning_color #ff9f0a;
-@define-color error_color #ff453a;
+@define-color window_bg_color @WINDOW@;
+@define-color window_fg_color @FG@;
+@define-color view_bg_color @VIEW@;
+@define-color view_fg_color @FG@;
+@define-color headerbar_bg_color @WINDOW@;
+@define-color headerbar_fg_color @FG@;
+@define-color headerbar_backdrop_color @UNDER@;
+@define-color sidebar_bg_color @UNDER@;
+@define-color popover_bg_color @WINDOW@;
+@define-color dialog_bg_color @WINDOW@;
+@define-color card_bg_color @CARD@;
+@define-color success_color @GREEN@;
+@define-color warning_color @ORANGE@;
+@define-color error_color @RED@;
 headerbar .titlebar-buttons {
   margin: 0 5px;
 }
@@ -66,7 +66,7 @@ headerbar button.titlebutton.close:backdrop,
 headerbar button.titlebutton.minimize:backdrop,
 headerbar button.titlebutton.maximize:backdrop,
 headerbar button.titlebutton.restore:backdrop {
-  background-image: radial-gradient(circle closest-side at center, #4d4d4d 0, #4d4d4d 5.3px, rgba(0, 0, 0, 0.28) 5.6px, rgba(0, 0, 0, 0) 6px);
+  background-image: radial-gradient(circle closest-side at center, @IDLE@ 0, @IDLE@ 5.3px, rgba(0, 0, 0, 0.28) 5.6px, rgba(0, 0, 0, 0) 6px);
   box-shadow: none;
 }
 
@@ -88,7 +88,7 @@ headerbar:hover button image {
 .sidebar-pane image,
 placessidebar image,
 .sidebar image {
-  color: #0a84ff;
+  color: @ACCENT@;
 }
 
 window.csd decoration {
@@ -97,17 +97,17 @@ window.csd decoration {
 
 headerbar,
 .titlebar:not(headerbar) {
-  background-color: #323232;
+  background-color: @WINDOW@;
   background-image: none;
-  border-color: rgba(0, 0, 0, 0.36);
-  box-shadow: inset 0 -1px rgba(0, 0, 0, 0.36);
-  color: rgba(255, 255, 255, 0.847);
+  border-color: @SHADE@;
+  box-shadow: inset 0 -1px @SHADE@;
+  color: @FG@;
 }
 
 headerbar:backdrop,
 .titlebar:not(headerbar):backdrop {
-  background-color: #282828;
-  color: rgba(255, 255, 255, 0.247);
+  background-color: @UNDER@;
+  color: @FG_FAINT@;
 }
 
 headerbar button:not(.titlebutton) {
@@ -118,22 +118,22 @@ headerbar button:not(.titlebutton) {
 }
 
 headerbar button:not(.titlebutton):hover {
-  background-color: rgba(255, 255, 255, 0.098);
+  background-color: @BORDER@;
 }
 
 headerbar button:not(.titlebutton):active,
 headerbar button:not(.titlebutton):checked {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: @PRESS@;
 }
 
 .background:not(.csd):not(.solid-csd),
 window.background {
-  background-color: #323232;
+  background-color: @WINDOW@;
 }
 
 terminal-window.csd:not(.maximized):not(.fullscreen):not(.tiled) {
   border-radius: 0 0 @RADIUS@px @RADIUS@px;
-  box-shadow: inset 1px 0 rgba(255, 255, 255, 0.07), inset -1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px rgba(255, 255, 255, 0.07);
+  box-shadow: inset 1px 0 @RIM@, inset -1px 0 @RIM@, inset 0 -1px @RIM@;
 }
 
 terminal-window.csd:not(.maximized):not(.fullscreen):not(.tiled) decoration {
@@ -150,11 +150,11 @@ terminal-window.csd decoration:backdrop {
 
 terminal-window.csd:not(.maximized):not(.fullscreen):not(.tiled) headerbar.titlebar {
   border-radius: @RADIUS@px @RADIUS@px 0 0;
-  box-shadow: inset 0 -1px rgba(0, 0, 0, 0.36), inset 0 1px rgba(255, 255, 255, 0.07), inset 1px 0 rgba(255, 255, 255, 0.07), inset -1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 -1px @SHADE@, inset 0 1px @RIM@, inset 1px 0 @RIM@, inset -1px 0 @RIM@;
 }
 
 terminal-window.background {
-  background-color: #1e1e1e;
+  background-color: @VIEW@;
 }
 
 terminal-window.csd:not(.maximized):not(.fullscreen):not(.tiled) > box {
@@ -163,4 +163,51 @@ terminal-window.csd:not(.maximized):not(.fullscreen):not(.tiled) > box {
 
 terminal-window vte-terminal {
   padding: 4px 6px;
+}
+
+.csd.popup decoration,
+.csd.menu decoration {
+  border-radius: 12px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45), 0 0 0 1px @OUTLINE@;
+}
+
+menu,
+.menu,
+.context-menu {
+  padding: 5px 0;
+  border-radius: 12px;
+  border: none;
+  background-color: @MENU@;
+  box-shadow: inset 0 0 0 1px @PRESS@;
+}
+
+menu menuitem {
+  min-height: 24px;
+  padding: 0 9px;
+  margin: 0 5px;
+  border-radius: 7px;
+  color: @FG@;
+}
+
+menu menuitem:hover {
+  background-color: @ACCENT@;
+  color: #ffffff;
+}
+
+menu menuitem:disabled {
+  color: @FG_DISABLED@;
+}
+
+menu menuitem accelerator {
+  color: @FG_DIM@;
+}
+
+menu menuitem:hover accelerator {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+menu separator {
+  margin: 5px 10px;
+  min-height: 1px;
+  background-color: @SEPARATOR@;
 }

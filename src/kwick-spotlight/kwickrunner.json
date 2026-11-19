@@ -1,0 +1,15 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Description": "KwickOS Settings pages, quick actions and the files in your home folder",
+        "EnabledByDefault": true,
+        "Icon": "kwick-settings",
+        "License": "MIT",
+        "Name": "KwickOS"
+    },
+    "X-Plasma-API-Minimum-Version": "2.0"
+}

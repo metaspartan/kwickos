@@ -1,0 +1,9 @@
+polkit.addRule(function (action, subject) {
+    if (action.id !== "org.kwickos.update" || !subject.local || !subject.active)
+        return polkit.Result.NOT_HANDLED;
+    if (!subject.isInGroup("sudo") && !subject.isInGroup("wheel"))
+        return polkit.Result.NOT_HANDLED;
+    if (/^\/usr\/sbin\/kwick-update (check|status|log)( --quiet)?$/.test(action.lookup("command_line") || ""))
+        return polkit.Result.YES;
+    return polkit.Result.NOT_HANDLED;
+});

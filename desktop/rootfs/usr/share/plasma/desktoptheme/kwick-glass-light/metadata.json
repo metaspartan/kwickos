@@ -1,0 +1,15 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Description": "KwickGlass Light panels for KwickOS",
+        "Id": "kwick-glass-light",
+        "License": "MIT",
+        "Name": "KwickGlass Light",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "5.0"
+}

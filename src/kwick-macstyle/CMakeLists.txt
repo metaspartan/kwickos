@@ -14,7 +14,8 @@ include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
 find_package(Qt6 ${QT_MIN_VERSION} CONFIG REQUIRED COMPONENTS Core Gui Widgets)
+find_package(KF6WindowSystem ${KF_MIN_VERSION} REQUIRED)
 
 add_library(kwickmac MODULE kwickmacstyle.cpp)
-target_link_libraries(kwickmac PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
+target_link_libraries(kwickmac PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets KF6::WindowSystem)
 install(TARGETS kwickmac DESTINATION ${KDE_INSTALL_QTPLUGINDIR}/styles)

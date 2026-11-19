@@ -11,7 +11,7 @@ ColumnLayout {
         Layout.fillWidth: true
         implicitHeight: nrow.implicitHeight + 28
         radius: 12
-        color: "#2e2412"
+        color: Theme.warnBg
         border.width: 1
         border.color: "#55ff9f0a"
         RowLayout {
@@ -23,7 +23,7 @@ ColumnLayout {
             Text {
                 Layout.fillWidth: true
                 text: "The kwick-dock tool is not installed yet. Changes here are shown but not applied."
-                color: "#f5d9a8"
+                color: Theme.warnText
                 font.family: Theme.sans
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap
@@ -188,7 +188,7 @@ ColumnLayout {
         height: 520
         padding: 0
         onOpened: { search.text = ""; search.forceActiveFocus() }
-        background: Rectangle { radius: 14; color: "#323232"; border.width: 1; border.color: Theme.lineStrong }
+        background: Rectangle { radius: 14; color: Theme.popup; border.width: 1; border.color: Theme.lineStrong }
         Overlay.modal: Rectangle { color: "#99000000" }
         contentItem: ColumnLayout {
             spacing: 0

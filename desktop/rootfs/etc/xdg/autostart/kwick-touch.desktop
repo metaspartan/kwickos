@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Touch and Tablet
+Comment=Applies tablet mode, keyboard, rotation and touchpad gestures for this session
+Exec=kwick-touch session
+NoDisplay=true
+X-KDE-autostart-phase=2
+OnlyShowIn=KDE;

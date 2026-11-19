@@ -1,0 +1,603 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LC_ALL=C
+DEBIAN_FRONTEND=noninteractive
+export PATH LC_ALL DEBIAN_FRONTEND
+
+VAR=${KWICK_UPDATE_DIR:-/var/lib/kwick/update}
+CONF=${KWICK_UPDATE_CONF:-/etc/kwick/update.conf}
+CRONTAB=${KWICK_CRONTAB:-/var/spool/cron/crontabs/root}
+KEEPFLAG=${KWICK_KEEPFLAG:-/run/kwick-kernel.keep}
+KSTATE=${KWICK_KSTATE:-/var/lib/kwick/kernel-state}
+RELEASE_FILE=/etc/kwick-release
+RELEASE_PKGS="kwick-desktop kwick-essentials"
+SELF=/usr/sbin/kwick-update
+SESSIONS="plasmashell gnome-shell Hyprland sway"
+
+CHECK=0
+DOWNLOAD=0
+INSTALL_SYSTEM=0
+INSTALL_APPS=0
+INSTALL_SECURITY=0
+NOTIFY=1
+INTERVAL=12
+[ -f "$CONF" ] && . "$CONF"
+
+JSON=0
+QUIET=0
+
+usage() {
+	cat <<'EOF'
+usage: kwick-update <command> [options]
+
+  status [--json]                cached result of the last check, settings and the running task
+  check [--quiet]                refresh apt (and Flatpak) and list what can be updated
+  upgrade [all|system|apps|security]
+                                 install updates; a new kernel is tried once before it becomes the default
+  download                       fetch system updates without installing them
+  auto [show|on|off]             automatic checks through crond
+  auto set KEY on|off ...        check, download, system, apps, security, notify
+  auto interval HOURS            hours between automatic checks (default 12)
+  kernel ARGS...                 run kwick-kernel ARGS as a logged task (list, try, default, rollback ...)
+  log [N]                        last N lines of the task log
+  notify                         tell the desktop sessions about pending updates
+  scheduled                      what crond runs: check, then download or install as configured
+EOF
+}
+
+say() { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
+warn() { printf 'kwick-update: %s\n' "$*" >&2; }
+
+die() {
+	if [ "$JSON" = 1 ]; then printf '{"ok":false,"error":"%s"}\n' "$(jstr "$*")"; else warn "$*"; fi
+	exit 1
+}
+
+jstr() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
+jbool() { if [ "$1" = 1 ]; then echo true; else echo false; fi; }
+need_root() { [ "$(id -u)" = 0 ] || die "$1 needs root (try sudo)"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+now() { date +%s; }
+
+st_get() { sed -n "s/^$1=//p" "$VAR/state" 2>/dev/null | head -n 1; }
+
+st_put() {
+	mkdir -p "$VAR"
+	{
+		[ -f "$VAR/state" ] && grep -v "^$1=" "$VAR/state"
+		printf '%s=%s\n' "$1" "$2"
+	} >"$VAR/state.new" && mv "$VAR/state.new" "$VAR/state"
+	chmod 644 "$VAR/state"
+}
+
+vgt() {
+	[ -n "$1" ] && [ -n "$2" ] || return 1
+	[ "$1" = "$2" ] && return 1
+	top=$(printf '%s\n%s\n' "$1" "$2" | awk '{ n = split($0, a, /[^0-9]+/); k = ""; for (i = 1; i <= n; i++) k = k sprintf("%08d", a[i] + 0); print k "|" $0 }' | sort -r | head -n 1 | cut -d'|' -f2)
+	[ "$top" = "$1" ]
+}
+
+base_release() { sed -n 's/^KwickOS[^0-9]*//p' "$RELEASE_FILE" 2>/dev/null | head -n 1; }
+
+installed_version() { dpkg-query -W "$1" 2>/dev/null | awk -F'\t' 'NR == 1 { print $2 }'; }
+
+release_pkg() {
+	for p in $RELEASE_PKGS; do
+		[ -n "$(installed_version "$p")" ] && { echo "$p"; return 0; }
+	done
+	echo kwick-essentials
+}
+
+current_release() {
+	b=$(base_release)
+	v=$(installed_version "$(release_pkg)")
+	if vgt "$v" "$b"; then echo "$v"; else echo "$b"; fi
+}
+
+job_pid() {
+	set -- $(cat "$VAR/job" 2>/dev/null)
+	[ -n "${1:-}" ] && [ -d "/proc/$1" ] && echo "$1"
+}
+
+job_begin() {
+	mkdir -p "$VAR"
+	chmod 755 "$VAR"
+	p=$(job_pid)
+	[ -n "$p" ] && [ "$p" != "$$" ] && die "another update task is running ($(cut -d' ' -f2 "$VAR/job"))"
+	printf '%s %s %s\n' "$$" "$1" "$(now)" >"$VAR/job"
+	: >"$VAR/log"
+	printf '0\t%s\n' "$2" >"$VAR/progress"
+	chmod 644 "$VAR/job" "$VAR/log" "$VAR/progress"
+	JOBKIND=$1
+	trap 'job_end 130 "Cancelled"' INT TERM
+}
+
+job_end() {
+	trap - INT TERM
+	printf '%s %s %s %s\n' "$JOBKIND" "$1" "$(now)" "$2" >"$VAR/result"
+	chmod 644 "$VAR/result"
+	rm -f "$VAR/job" "$VAR/progress"
+	[ "$1" = 0 ] || exit "$1"
+}
+
+progress() { printf '%s\t%s\n' "$1" "$2" >"$VAR/progress"; }
+log() { printf '%s\n' "$*" >>"$VAR/log"; say "$*"; }
+
+feed() {
+	from=$1
+	span=$2
+	total=$3
+	awk -v logf="$VAR/log" -v prog="$VAR/progress" -v from="$from" -v span="$span" -v total="$total" -v quiet="$QUIET" -v rcf="$VAR/rc" '
+		function emit(m) {
+			f = total > 0 ? (0.3 * got + 0.35 * unp + 0.35 * cfg) / total : ref / 8
+			if (f > 1) f = 1
+			pct = int(from + span * f)
+			if (pct < last) pct = last
+			last = pct
+			printf "%d\t%s\n", pct, m > prog
+			close(prog)
+		}
+		/^__rc [0-9]+$/ { print $2 > rcf; close(rcf); next }
+		{ print >> logf; fflush(logf); if (!quiet) { print; fflush() } }
+		/^  Upgrading: [0-9]+, Installing: [0-9]+/ { gsub(/,/, ""); total = $2 + $4; next }
+		/^Get:[0-9]+ / && !/InRelease|Packages/ { got++; emit("Downloading " $(NF - 2) "…"); next }
+		/^Unpacking / { unp++; emit("Installing " $2 "…"); next }
+		/^Setting up / { cfg++; emit("Configuring " $3 "…"); next }
+		/^Updating / { got++; unp++; cfg++; emit("Updating " $2 "…"); next }
+		/^Hit:|^Get:|^Ign:/ { ref++; h = $2; sub(/^[a-z]+:\/\//, "", h); sub(/\/.*/, "", h); emit("Contacting " h "…"); next }
+		/^kwick-kernel/ { emit(substr($0, index($0, ":") + 2)); next }
+	'
+}
+
+run_fed() {
+	from=$1
+	span=$2
+	total=$3
+	shift 3
+	rm -f "$VAR/rc"
+	{
+		"$@" 2>&1
+		echo "__rc $?"
+	} | feed "$from" "$span" "$total"
+	rc=$(cat "$VAR/rc" 2>/dev/null)
+	rm -f "$VAR/rc"
+	return "${rc:-1}"
+}
+
+last_error() {
+	grep -E '^(E:|W: Failed|error:|kwick-kernel:)' "$VAR/log" 2>/dev/null | tail -n 1 | sed -e 's/^E: //' -e 's/^error: //' -e 's/^kwick-kernel: //'
+}
+
+to_bytes() {
+	awk -v s="$1" 'BEGIN {
+		gsub(/,/, "", s)
+		n = s + 0
+		u = toupper(s)
+		if (u ~ /GB/) n *= 1e9; else if (u ~ /MB/) n *= 1e6; else if (u ~ /KB/) n *= 1e3
+		printf "%.0f", n
+	}'
+}
+
+collect_apt() {
+	rp=$(release_pkg)
+	apt-get -s upgrade 2>/dev/null | awk '/^Inst / { s = $0; sub(/^[^(]*\(/, "", s); sub(/\)$/, "", s); split(s, a, " "); print $2 "\t" a[1] "\t" a[2] }' >"$VAR/apt.plan"
+	specs=$(awk -F'\t' '{ print $1 "=" $2 }' "$VAR/apt.plan")
+	apt-cache show $specs "$rp" 2>/dev/null | awk '
+		/^Package: / { p = $2 }
+		/^Version: / { v = $2 }
+		/^Size: / { s = $2 }
+		/^Download-Size: / { s = $2 " " $3 }
+		/^Description: / { d = substr($0, 14) }
+		/^$/ { if (p != "") print p "\t" v "\t" s "\t" d; p = v = s = d = "" }
+		END { if (p != "") print p "\t" v "\t" s "\t" d }
+	' >"$VAR/apt.show"
+	RELEASE_CAND=$(awk -F'\t' -v n="$rp" '$1 == n { print $2 }' "$VAR/apt.show" | tail -n 1)
+	names=$(cut -f1 "$VAR/apt.plan")
+	[ -n "$names" ] && dpkg-query -W $names 2>/dev/null | awk -F'\t' '{ sub(/:.*/, "", $1); print $1 "\t" $2 }' >"$VAR/apt.have"
+	while IFS="$(printf '\t')" read -r n to origin; do
+		[ -n "$n" ] || continue
+		from=$(awk -F'\t' -v n="$n" '$1 == n { print $2; exit }' "$VAR/apt.have" 2>/dev/null)
+		info=$(awk -F'\t' -v n="$n" -v v="$to" '$1 == n && $2 == v { print $3 "\t" $4; exit }' "$VAR/apt.show")
+		size=$(to_bytes "${info%%	*}")
+		desc=${info#*	}
+		[ "$desc" = "$info" ] && desc=""
+		sec=0
+		case $origin in *ecurity*) sec=1 ;; esac
+		printf 'system\t%s\t%s\t%s\t%s\t%s\t%s\n' "$n" "${from:--}" "$to" "$size" "${desc:--}" "$sec"
+	done <"$VAR/apt.plan"
+	rm -f "$VAR/apt.plan" "$VAR/apt.show" "$VAR/apt.have"
+}
+
+collect_flatpak() {
+	have flatpak || return 0
+	flatpak list --system --columns=application,branch,version 2>/dev/null >"$VAR/fp.list"
+	flatpak remote-ls --updates --system --columns=application,branch,version,download-size,name 2>/dev/null | while IFS="$(printf '\t')" read -r app branch ver size name; do
+		[ -n "$app" ] || continue
+		from=$(awk -F'\t' -v a="$app" -v b="$branch" '$1 == a && $2 == b { print $3; exit }' "$VAR/fp.list")
+		printf 'apps\t%s\t%s\t%s\t%s\t%s\t0\n' "$app" "${from:-$branch}" "${ver:-$branch}" "$(to_bytes "$size")" "${name:--}"
+	done
+	rm -f "$VAR/fp.list"
+}
+
+collect() {
+	{
+		collect_apt
+		collect_flatpak
+	} >"$VAR/updates.new"
+	mv "$VAR/updates.new" "$VAR/updates"
+	chmod 644 "$VAR/updates"
+	st_put release_pkg "$(release_pkg)"
+	st_put release_latest "${RELEASE_CAND:-}"
+	cache_kernels
+}
+
+cache_kernels() {
+	[ -x /usr/sbin/kwick-kernel ] || return 0
+	/usr/sbin/kwick-kernel list --json >"$VAR/kernels.json.new" 2>/dev/null && mv "$VAR/kernels.json.new" "$VAR/kernels.json"
+	chmod 644 "$VAR/kernels.json" 2>/dev/null
+	rm -f "$VAR/kernels.json.new"
+}
+
+count_of() { awk -F'\t' -v k="$1" 'k == "" || $1 == k || (k == "security" && $7 == 1) { n++ } END { print n + 0 }' "$VAR/updates" 2>/dev/null; }
+
+cmd_check() {
+	need_root check
+	job_begin check "Checking for updates…"
+	err=""
+	if have apt-get; then
+		run_fed 2 60 0 apt-get update || err=$(last_error)
+		[ -n "$err" ] || err=$(grep -E '^(E:|W: Failed)' "$VAR/log" | head -n 1 | sed -e 's/^E: //' -e 's/^W: //')
+	fi
+	if have flatpak; then
+		progress 70 "Checking Flatpak apps…"
+		flatpak update --appstream --system >/dev/null 2>&1
+	fi
+	progress 85 "Reading the update list…"
+	collect
+	st_put checked "$(now)"
+	st_put error "$err"
+	n=$(count_of)
+	log "$n update(s) available"
+	job_end 0 "$n update(s) available"
+}
+
+kernel_guard_on() {
+	KREG=$(cat "$KSTATE/registered" 2>/dev/null)
+	[ -x /usr/sbin/kwick-kernel ] || return 0
+	cat "$KSTATE/default" >"$KEEPFLAG" 2>/dev/null || : >"$KEEPFLAG"
+}
+
+kernel_guard_off() {
+	rm -f "$KEEPFLAG"
+	[ -x /usr/sbin/kwick-kernel ] || return 0
+	new=$(cat "$KSTATE/registered" 2>/dev/null)
+	def=$(cat "$KSTATE/default" 2>/dev/null)
+	[ -n "$new" ] && [ "$new" != "$KREG" ] && [ "$new" != "$def" ] || return 0
+	progress 96 "Preparing kernel $new for a trial boot…"
+	if /usr/sbin/kwick-kernel try "$new" --promote >>"$VAR/log" 2>&1; then
+		log "kernel $new boots once on the next restart and becomes the default when that boot is confirmed"
+		st_put kernel_trial "$new"
+	else
+		/usr/sbin/kwick-kernel default "$new" >>"$VAR/log" 2>&1 && log "kernel $new is the default from the next restart (rollback: kwick-kernel rollback)"
+	fi
+}
+
+security_pkgs() { awk -F'\t' '$1 == "system" && $7 == 1 { print $2 }' "$VAR/updates" 2>/dev/null; }
+
+cmd_upgrade() {
+	need_root upgrade
+	what=${1:-all}
+	case $what in all | system | apps | security) ;; *) die "upgrade what? all, system, apps or security" ;; esac
+	job_begin upgrade "Preparing…"
+	[ -f "$VAR/updates" ] || collect
+	sys=0
+	app=0
+	case $what in all | system) sys=$(count_of system) ;; security) sys=$(count_of security) ;; esac
+	case $what in all | apps) app=$(count_of apps) ;; esac
+	total=$((sys + app))
+	[ "$total" -gt 0 ] || { collect; job_end 0 "Everything is up to date"; return 0; }
+	split=$((sys * 92 / total))
+	rc=0
+	if [ "$sys" -gt 0 ] && have apt-get; then
+		kernel_guard_on
+		if [ "$what" = security ]; then
+			run_fed 2 "$split" "$sys" apt-get install -y --only-upgrade $(security_pkgs) || rc=1
+		else
+			run_fed 2 "$split" "$sys" apt-get upgrade -y || rc=1
+		fi
+		kernel_guard_off
+	fi
+	if [ "$app" -gt 0 ] && have flatpak; then
+		progress $((split + 2)) "Updating apps…"
+		run_fed $((split + 2)) $((96 - split)) "$app" flatpak update -y --noninteractive --system || rc=1
+	fi
+	progress 98 "Finishing…"
+	collect
+	st_put installed "$(now)"
+	if [ $rc = 0 ]; then
+		log "updates installed"
+		job_end 0 "Updates installed"
+	else
+		e=$(last_error)
+		log "update failed: ${e:-see the log}"
+		job_end 1 "${e:-The update did not finish}"
+	fi
+}
+
+cmd_download() {
+	need_root download
+	have apt-get || die "apt-get is not available"
+	job_begin download "Downloading updates…"
+	if run_fed 2 96 "$(count_of system)" apt-get -d -y upgrade; then job_end 0 "Updates downloaded"; else job_end 1 "$(last_error)"; fi
+}
+
+cmd_kernel() {
+	need_root kernel
+	[ $# -gt 0 ] || die "usage: kwick-update kernel ARGS"
+	[ -x /usr/sbin/kwick-kernel ] || die "kwick-kernel is not installed"
+	job_begin kernel "Working on kernels…"
+	rc=0
+	if [ "$1" = install ]; then
+		kernel_guard_on
+		run_fed 5 85 1 /usr/sbin/kwick-kernel "$@" || rc=1
+		kernel_guard_off
+	else
+		run_fed 5 90 1 /usr/sbin/kwick-kernel "$@" || rc=1
+	fi
+	progress 96 "Reading the kernel list…"
+	cache_kernels
+	if [ $rc = 0 ]; then job_end 0 "$(tail -n 1 "$VAR/log")"; else job_end 1 "$(last_error)"; fi
+}
+
+conf_write() {
+	mkdir -p "$(dirname "$CONF")"
+	printf 'CHECK=%s\nDOWNLOAD=%s\nINSTALL_SYSTEM=%s\nINSTALL_APPS=%s\nINSTALL_SECURITY=%s\nNOTIFY=%s\nINTERVAL=%s\n' \
+		"$CHECK" "$DOWNLOAD" "$INSTALL_SYSTEM" "$INSTALL_APPS" "$INSTALL_SECURITY" "$NOTIFY" "$INTERVAL" >"$CONF.new"
+	mv "$CONF.new" "$CONF"
+	chmod 644 "$CONF"
+}
+
+cron_apply() {
+	mkdir -p "$(dirname "$CRONTAB")"
+	touch "$CRONTAB"
+	grep -v 'KWICK_JOB=update ' "$CRONTAB" >"$CRONTAB.new"
+	if [ "$CHECK" = 1 ]; then
+		m=$(awk -v s="$(cat /proc/sys/kernel/random/uuid 2>/dev/null)" 'BEGIN { srand(); print int(rand() * 60) }')
+		printf '%s * * * * KWICK_JOB=update %s scheduled >/dev/null 2>&1\n' "$m" "$SELF" >>"$CRONTAB.new"
+	fi
+	mv "$CRONTAB.new" "$CRONTAB"
+	chmod 600 "$CRONTAB"
+	echo root >>"$(dirname "$CRONTAB")/cron.update"
+	have systemctl || return 0
+	if [ "$CHECK" = 1 ]; then
+		systemctl enable crond >/dev/null 2>&1
+		systemctl is-active -q crond 2>/dev/null || systemctl start crond >/dev/null 2>&1
+	elif ! ls "$(dirname "$CRONTAB")" | grep -vx cron.update | sed "s|^|$(dirname "$CRONTAB")/|" | xargs -r grep -qsv '^[[:space:]]*\(#\|$\)'; then
+		systemctl disable crond >/dev/null 2>&1
+		systemctl stop crond >/dev/null 2>&1
+	fi
+	return 0
+}
+
+onoff() {
+	case $1 in
+	on | 1 | yes | true) echo 1 ;;
+	off | 0 | no | false) echo 0 ;;
+	*) die "expected on or off, got '$1'" ;;
+	esac
+}
+
+auto_json() {
+	printf '{"check":%s,"download":%s,"system":%s,"apps":%s,"security":%s,"notify":%s,"interval":%s}' \
+		"$(jbool "$CHECK")" "$(jbool "$DOWNLOAD")" "$(jbool "$INSTALL_SYSTEM")" "$(jbool "$INSTALL_APPS")" "$(jbool "$INSTALL_SECURITY")" "$(jbool "$NOTIFY")" "$INTERVAL"
+}
+
+cmd_auto() {
+	case ${1:-show} in
+	show)
+		if [ "$JSON" = 1 ]; then auto_json; echo; return 0; fi
+		printf 'check %s\ndownload %s\nsystem %s\napps %s\nsecurity %s\nnotify %s\ninterval %sh\n' "$CHECK" "$DOWNLOAD" "$INSTALL_SYSTEM" "$INSTALL_APPS" "$INSTALL_SECURITY" "$NOTIFY" "$INTERVAL"
+		return 0
+		;;
+	on) CHECK=1 ;;
+	off) CHECK=0 DOWNLOAD=0 INSTALL_SYSTEM=0 INSTALL_APPS=0 INSTALL_SECURITY=0 ;;
+	interval)
+		case ${2:-} in '' | *[!0-9]*) die "usage: kwick-update auto interval HOURS" ;; esac
+		[ "$2" -ge 1 ] || die "the interval is at least one hour"
+		INTERVAL=$2
+		;;
+	set)
+		shift
+		[ $# -ge 2 ] || die "usage: kwick-update auto set KEY on|off ..."
+		while [ $# -ge 2 ]; do
+			v=$(onoff "$2") || exit 1
+			case $1 in
+			check) CHECK=$v ;;
+			download) DOWNLOAD=$v ;;
+			system) INSTALL_SYSTEM=$v ;;
+			apps) INSTALL_APPS=$v ;;
+			security) INSTALL_SECURITY=$v ;;
+			notify) NOTIFY=$v ;;
+			*) die "unknown setting '$1' (check, download, system, apps, security, notify)" ;;
+			esac
+			shift 2
+		done
+		;;
+	*) die "usage: kwick-update auto [show|on|off|set KEY on|off|interval HOURS]" ;;
+	esac
+	need_root "changing automatic updates"
+	[ "$INSTALL_SYSTEM$INSTALL_APPS$INSTALL_SECURITY$DOWNLOAD" = 0000 ] || CHECK=1
+	conf_write
+	cron_apply
+	[ "$JSON" = 1 ] && { auto_json; echo; return 0; }
+	say "automatic checks $([ "$CHECK" = 1 ] && echo "on, every ${INTERVAL}h" || echo off)"
+}
+
+on_battery() {
+	for s in /sys/class/power_supply/*; do
+		[ "$(cat "$s/type" 2>/dev/null)" = Mains ] && [ "$(cat "$s/online" 2>/dev/null)" = 1 ] && return 1
+	done
+	for s in /sys/class/power_supply/*; do
+		[ "$(cat "$s/type" 2>/dev/null)" = Battery ] && return 0
+	done
+	return 1
+}
+
+cmd_scheduled() {
+	need_root scheduled
+	[ "$CHECK" = 1 ] || return 0
+	[ -z "$(job_pid)" ] || return 0
+	last=$(st_get checked)
+	[ $(($(now) - ${last:-0})) -ge $((INTERVAL * 3600 - 300)) ] || return 0
+	QUIET=1
+	renice -n 10 -p $$ >/dev/null 2>&1
+	(cmd_check) || return 0
+	if ! on_battery; then
+		if [ "$INSTALL_SYSTEM" = 1 ] || [ "$INSTALL_APPS" = 1 ]; then
+			w=all
+			[ "$INSTALL_SYSTEM" = 1 ] || w=apps
+			[ "$INSTALL_APPS" = 1 ] || w=system
+			(cmd_upgrade "$w")
+			[ "$w" = apps ] && [ "$INSTALL_SECURITY" = 1 ] && (cmd_upgrade security)
+		elif [ "$INSTALL_SECURITY" = 1 ]; then
+			(cmd_upgrade security)
+		fi
+		[ "$DOWNLOAD" = 1 ] && [ "$(count_of system)" -gt 0 ] && (cmd_download)
+	fi
+	[ "$NOTIFY" = 1 ] && cmd_notify
+	return 0
+}
+
+session_pids() {
+	for n in $SESSIONS; do
+		pgrep -x "$n" 2>/dev/null
+	done
+}
+
+cmd_notify() {
+	n=$(count_of)
+	[ "$n" -gt 0 ] || return 0
+	sig=$(cut -f2,4 "$VAR/updates" | cksum)
+	[ "$(cat "$VAR/notified" 2>/dev/null)" = "$sig" ] && return 0
+	if [ "$n" = 1 ]; then body="1 update is ready to install."; else body="$n updates are ready to install."; fi
+	lr=$(st_get release_latest)
+	vgt "$lr" "$(current_release)" && body="KwickOS $lr is available. $body"
+	seen=" "
+	for p in $(session_pids); do
+		u=$(stat -c %U "/proc/$p" 2>/dev/null)
+		[ -n "$u" ] && [ "$u" != root ] || continue
+		case $seen in *" $u "*) continue ;; esac
+		seen="$seen$u "
+		env=$(tr '\0' '\n' <"/proc/$p/environ" 2>/dev/null | grep -E '^(DBUS_SESSION_BUS_ADDRESS|WAYLAND_DISPLAY|DISPLAY|XDG_RUNTIME_DIR|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE|XAUTHORITY|HOME|LANG)=' | tr '\n' ' ')
+		[ -n "$env" ] || continue
+		setsid su -s /bin/sh "$u" -c "exec env $env PATH=$PATH $SELF _toast '$n' '$body'" >/dev/null 2>&1 </dev/null &
+	done
+	if [ "$(id -u)" = 0 ]; then printf '%s\n' "$sig" >"$VAR/notified"; fi
+	return 0
+}
+
+cmd_toast() {
+	have gdbus || exit 0
+	id=$(gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+		--method org.freedesktop.Notifications.Notify "Software Update" 0 kwick-settings "Software Updates Available" "$2" \
+		'["default", "Open Software Update", "open", "Details…"]' '{"desktop-entry": <"kwick-settings">}' 'int32 -1' 2>/dev/null |
+		sed -n 's/^(uint32 \([0-9]*\),)$/\1/p')
+	[ -n "$id" ] || exit 0
+	timeout 3600 gdbus monitor --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications 2>/dev/null | while read -r line; do
+		case $line in
+		*ActionInvoked*"(uint32 $id, "*)
+			setsid kwick-settings software >/dev/null 2>&1 </dev/null &
+			pkill -P $$ gdbus
+			exit 0
+			;;
+		*NotificationClosed*"(uint32 $id, "*)
+			pkill -P $$ gdbus
+			exit 0
+			;;
+		esac
+	done
+}
+
+cmd_status() {
+	cur=$(current_release)
+	lr=$(st_get release_latest)
+	ra=0
+	vgt "$lr" "$cur" && ra=1
+	jp=$(job_pid)
+	set -- $(cat "$VAR/job" 2>/dev/null)
+	jk=${2:-}
+	js=${3:-0}
+	pr=$(cat "$VAR/progress" 2>/dev/null)
+	pp=${pr%%	*}
+	pm=${pr#*	}
+	[ -n "$jp" ] || { jk=""; pp=0; pm=""; }
+	set -- $(cat "$VAR/result" 2>/dev/null)
+	rk=${1:-}
+	rc=${2:-}
+	rt=${3:-0}
+	[ $# -ge 3 ] && shift 3
+	rm_=$*
+	if [ "$JSON" != 1 ]; then
+		printf 'release        KwickOS %s\n' "$cur"
+		[ "$ra" = 1 ] && printf 'new release    KwickOS %s (%s)\n' "$lr" "$(st_get release_pkg)"
+		printf 'last check     %s\n' "$(c=$(st_get checked); [ -n "$c" ] && date -d "@$c" '+%Y-%m-%d %H:%M' 2>/dev/null || echo never)"
+		[ -n "$(st_get error)" ] && printf 'check error    %s\n' "$(st_get error)"
+		printf 'updates        %s (system %s, security %s, apps %s)\n' "$(count_of)" "$(count_of system)" "$(count_of security)" "$(count_of apps)"
+		printf 'automatic      %s\n' "$([ "$CHECK" = 1 ] && echo "checks every ${INTERVAL}h" || echo off)"
+		[ -n "$jp" ] && printf 'running        %s %s%% %s\n' "$jk" "$pp" "$pm"
+		[ -n "$rk" ] && printf 'last task      %s %s %s\n' "$rk" "$([ "$rc" = 0 ] && echo ok || echo failed)" "$rm_"
+		if [ -s "$VAR/updates" ] && [ "$QUIET" != 1 ]; then
+			echo
+			awk -F'\t' '{ printf "%-7s %-34s %-24s -> %s%s\n", $1, $2, $3, $4, ($7 == 1 ? "  security" : "") }' "$VAR/updates"
+		fi
+		return 0
+	fi
+	printf '{"ok":true,"release":"%s","base_release":"%s","release_latest":"%s","release_pkg":"%s","release_available":%s,' \
+		"$(jstr "$cur")" "$(jstr "$(base_release)")" "$(jstr "$lr")" "$(st_get release_pkg)" "$(jbool $ra)"
+	printf '"checked":%s,"installed":%s,"error":"%s","auto":%s,' "$(st_get checked | grep . || echo 0)" "$(st_get installed | grep . || echo 0)" "$(jstr "$(st_get error)")" "$(auto_json)"
+	printf '"job":{"running":%s,"kind":"%s","started":%s,"progress":%s,"message":"%s"},' "$([ -n "$jp" ] && echo true || echo false)" "$jk" "$js" "${pp:-0}" "$(jstr "$pm")"
+	printf '"result":{"kind":"%s","ok":%s,"time":%s,"message":"%s"},' "$rk" "$([ "$rc" = 0 ] && echo true || echo false)" "$rt" "$(jstr "$rm_")"
+	printf '"updates":['
+	first=1
+	[ -f "$VAR/updates" ] && while IFS="$(printf '\t')" read -r k n f t s d sec; do
+		[ -n "$n" ] || continue
+		[ $first = 1 ] || printf ','
+		first=0
+		[ "$f" = - ] && f=""
+		[ "$d" = - ] && d=""
+		printf '{"kind":"%s","name":"%s","from":"%s","to":"%s","size":%s,"summary":"%s","security":%s}' \
+			"$k" "$(jstr "$n")" "$(jstr "$f")" "$(jstr "$t")" "${s:-0}" "$(jstr "$d")" "$(jbool "$sec")"
+	done <"$VAR/updates"
+	printf ']}\n'
+}
+
+cmd_log() { tail -n "${1:-40}" "$VAR/log" 2>/dev/null; }
+
+for a in "$@"; do
+	shift
+	case $a in
+	--json) JSON=1 ;;
+	--quiet | -q) QUIET=1 ;;
+	*) set -- "$@" "$a" ;;
+	esac
+done
+CMD=${1:-status}
+[ $# -gt 0 ] && shift
+
+case $CMD in
+status) cmd_status ;;
+check) cmd_check ;;
+upgrade | update) cmd_upgrade "$@" ;;
+download) cmd_download ;;
+auto) cmd_auto "$@" ;;
+kernel) cmd_kernel "$@" ;;
+log) cmd_log "$@" ;;
+notify) cmd_notify ;;
+scheduled) cmd_scheduled ;;
+_toast) cmd_toast "$@" ;;
+help | -h | --help) usage ;;
+*)
+	usage >&2
+	exit 1
+	;;
+esac

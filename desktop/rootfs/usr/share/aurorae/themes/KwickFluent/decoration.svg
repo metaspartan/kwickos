@@ -18,6 +18,24 @@
 <g id="decoration-inactive-bottomleft"><g transform="translate(150,60)"><rect width="10" height="14" fill="url(#rbl1)"/></g></g>
 <g id="decoration-inactive-bottom"><g transform="translate(170,60)"><rect width="8" height="14" fill="url(#gb1)"/></g></g>
 <g id="decoration-inactive-bottomright"><g transform="translate(190,60)"><rect width="10" height="14" fill="url(#rbr1)"/></g></g>
+<g id="decoration-maximized-topleft"><rect x="300" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-top"><rect x="304" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-topright"><rect x="308" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-left"><rect x="312" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-right"><rect x="316" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-bottomleft"><rect x="320" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-bottom"><rect x="324" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-bottomright"><rect x="328" y="200" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-center"><rect x="340" y="200" width="8" height="8" fill="#202020" fill-opacity="1"/></g>
+<g id="decoration-maximized-inactive-topleft"><rect x="300" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-top"><rect x="304" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-topright"><rect x="308" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-left"><rect x="312" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-right"><rect x="316" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-bottomleft"><rect x="320" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-bottom"><rect x="324" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-bottomright"><rect x="328" y="250" width="1" height="1" fill="#000" fill-opacity="0"/></g>
+<g id="decoration-maximized-inactive-center"><rect x="340" y="250" width="8" height="8" fill="#202020" fill-opacity="1"/></g>
 <g id="close-active"><g transform="translate(10,130)"><path d="M18.5,11.5 L27.5,20.5 M27.5,11.5 L18.5,20.5" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
 <g id="close-inactive"><g transform="translate(66,130)"><path d="M18.5,11.5 L27.5,20.5 M27.5,11.5 L18.5,20.5" stroke="#717171" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>
 <g id="close-hover"><g transform="translate(122,130)"><rect width="46" height="32" fill="#c42b1c" fill-opacity="1"/><path d="M18.5,11.5 L27.5,20.5 M27.5,11.5 L18.5,20.5" stroke="#ffffff" stroke-width="1" fill="none" stroke-linecap="square"/><rect width="46" height="32" fill="#000" fill-opacity="0"/></g></g>

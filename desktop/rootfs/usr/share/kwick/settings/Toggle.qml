@@ -24,6 +24,10 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
+        anchors.topMargin: -9
+        anchors.bottomMargin: -9
+        anchors.leftMargin: -6
+        anchors.rightMargin: -6
         enabled: t.enabled
         cursorShape: Qt.PointingHandCursor
         onClicked: t.toggled(!t.checked)

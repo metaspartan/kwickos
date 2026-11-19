@@ -1,0 +1,18 @@
+@BAR@ rgba(238, 238, 238, 0.94)
+@BAR_EDGE@ rgba(0, 0, 0, 0.06)
+@ACTIVE@ rgba(0, 0, 0, 0.05)
+@HOVER@ rgba(0, 0, 0, 0.04)
+@OUTLINE@ rgba(0, 0, 0, 0.1)
+@IDLE@ #868686
+@ACCENT@ #005fb8
+@RED@ #c42b1c
+@YELLOW@ #9d5d00
+@FLYOUT_HEX@ #f9f9f9
+@OUTLINE_HEX@ #00000019
+@FG@ #1b1b1b
+@FLYOUT_RAW@ f9f9f9
+@SEL_RAW@ e5e5e5
+@ACCENT_RAW@ 005fb8
+@OUTLINE_RAW@ 00000019
+@FG_RAW@ 1b1b1b
+@BAR_RAW@ f3f3f3

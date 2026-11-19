@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <entry name="icon" type="String">
+      <default>kwick-start-fluent</default>
+    </entry>
+    <entry name="pinned" type="StringList">
+      <default>applications:firefox-esr.desktop,applications:org.kde.dolphin.desktop,applications:kwick-settings.desktop,applications:org.kde.konsole.desktop,applications:kwick-editor.desktop,applications:kwick-calculator.desktop,applications:kwick-image-viewer.desktop,applications:kwick-document-viewer.desktop,applications:org.kde.discover.desktop,applications:steam.desktop,applications:kwick-system-monitor.desktop,applications:kwick-screenshot.desktop,applications:kwick-archive-manager.desktop,applications:kwick-effects.desktop,applications:kwick-gaming.desktop</default>
+    </entry>
+    <entry name="allView" type="String">
+      <default>category</default>
+    </entry>
+    <entry name="showAllPins" type="Bool">
+      <default>false</default>
+    </entry>
+  </group>
+</kcfg>

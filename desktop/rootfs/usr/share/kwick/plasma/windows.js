@@ -13,6 +13,7 @@ var launchers = [
     "applications:org.kde.discover.desktop", "applications:steam.desktop",
     "applications:kwick-settings.desktop"
 ].join(",");
+var fluent = knownWidgetTypes.indexOf("org.kwickos.start") >= 0;
 
 var p = new Panel;
 p.location = "bottom";
@@ -21,57 +22,82 @@ p.floating = false;
 p.hiding = "none";
 p.opacity = "translucent";
 
+function gap(px) {
+    var g = p.addWidget("org.kde.plasma.marginsseparator");
+    g.currentConfigGroup = ["General"];
+    g.writeConfig("margin", String(px));
+}
+
+function button(icon, title, command) {
+    var b = p.addWidget("org.kwickos.taskbutton");
+    b.currentConfigGroup = ["General"];
+    b.writeConfig("icon", icon);
+    b.writeConfig("title", title);
+    b.writeConfig("command", command);
+}
+
 var lead = p.addWidget("org.kde.plasma.panelspacer");
-lead.currentConfigGroup = ["Configuration", "General"];
+lead.currentConfigGroup = ["General"];
 lead.writeConfig("expanding", "false");
-lead.writeConfig("length", "260");
+lead.writeConfig("length", fluent ? "176" : "260");
+p.addWidget("org.kde.plasma.panelspacer");
 
-var l2 = p.addWidget("org.kde.plasma.panelspacer");
-
-var k = p.addWidget("org.kde.plasma.kickoff");
-k.currentConfigGroup = ["General"];
-k.writeConfig("icon", "kwick-start-fluent");
-var gapK = p.addWidget("org.kde.plasma.marginsseparator");
-gapK.currentConfigGroup = ["General"];
-gapK.writeConfig("margin", "4");
-
-var search = p.addWidget("org.kde.plasma.icon");
-search.currentConfigGroup = ["General"];
-search.writeConfig("url", "file:///usr/share/applications/kwick-search.desktop");
-var view = p.addWidget("org.kde.plasma.icon");
-view.currentConfigGroup = ["General"];
-view.writeConfig("url", "file:///usr/share/applications/kwick-taskview.desktop");
-var gapV = p.addWidget("org.kde.plasma.marginsseparator");
-gapV.currentConfigGroup = ["General"];
-gapV.writeConfig("margin", "4");
+if (fluent) {
+    var start = p.addWidget("org.kwickos.start");
+    start.globalShortcut = "Alt+F1";
+    button("kwick-search", "Search", "qdbus6 org.kde.krunner /App org.kde.krunner.App.display");
+    button("kwick-taskview", "Task View", "qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut Overview");
+} else {
+    var k = p.addWidget("org.kde.plasma.kickoff");
+    k.currentConfigGroup = ["General"];
+    k.writeConfig("icon", "kwick-start-fluent");
+    gap(4);
+    ["kwick-search", "kwick-taskview"].forEach(function (name) {
+        var w = p.addWidget("org.kde.plasma.icon");
+        w.currentConfigGroup = ["General"];
+        w.writeConfig("url", "file:///usr/share/applications/" + name + ".desktop");
+    });
+    gap(4);
+}
 
 var t = p.addWidget("org.kde.plasma.icontasks");
 t.currentConfigGroup = ["General"];
 t.writeConfig("launchers", launchers);
 t.writeConfig("showOnlyCurrentDesktop", "false");
-t.writeConfig("iconSpacing", "2");
+t.writeConfig("iconSpacing", "0");
 t.writeConfig("maxStripes", "1");
 
 p.addWidget("org.kde.plasma.panelspacer");
 
-var gapT = p.addWidget("org.kde.plasma.marginsseparator");
-gapT.currentConfigGroup = ["General"];
-gapT.writeConfig("margin", "8");
-p.addWidget("org.kde.plasma.systemtray");
-var c = p.addWidget("org.kde.plasma.digitalclock");
-c.currentConfigGroup = ["Appearance"];
-c.writeConfig("showDate", "true");
-c.writeConfig("dateFormat", "custom");
-c.writeConfig("customDateFormat", "M/d/yyyy");
-c.writeConfig("dateDisplayFormat", "BelowTime");
-c.writeConfig("use24hFormat", 0);
-c.writeConfig("showSeconds", "false");
-c.writeConfig("fontFamily", "Selawik");
-c.writeConfig("fontWeight", "400");
-c.writeConfig("fontSize", "9");
-c.writeConfig("autoFontAndSize", "false");
+var tray = p.addWidget("org.kde.plasma.systemtray");
+tray.currentConfigGroup = [];
+var trayInner = desktopById(tray.readConfig("SystrayContainmentId"));
 
-var edge = p.addWidget("org.kde.plasma.marginsseparator");
-edge.currentConfigGroup = ["General"];
-edge.writeConfig("margin", "8");
-
+if (fluent) {
+    if (trayInner) {
+        trayInner.currentConfigGroup = ["General"];
+        trayInner.writeConfig("iconSpacing", "1");
+        trayInner.writeConfig("hiddenItems", [
+            "org.kde.plasma.volume", "org.kde.plasma.battery", "org.kde.plasma.networkmanagement",
+            "org.kde.plasma.bluetooth", "org.kde.plasma.brightness", "org.kde.plasma.notifications",
+            "org.kde.plasma.mediacontroller", "org.kde.plasma.clipboard", "org.kwickos.vpn"
+        ]);
+    }
+    p.addWidget("org.kwickos.quicksettings");
+    p.addWidget("org.kwickos.notificationcenter");
+} else {
+    gap(8);
+    var c = p.addWidget("org.kde.plasma.digitalclock");
+    c.currentConfigGroup = ["Appearance"];
+    c.writeConfig("showDate", "true");
+    c.writeConfig("dateFormat", "custom");
+    c.writeConfig("customDateFormat", "M/d/yyyy");
+    c.writeConfig("dateDisplayFormat", "BelowTime");
+    c.writeConfig("use24hFormat", 0);
+    c.writeConfig("showSeconds", "false");
+    c.writeConfig("fontFamily", "Selawik");
+    c.writeConfig("fontWeight", "400");
+    c.writeConfig("fontSize", "9");
+    c.writeConfig("autoFontAndSize", "false");
+    gap(8);
+}

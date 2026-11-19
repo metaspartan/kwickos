@@ -1,5 +1,5 @@
 decky_arch() { echo x86; }
-decky_desc() { echo "Decky Loader: plugins and themes for Steam Game Mode (pinned release)"; }
+decky_desc() { echo "Decky Loader: plugins and themes for Steam Gaming Mode (pinned release)"; }
 
 decky_user() { cat "$STATE_DIR/decky-user" 2>/dev/null; }
 
@@ -44,7 +44,7 @@ EOF
   mark decky
   echo "$u" > "$STATE_DIR/decky-user"
   svc_enable plugin_loader.service
-  say "Restart Steam (or Game Mode); the plug icon appears in the quick access menu."
+  say "Restart Steam (or Gaming Mode); the plug icon appears in the quick access menu."
   return 0
 }
 

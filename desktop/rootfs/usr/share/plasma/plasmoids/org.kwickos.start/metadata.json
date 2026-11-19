@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Application Launchers",
+        "Description": "A Windows 11 style Start menu: search, pinned apps, recommended items, all apps by category, grid or list, account and power",
+        "Icon": "kwick-start-fluent",
+        "Id": "org.kwickos.start",
+        "License": "GPL-2.0-or-later",
+        "Name": "Start",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-Provides": [
+        "org.kde.plasma.launchermenu"
+    ]
+}

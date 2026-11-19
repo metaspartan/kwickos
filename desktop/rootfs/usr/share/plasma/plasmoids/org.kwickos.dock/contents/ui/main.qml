@@ -200,7 +200,7 @@ PlasmoidItem {
         readonly property bool running: root.menuTask ? root.menuTask.running : false
         readonly property string url: m && m.LauncherUrlWithoutIcon ? String(m.LauncherUrlWithoutIcon) : ""
         readonly property bool pinned: url.length > 0 && tasksModel.launcherPosition(url) !== -1
-        onStatusChanged: root.menuOpen = status !== PlasmaExtras.DialogStatus.Closed
+        onStatusChanged: root.menuOpen = status !== PlasmaExtras.Menu.Closed
 
         PlasmaExtras.MenuItem {
             text: "Open"
@@ -238,7 +238,7 @@ PlasmoidItem {
 
     PlasmaExtras.Menu {
         id: trashMenu
-        onStatusChanged: root.menuOpen = status !== PlasmaExtras.DialogStatus.Closed
+        onStatusChanged: root.menuOpen = status !== PlasmaExtras.Menu.Closed
         PlasmaExtras.MenuItem {
             text: "Open"
             onClicked: Qt.openUrlExternally("trash:/")
@@ -348,7 +348,7 @@ PlasmoidItem {
                     width: 4
                     height: 4
                     radius: 2
-                    color: "#ffffff"
+                    color: Kirigami.Theme.textColor
                     opacity: task.running || task.starting ? 0.82 : 0.0
                     x: root.vertical ? root.crossPos(4, 4) : (root.cell - 4) / 2
                     y: root.vertical ? (root.cell - 4) / 2 : root.crossPos(4, 4)
@@ -413,7 +413,7 @@ PlasmoidItem {
             height: root.vertical ? 1 : span
             x: root.vertical ? root.crossPos(span, root.gap + (root.iconSize - span) / 2) : along
             y: root.vertical ? along : root.crossPos(span, root.gap + (root.iconSize - span) / 2)
-            color: "#ffffff"
+            color: Kirigami.Theme.textColor
             opacity: 0.28
         }
 

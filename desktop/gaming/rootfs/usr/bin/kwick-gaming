@@ -21,8 +21,11 @@ usage: $PROG <command>
   install <module...>        install modules
   remove <module...>         remove modules
   all                        install every module this machine supports
-  session boot-on|boot-off|status
-                             log in straight to Steam Game Mode at boot
+  session boot-on|boot-off   start Gaming Mode at boot
+  session quick-on|quick-off switch between Gaming Mode and the desktop without the login screen
+  session hud off|fps|compact|full
+                             performance overlay in Gaming Mode (current user)
+  session status             Gaming Mode settings
 modules: $MODULES
 EOF
 }
@@ -64,7 +67,7 @@ EOF
       printf '%-18s %-12s %s\n' "$m" "$(state_label "$st")" "${note:-$(${f}_desc)}"
     fi
   done
-  if [ -n "$machine" ]; then printf 'boot|%s\n' "$(boot_state)"; fi
+  if [ -n "$machine" ]; then session_status; fi
 }
 
 cmd_install() {
@@ -114,9 +117,11 @@ EOF
 
 cmd_session() {
   case ${1:-status} in
-    boot-on) need_root session boot-on; session_boot_on ;;
-    boot-off) need_root session boot-off; session_boot_off ;;
-    status) say "boot to Game Mode: $(boot_state)" ;;
+    boot-on|boot-off|quick-on|quick-off) need_root session "$1"; "session_$(fn "$1")" ;;
+    hud) session_hud "${2:-}" ;;
+    notice) session_notice ;;
+    sync) need_root session sync; [ ! -e "$SESSION_FILE" ] || session_sync ;;
+    status) session_status | tr '|' ' ' ;;
     *) usage; exit 2 ;;
   esac
 }

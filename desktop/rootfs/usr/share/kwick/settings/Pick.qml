@@ -88,7 +88,7 @@ Rectangle {
         padding: 6
         margins: 12
         onOpened: list.positionViewAtIndex(Math.max(0, pick.rows.indexOf(pick.currentOption)), ListView.Center)
-        background: Rectangle { radius: 10; color: "#323234"; border.width: 1; border.color: Theme.lineStrong }
+        background: Rectangle { radius: 10; color: Theme.popup; border.width: 1; border.color: Theme.lineStrong }
         contentItem: ListView {
             id: list
             clip: true

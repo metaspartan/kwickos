@@ -1,0 +1,17 @@
+#!/bin/sh
+sudo -n /usr/bin/kwick-gaming session-select settle >/dev/null 2>&1
+s=$(cat /var/lib/kwick-gaming/desktop-session 2>/dev/null)
+export DESKTOP_SESSION="${s:-plasma}"
+f=""
+for d in /usr/local/share/wayland-sessions /usr/share/wayland-sessions; do
+  [ -r "$d/${s:-plasma}.desktop" ] && { f=$d/${s:-plasma}.desktop; break; }
+done
+[ -n "$f" ] || f=/usr/share/wayland-sessions/plasma.desktop
+names=$(sed -n 's/^DesktopNames=//p' "$f" | head -n 1 | tr ';' ':')
+names=${names%:}
+if [ -n "$names" ]; then
+  export XDG_CURRENT_DESKTOP="$names"
+  export XDG_SESSION_DESKTOP="${names%%:*}"
+fi
+cmd=$(sed -n 's/^Exec=//p' "$f" | head -n 1)
+exec sh -c "exec ${cmd:-startplasma-wayland}"

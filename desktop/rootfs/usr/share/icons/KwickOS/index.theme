@@ -3,6 +3,7 @@ Name=KwickOS
 Comment=KwickOS macOS-style icon set: Liquid Glass squircle apps, blue folders, accent-blue sidebar glyphs
 Inherits=Papirus-Dark,breeze-dark,hicolor
 Example=folder
+FollowsColorScheme=true
 DesktopDefault=48
 DesktopSizes=16,22,32,48,64,128,256
 ToolbarDefault=22

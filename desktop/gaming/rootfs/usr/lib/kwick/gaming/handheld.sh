@@ -1,5 +1,14 @@
 HHD_DIR=/opt/kwick-hhd
 
+handheld_model() {
+  v=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)
+  p=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+  case "$v $p" in
+    *Jupiter*|*Galileo*) echo "Steam Deck" ;;
+    *"ROG Ally"*|*RC71L*|*RC72L*|*"Legion Go"*|*83E1*|*83L3*|*83N0*|*83N1*|*ONEXPLAYER*|*ONE-NETBOOK*|*AYANEO*|*AYN*|*GPD*|*"Claw"*|*AOKZOE*|*Zotac*Zone*|*ZOTAC*ZONE*) echo "$v $p" ;;
+  esac
+}
+
 handheld_arch() { echo x86; }
 handheld_desc() { echo "Handheld Daemon (HHD): controller, gyro, TDP and button support for Steam Deck-class handhelds"; }
 

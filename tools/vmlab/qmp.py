@@ -49,6 +49,25 @@ class Q:
     def button(self, name, down):
         self.cmd("input-send-event", events=[{"type": "btn", "data": {"button": name, "down": down}}])
 
+    def fingers(self, phase, points, w, h):
+        ev = []
+        for slot, (x, y) in enumerate(points):
+            tid = -1 if phase == "end" else slot + 1
+            ev.append({"type": "mtt", "data": {"type": phase, "slot": slot, "tracking-id": tid, "axis": "x", "value": 0}})
+            if phase != "end":
+                ev.append({"type": "mtt", "data": {"type": "data", "slot": slot, "tracking-id": tid, "axis": "x", "value": int(x * 32767 / w)}})
+                ev.append({"type": "mtt", "data": {"type": "data", "slot": slot, "tracking-id": tid, "axis": "y", "value": int(y * 32767 / h)}})
+        self.cmd("input-send-event", events=ev)
+
+    def swipe(self, x0, y0, x1, y1, w, h, n=1, steps=24, hold=0.0):
+        pts = lambda x, y: [(x + 70 * i, y) for i in range(n)]
+        self.fingers("begin", pts(x0, y0), w, h)
+        time.sleep(hold or 0.03)
+        for i in range(1, steps + 1):
+            self.fingers("update", pts(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps), w, h)
+            time.sleep(0.016)
+        self.fingers("end", pts(x1, y1), w, h)
+
 
 def main():
     sock, op, *a = sys.argv[1:]
@@ -85,6 +104,12 @@ def main():
             q.mouse(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps, w, h)
             time.sleep(0.03)
         q.button("left", False)
+    elif op == "tap":
+        x, y, w, h = map(int, a[:4])
+        q.swipe(x, y, x, y, w, h, 1, 1, float(a[4]) if len(a) > 4 else 0.05)
+    elif op == "swipe":
+        x0, y0, x1, y1, w, h = map(int, a[:6])
+        q.swipe(x0, y0, x1, y1, w, h, int(a[6]) if len(a) > 6 else 1, int(a[7]) if len(a) > 7 else 24)
     elif op == "raw":
         print(json.dumps(q.cmd(a[0], **(json.loads(a[1]) if len(a) > 1 else {}))))
     else:
