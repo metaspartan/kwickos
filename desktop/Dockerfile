@@ -2,17 +2,17 @@ ARG BASE=kwickos:dev
 
 FROM debian:trixie AS kwinflip
 COPY --from=kwinflipsrc . /flip/src/kwin-flip
-COPY --from=kwickscripts mkflippkg.sh /flip/scripts/mkflippkg.sh
+COPY --from=kwickscripts mkflippkg.sh kwin-plugin.sh /flip/scripts/
 RUN bash /flip/scripts/mkflippkg.sh /flip/out
 
 FROM debian:trixie AS kwinglass
 COPY --from=kwinglasssrc . /glass/src/kwin-liquidglass
-COPY --from=kwickscripts mkglasspkg.sh /glass/scripts/mkglasspkg.sh
+COPY --from=kwickscripts mkglasspkg.sh kwin-plugin.sh /glass/scripts/
 RUN bash /glass/scripts/mkglasspkg.sh /glass/out
 
 FROM debian:trixie AS macstyle
 COPY --from=macstylesrc . /style/src/kwick-macstyle
-COPY --from=kwickscripts mkmacstylepkg.sh /style/scripts/mkmacstylepkg.sh
+COPY --from=kwickscripts mkmacstylepkg.sh kwin-plugin.sh /style/scripts/
 RUN bash /style/scripts/mkmacstylepkg.sh /style/out
 
 FROM ${BASE}
