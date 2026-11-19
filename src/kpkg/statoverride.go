@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-// dpkg-statoverride: Debian packages use it in postinst to give helpers
-// special owners/modes (e.g. dbus-daemon-launch-helper root:messagebus 4754).
 func statoverridePath() string { return filepath.Join(cfg.Admin, "statoverride") }
 
 func lookupID(file, name string) (int, bool) {

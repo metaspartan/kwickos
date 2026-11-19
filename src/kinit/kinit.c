@@ -1,26 +1,4 @@
-/*
- * kinit - the KwickOS init system.
- *
- * One small static binary that is, depending on how it is invoked:
- *
- *   stage 0   /init inside the initramfs embedded in every KwickOS kernel.
- *             Finds the root filesystem (disk partition, live ISO, or the
- *             initramfs itself), mounts it and switches into it.
- *   stage 1   PID 1 of the running system: mounts API filesystems, applies
- *             sysctls, coldplugs modules, starts services in parallel,
- *             supervises them, reaps zombies and shuts the machine down.
- *   daemon    `kinit --supervisor`: the same service manager without PID 1
- *             duties, so `systemctl start foo` works inside containers.
- *   client    systemctl, service, journalctl, deb-systemd-helper,
- *             deb-systemd-invoke, invoke-rc.d, update-rc.d, poweroff,
- *             reboot, halt - compatible enough for Debian maintainer scripts
- *             and for muscle memory.
- *
- * Service definitions use the systemd unit-file syntax (a pragmatic subset),
- * so units shipped by Debian packages work unmodified.
- *
- * SPDX-License-Identifier: MIT
- */
+/* SPDX-License-Identifier: MIT */
 #define _GNU_SOURCE
 #include <ctype.h>
 #include <dirent.h>
@@ -71,8 +49,6 @@ static const char *unit_dirs[] = {
 static int is_pid1;
 static int cmd_tmpfiles(int argc, char **argv);
 static int verbose;
-
-/* ------------------------------------------------------------------ util */
 
 static long now_ms(clockid_t c)
 {
@@ -203,10 +179,6 @@ static const char *cmdline_dup(const char *key, char *buf, size_t sz)
 	return buf;
 }
 
-/* ------------------------------------------------------- stage 0 (initramfs) */
-
-/* Read a filesystem label/uuid directly from the superblock so the
- * initramfs needs no blkid. Supports ext2/3/4, iso9660, vfat, erofs. */
 static int dev_matches(const char *dev, const char *kind, const char *want)
 {
 	unsigned char sb[2048];
@@ -238,7 +210,6 @@ static int dev_matches(const char *dev, const char *kind, const char *want)
 	return ok;
 }
 
-/* Resolve root= style specs: /dev/x, PARTLABEL=, LABEL=, UUID=. */
 static int resolve_dev(const char *spec, char *out, size_t outsz)
 {
 	if (spec[0] == '/') { snprintf(out, outsz, "%s", spec); return access(out, F_OK) == 0; }
@@ -284,9 +255,7 @@ static int loop_attach(const char *file, char *dev, size_t devsz)
 	struct loop_config cfg;
 	memset(&cfg, 0, sizeof cfg);
 	cfg.fd = ffd;
-	/* no LO_FLAGS_DIRECT_IO: the backing file usually lives on iso9660,
-	 * which has no O_DIRECT support */
-	cfg.info.lo_flags = LO_FLAGS_READ_ONLY; /* no AUTOCLEAR: we close the fd before mounting */
+	cfg.info.lo_flags = LO_FLAGS_READ_ONLY;
 	cfg.block_size = 4096;
 	int r = ioctl(lfd, LOOP_CONFIGURE, &cfg);
 	if (r) {
@@ -319,9 +288,6 @@ static int copy_file(const char *src, const char *dst)
 	return n < 0 ? -1 : 0;
 }
 
-/* Live media: an iso9660/vfat/ext4 volume holding /kwick/root.erofs.
- * The erofs image becomes the read-only lower layer of an overlay whose
- * upper layer is tmpfs (or a "kwick-persist" partition if present). */
 static int setup_live(const char *media)
 {
 	mkdir_p("/run/media", 0755);
@@ -446,14 +412,13 @@ static void stage0(void)
 		if (attempt == 40) say("waiting for root device %s ...", spec[0] ? spec : "(auto)");
 		usleep(25000);
 	}
-	/* switch_root: move the new root over / and exec the real init. */
 	umount2("/proc", MNT_DETACH);
 	umount2("/sys", MNT_DETACH);
 	mkdir("/newroot/dev", 0755);
 	if (mount("/dev", "/newroot/dev", NULL, MS_MOVE, NULL)) umount2("/dev", MNT_DETACH);
 	mkdir("/newroot/run", 0755);
 	if (mount("/run", "/newroot/run", NULL, MS_MOVE, NULL)) umount2("/run", MNT_DETACH);
-	unlink("/init"); /* free the (tiny) initramfs copy */
+	unlink("/init");
 	if (chdir("/newroot") || mount(".", "/", NULL, MS_MOVE, NULL) || chroot(".") || chdir("/")) {
 		say("switch_root failed: %s", strerror(errno));
 		stage0_fail();
@@ -465,15 +430,13 @@ static void stage0(void)
 	stage0_fail();
 }
 
-/* ------------------------------------------------------------- services */
-
 enum { T_SIMPLE, T_FORKING, T_ONESHOT };
 enum { R_NO, R_ONFAIL, R_ALWAYS };
 enum { S_STOPPED, S_STARTING, S_RUNNING, S_EXITED, S_FAILED, S_STOPPING };
 static const char *state_names[] = { "inactive", "activating", "active", "active", "failed", "deactivating" };
 
 struct svc {
-	char name[96];           /* full unit name, e.g. nginx.service */
+	char name[96];
 	char path[PATH_MAX];
 	char desc[128];
 	int type, restart, remain, ignore_main_fail;
@@ -485,10 +448,10 @@ struct svc {
 	char *env[MAX_ENV]; int nenv;
 	char *envfiles[8]; int nenvfiles;
 	char rtdir[128], statedir[128], logsdir[128], cachedir[128];
-	int want;                /* desired: 1 running, 0 stopped */
+	int want;
 	int state;
-	pid_t pid;               /* runner / main pid */
-	int forking_wait;        /* forking: waiting for parent to exit */
+	pid_t pid;
+	int forking_wait;
 	long restart_at;
 	int fails;
 	int exit_code;
@@ -516,7 +479,6 @@ static int find_unit_file(const char *name, char *out, size_t sz)
 		snprintf(out, sz, "%s/%s", unit_dirs[i], name);
 		if (access(out, R_OK) == 0) return 1;
 	}
-	/* template instance: foo@bar.service -> foo@.service */
 	const char *at = strchr(name, '@'), *dot = strrchr(name, '.');
 	if (at && dot && dot > at) {
 		char tmpl[128];
@@ -573,7 +535,6 @@ static void add_exec(char **arr, int *n, const char *v, struct svc *s, int is_ma
 
 static void parse_env_assign(struct svc *s, char *v)
 {
-	/* Environment="A=1" B=2 "C=3 4" */
 	while (*v) {
 		while (isspace((unsigned char)*v)) v++;
 		if (!*v) break;
@@ -640,13 +601,12 @@ static struct svc *load_unit(const char *name)
 	char path[PATH_MAX];
 	if (!find_unit_file(name, path, sizeof path)) return NULL;
 	char rp[PATH_MAX];
-	if (realpath(path, rp) && !strcmp(rp, "/dev/null")) return NULL; /* masked */
+	if (realpath(path, rp) && !strcmp(rp, "/dev/null")) return NULL;
 	struct svc *s = calloc(1, sizeof *s);
 	snprintf(s->name, sizeof s->name, "%s", name);
 	snprintf(s->path, sizeof s->path, "%s", path);
 	s->restart = R_NO;
 	parse_unit_file(s, path);
-	/* drop-ins: /etc/systemd/system/<name>.d/<x>.conf */
 	for (int i = 0; unit_dirs[i]; i++) {
 		char dd[PATH_MAX];
 		snprintf(dd, sizeof dd, "%s/%s.d", unit_dirs[i], name);
@@ -711,7 +671,7 @@ static void make_owned_dirs(const char *base, const char *list, uid_t uid, gid_t
 		char p[PATH_MAX];
 		snprintf(p, sizeof p, "%s/%s", base, t);
 		mkdir_p(p, 0755);
-		if (chown(p, uid, gid)) { /* best effort */ }
+		if (chown(p, uid, gid)) { }
 	}
 }
 
@@ -752,8 +712,6 @@ static int sh_run(const char *cmd)
 	return sh_run_as(cmd, 0, NULL, 0, 0);
 }
 
-/* Child side of a service start: drop privileges, set env, run pre
- * commands, then exec the main command. */
 static void svc_child(struct svc *s)
 {
 	sigset_t all;
@@ -850,7 +808,6 @@ static void svc_stop(struct svc *s)
 		kill(s->pid, SIGTERM);
 		kill(s->pid, SIGCONT);
 		s->state = S_STOPPING;
-		/* give it up to 5s, reaping as we go */
 		for (int i = 0; i < 100; i++) {
 			if (kill(s->pid, 0) < 0) break;
 			int st;
@@ -883,7 +840,7 @@ static void svc_exited(struct svc *s, int st)
 	s->state = (code == 0 || s->ignore_main_fail) ? S_STOPPED : S_FAILED;
 	if (s->restart == R_ALWAYS || (s->restart == R_ONFAIL && code != 0)) {
 		s->fails++;
-		long delay = s->fails > 5 ? 5000 : 100L << s->fails; /* backoff */
+		long delay = s->fails > 5 ? 5000 : 100L << s->fails;
 		s->restart_at = now_ms(CLOCK_MONOTONIC) + delay;
 	}
 }
@@ -908,8 +865,6 @@ static int is_enabled(const char *name, char *target_out, size_t tsz)
 	return en;
 }
 
-/* Units to start at boot: everything linked into a *.wants directory of
- * multi-user/default/sysinit/basic/network/sockets targets. */
 static void load_boot_units(void)
 {
 	static const char *targets[] = { "sysinit.target.wants", "basic.target.wants",
@@ -933,9 +888,7 @@ static void load_boot_units(void)
 	}
 }
 
-/* ------------------------------------------------------------- PID 1 */
-
-static volatile int shutdown_req; /* 0 none, 1 halt, 2 poweroff, 3 reboot */
+static volatile int shutdown_req;
 static int sfd = -1, ctlfd = -1, uevfd = -1;
 static long boot_ready_ms;
 
@@ -956,7 +909,6 @@ static void mount_api(void)
 	symlink("/proc/self/fd/0", "/dev/stdin");
 	symlink("/proc/self/fd/1", "/dev/stdout");
 	symlink("/proc/self/fd/2", "/dev/stderr");
-	/* /run may already be a tmpfs moved in from stage 0 */
 	struct statfs sf;
 	if (statfs("/run", &sf) || sf.f_type != 0x01021994)
 		mount("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755,size=20%");
@@ -969,10 +921,6 @@ static void mount_api(void)
 	if (access("/sys/firmware/efi", F_OK) == 0)
 		mount("efivarfs", "/sys/firmware/efi/efivars", "efivarfs", MS_NOSUID | MS_NODEV | MS_NOEXEC, NULL);
 	symlink("/run", "/var/run");
-	/* Debian maintainer scripts check for this to decide between
-	 * deb-systemd-invoke (us) and sysv init scripts. */
-	/* Desktop images run elogind, which (like libsystemd's sd_booted())
-	 * treats this directory as "systemd is PID 1"; they opt out. */
 	if (access("/etc/kinit/no-systemd-marker", F_OK) != 0)
 		mkdir_p("/run/systemd/system", 0755);
 }
@@ -1023,10 +971,6 @@ static void apply_sysctls(void)
 	apply_sysctl_file("/etc/sysctl.conf");
 }
 
-/* An empty or missing /etc/machine-id (the convention for distributable
- * images) means "first boot": generate one from the kernel's random UUID.
- * D-Bus, elogind, journald-style tools and DHCP client IDs need it. On a
- * read-only root it is written to /run and bind-mounted over. */
 static void ensure_machine_id(void)
 {
 	char id[64];
@@ -1073,7 +1017,6 @@ static void lo_up(void)
 	close(s);
 }
 
-/* Module coldplug: load drivers for every device that has a modalias. */
 static int have_modules(void)
 {
 	struct utsname u;
@@ -1112,7 +1055,6 @@ static void coldplug(void)
 	argv[0] = "modprobe"; argv[1] = "-aq";
 	for (int i = 0; i < n; i++) argv[2 + i] = list[i];
 	spawn_bg(argv);
-	/* /etc/modules */
 	FILE *f = fopen("/etc/modules", "re");
 	if (f) {
 		char line[256];
@@ -1141,7 +1083,6 @@ static void handle_uevent(void)
 	}
 }
 
-/* Consoles: spawn a getty on every active console (serial and/or VT). */
 static char consoles[8][32];
 static pid_t console_pid[8];
 static int nconsoles;
@@ -1152,7 +1093,6 @@ static void find_consoles(void)
 	if (read_file("/sys/class/tty/console/active", b, sizeof b) <= 0) return;
 	for (char *t = strtok(b, " \n"); t && nconsoles < 8; t = strtok(NULL, " \n")) {
 		if (!strcmp(t, "tty0")) t = "tty1";
-		/* /etc/kinit/no-getty lists consoles left to a display manager */
 		char skip[256] = "", pat[40];
 		snprintf(pat, sizeof pat, " %s ", t);
 		if (read_file("/etc/kinit/no-getty", skip + 1, sizeof skip - 2) > 0) {
@@ -1187,8 +1127,6 @@ static void spawn_getty(int i)
 	}
 	console_pid[i] = p;
 }
-
-/* ---------------------------------------------------- control socket */
 
 static void ctl_listen(void)
 {
@@ -1272,7 +1210,6 @@ static void ctl_handle(int c)
 		} else if (!root) rc = 4;
 		else if (!strcmp(cmd, "start")) {
 			svc_start(s);
-			/* oneshot units: wait for completion like systemd does */
 			if (s->type != T_SIMPLE) {
 				for (int i = 0; i < 600 && (s->state == S_STARTING || s->forking_wait); i++) {
 					int st;
@@ -1293,12 +1230,9 @@ static void ctl_handle(int c)
 	close(c);
 }
 
-/* ---------------------------------------------------------- shutdown */
-
 static void do_shutdown(int how)
 {
 	say("shutting down");
-	/* 1. stop all services in parallel: ExecStop, then SIGTERM their groups */
 	for (int i = nsvc - 1; i >= 0; i--) {
 		struct svc *s = svcs[i];
 		s->want = 0;
@@ -1318,14 +1252,13 @@ static void do_shutdown(int how)
 		usleep(10000);
 	}
 	if (!is_pid1) exit(0);
-	/* 2. everything else: TERM + HUP (interactive shells ignore TERM) */
 	kill(-1, SIGTERM);
 	kill(-1, SIGHUP);
 	kill(-1, SIGCONT);
 	deadline = now_ms(CLOCK_MONOTONIC) + 2000;
 	for (;;) {
 		pid_t p = waitpid(-1, NULL, WNOHANG);
-		if (p < 0 && errno == ECHILD) break; /* no processes left */
+		if (p < 0 && errno == ECHILD) break;
 		if (p > 0) continue;
 		if (now_ms(CLOCK_MONOTONIC) > deadline) break;
 		usleep(5000);
@@ -1335,7 +1268,6 @@ static void do_shutdown(int how)
 	sync();
 	char *swapoff[] = { "swapoff", "-a", NULL };
 	if (access("/sbin/swapoff", X_OK) == 0) run_wait(swapoff);
-	/* unmount everything we can, deepest first, then remount / ro */
 	FILE *f = fopen("/proc/self/mounts", "re");
 	char *mps[256]; int nm = 0;
 	char line[1024];
@@ -1347,14 +1279,11 @@ static void do_shutdown(int how)
 	for (int i = nm - 1; i >= 0; i--) umount2(mps[i], MNT_DETACH);
 	mount(NULL, "/", NULL, MS_REMOUNT | MS_RDONLY, NULL);
 	sync();
-	/* let the (serial) console drain, otherwise the last lines are lost */
 	int con = open("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
 	if (con >= 0) { tcdrain(con); close(con); }
 	reboot(how == 3 ? RB_AUTOBOOT : how == 2 ? RB_POWER_OFF : RB_HALT_SYSTEM);
 	for (;;) pause();
 }
-
-/* -------------------------------------------------------- main loop */
 
 static void main_loop(void)
 {
@@ -1377,9 +1306,9 @@ static void main_loop(void)
 			while (read(sfd, &si, sizeof si) == sizeof si) {
 				switch (si.ssi_signo) {
 				case SIGCHLD: break;
-				case SIGUSR1: shutdown_req = 1; break;  /* busybox halt */
-				case SIGUSR2: shutdown_req = 2; break;  /* busybox poweroff */
-				case SIGTERM: case SIGINT: shutdown_req = is_pid1 ? 3 : 2; break; /* reboot / ctrl-alt-del */
+				case SIGUSR1: shutdown_req = 1; break;
+				case SIGUSR2: shutdown_req = 2; break;
+				case SIGTERM: case SIGINT: shutdown_req = is_pid1 ? 3 : 2; break;
 				case SIGPWR: shutdown_req = 2; break;
 				}
 			}
@@ -1391,7 +1320,6 @@ static void main_loop(void)
 				for (int i = 0; i < nconsoles; i++)
 					if (console_pid[i] == p && !shutdown_req) spawn_getty(i);
 			}
-			/* forking daemons are reparented to us: notice their death */
 			for (int i = 0; i < nsvc; i++) {
 				struct svc *s = svcs[i];
 				if (s->type == T_FORKING && s->state == S_RUNNING && s->pid > 0 && kill(s->pid, 0) < 0) {
@@ -1458,7 +1386,6 @@ static int stage1(void)
 		find_consoles();
 		for (int i = 0; i < nconsoles; i++) spawn_getty(i);
 	}
-	/* optional one-shot command for CI / agent sandboxes: kwick.run=... */
 	const char *run = cmdline_get("kwick.run");
 	if (run) {
 		char cmd[512];
@@ -1486,8 +1413,6 @@ static int supervisor(void)
 	main_loop();
 	return 0;
 }
-
-/* --------------------------------------------------------- clients */
 
 static int ctl_send(const char *cmd, const char *arg, int quiet)
 {
@@ -1537,7 +1462,6 @@ static int unit_enable(const char *name, int quiet)
 {
 	char path[PATH_MAX];
 	if (!find_unit_file(name, path, sizeof path)) { if (!quiet) fprintf(stderr, "Unit %s not found.\n", name); return 1; }
-	/* WantedBy= from [Install]; default multi-user.target */
 	char targets[256] = "";
 	FILE *f = fopen(path, "re");
 	char line[1024], sect[64] = "";
@@ -1552,7 +1476,6 @@ static int unit_enable(const char *name, int quiet)
 	}
 	if (f) fclose(f);
 	if (!targets[0]) {
-		/* static unit (no [Install]) - nothing to do, like systemd */
 		return 0;
 	}
 	for (char *t = strtok(targets, " "); t; t = strtok(NULL, " ")) {
@@ -1612,13 +1535,12 @@ static int cmd_systemctl(int argc, char **argv)
 		char *a = argv[i];
 		if (!strcmp(a, "-q") || !strcmp(a, "--quiet")) quiet = 1;
 		else if (!strcmp(a, "--now")) now = 1;
-		else if (a[0] == '-') continue; /* --system --no-pager --no-block -l ... */
+		else if (a[0] == '-') continue;
 		else if (!verb) verb = a;
 		else if (nu < 64) units[nu++] = a;
 	}
 	if (!verb || !strcmp(verb, "list-units") || !strcmp(verb, "list-unit-files")) {
 		if (ctl_send("list", NULL, 0) < 0) {
-			/* no manager: list unit files */
 			for (int i = 0; unit_dirs[i]; i++) {
 				DIR *d = opendir(unit_dirs[i]);
 				struct dirent *de;
@@ -1699,8 +1621,6 @@ static int cmd_journalctl(int argc, char **argv)
 	return 1;
 }
 
-/* deb-systemd-helper: the subset maintainer scripts generated by
- * dh_installsystemd use. */
 static int cmd_deb_helper(int argc, char **argv)
 {
 	int quiet = 0, i = 1;
@@ -1726,7 +1646,6 @@ static int cmd_deb_helper(int argc, char **argv)
 			char p[PATH_MAX], rp[PATH_MAX]; snprintf(p, sizeof p, "/etc/systemd/system/%s", name);
 			if (realpath(p, rp) && !strcmp(rp, "/dev/null")) unlink(p);
 		}
-		/* update-state, reenable: nothing to track */
 	}
 	(void)quiet;
 	return rc;
@@ -1744,7 +1663,7 @@ static int policy_denies(void)
 static int cmd_deb_invoke(int argc, char **argv)
 {
 	if (argc < 3 || policy_denies()) return 0;
-	if (access(SOCK_PATH, F_OK)) return 0; /* no running manager (container/chroot) */
+	if (access(SOCK_PATH, F_OK)) return 0;
 	int rc = 0;
 	for (int i = 2; i < argc; i++) {
 		char name[128];
@@ -1767,7 +1686,7 @@ static int cmd_invoke_rcd(int argc, char **argv)
 	int has_unit = find_unit_file(name, p, sizeof p);
 	if (has_unit && skip_native && access("/run/systemd/system", F_OK) == 0) return 0;
 	if (policy_denies()) return 0;
-	if (access(SOCK_PATH, F_OK)) return 0; /* not booted with kinit: don't start daemons (docker build) */
+	if (access(SOCK_PATH, F_OK)) return 0;
 	if (has_unit) {
 		char *a[] = { "systemctl", (char *)action, name, NULL };
 		return cmd_systemctl(3, a);
@@ -1827,7 +1746,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "kinit %s: must run as PID 1 (or use --supervisor, or call as systemctl/service/journalctl)\n", KINIT_VERSION);
 		return 1;
 	}
-	/* PID 1: are we the initramfs stage or the real system? */
 	if (access("/etc/kwick-release", F_OK) != 0) { is_pid1 = 1; stage0(); }
 	return stage1();
 }

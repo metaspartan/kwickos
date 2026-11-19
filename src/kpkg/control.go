@@ -6,7 +6,6 @@ import (
 	"unsafe"
 )
 
-// Paragraph is an ordered deb822 stanza.
 type Paragraph struct {
 	Keys []string
 	M    map[string]string

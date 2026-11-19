@@ -40,7 +40,6 @@ func decompressor(name string, r io.Reader) (io.Reader, error) {
 	return r, nil
 }
 
-// arIter walks the members of a Debian ar archive.
 func arIter(f io.Reader, fn func(name string, size int64, r io.Reader) (stop bool, err error)) error {
 	br := bufio.NewReaderSize(f, 1<<16)
 	magic := make([]byte, 8)
@@ -72,10 +71,9 @@ func arIter(f io.Reader, fn func(name string, size int64, r io.Reader) (stop boo
 	}
 }
 
-// DebControl holds the control member of a .deb.
 type DebControl struct {
 	Para  *Paragraph
-	Files map[string][]byte // control, postinst, conffiles, md5sums, triggers, ...
+	Files map[string][]byte
 }
 
 func ReadDebControl(debPath string) (*DebControl, error) {
@@ -127,8 +125,6 @@ func ReadDebControl(debPath string) (*DebControl, error) {
 	return dc, nil
 }
 
-// resolveInRoot resolves p (absolute, inside root) following symlinks in
-// all but the last component, never escaping root. Returns host path.
 func resolveInRoot(root, p string, followLast bool) (string, error) {
 	parts := strings.Split(strings.Trim(path.Clean("/"+p), "/"), "/")
 	cur := "/"
@@ -174,18 +170,14 @@ func resolveInRoot(root, p string, followLast bool) (string, error) {
 	return filepath.Join(root, cur), nil
 }
 
-// protected paths kpkg never lets a package overwrite.
 var protectedPaths = map[string]bool{"/sbin/init": true, "/usr/sbin/init": true, "/sbin/kinit": true,
 	"/usr/sbin/kinit": true, "/usr/bin/kpkg": true, "/init": true}
 
 type extractResult struct {
 	Files     []string
-	Conffiles map[string]string // path -> md5 of shipped version
+	Conffiles map[string]string
 }
 
-// ExtractData unpacks data.tar.* of a .deb into cfg.Root.
-// conffiles: set of conffile paths; oldConf: previously recorded md5s.
-// canOverwrite decides whether a path owned by another package may be taken.
 func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]string, canOverwrite func(p string) bool, shared func(p string) int) (*extractResult, error) {
 	f, err := os.Open(debPath)
 	if err != nil {
@@ -265,7 +257,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 			}
 			switch h.Typeflag {
 			case tar.TypeDir:
-				fi, err := os.Stat(host) // follows symlinks: /lib -> usr/lib is fine
+				fi, err := os.Stat(host)
 				if err == nil && fi.IsDir() {
 					continue
 				}
@@ -300,7 +292,6 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 							continue
 						}
 						if curMD5 != newMD5 && (!tracked || curMD5 != old) {
-							// locally modified (or pre-existing): keep it
 							if err := writeAtomic(host+".dpkg-dist", data, mode, h); err != nil {
 								return err
 							}
@@ -319,7 +310,6 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 			case tar.TypeSymlink:
 				os.MkdirAll(parent, 0755)
 				if fi, err := os.Lstat(host); err == nil && fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-					// never replace a real directory by a symlink (merged-/usr safety)
 					continue
 				}
 				tmp := host + ".dpkg-new"
@@ -429,7 +419,7 @@ func writeStreamAtomic(host string, r io.Reader, mode os.FileMode, h *tar.Header
 	}
 	f.Close()
 	os.Lchown(tmp, h.Uid, h.Gid)
-	os.Chmod(tmp, mode) // after chown: chown clears setuid bits
+	os.Chmod(tmp, mode)
 	os.Chtimes(tmp, h.ModTime, h.ModTime)
 	if fi, err := os.Lstat(host); err == nil && fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
 		os.Remove(tmp)
@@ -438,9 +428,6 @@ func writeStreamAtomic(host string, r io.Reader, mode os.FileMode, h *tar.Header
 	return os.Rename(tmp, host)
 }
 
-// kwickOwned reports whether p is a KwickOS link to kinit or kpkg (e.g.
-// /usr/bin/systemctl, /usr/sbin/poweroff, /usr/bin/dpkg). Packages such as
-// systemd or dpkg must never replace them.
 func kwickOwned(p string) bool {
 	host := filepath.Join(cfg.Root, p)
 	t, err := os.Readlink(host)

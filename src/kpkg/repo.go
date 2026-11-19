@@ -17,7 +17,6 @@ import (
 	"time"
 )
 
-// Source is one (URI, suite, component) triple from sources.list(.d).
 type Source struct {
 	URI, Suite, Comp string
 	SignedBy         []string
@@ -43,7 +42,6 @@ func (s *Source) label() string {
 	return u + " " + s.Suite
 }
 
-// LoadSources parses one-line and deb822 source files.
 func LoadSources() ([]*Source, error) {
 	var out []*Source
 	files := []string{filepath.Join(cfg.Root, "etc/apt/sources.list")}
@@ -136,8 +134,6 @@ func loadKeyring(paths []string) Keyring {
 	return kr
 }
 
-// indexKeep lists the Packages fields kpkg keeps; everything else
-// (Description-md5, Tag, MD5sum, ...) is dropped to shrink the index ~40%.
 var indexKeep = map[string]bool{"Package": true, "Version": true, "Architecture": true, "Multi-Arch": true,
 	"Essential": true, "Protected": true, "Priority": true, "Section": true, "Installed-Size": true, "Maintainer": true,
 	"Depends": true, "Pre-Depends": true, "Recommends": true, "Suggests": true, "Conflicts": true,
@@ -156,7 +152,6 @@ type progress struct {
 
 func (p *progress) next() int { p.mu.Lock(); defer p.mu.Unlock(); p.n++; return p.n }
 
-// Update refreshes all package indexes (apt update).
 func Update() error {
 	srcs, _ := LoadSources()
 	if len(srcs) == 0 {
@@ -198,8 +193,6 @@ func Update() error {
 	}
 	fmt.Println("Reading package lists... Done")
 	if len(errs) > 0 {
-		// Integrity failures are fatal; an unreachable mirror is only a
-		// warning (old indexes stay usable), unless every source failed.
 		fatal := len(errs) == len(order)
 		for _, e := range errs {
 			if strings.Contains(e, "not signed") || strings.Contains(e, "mismatch") || strings.Contains(e, "expired") {
@@ -213,7 +206,6 @@ func Update() error {
 			return errors.New("some index files failed to download")
 		}
 	}
-	// report upgradable count like apt
 	db, err := OpenDB()
 	if err == nil {
 		up := db.Upgradable()
@@ -361,7 +353,7 @@ func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash
 		if len(hashes) == 0 && s.Trusted {
 			name = s.Comp + "/binary-" + arch + "/Packages.gz"
 		} else {
-			return 0, nil // component has no packages for this arch
+			return 0, nil
 		}
 	}
 	url := base + name
@@ -397,7 +389,7 @@ func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash
 		bw.WriteString("\n")
 		return nil
 	})
-	io.Copy(io.Discard, hr) // drain to complete the hash
+	io.Copy(io.Discard, hr)
 	bw.Flush()
 	zw.Close()
 	f.Close()

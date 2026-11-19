@@ -1,14 +1,5 @@
 package main
 
-// Parallel pre-decompression.
-//
-// Unpacking must happen in dependency order, but decompressing the
-// data.tar.{xz,zst,gz} members does not. kpkg therefore decompresses every
-// downloaded package concurrently (one worker per CPU) into a plain tar in
-// the archive cache, and the ordered unpack phase just streams those tars.
-// On a 2-vCPU VM this roughly halves install time for multi-package
-// transactions; on bigger machines the win is larger.
-
 import (
 	"io"
 	"os"
@@ -18,7 +9,7 @@ import (
 	"sync"
 )
 
-var preTar sync.Map // deb path -> decompressed data tar path
+var preTar sync.Map
 
 func predecompress(debs []string) {
 	n := runtime.NumCPU()
@@ -79,7 +70,6 @@ func extractDataMember(deb, out string) error {
 	})
 }
 
-// takePreTar returns (and forgets) the pre-decompressed tar for deb.
 func takePreTar(deb string) string {
 	if v, ok := preTar.LoadAndDelete(deb); ok {
 		return v.(string)

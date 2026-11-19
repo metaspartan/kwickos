@@ -1,8 +1,5 @@
 package main
 
-// update-alternatives, storing state in Debian's on-disk format
-// (/var/lib/dpkg/alternatives/<name>) so the real tool could take over.
-
 import (
 	"fmt"
 	"os"
@@ -15,12 +12,12 @@ import (
 type altChoice struct {
 	Path     string
 	Priority int
-	Slaves   map[string]string // slave name -> path
+	Slaves   map[string]string
 }
 
 type altGroup struct {
 	Name, Link string
-	Mode       string // auto | manual
+	Mode       string
 	SlaveLinks map[string]string
 	SlaveOrder []string
 	Choices    []*altChoice

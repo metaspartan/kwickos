@@ -44,7 +44,6 @@ func debCacheName(p *Pkg) string {
 	return filepath.Join(cfg.Cache, fmt.Sprintf("%s_%s_%s.deb", p.Name, strings.ReplaceAll(p.Version, ":", "%3a"), p.Arch))
 }
 
-// Download fetches .debs in parallel and verifies SHA256 + size.
 func Download(pkgs []*Pkg) (map[*Pkg]string, error) {
 	os.MkdirAll(filepath.Join(cfg.Cache, "partial"), 0755)
 	out := map[*Pkg]string{}
@@ -149,8 +148,6 @@ func fetchTo(url, dst, wantHash string, size int64) error {
 	return os.Rename(tmp, dst)
 }
 
-// ---------------------------------------------------------------- scripts
-
 var triggerFile string
 
 func scriptEnv(name, script string) []string {
@@ -176,8 +173,6 @@ func scriptEnv(name, script string) []string {
 	return env
 }
 
-// runScript runs a maintainer script; hostPath is its location on the host,
-// chrootPath the same file as seen inside cfg.Root.
 func runScriptAt(hostPath, chrootPath, pkg, script string, args ...string) error {
 	if _, err := os.Stat(hostPath); err != nil {
 		return nil
@@ -202,8 +197,6 @@ func runScriptAt(hostPath, chrootPath, pkg, script string, args ...string) error
 	return nil
 }
 
-// withHealing runs fn; if it fails with a diagnosable compatibility problem
-// the missing GNU tool / interpreter is installed and fn is retried.
 func (tx *Tx) withHealing(fn func() error) error {
 	err := fn()
 	for i := 0; err != nil && i < 4; i++ {
@@ -226,35 +219,31 @@ func runInfoScript(infoName, script string, args ...string) error {
 	return runScriptAt(host, rel, infoName, script, args...)
 }
 
-// ------------------------------------------------------------ transaction
-
 type Tx struct {
 	db        *DB
 	plan      *Plan
 	purge     bool
-	owners    map[string][]string // path -> infoNames
-	lists     map[string][]string // infoName -> files (modified copies)
+	owners    map[string][]string
+	lists     map[string][]string
 	activated map[string]bool
-	unpacked  []string // all paths unpacked (for file triggers)
+	unpacked  []string
 	prevVer   map[string]string
 	healed    map[string]bool
 	ldSeen    int
 }
 
-// scriptError carries the (tail of the) output of a failed maintainer script.
 type scriptError struct {
 	msg, out string
 }
 
 func (e *scriptError) Error() string { return e.msg }
 
-// tailBuf keeps the last 32 KiB written to it.
 type tailBuf struct{ b []byte }
 
 func (t *tailBuf) Write(p []byte) (int, error) {
 	t.b = append(t.b, p...)
 	if len(t.b) > 32<<10 {
-	        t.b = t.b[len(t.b)-32<<10:]
+		t.b = t.b[len(t.b)-32<<10:]
 	}
 	return len(p), nil
 }
@@ -293,7 +282,6 @@ func isDirPath(p string) bool {
 	return err == nil && fi.IsDir()
 }
 
-// Summary prints an apt-style summary; returns false if nothing to do.
 func (pl *Plan) Summary() bool {
 	var newp, upg, down, rm []string
 	var dl, grow int64
@@ -374,7 +362,7 @@ func confirm(extraNeeded bool) bool {
 	}
 	fi, _ := os.Stdin.Stat()
 	if fi == nil || fi.Mode()&os.ModeCharDevice == 0 {
-		return true // non-interactive (scripts, agents): proceed like -y
+		return true
 	}
 	fmt.Print("Do you want to continue? [Y/n] ")
 	r := bufio.NewReader(os.Stdin)
@@ -383,7 +371,6 @@ func confirm(extraNeeded bool) bool {
 	return l == "" || l == "y" || l == "yes"
 }
 
-// Execute performs the plan.
 func (pl *Plan) Execute(purge bool) error {
 	unlock, err := lockDB()
 	if err != nil {
@@ -399,7 +386,6 @@ func (pl *Plan) Execute(purge bool) error {
 	if err != nil {
 		return err
 	}
-	// Essential-on-demand: interpreters needed by maintainer scripts.
 	for round := 0; round < 3; round++ {
 		extra := pl.scriptNeeds(files)
 		if len(extra) == 0 {
@@ -448,7 +434,6 @@ func (pl *Plan) Execute(purge bool) error {
 		}
 	}()
 	tx.loadOwners()
-	// removals first (conflicting packages, explicit removes)
 	for _, k := range sortedKeys(pl.Remove) {
 		if err := tx.remove(pl.Remove[k]); err != nil {
 			return err
@@ -522,7 +507,6 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 	} else {
 		fmt.Printf("Selecting previously unselected package %s.\n", p.Key())
 	}
-	// stage control files for preinst
 	stage := filepath.Join(cfg.Admin, "tmp.ci")
 	os.RemoveAll(stage)
 	os.MkdirAll(stage, 0755)
@@ -608,7 +592,6 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		return fmt.Errorf("error processing archive %s: %v", deb, err)
 	}
 	tx.unpacked = append(tx.unpacked, res.Files...)
-	// obsolete files from the old version
 	if old != nil {
 		newSet := map[string]bool{}
 		for _, f := range res.Files {
@@ -631,12 +614,10 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		for _, f := range oldFiles {
 			tx.dropOwnership(f, old.InfoName())
 		}
-		// old control files
 		if old.InfoName() != infoName {
 			removeInfo(old.InfoName())
 		}
 	}
-	// install control files into the dpkg database
 	removeInfo(infoName)
 	for n, b := range dc.Files {
 		if n == "control" {
@@ -660,7 +641,6 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 			tx.activated[f[1]] = true
 		}
 	}
-	// status entry
 	status := "install ok unpacked"
 	if old != nil && old.Held() {
 		status = "hold ok unpacked"
@@ -725,7 +705,7 @@ func removePath(p string) {
 		return
 	}
 	if fi.IsDir() {
-		syscall.Rmdir(host) // only if empty; never follows symlinks
+		syscall.Rmdir(host)
 		return
 	}
 	os.Remove(host)
@@ -801,8 +781,6 @@ func (tx *Tx) remove(in *Installed) error {
 	return tx.db.SaveStatus()
 }
 
-// restoreBusyboxLinks re-creates applet links a removed package had
-// replaced (e.g. after `apt remove coreutils`).
 func restoreBusyboxLinks() {
 	data, err := os.ReadFile(filepath.Join(cfg.Root, "usr/share/kwick/busybox.links"))
 	if err != nil {
@@ -829,7 +807,7 @@ func (tx *Tx) runTriggers() {
 			tx.activated[t] = true
 		}
 	}
-	interests := map[string][]string{} // pkg -> triggers
+	interests := map[string][]string{}
 	m, _ := filepath.Glob(filepath.Join(infoDir(), "*.triggers"))
 	for _, f := range m {
 		pkg := strings.TrimSuffix(filepath.Base(f), ".triggers")

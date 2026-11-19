@@ -1,9 +1,3 @@
-// kpkg - the KwickOS package manager.
-//
-// A single static binary that speaks apt/apt-get/apt-cache/apt-mark,
-// dpkg/dpkg-query/dpkg-deb/dpkg-trigger/dpkg-divert/dpkg-maintscript-helper
-// and update-alternatives, operating on real Debian repositories and a
-// dpkg-compatible database (/var/lib/dpkg/status).
 package main
 
 import (
@@ -17,7 +11,6 @@ import (
 
 const kpkgVersion = "0.1.0"
 
-// dpkgCompatVersion is reported to maintainer scripts and dpkg --version.
 const dpkgCompatVersion = "1.22.21"
 
 type Config struct {
@@ -32,10 +25,7 @@ type Config struct {
 	AllowHeld, IndexXZ        bool
 	Quiet                     int
 	TargetRelease             string
-	// Avoid: packages never chosen to satisfy an "a | b" dependency or a
-	// virtual package while another option exists. KwickOS runs kinit as
-	// PID 1, so systemd-as-init packages are only taken when unavoidable.
-	Avoid map[string]bool
+	Avoid                     map[string]bool
 }
 
 var defaultAvoid = []string{"systemd", "systemd-sysv", "libpam-systemd", "dbus-user-session", "systemd-timesyncd"}
@@ -81,7 +71,6 @@ func setupPaths() {
 	for _, n := range defaultAvoid {
 		cfg.Avoid[n] = true
 	}
-	// Config file: /etc/kpkg.conf  (key = value)
 	if data, err := os.ReadFile(filepath.Join(cfg.Root, "etc/kpkg.conf")); err == nil {
 		for _, l := range strings.Split(string(data), "\n") {
 			k, v, ok := strings.Cut(l, "=")
@@ -141,7 +130,7 @@ func main() {
 	case "dpkg-trigger":
 		rc = mainDpkgTrigger(args)
 	case "dpkg-divert":
-		rc = 0 // diversions are accepted and ignored
+		rc = 0
 	case "dpkg-statoverride":
 		rc = mainStatoverride(args)
 	case "dpkg-maintscript-helper":
@@ -153,7 +142,7 @@ func main() {
 		rc = mainAptCache(args)
 	case "apt-mark":
 		rc = mainAptMark(args)
-	default: // apt, apt-get, kpkg
+	default:
 		rc = mainApt(name, args)
 	}
 	os.Exit(rc)

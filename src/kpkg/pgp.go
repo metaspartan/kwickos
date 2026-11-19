@@ -1,10 +1,5 @@
 package main
 
-// Minimal OpenPGP verification: exactly what is needed to check Debian
-// style clearsigned InRelease files against a keyring. Supports v4 keys
-// and signatures with RSA and Ed25519 (legacy EdDSA and RFC 9580 algo 27).
-// No external dependencies, so kpkg stays small and auditable.
-
 import (
 	"bytes"
 	"crypto"
@@ -32,7 +27,6 @@ type pgpKey struct {
 	ed  ed25519.PublicKey
 }
 
-// DER DigestInfo prefixes for EMSA-PKCS1-v1_5 (RFC 8017, section 9.2).
 var digestInfoPrefix = map[crypto.Hash][]byte{
 	crypto.SHA1:   {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14},
 	crypto.SHA224: {0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1c},
@@ -41,9 +35,6 @@ var digestInfoPrefix = map[crypto.Hash][]byte{
 	crypto.SHA512: {0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40},
 }
 
-// rsaVerifyPKCS1v15 checks an RSASSA-PKCS1-v1_5 signature. Verification
-// only touches public data, so a plain math/big implementation is fine and
-// avoids linking Go's FIPS RSA module (~0.5 MB).
 func rsaVerifyPKCS1v15(k *rsaKey, h crypto.Hash, digest, sig []byte) bool {
 	size := (k.N.BitLen() + 7) / 8
 	prefix, ok := digestInfoPrefix[h]
@@ -198,7 +189,6 @@ func dearmor(data []byte) [][]byte {
 	return blocks
 }
 
-// LoadKeyring loads binary or ASCII-armored keyrings.
 func (kr Keyring) Load(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -323,7 +313,6 @@ func verifySig(body, signed []byte, kr Keyring) (ok bool, err error) {
 	return false, fmt.Errorf("unsupported key algorithm %d", pkAlgo)
 }
 
-// VerifyClearsigned checks a clearsigned message and returns its text.
 func VerifyClearsigned(data []byte, kr Keyring) (string, error) {
 	s := strings.ReplaceAll(string(data), "\r\n", "\n")
 	const begin = "-----BEGIN PGP SIGNED MESSAGE-----\n"

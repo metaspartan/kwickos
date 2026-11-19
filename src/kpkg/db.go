@@ -18,7 +18,6 @@ import (
 	"github.com/klauspost/compress/gzip"
 )
 
-// Pkg is a package version (available from a repo, a local .deb, or installed).
 type Pkg struct {
 	P        *Paragraph
 	Name     string
@@ -67,18 +66,15 @@ func (p *Pkg) InstalledSize() int64 {
 func (p *Pkg) Essential() bool     { return p.Field("Essential") == "yes" || p.Field("Protected") == "yes" }
 func (p *Pkg) MultiArchSame() bool { return p.Field("Multi-Arch") == "same" }
 
-// InfoName is the dpkg database name (pkg, or pkg:arch for M-A: same and
-// foreign-architecture packages).
 func (p *Pkg) InfoName() string { return infoNameFor(p.Name, p.Arch, p.MultiArch()) }
 
 func (p *Pkg) archOK() bool {
 	return p.Arch == cfg.Arch || p.Arch == "all" || contains(cfg.Foreign, p.Arch)
 }
 
-// Installed is a package entry in /var/lib/dpkg/status.
 type Installed struct {
 	*Pkg
-	Status string // e.g. "install ok installed"
+	Status string
 }
 
 func (i *Installed) State() string {
@@ -107,9 +103,9 @@ type provider struct {
 }
 
 type DB struct {
-	Avail     map[string][]*Pkg // name -> versions (sorted newest first)
+	Avail     map[string][]*Pkg
 	Installed map[string]*Installed
-	Order     []string // installed package order in status file
+	Order     []string
 	provAvail map[string][]provider
 	Auto      map[string]bool
 	Pol       *Policy
@@ -472,7 +468,6 @@ func (db *DB) Candidate(name string) *Pkg {
 	return c
 }
 
-// Upgradable lists installed packages that have a newer candidate.
 func (db *DB) Upgradable() []*Pkg {
 	db.LoadAvailable()
 	var out []*Pkg
@@ -488,7 +483,6 @@ func (db *DB) Upgradable() []*Pkg {
 	return out
 }
 
-// installedFiles returns path->owner for all installed packages.
 func (db *DB) installedFiles() map[string]string {
 	owners := map[string]string{}
 	for k := range db.Installed {
@@ -524,9 +518,6 @@ func writeList(infoName string, files []string) error {
 
 func warn(f string, a ...any) { fmt.Fprintf(os.Stderr, "W: "+f+"\n", a...) }
 
-// baseVirtual returns a synthetic status entry for a package the KwickOS
-// base provides virtually (e.g. coreutils), so `dpkg-query -W coreutils`
-// and `dpkg -s base-files` behave as maintainer scripts expect.
 func (db *DB) baseVirtual(name string) *Installed {
 	for _, in := range db.Installed {
 		if in.Field("X-Kwick-Base") != "yes" {

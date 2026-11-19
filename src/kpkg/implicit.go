@@ -1,19 +1,10 @@
 package main
 
-// "Essential on demand".
-//
-// Debian maintainer scripts may use anything from the Essential set
-// without declaring it. KwickOS satisfies most of that set with BusyBox,
-// but not perl (debconf, many postinsts) or a full bash, and glibc users
-// expect libc-bin (ldconfig, getent). Instead of shipping them in the base
-// image, kpkg pulls them in the moment a transaction actually needs them.
-
 import (
 	"bytes"
 	"strings"
 )
 
-// implicitDeps: installing the key also needs the values.
 var implicitDeps = map[string][]string{
 	"debconf": {"perl-base"},
 	"libc6":   {"libc-bin"},
@@ -27,7 +18,6 @@ func (pl *Plan) needs(name string) bool {
 	return in == nil || in.Field("X-Kwick-Base") == "yes"
 }
 
-// addImplicit adds static implicit deps; returns true if the plan grew.
 func (pl *Plan) addImplicit() bool {
 	grew := false
 	for _, n := range sortedKeys(pl.Install) {
@@ -44,7 +34,6 @@ func (pl *Plan) addImplicit() bool {
 	return grew
 }
 
-// scriptNeeds inspects maintainer-script interpreters of downloaded debs.
 func (pl *Plan) scriptNeeds(files map[*Pkg]string) []string {
 	want := map[string]bool{}
 	for p, f := range files {
@@ -97,8 +86,6 @@ func (pl *Plan) addEdge(from, to string) {
 	pl.extra[from] = append(pl.extra[from], to)
 }
 
-// configRank orders configuration inside a dependency cycle: Essential
-// packages (perl-base, libc-bin) first, then debconf, then the rest.
 func configRank(p *Pkg) int {
 	switch {
 	case p.Essential() || p.Name == "libc6":

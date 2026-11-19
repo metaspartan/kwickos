@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// Run with KPKG_APK_SAMPLE=/path/to/some.apk to check file listing on a
-// real Alpine package.
 func TestApkFileListing(t *testing.T) {
 	p := os.Getenv("KPKG_APK_SAMPLE")
 	if p == "" {

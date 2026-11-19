@@ -1,14 +1,5 @@
 package main
 
-// Self-healing compatibility.
-//
-// KwickOS ships BusyBox instead of GNU coreutils & friends. Debian
-// maintainer scripts occasionally use a GNU-only option or an Essential
-// tool/interpreter without declaring it. When a script fails, kpkg looks at
-// its output, installs the real Debian package that provides the missing
-// behaviour (coreutils, grep, perl-base, ...) and retries the script once.
-// The base stays tiny; GNU tools appear only when real software needs them.
-
 import (
 	"bytes"
 	"os"
@@ -17,7 +8,6 @@ import (
 	"strings"
 )
 
-// toolPkg maps a command name to the Debian package providing the GNU version.
 var toolPkg = map[string]string{
 	"grep": "grep", "egrep": "grep", "fgrep": "grep", "sed": "sed", "tar": "tar", "gzip": "gzip", "gunzip": "gzip",
 	"zcat": "gzip", "find": "findutils", "xargs": "findutils", "diff": "diffutils", "cmp": "diffutils",
@@ -32,7 +22,6 @@ var toolPkg = map[string]string{
 	"ip": "iproute2", "ss": "iproute2", "lsb_release": "lsb-release", "openssl": "openssl", "dpkg-reconfigure": "debconf",
 }
 
-// everything else that is a busybox applet comes from coreutils.
 const defaultGNU = "coreutils"
 
 var (
@@ -98,7 +87,6 @@ func interpreterOf(cmd string) string {
 	return filepath.Base(interp)
 }
 
-// diagnose returns the Debian package that would fix a failed script.
 func (db *DB) diagnose(output string) (pkg, why string) {
 	want := func(tool string) string {
 		if p, ok := toolPkg[tool]; ok {
@@ -129,7 +117,6 @@ func (db *DB) diagnose(output string) (pkg, why string) {
 	return "", ""
 }
 
-// heal installs pkgName (and deps) inside the running transaction.
 func (tx *Tx) heal(pkgName, why string) bool {
 	if tx.healed == nil {
 		tx.healed = map[string]bool{}

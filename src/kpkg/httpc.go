@@ -1,10 +1,5 @@
 package main
 
-// A deliberately tiny HTTP/1.1 client. Debian-style repositories do not
-// need TLS for integrity (InRelease signatures + SHA256 of every file), and
-// dropping net/http + crypto/tls shrinks kpkg by ~3.5 MB. https:// sources
-// are fetched through wget/curl when present (also verified by signature).
-
 import (
 	"bufio"
 	"errors"
@@ -56,7 +51,10 @@ func putConn(addr string, c *hconn) {
 	connPool.Unlock()
 }
 
-type deadlineReader struct{ c net.Conn; r io.Reader }
+type deadlineReader struct {
+	c net.Conn
+	r io.Reader
+}
 
 func (d *deadlineReader) Read(p []byte) (int, error) {
 	d.c.SetReadDeadline(time.Now().Add(60 * time.Second))
@@ -116,7 +114,7 @@ func (c *chunked) Read(p []byte) (int, error) {
 			return 0, errors.New("bad chunk size")
 		}
 		if n == 0 {
-			for { // trailers
+			for {
 				l, err := c.br.ReadString('\n')
 				if err != nil || strings.TrimSpace(l) == "" {
 					break
@@ -223,7 +221,7 @@ func httpOnce(u string) (*httpResp, string, error) {
 			reqTarget, host, kpkgVersion)
 		if err != nil {
 			hc.c.Close()
-			continue // stale pooled connection
+			continue
 		}
 		hc.c.SetReadDeadline(time.Now().Add(60 * time.Second))
 		status, err := hc.br.ReadString('\n')
@@ -260,7 +258,7 @@ func httpOnce(u string) (*httpResp, string, error) {
 		switch {
 		case strings.Contains(strings.ToLower(hdr["transfer-encoding"]), "chunked"):
 			b.r = &chunked{br: bufio.NewReader(dr)}
-			b.reuse = false // inner bufio may hold bytes of the next response
+			b.reuse = false
 		case hdr["content-length"] != "":
 			n, _ := strconv.ParseInt(hdr["content-length"], 10, 64)
 			b.r = io.LimitReader(dr, n)
@@ -312,7 +310,6 @@ func (c *cmdBody) Close() error {
 	return c.cmd.Wait()
 }
 
-// externalGet fetches https:// URLs via curl or (busybox) wget.
 func externalGet(u string) (*httpResp, string, error) {
 	var cmd *exec.Cmd
 	if p, err := exec.LookPath("curl"); err == nil {
@@ -322,13 +319,11 @@ func externalGet(u string) (*httpResp, string, error) {
 	} else {
 		return nil, "", errors.New("https:// sources need curl or wget (apt install curl, or use http:// mirrors — packages are signature-verified either way)")
 	}
-	// Download to a temp file first so HTTP errors (404 pages etc.) surface
-	// as errors instead of being parsed as content.
 	tmp, err := os.CreateTemp("", "kpkg-dl-")
 	if err != nil {
 		return nil, "", err
 	}
-	os.Remove(tmp.Name()) // unlinked; kept alive by the open fd
+	os.Remove(tmp.Name())
 	cmd.Stdout = tmp
 	cmd.Stderr = nil
 	if err := cmd.Run(); err != nil {

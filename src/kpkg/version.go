@@ -2,8 +2,6 @@ package main
 
 import "strings"
 
-// Debian version comparison, a faithful port of dpkg's verrevcmp.
-
 type Version struct {
 	Epoch              int
 	Upstream, Revision string
@@ -110,7 +108,6 @@ func sign(r int) int {
 	return 0
 }
 
-// VersionSatisfies reports whether version v satisfies "op want".
 func VersionSatisfies(v, op, want string) bool {
 	if op == "" {
 		return true

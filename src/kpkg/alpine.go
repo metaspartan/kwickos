@@ -1,16 +1,5 @@
 package main
 
-// `apk` on KwickOS: run Alpine Linux's own package manager next to apt.
-//
-// The base image carries only the Alpine public keys and a seeded apk
-// database (a virtual "kwick-base" package that provides busybox,
-// /bin/sh, alpine-baselayout, ...). The 5 MB apk.static binary is fetched
-// from the Alpine mirror on first use and verified exactly like apk itself
-// verifies packages: RSA signature over the control segment with a key from
-// /etc/apk/keys, then the SHA-256 "datahash" of the data segment.
-// Alpine (musl) and Debian (glibc) packages coexist: their dynamic loaders
-// have different names (/lib/ld-musl-*.so.1 vs /lib*/ld-linux-*.so.*).
-
 import (
 	"archive/tar"
 	"bufio"
@@ -152,8 +141,6 @@ func bootstrapApk(dst string) error {
 	return os.Rename(tmp, dst)
 }
 
-// gzipMembers splits concatenated gzip streams, returning the raw bytes of
-// each member (signatures cover the compressed bytes).
 func gzipMembers(b []byte) ([][]byte, error) {
 	var out [][]byte
 	r := bytes.NewReader(b)
@@ -185,7 +172,7 @@ func forEachTar(member []byte, fn func(name string, data []byte)) error {
 			if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) {
 				return nil
 			}
-			return nil // apk control segments are truncated tars
+			return nil
 		}
 		if h.Typeflag == tar.TypeReg || h.Typeflag == tar.TypeRegA {
 			data, _ := io.ReadAll(io.LimitReader(tr, 64<<20))
@@ -224,7 +211,6 @@ func loadApkKey(name string) (*rsaKey, error) {
 	return &rsaKey{N: pub.N, E: pub.E}, nil
 }
 
-// verifyApk checks an Alpine v2 package and returns file `want` from it.
 func verifyApk(pkg []byte, want string) ([]byte, error) {
 	segs, err := gzipMembers(pkg)
 	if err != nil {

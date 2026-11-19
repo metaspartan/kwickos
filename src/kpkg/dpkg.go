@@ -241,7 +241,6 @@ func dpkgInstall(files []string, unpackOnly bool) int {
 		}
 		pl.Add(p, true)
 	}
-	// dpkg semantics: no resolution; report unmet deps but still unpack
 	broken := false
 	for _, p := range pl.Install {
 		for _, fld := range []string{"Pre-Depends", "Depends"} {
@@ -476,12 +475,8 @@ func mainMaintscriptHelper(args []string) int {
 	if len(args) >= 2 && args[0] == "supports" {
 		return 0
 	}
-	// rm_conffile / mv_conffile / symlink_to_dir / dir_to_symlink:
-	// best-effort no-ops; kpkg keeps conffiles and handles dir/symlink swaps.
 	return 0
 }
-
-// ------------------------------------------------------------- dpkg-deb
 
 func mainDpkgDeb(args []string) int {
 	setupPaths()
@@ -593,8 +588,6 @@ func mainDpkgDeb(args []string) int {
 	return 0
 }
 
-// buildDeb creates a .deb (gzip members, root:root ownership) from a tree
-// containing DEBIAN/control.
 func buildDeb(src, out string) error {
 	ctlData, err := os.ReadFile(filepath.Join(src, "DEBIAN/control"))
 	if err != nil {

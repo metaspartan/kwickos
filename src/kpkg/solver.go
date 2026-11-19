@@ -9,20 +9,20 @@ import (
 
 type ResolveOpts struct {
 	Recommends bool
-	Upgrade    bool // allow upgrading installed packages to satisfy deps
+	Upgrade    bool
 	NoRemove   bool
 }
 
 type Plan struct {
 	db       *DB
 	opts     ResolveOpts
-	Install  map[string]*Pkg       // name -> version to install/upgrade
-	Remove   map[string]*Installed // infoName -> installed pkg
+	Install  map[string]*Pkg
+	Remove   map[string]*Installed
 	NewAuto  map[string]bool
 	Manual   map[string]bool
 	instProv map[string][]provider
 	queue    []*Pkg
-	extra    map[string][]string // implicit ordering edges
+	extra    map[string][]string
 }
 
 func (db *DB) NewPlan(opts ResolveOpts) *Plan {
@@ -101,7 +101,6 @@ func (pl *Plan) groupSatisfied(g []Dep, from string) bool {
 
 var prioRank = map[string]int{"required": 0, "important": 1, "standard": 2, "optional": 3, "extra": 4}
 
-// choose picks a package version to satisfy one alternative.
 func (pl *Plan) choose(d Dep, from string) *Pkg {
 	if !depArchOK(d) {
 		return nil
@@ -130,7 +129,6 @@ func (pl *Plan) choose(d Dep, from string) *Pkg {
 		if !archFits(d.Arch, from, pr.pkg) {
 			continue
 		}
-		// only the newest version of each provider
 		if top := pl.db.Candidate(pr.pkg.Key()); top != pr.pkg {
 			continue
 		}
@@ -157,7 +155,6 @@ func (pl *Plan) choose(d Dep, from string) *Pkg {
 	return cands[0]
 }
 
-// Add schedules p for installation (manual=true for user requests).
 func (pl *Plan) Add(p *Pkg, manual bool) {
 	key := p.Key()
 	if cur, ok := pl.Install[key]; ok && cur.Version == p.Version {
@@ -332,11 +329,10 @@ func (pl *Plan) checkConflicts() (bool, error) {
 	changed := false
 	handle := func(p, t *Pkg, kind string) error {
 		if t.Field("X-Kwick-Base") == "yes" {
-			return nil // virtual base provides are never removed
+			return nil
 		}
 		_, planned := pl.Install[t.Key()]
 		if kind == "Breaks" || !planned {
-			// try upgrading the victim to a version that is not affected
 			if c := pl.db.Candidate(t.Key()); c != nil && c.Version != t.Version && !planned {
 				ok := true
 				for _, g := range p.Deps(kind) {
@@ -387,7 +383,6 @@ func (pl *Plan) checkConflicts() (bool, error) {
 			}
 		}
 	}
-	// installed packages that conflict with / break planned versions
 	for _, k := range sortedKeys(pl.db.Installed) {
 		in := pl.db.Installed[k]
 		if _, up := pl.Install[in.Key()]; up || pl.Remove[k] != nil {
@@ -407,7 +402,6 @@ func (pl *Plan) checkConflicts() (bool, error) {
 			}
 		}
 	}
-	// removing a package may break reverse dependencies
 	if len(pl.Remove) > 0 {
 		if pl.closeRemovals() {
 			changed = true
@@ -416,8 +410,6 @@ func (pl *Plan) checkConflicts() (bool, error) {
 	return changed, nil
 }
 
-// closeRemovals adds installed packages whose dependencies would become
-// unsatisfied. Returns true if the set grew.
 func (pl *Plan) closeRemovals() bool {
 	grew := false
 	for {
@@ -434,7 +426,6 @@ func (pl *Plan) closeRemovals() bool {
 			for _, fld := range []string{"Pre-Depends", "Depends"} {
 				for _, g := range in.Deps(fld) {
 					if !pl.groupSatisfied(g, from) {
-						// try to satisfy by installing something new instead
 						var pick *Pkg
 						if pl.db.provAvail != nil {
 							for _, d := range g {
@@ -473,8 +464,6 @@ func (pl *Plan) removingKey(key string) bool {
 	return false
 }
 
-// Order returns planned packages so that dependencies come first. Packages
-// in a dependency cycle are returned together as one group.
 func (pl *Plan) Order() [][]*Pkg {
 	names := sortedKeys(pl.Install)
 	idx := map[string]int{}
@@ -513,7 +502,6 @@ func (pl *Plan) Order() [][]*Pkg {
 			}
 		}
 	}
-	// Tarjan SCC; SCCs are emitted in reverse topological order = deps first.
 	index, low := make([]int, len(names)), make([]int, len(names))
 	on := make([]bool, len(names))
 	for i := range index {
@@ -558,7 +546,6 @@ func (pl *Plan) Order() [][]*Pkg {
 	return out
 }
 
-// RemovalPlan computes packages to remove when removing names.
 func (db *DB) RemovalPlan(names []string) (*Plan, error) {
 	pl := db.NewPlan(ResolveOpts{})
 	for _, n := range names {
@@ -573,7 +560,7 @@ func (db *DB) RemovalPlan(names []string) (*Plan, error) {
 		pl.Remove[in.InfoName()] = in
 	}
 	saved := db.provAvail
-	db.provAvail = nil // removals never pull in replacements
+	db.provAvail = nil
 	pl.closeRemovals()
 	db.provAvail = saved
 	for k, in := range pl.Remove {
@@ -587,7 +574,6 @@ func (db *DB) RemovalPlan(names []string) (*Plan, error) {
 	return pl, nil
 }
 
-// Autoremovable lists auto-installed packages nothing manual depends on.
 func (db *DB) Autoremovable() []*Installed {
 	keep := map[string]bool{}
 	live := func(in *Installed) bool {

@@ -34,7 +34,6 @@ Options: -y  -s/--dry-run  --no-install-recommends  --install-recommends
 `, kpkgVersion, cfg.Arch)
 }
 
-// parseCommon strips global options shared by apt-get/apt/apt-cache.
 func parseCommon(args []string) []string {
 	var rest []string
 	for i := 0; i < len(args); i++ {
@@ -111,7 +110,7 @@ func mustDB(avail bool) *DB {
 func mainApt(name string, args []string) int {
 	setupPaths()
 	args = parseCommon(args)
-	setupPaths() // re-derive paths if --root changed
+	setupPaths()
 	if len(args) == 0 {
 		aptUsage()
 		return 1
@@ -176,7 +175,6 @@ func mainApt(name string, args []string) int {
 	return 0
 }
 
-// resolveRequest maps "pkg", "pkg=ver", "pkg/suite", "./x.deb" to a Pkg.
 func resolveRequest(db *DB, req string) (*Pkg, error) {
 	if strings.HasSuffix(req, ".deb") {
 		abs, _ := filepath.Abs(req)
@@ -245,7 +243,6 @@ func resolveRequest(db *DB, req string) (*Pkg, error) {
 		}
 	}
 	if !hasVer {
-		// virtual package with a single provider
 		var provs []*Pkg
 		seen := map[string]bool{}
 		for _, pr := range db.provAvail[base] {
@@ -289,7 +286,7 @@ func cmdInstall(args []string) error {
 	pl := db.NewPlan(ResolveOpts{Recommends: cfg.Recommends, Upgrade: true})
 	var explicit []string
 	for _, a := range args {
-		if strings.HasSuffix(a, "-") && !strings.HasSuffix(a, ".deb") { // apt install foo-  => remove
+		if strings.HasSuffix(a, "-") && !strings.HasSuffix(a, ".deb") {
 			if in := db.lookupInstalled(strings.TrimSuffix(a, "-")); in != nil {
 				pl.Remove[in.InfoName()] = in
 			}

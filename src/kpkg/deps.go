@@ -2,7 +2,6 @@ package main
 
 import "strings"
 
-// Dep is one alternative of a dependency relation.
 type Dep struct {
 	Name, Arch, Op, Ver string
 }
@@ -18,8 +17,6 @@ func (d Dep) String() string {
 	return s
 }
 
-// ParseDeps parses "a (>= 1) | b, c [amd64]" into groups of alternatives,
-// dropping alternatives whose architecture restriction excludes arch.
 func ParseDeps(s, arch string) [][]Dep {
 	var out [][]Dep
 	s = strings.ReplaceAll(s, "\n", " ")
@@ -44,7 +41,6 @@ func ParseDeps(s, arch string) [][]Dep {
 
 func parseOneDep(a, arch string) (Dep, bool) {
 	var d Dep
-	// strip build profiles <...>
 	if i := strings.IndexByte(a, '<'); i >= 0 && (strings.IndexByte(a, '(') < 0 || i < strings.IndexByte(a, '(')) {
 		a = strings.TrimSpace(a[:i])
 	}
@@ -95,7 +91,6 @@ func archMatches(restr []string, arch string) bool {
 	return neg
 }
 
-// Provided is one entry of a Provides field.
 type Provided struct{ Name, Ver string }
 
 func ParseProvides(s string) []Provided {

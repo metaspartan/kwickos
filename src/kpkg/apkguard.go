@@ -1,15 +1,5 @@
 package main
 
-// Guard for mixing apk (musl) and dpkg (glibc) in one root: an Alpine
-// package must never replace a file that belongs to an installed Debian
-// package (e.g. Alpine's xwayland overwriting Debian's /usr/bin/Xwayland,
-// which would break the glibc desktop stack). Before running `apk add`,
-// kpkg simulates the install, maps the files of every package apk would
-// add (from the APKINDEX-free route: `apk fetch --stdout` + tar listing is
-// too slow, so we use the dry run's package list and `apk info -L` after a
-// download-only pass) and drops packages that would clobber dpkg files,
-// telling the user which Debian package already provides that functionality.
-
 import (
 	"archive/tar"
 	"bytes"
@@ -24,7 +14,6 @@ import (
 
 var reApkInstalling = regexp.MustCompile(`\(\s*\d+/\d+\) (?:Installing|Upgrading) ([^ ]+) \(([^)]+)\)`)
 
-// apkPlannedPackages returns name-version pairs apk would install.
 func apkPlannedPackages(bin string, args []string) ([][2]string, error) {
 	sim := append([]string{"apk", "--simulate"}, args...)
 	out, err := exec.Command(bin, sim[1:]...).CombinedOutput()
@@ -42,7 +31,6 @@ func apkPlannedPackages(bin string, args []string) ([][2]string, error) {
 	return res, nil
 }
 
-// apkFiles lists the files of an apk package by fetching it to the cache.
 func apkFiles(bin, name, ver string) ([]string, error) {
 	dir := filepath.Join(cfg.Root, "var/cache/apk/kwick-guard")
 	os.MkdirAll(dir, 0755)
@@ -61,8 +49,6 @@ func apkFilesFromPath(path string) ([]string, error) {
 	if err != nil || len(segs) < 2 {
 		return nil, fmt.Errorf("bad package %s", path)
 	}
-	// [signature,] control, data: the data tar is always the last member(s)
-	// after the control segment holding .PKGINFO.
 	start := len(segs) - 1
 	for i, seg := range segs {
 		has := false
@@ -97,8 +83,6 @@ func apkFilesFromPath(path string) ([]string, error) {
 	return files, nil
 }
 
-// dpkgOwner returns the Debian package owning p (resolving merged-/usr
-// aliases), or "".
 func dpkgOwner(owners map[string]string, p string) string {
 	for _, c := range []string{p, strings.TrimPrefix(p, "/usr"), "/usr" + p} {
 		if o := owners[c]; o != "" {
@@ -108,8 +92,6 @@ func dpkgOwner(owners map[string]string, p string) string {
 	return ""
 }
 
-// guardApkAdd returns the args with clobbering packages removed, or an
-// error explaining the conflict. Only `add` is guarded.
 func guardApkAdd(bin string, args []string) ([]string, error) {
 	if len(args) == 0 || args[0] != "add" {
 		return args, nil
@@ -121,11 +103,11 @@ func guardApkAdd(bin string, args []string) ([]string, error) {
 	}
 	db, err := OpenDB()
 	if err != nil || len(db.Installed) <= 1 {
-		return args, nil // nothing from Debian installed: nothing to protect
+		return args, nil
 	}
 	plan, err := apkPlannedPackages(bin, args)
 	if err != nil {
-		return args, nil // let apk report its own error
+		return args, nil
 	}
 	owners := db.installedFiles()
 	var clobber []string

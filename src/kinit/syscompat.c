@@ -1,11 +1,3 @@
-/*
- * systemd-sysusers and systemd-tmpfiles compatible applets for kinit.
- * Debian trixie packages declare "Depends: systemd | systemd-sysusers"
- * and call these from maintainer scripts; implementing the common subset
- * here avoids pulling all of systemd into a KwickOS system.
- * Included from kinit.c (shares its static helpers).
- */
-
 static int split_tokens(char *s, char **tok, int max)
 {
 	int n = 0;
@@ -157,7 +149,6 @@ static void sysusers_line(char *line)
 static const char *sysusers_dirs[] = { "/etc/sysusers.d", "/run/sysusers.d", "/usr/lib/sysusers.d", NULL };
 static const char *tmpfiles_dirs[] = { "/etc/tmpfiles.d", "/run/tmpfiles.d", "/usr/lib/tmpfiles.d", NULL };
 
-/* Process one config file, or (name == NULL) every file of the dirs. */
 static void conf_each(const char **dirs, const char *name, void (*fn)(char *))
 {
 	if (name && name[0] == '/') {
@@ -175,7 +166,6 @@ static void conf_each(const char **dirs, const char *name, void (*fn)(char *))
 		}
 		return;
 	}
-	/* all files; earlier dirs override later ones with the same name */
 	char seen[256][128];
 	int nseen = 0;
 	for (int i = 0; dirs[i]; i++) {
@@ -262,7 +252,7 @@ static void tmpfiles_line(char *line)
 	case 'r':
 		unlink(path); rmdir(path);
 		break;
-	default: /* x X e R C a A h p c b: not needed for a working system */
+	default:
 		break;
 	}
 	free(path);

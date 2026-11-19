@@ -1,9 +1,5 @@
 package main
 
-// clashes reports whether choosing c would conflict with (or break) a
-// package already planned or installed - or vice versa. Used to pick the
-// next alternative of an "a | b" dependency, the way apt backtracks
-// (e.g. "systemd | systemd-standalone-sysusers" when elogind is requested).
 func (pl *Plan) disfavored(c *Pkg) bool {
 	return cfg.Avoid[c.Name] || pl.clashes(c)
 }
