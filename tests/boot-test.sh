@@ -54,7 +54,6 @@ deadline=$(( $(date +%s) + TIMEOUT ))
 while kill -0 $QPID 2>/dev/null; do
   if [ -z "$ready" ]; then
     ready=$(grep -ao 'ready in [0-9]* ms' "$LOG" 2>/dev/null | grep -o '[0-9]*' | head -1)
-    t_ready=$(date +%s%N)
     if [ -n "$ready" ] && { [ $MODE = efi ] || [ $MODE = iso ]; }; then sleep 1; kill $QPID; break; fi
   fi
   [ "$(date +%s)" -ge $deadline ] && { kill $QPID; break; }

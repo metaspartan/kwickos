@@ -1,7 +1,6 @@
 #!/bin/sh
 set -u
 PROG=kwick-gpu
-KNOWN="amd intel nvidia apple rpi vm"
 usage() {
   cat <<EOF
 usage: $PROG [command] [options]

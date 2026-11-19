@@ -17,7 +17,6 @@ CONFIRM_DELAY=30
 [ -f "$KCONF" ] && . "$KCONF"
 
 JSON=0
-YES=0
 NODEFAULT=0
 PROMOTE=0
 REBOOT=0
@@ -202,7 +201,6 @@ entry_field() {
 entry_dir() { entry_field "$1" 5; }
 entry_rel() { entry_field "$1" 4; }
 entry_flavor() { entry_field "$1" 2; }
-entry_ver() { entry_field "$1" 3; }
 entry_origin() { entry_field "$1" 6; }
 
 id_for_rel() {
@@ -963,7 +961,7 @@ parse() {
 	while [ $# -gt 0 ]; do
 		case $1 in
 		--json) JSON=1 ;;
-		--yes | -y) YES=1 ;;
+		--yes | -y) ;;
 		--no-default | --keep-default) NODEFAULT=1 ;;
 		--promote) PROMOTE=1 ;;
 		--reboot) REBOOT=1 ;;

@@ -26,7 +26,6 @@ DIM="${ESC}[2m"
 ACC="${ESC}[1;36m"
 SEL="${ESC}[30;46m"
 RED="${ESC}[1;31m"
-GRN="${ESC}[1;32m"
 BAR="${ESC}[30;46m"
 
 S_KEYMAP=us
@@ -38,7 +37,6 @@ S_MODE=erase
 S_ROOT_PART=""
 S_EFI_PART=""
 S_BOOT_PART=""
-S_HOME_PART=""
 S_FS=ext4
 S_SWAP=zram
 S_ENC=0
@@ -355,7 +353,6 @@ EOF
 	case $REPLY in
 	alongside)
 		message "Not available yet" "Installing next to another system is not supported yet. Choose to erase the disk, or pick existing partitions."
-		S_STAY=1
 		return 3
 		;;
 	erase) S_MODE=erase; return 0 ;;
@@ -681,7 +678,6 @@ while :; do
 	STEP_NO=$i
 	STEP_TOTAL=$TOTAL
 	[ "$fn" = install ] || [ "$fn" = done ] && { STEP_NO=""; STEP_TOTAL=""; }
-	S_STAY=0
 	"s_$fn"
 	rc=$?
 	case $rc in
