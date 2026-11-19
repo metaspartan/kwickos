@@ -116,7 +116,7 @@ icon keyboard-enter-symbolic '<path d="M19.5 5v6.5a2.5 2.5 0 0 1-2.5 2.5H5"/><pa
 icon input-keyboard-virtual-hide-symbolic '<rect x="2.5" y="3" width="19" height="12" rx="2.2"/><path d="M6 7h.01M9.3 7h.01M12.6 7h.01M15.9 7h.01M7.5 11h9"/><path d="m9 18.5 3 2.5 3-2.5"/>'
 icon globe '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M4.6 7.5h14.8M4.6 16.5h14.8"/>'
 cp "$DEST$ICONS/globe.svg" "$DEST$ICONS/globe-symbolic.svg"
-find "$DEST/usr" -type f \( -name '*.so' -o -path '*/bin/*' \) -exec strip --strip-unneeded {} +
+find "$DEST/usr" -type f \( -name '*.so' -o -path '*/bin/*' \) -exec strip --strip-unneeded {} + 2>/dev/null || true
 kwin_plugin_copyright "$DEST" plasma-keyboard <<EOF
 plasma-keyboard $VER (KDE on-screen keyboard), built for KwickOS
 
