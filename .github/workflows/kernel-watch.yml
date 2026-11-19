@@ -1,8 +1,5 @@
 name: kernel-watch
 
-# Track the newest stable kernel from kernel.org. When a new release (and
-# therefore new CVE fixes) appears, commit the bump to main and dispatch the release workflow, which
-# builds + boot-tests every arch and publishes the kernel to the apt repo so `apt upgrade` delivers it to every KwickOS system.
 on:
   schedule:
     - cron: '17 */6 * * *'
@@ -35,6 +32,4 @@ jobs:
           git add KERNEL_VERSION
           git commit -m "kernel: bump ${{ steps.k.outputs.current }} -> ${{ steps.k.outputs.latest }}"
           git push origin HEAD:main
-          # pushes made with GITHUB_TOKEN do not trigger workflows: start the release explicitly.
-          # release.yml builds + boot-tests everything and only publishes when green.
           gh workflow run release.yml --ref main

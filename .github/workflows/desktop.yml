@@ -1,6 +1,5 @@
 name: desktop
 
-# KwickOS Desktop (KDE Plasma 6) live ISOs. Reused by release.yml; can also be run by hand.
 on:
   workflow_dispatch:
   workflow_call:

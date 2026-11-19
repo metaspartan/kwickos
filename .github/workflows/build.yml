@@ -24,9 +24,9 @@ jobs:
           - arch: amd64
             runner: ubuntu-24.04
           - arch: arm64
-            runner: ubuntu-24.04          # userland via qemu-user, kernel cross-compiled
+            runner: ubuntu-24.04
           - arch: riscv64
-            runner: ubuntu-24.04          # userland via qemu-user, kernel cross-compiled
+            runner: ubuntu-24.04
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     env:

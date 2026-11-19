@@ -1,8 +1,4 @@
 #!/bin/bash
-# Cross-ecosystem smoke test on a KwickOS container image:
-#   - apk: Alpine packages (musl) next to Debian packages (glibc)
-#   - bun: official installer (`curl | bash`, bash installed on demand)
-#   tests/ecosystems.sh [image]
 set -uo pipefail
 IMG=${1:-kwickos:dev}
 fail=0

@@ -1,8 +1,4 @@
 #!/bin/bash
-# Boot the KwickOS Desktop live ISO in QEMU (UEFI, virtio-gpu) and verify the
-# graphical session: plasmashell + kwin_wayland running as the live user.
-# A screenshot of the display is saved for inspection.
-#   desktop-boot.sh <iso> [screenshot.png]
 set -uo pipefail
 ISO=${1:?iso}; SHOT=${2:-/tmp/desktop.png}
 TIMEOUT=${TIMEOUT:-240}
@@ -29,7 +25,7 @@ while kill -0 $QPID 2>/dev/null && [ $(( $(date +%s) - t0 )) -lt $TIMEOUT ]; do
   sleep 2
 done
 ready=$(( $(date +%s) - t0 ))
-sleep 20   # let the shell finish painting before the screenshot
+sleep 20
 mon "screendump $W/shot.ppm"
 sleep 2
 python3 - "$W/shot.ppm" "$SHOT" <<'EOF'

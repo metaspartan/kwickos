@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the KwickOS desktop theme assets (run once, outputs are committed):
-  - three dark Plasma color schemes (Glass = macOS style, Fluent = Windows 11 style, Dark = Linux style)
-  - two Aurorae window decorations: KwickGlass (rounded, translucent, traffic lights) and
-    KwickFluent (Windows 11 caption buttons)
-  - wallpapers: KwickGlass (dark liquid gradient) and KwickFluent (dark blue bloom)
-  - Konsole color scheme + profile with translucency/blur
-  - start-menu icons
-usage: gen-theme.py <repo-root> <BreezeDark.colors>
-"""
 import json, math, os, random, re, shutil, sys
 
 ROOT = sys.argv[1]

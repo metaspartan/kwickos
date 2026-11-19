@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the KwickOS icon themes (SVG only): KwickOS (macOS), KwickOS-Linux and KwickOS-Fluent (Windows).
-usage: gen-icons.py <repo-root> [macos|linux|windows ...]
-Every icon shares one geometry: a 24-unit glyph grid, a continuous-corner squircle for apps and
-settings pages, a folder body for places and bare strokes for actions.
-"""
 import importlib.util
 import math, os, re, shutil, subprocess, sys
 

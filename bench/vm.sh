@@ -1,11 +1,4 @@
 #!/bin/bash
-# VM benchmarks under identical QEMU/KVM settings (run inside kwick-builder
-# with --device /dev/kvm). Boots each system, logs in on the serial console
-# exactly like a user would, and records:
-#   - wall time from QEMU start to the login shell prompt
-#   - guest uptime at that moment (kernel + userspace boot time)
-#   - memory in use (MemTotal - MemAvailable) and process count
-#   bench/vm.sh [runs=5]
 set -uo pipefail
 RUNS=${1:-5}
 OUT=${OUT:-/out}; D="$OUT/amd64"
@@ -25,7 +18,6 @@ cd_dev() { echo -drive file="$1",media=cdrom,if=none,id=cd,readonly=on -device v
 
 MEASURE='echo __U=$(cut -d" " -f1 /proc/uptime); awk "/MemTotal/{t=\$2}/MemAvailable/{a=\$2}END{print \"__M=\" t-a}" /proc/meminfo; echo __P=$(for p in /proc/[0-9]*; do readlink $p/exe >/dev/null 2>&1 && echo x; done | wc -l); poweroff'
 
-# run_login <name> <prompt-regex> <login-user-or-empty> qemu args...
 run_login() {
   local name=$1 prompt=$2 user=$3; shift 3
   local log=$(mktemp) fifo=$(mktemp -u); mkfifo "$fifo"
@@ -45,7 +37,6 @@ run_login() {
   local u=$(grep -ao '__U=[0-9][0-9.]*' "$log" | head -1 | cut -d= -f2)
   local m=$(grep -ao '__M=[0-9][0-9]*' "$log" | head -1 | cut -d= -f2)
   local p=$(grep -ao '__P=[0-9][0-9]*' "$log" | head -1 | cut -d= -f2)
-  # the login step waits 1.5 s before measuring: don't count it
   [ -n "$user" ] && [ -n "$u" ] && u=$(echo "$u - 1.5" | bc)
   echo "$name ${t1:+$(( (t1-t0)/1000000 ))} ${u:-?} ${m:-?} ${p:-?}"
   rm -f "$log"
@@ -53,17 +44,13 @@ run_login() {
 
 results=$(mktemp)
 for i in $(seq "$RUNS"); do
-  # KwickOS: RAM boot on QEMU microvm (agent-sandbox path)
   run_login "kwickos-microvm-ram" '# $' "" "${MICRO[@]}" -kernel "$D/kernel-virt/vmlinuz" \
       -initrd "$D/kwickos-amd64-initramfs.cpio.zst" -append "console=ttyS0 reboot=t" >>"$results"
-  # KwickOS: live ISO root (erofs + overlay), same method as Alpine below
   run_login "kwickos-q35-live" '# $' "" "${BASE[@]}" -kernel "$D/kernel-virt/vmlinuz" -append "console=ttyS0" \
       $(cd_dev "$D/kwickos-amd64.iso") >>"$results"
-  # KwickOS: installed on a virtio disk (ext4)
   cp --sparse=always "$D/kwickos-amd64.img" /tmp/k.img
   run_login "kwickos-q35-disk" '# $' "" "${BASE[@]}" -kernel "$D/kernel-virt/vmlinuz" -append "console=ttyS0" \
       -drive file=/tmp/k.img,if=virtio,format=raw >>"$results"
-  # Alpine virt: live ISO root, kernel+initramfs from the ISO
   run_login "alpine-$ALP_VER-q35-live" 'login: *$' "root" "${BASE[@]}" -kernel "$A/vmlinuz-virt" -initrd "$A/initramfs-virt" \
       -append "console=ttyS0 modules=loop,squashfs,sd-mod,sr-mod,virtio_scsi alpine_dev=cdrom:iso9660 quiet" \
       $(cd_dev "$ISO") >>"$results"

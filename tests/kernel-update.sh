@@ -1,10 +1,4 @@
 #!/bin/bash
-# End-to-end kernel update through apt (amd64, KVM, UEFI):
-#   1. package kernel-generic as linux-image-kwick-generic, build a signed repo
-#   2. UEFI-boot the disk (virt kernel on the ESP), add the repo, apt install
-#   3. UEFI-boot again: the system must now run the generic kernel
-#      (virt has CONFIG_MODULES=n, generic CONFIG_MODULES=y), with the previous
-#      kernel kept for rollback.
 set -uo pipefail
 OUT=${OUT:-/out}; D="$OUT/amd64"; SRC=${SRC:-/src}
 W=$(mktemp -d)
@@ -23,7 +17,7 @@ apt install -y linux-image-kwick-generic 2>&1 | grep -E 'Setting up|kwick-kernel
 ls /boot/efi/EFI/BOOT /boot/efi/EFI/kwick
 echo "current: $(cat /boot/efi/EFI/kwick/current)"
 EOF
-boot() { # $1 = commands to type at the shell
+boot() {
   local log=$W/log.$2 fifo=$W/fifo; rm -f "$fifo"; mkfifo "$fifo"; exec 3<>"$fifo"
   qemu-system-x86_64 -M q35,accel=kvm -cpu host -m 1024 -smp 2 -nographic -no-reboot -monitor none -serial stdio \
     -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file="$W/vars.fd" \

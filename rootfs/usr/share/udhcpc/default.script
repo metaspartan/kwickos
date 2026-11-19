@@ -1,5 +1,4 @@
 #!/bin/sh
-# udhcpc event script (KwickOS)
 RESOLV_CONF=/etc/resolv.conf
 [ -n "$interface" ] || exit 1
 

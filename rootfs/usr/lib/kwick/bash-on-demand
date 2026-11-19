@@ -1,9 +1,4 @@
 #!/bin/sh
-# KwickOS on-demand bash.
-# The base system has no GNU bash (BusyBox ash covers /bin/sh). The first
-# time something runs `bash` - e.g. `curl -fsSL https://.../install | bash` -
-# real bash is installed from Debian and takes over this path for good.
-# Set KWICK_NO_AUTOINSTALL=1 to get BusyBox ash instead.
 login=
 case "$0" in -*) login=-l ;; esac
 if [ "$(id -u)" = 0 ] && [ -z "${KWICK_NO_AUTOINSTALL:-}" ]; then

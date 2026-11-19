@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the neutral KwickOS app entries (run once, outputs are committed):
-  usr/share/applications/kwick-<id>.desktop       Exec=kwick-app <id>, picks the native app of the running session
-  usr/local/share/applications/<vendor>.desktop   overrides (NoDisplay, or KDE-only visible for pinned apps) carrying the same name and icon
-  usr/share/icons/hicolor/scalable/apps/kwick-<id>.svg
-usage: gen-apps.py <repo-root>
-"""
 import os, sys
 
 R = os.path.join(sys.argv[1], "desktop/rootfs")

@@ -1,15 +1,10 @@
 #!/bin/bash
-# Compatibility matrix: install real Debian packages on a fresh KwickOS
-# container each and run a smoke test. Usage:
-#   tests/compat.sh [image] [parallelism]
-# Writes a markdown table to stdout and logs to out/compat/<pkg>.log
 set -uo pipefail
 IMG=${1:-kwickos:dev}
 PAR=${2:-6}
 LOGDIR=${LOGDIR:-$(mktemp -d /tmp/kwick-compat.XXXX)}
 mkdir -p "$LOGDIR"
 
-# package | smoke test
 read -r -d '' MATRIX <<'EOF'
 curl|curl -sS --version | head -1
 wget|wget --version | head -1

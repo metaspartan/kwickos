@@ -1,10 +1,3 @@
-# KwickOS build orchestration (Linux host with Docker; binfmt/qemu-user for
-# cross-arch userland: `docker run --privileged --rm tonistiigi/binfmt --install all`).
-#
-#   make ARCH=amd64            userland + kpkg + kernels + rootfs + images
-#   make container ARCH=amd64  import the rootfs as a local Docker image
-#   make test ARCH=amd64       boot tests (QEMU) + package compatibility matrix
-#   make bench                 benchmarks vs Alpine
 ARCH    ?= amd64
 FLAVOR  ?= virt
 KVER    ?= $(shell cat KERNEL_VERSION)

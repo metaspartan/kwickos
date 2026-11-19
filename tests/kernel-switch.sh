@@ -11,7 +11,7 @@ case $MODE in efistub|grub) ;; *) echo "usage: kernel-switch.sh efistub|grub"; e
 ACCEL=tcg; CPU=max; [ -w /dev/kvm ] && ACCEL=kvm && CPU=host
 
 pass=0; fail=0
-check() { # check "<name>" <logfile> <grep -E pattern>
+check() {
   if grep -aqE "$3" "$2"; then echo "PASS $1"; pass=$((pass+1)); else echo "FAIL $1   (wanted: $3 in $2)"; fail=$((fail+1)); fi
 }
 
@@ -83,7 +83,7 @@ repo() {
 settle() { sleep 14; }
 EOF
 
-boot() { # $1 phase number, $2 guest script body
+boot() {
   local n=$1 log=$LOGS/phase$1.log fifo=$W/fifo
   { echo ". /mnt/t/lib.sh"; echo "$2"; echo "echo PHASE_END_$n"; echo "poweroff"; } > "$W/share/p$n.sh"
   rm -f "$fifo"; mkfifo "$fifo"; exec 3<>"$fifo"

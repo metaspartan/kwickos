@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the three KwickOS Plasma global themes. usage: gen-lookandfeel.py <repo-root>"""
 import json, os, shutil, sys
 
 ROOT = sys.argv[1]

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Render a contact sheet of the KwickOS icon theme. usage: sheet.py <icon-theme-dir> <out.png> [full|sizes]"""
 import glob, io, os, subprocess, sys
 from PIL import Image, ImageDraw, ImageFont
 

@@ -1,12 +1,4 @@
 #!/bin/bash
-# Boot KwickOS under QEMU and verify it reaches "ready" and powers off.
-#   boot-test.sh <arch> <mode> [extra kwick.run command]
-# modes: direct (kernel + GPT disk, auto root discovery)
-#        efi    (UEFI firmware -> ESP -> kernel EFI stub, no bootloader)
-#        iso    (UEFI live ISO, erofs + overlay)
-#        ram    (kernel + whole-OS initramfs, no disk)
-#        microvm (amd64: QEMU microvm machine, RAM boot)
-# Prints: wall-clock ms from QEMU start to exit, and guest-reported ready ms.
 set -uo pipefail
 ARCH=${1:?arch}; MODE=${2:?mode}; RUN=${3:-}
 OUT=${OUT:-/out}; D="$OUT/$ARCH"; K="$D/kernel-${FLAVOR:-virt}"
@@ -63,7 +55,6 @@ while kill -0 $QPID 2>/dev/null; do
   if [ -z "$ready" ]; then
     ready=$(grep -ao 'ready in [0-9]* ms' "$LOG" 2>/dev/null | grep -o '[0-9]*' | head -1)
     t_ready=$(date +%s%N)
-    # EFI/ISO boots have no kernel cmdline (no kwick.run=poweroff): stop here.
     if [ -n "$ready" ] && { [ $MODE = efi ] || [ $MODE = iso ]; }; then sleep 1; kill $QPID; break; fi
   fi
   [ "$(date +%s)" -ge $deadline ] && { kill $QPID; break; }

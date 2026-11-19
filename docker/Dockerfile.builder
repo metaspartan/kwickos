@@ -1,5 +1,3 @@
-# KwickOS builder: everything needed to cross-build kernels, assemble
-# images and boot-test them under QEMU for amd64 / arm64 / riscv64.
 FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \

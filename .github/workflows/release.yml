@@ -94,7 +94,6 @@ jobs:
 
   publish:
     needs: [plan, build, desktop, hyprland, rpi]
-    # headless must be green; desktop images are published for whichever archs built
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
@@ -116,9 +115,7 @@ jobs:
           done
           f=$(find dl/kwickos-arm64-rpi -name kwickos-arm64-rpi.img.zst 2>/dev/null | head -n 1)
           if [ -n "$f" ]; then cp "$f" release/; else echo "::warning::no Raspberry Pi image in this release"; fi
-          # disk images are sparse 1 GiB; ship them compressed
           for f in release/*.img; do [ -f "$f" ] && zstd -19 -T0 --rm -q "$f"; done
-          # GitHub release assets are limited to 2 GiB each: split oversized files (cat parts > file)
           for f in $(find release -size +1900M); do split -b 1900M -d "$f" "$f.part" && rm "$f"; done
           (cd release && sha256sum * > SHA256SUMS)
           ls -lh release

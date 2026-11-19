@@ -1,7 +1,5 @@
 name: autorelease
 
-# Every push to main that changes what ships (or a kernel bump) gets a release,
-# tagged v<VERSION>-k<KERNEL>. The release workflow does the building/testing.
 on:
   push:
     branches: [main]

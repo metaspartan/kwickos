@@ -1,4 +1,3 @@
-# Short system summary for interactive login shells.
 case $- in *i*) ;; *) return 2>/dev/null || exit 0 ;; esac
 [ -n "${KWICK_BANNER_SHOWN:-}" ] && return 0 2>/dev/null
 export KWICK_BANNER_SHOWN=1

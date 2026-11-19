@@ -1,8 +1,4 @@
 #!/bin/bash
-# End-to-end test inside a booted KwickOS VM (amd64, KVM):
-#   networking -> apt install -> maintainer scripts enable+start the systemd
-#   unit via kinit -> systemctl/journalctl -> HTTP request -> crash restart.
-# The test script is passed over 9p; results come back on the serial console.
 set -uo pipefail
 OUT=${OUT:-/out}; D="$OUT/amd64"
 W=$(mktemp -d)
@@ -16,7 +12,6 @@ systemctl is-enabled nginx
 systemctl is-active nginx
 systemctl status nginx | head -5
 curl -sS -o /dev/null -w 'HTTP %{http_code}\n' http://127.0.0.1/
-# crash recovery for Restart= units
 cat > /etc/systemd/system/demo.service <<'U'
 [Unit]
 Description=demo crash-looping service

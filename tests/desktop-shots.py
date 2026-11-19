@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Boot a KwickOS Desktop live ISO under QEMU and take a scripted series of screenshots.
-usage: desktop-shots.py <iso> <outdir> [script.txt]
-script lines: wait N | key a-b-c | type some text | enter | shot name
-"""
 import os, socket, subprocess, sys, tempfile, time, zlib, struct
 iso, outdir = sys.argv[1], sys.argv[2]
 script = open(sys.argv[3]).read().splitlines() if len(sys.argv) > 3 else []
@@ -55,7 +51,7 @@ for line in script:
     elif c == 'type': typ(a)
     elif c == 'enter': mon('sendkey ret', 0.3)
     elif c == 'shot': shot(a)
-    elif c == 'sh':  # run a command in the focused terminal and wait
+    elif c == 'sh':
         typ(a); mon('sendkey ret', 0.3)
 q.kill(); q.wait()
 print(open(f'{w}/serial.log', errors='replace').read()[-1500:])

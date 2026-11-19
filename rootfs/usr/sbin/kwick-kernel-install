@@ -1,15 +1,4 @@
 #!/bin/sh
-# kwick-kernel-install - make a KwickOS kernel the UEFI boot target.
-#
-# KwickOS has no bootloader: every kernel is a self-contained UEFI
-# application (EFI stub + embedded kinit initramfs) that finds its root
-# filesystem by partition label. Installing a kernel = copying one file to
-# the EFI System Partition's removable-media path. The previous kernel is
-# kept as EFI/kwick/previous.efi for instant rollback.
-#
-#   kwick-kernel-install <kernel-release>   install /usr/lib/kwick/kernels/<rel>
-#   kwick-kernel-install --rollback         boot the previous kernel again
-#   kwick-kernel-install --list             show installed kernels
 set -eu
 if [ -x /usr/sbin/kwick-kernel ] && [ -z "${KWICK_KERNEL_LEGACY:-}" ]; then
 	case "${1:-}" in

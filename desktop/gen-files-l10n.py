@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the KwickOS rename catalogs (run once, outputs are committed):
-  usr/share/locale/en_KW/LC_MESSAGES/{dolphin,konsole,plasma-discover}.mo   app names shown to users
-  usr/share/kwick/files/<layout>/kio6.mo                                    sidebar section titles per layout
-en_KW is a private language code: plasma-localerc lists it before en_US, every string without a
-translation falls back to the English source text.
-usage: gen-files-l10n.py <repo-root>
-"""
 import os, struct, sys
 
 R = os.path.join(sys.argv[1], "desktop/rootfs")

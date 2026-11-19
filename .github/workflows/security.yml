@@ -1,9 +1,5 @@
 name: security
 
-# CVE gate: kernel freshness vs kernel.org (+ Linux CNA CVE count), Go
-# vulnerabilities in kpkg (govulncheck), OSV advisories for pinned sources,
-# and a grype scan of the built container image. Runs on every push/PR and
-# nightly, so newly published CVEs fail the badge even without code changes.
 on:
   push:
     branches: [main]

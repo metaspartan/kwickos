@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""Turn stroked symbolic icons into filled outlines so GTK's symbolic recolouring (which fills every path) draws them correctly.
-usage: uv run --no-project --with picosvg python -I fill-symbolic.py <icon-theme-dir> [...]
-"""
 import re, sys
 from pathlib import Path
 from picosvg.svg import SVG

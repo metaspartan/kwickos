@@ -1,7 +1,5 @@
 name: attach-assets
 
-# Attach desktop ISOs (and refresh SHA256SUMS) on an existing release from the
-# artifacts of a finished release run, without rebuilding anything.
 on:
   workflow_dispatch:
     inputs:

@@ -1,7 +1,4 @@
 #!/bin/bash
-# Container benchmarks: KwickOS vs Alpine vs Debian slim vs Ubuntu.
-#   bench/container.sh [kwickos-image]      (needs docker)
-# Prints a markdown report. Every image is measured the same way.
 set -uo pipefail
 KW=${1:-kwickos:dev}
 ALPINE=${ALPINE:-alpine:3.24}
@@ -20,7 +17,7 @@ for img in $IMAGES; do
   size=$(docker image inspect -f '{{.Size}}' "$img")
   gz=$(docker save "$img" | gzip -c | wc -c)
   files=$(docker run --rm "$img" sh -c 'find / -xdev 2>/dev/null | wc -l')
-  docker run --rm "$img" true # warm
+  docker run --rm "$img" true
   t=$(for i in $(seq $N); do s=$(ms); docker run --rm "$img" true; e=$(ms); echo $((e-s)); done | median)
   mem=$(for i in 1 2 3 4 5; do docker run --rm "$img" sh -c 'grep -E "^(anon|pagetables) " /sys/fs/cgroup/memory.stat' | awk '{s+=$2} END {print s}'; done | median)
   printf '| %s | %.2f MB | %.2f MB | %s | %s ms | %.0f KiB |\n' "$img" "$(echo "$size/1000000" | bc -l)" "$(echo "$gz/1000000" | bc -l)" "$files" "$t" "$(echo "$mem/1024" | bc -l)"
@@ -31,7 +28,7 @@ echo "## Installing software (fresh container each, network time included)"
 echo
 echo "| image | task | wall time | rootfs after | after removing package indexes/caches |"
 echo "|---|---|---|---|---|"
-inst() { # image pkgs...
+inst() {
   local img=$1; shift
   local pkgs="$*"
   case $img in
