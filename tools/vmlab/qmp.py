@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, socket, sys, time, os
+import json, socket, sys, time
 
 KEYS = {" ": "spc", "\n": "ret", "\t": "tab", ".": "dot", ",": "comma", "/": "slash", "-": "minus", "=": "equal", ";": "semicolon", "'": "apostrophe", "\\": "backslash", "[": "bracket_left", "]": "bracket_right", "`": "grave_accent"}
 SHIFT = {"_": "minus", "+": "equal", ":": "semicolon", '"': "apostrophe", "<": "comma", ">": "dot", "?": "slash", "|": "backslash", "{": "bracket_left", "}": "bracket_right", "~": "grave_accent", "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0"}

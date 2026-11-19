@@ -1,4 +1,4 @@
-from icondesign import DD, DV, OBJECTS, XL, lg, mix, rg, shadow_stack
+from icondesign import DD, OBJECTS, XL, lg, mix, rg, shadow_stack
 
 
 def o_docs(tone, c1, c2, d):

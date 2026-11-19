@@ -58,7 +58,6 @@ def sheet_full():
     cell, cols = 104, 12
     secs = [(t, n.split()) for t, n in SECTIONS]
     W = cols * cell + 60
-    rows = sum(-(-len(n) // cols) for _, n in secs) + 2
     H = 60 + sum(-(-len(n) // cols) * (cell + 8) + 56 for _, n in secs) + 130
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)

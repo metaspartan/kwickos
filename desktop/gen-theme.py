@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, math, os, random, re, shutil, sys
+import json, math, os, re, shutil, sys
 
 ROOT = sys.argv[1]
 BREEZE = open(sys.argv[2]).read()
@@ -347,7 +347,7 @@ plasma_theme("kwick-fluent", "KwickFluent",
 
 
 def wallpaper(name, painter, size=(2560, 1440)):
-    from PIL import Image, ImageFilter
+    from PIL import Image
     img = painter(size)
     rnd = Image.effect_noise(size, 12).convert("RGB")
     img = Image.blend(img, Image.merge("RGB", [rnd.split()[0]] * 3), 0.025)
@@ -387,7 +387,6 @@ def fluent_wall(size):
     cx, cy = W / s * 0.5, H / s * 0.52
     for ang in range(0, 360, 60):
         layer = Image.new("RGB", base.size, (0, 0, 0))
-        d = ImageDraw.Draw(layer)
         for k in range(30, 0, -1):
             f = k / 30
             rx, ry = W / s * 0.30 * f, H / s * 0.11 * f

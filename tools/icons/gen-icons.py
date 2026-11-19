@@ -8,22 +8,6 @@ import placeicons as PI
 import freeicons as FI
 
 ROOT = sys.argv[1]
-SQ = None
-
-
-def squircle(cx=64, cy=64, r=59.5, n=5.0, steps=160, prec=2):
-    pts = []
-    for i in range(steps):
-        t = 2 * math.pi * i / steps
-        c, s = math.cos(t), math.sin(t)
-        x = cx + r * math.copysign(abs(c) ** (2 / n), c)
-        y = cy + r * math.copysign(abs(s) ** (2 / n), s)
-        pts.append(f"{x:.{prec}f},{y:.{prec}f}")
-    return "M" + " L".join(pts) + "Z"
-
-
-SQ = squircle()
-SQ_IN = squircle(r=59.0)
 
 
 def gear(cx=12, cy=12, ro=9.6, ri=7.4, n=8):
@@ -53,10 +37,6 @@ def dot(cx, cy, r=1.15):
 
 def fill(d):
     return P(d, 'fill="@" stroke="none"')
-
-
-def soft(d):
-    return P(d, 'fill="@" fill-opacity="0.28"')
 
 
 G = {}
@@ -249,46 +229,6 @@ TOKYO_DEEP = {
     "yellow": ("#d8a458", "#9c6a22"),
 }
 
-PAL = {
-    "gray": ("#9a9ca6", "#5a5c66"),
-    "graphite": ("#6b6f7d", "#363944"),
-    "blue": ("#56b0ff", "#1d63ec"),
-    "sky": ("#6ad2ff", "#2c8cf0"),
-    "teal": ("#33ecd8", "#0ba7b8"),
-    "violet": ("#b07bff", "#6c36d8"),
-    "green": ("#62e486", "#1ca84c"),
-    "lime": ("#b5ec5e", "#5fb82a"),
-    "orange": ("#ffb84a", "#fb7d1e"),
-    "red": ("#ff7777", "#e1344f"),
-    "pink": ("#ff7ab8", "#d62f8c"),
-    "indigo": ("#7d86ff", "#4036d6"),
-    "yellow": ("#ffd84a", "#f0a512"),
-    "night": ("#232049", "#0a0720"),
-    "slate": ("#3b3e4f", "#1a1c27"),
-}
-
-TOKYO = {
-    "gray": ("#8a96c4", "#474d6e"),
-    "graphite": ("#5f688f", "#2b2f47"),
-    "blue": ("#8db4ff", "#3d59a1"),
-    "sky": ("#9ad8ff", "#2e8fc4"),
-    "teal": ("#7fe0cf", "#1a9c8c"),
-    "violet": ("#c8a8ff", "#7a4fd0"),
-    "green": ("#a9d97a", "#4e8c2a"),
-    "lime": ("#c9eb97", "#6aa832"),
-    "orange": ("#ffaa72", "#e0642a"),
-    "red": ("#ff8aa0", "#c73a5a"),
-    "pink": ("#ff9bd0", "#c2459a"),
-    "indigo": ("#8f9cff", "#3f48c2"),
-    "yellow": ("#ecbf78", "#c0801e"),
-    "night": ("#2a2f48", "#14151f"),
-    "slate": ("#343955", "#1a1b26"),
-}
-
-BRAND = ("#2ff0dc", "#8d44d4")
-BRAND_TOKYO = ("#7dcfff", "#bb9af7")
-SQM = squircle(512, 512, 412, 5.0, 220, 1)
-SQM_IN = squircle(512, 512, 407, 5.0, 220, 1)
 DEFAULT_TEXT = "#e4e7f0"
 MONO_RE = re.compile(r"^(network-|audio-|battery|bluetooth|redshift|night-light|input-|media-|drive-|printer|phone$|smartphone|avatar-|user-identity|system-users|system-log-out|system-run|video-display|help-|software-update|system-software-update|dialog-|wifi$|xorg$|emblem-)")
 PLAIN_PLACES = {"user-trash", "user-trash-symbolic", "user-trash-full"}
@@ -360,7 +300,6 @@ class Style:
 
 class Glass(Style):
     colors = DEEP
-    brand = BRAND
     sw = 1.75
     text = "#e8ebf4"
     accent = "#0a84ff"
@@ -420,7 +359,6 @@ class Linux(Glass):
     comment = "KwickOS Linux variant: Tokyo Night glass squircles and folders"
     inherits = "KwickOS,Papirus-Dark,breeze-dark,hicolor"
     colors = TOKYO_DEEP
-    brand = BRAND_TOKYO
     text = "#c0caf5"
     accent = "#7aa2f7"
 
@@ -700,7 +638,6 @@ def build():
     page("font-x-generic application-x-font-ttf application-x-font-otf font-ttf font-otf", "font", "indigo")
     page("unknown application-octet-stream application-x-generic", "page", "gray")
 
-    S = "#e4e7f0"
     act("document-open document-open-folder", "open")
     act("document-save", "save")
     act("document-save-as", "save")

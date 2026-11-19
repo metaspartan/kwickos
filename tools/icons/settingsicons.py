@@ -1,6 +1,4 @@
-import math
-
-from icondesign import DD, DV, OBJECTS, lg, mix, rg
+from icondesign import DD, OBJECTS, lg, mix, rg
 
 
 def disc(c1, c2, r=42):

@@ -1,4 +1,4 @@
-from icondesign import DD, DV, OBJECTS, XL, lg, mix, shadow_stack
+from icondesign import OBJECTS, XL, mix, shadow_stack
 import placeicons
 import settingsicons
 

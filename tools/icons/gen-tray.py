@@ -28,10 +28,6 @@ def P(d, extra=""):
     return f'<path d="{d}"{extra}/>'
 
 
-def solid(d, extra=""):
-    return f'<path d="{d}" fill="currentColor" stroke="none"{extra}/>'
-
-
 def solid_stroked(d, extra=""):
     return f'<path d="{d}" fill="currentColor"{extra}/>'
 
