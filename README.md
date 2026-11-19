@@ -128,8 +128,10 @@ run on KDE, GNOME and Hyprland and need a GPU compositor.
 | **3D open/close** | **Wobbly windows** |
 | <img src="docs/img/effects-3dopen.gif" width="420" alt="3D flip open"> | <img src="docs/img/effects-wobbly.gif" width="420" alt="Wobbly windows"> |
 
-Also: magic lamp, dissolve, door and tilt open/close, five flame styles, blur, translucency, dimmed inactive windows and Cover Flow
-Alt+Tab. All options and GIFs: [docs/EFFECTS.md](docs/EFFECTS.md).
+Also: magic lamp, dissolve, door and tilt open/close, five flame styles, every
+[Burn My Windows](https://github.com/Schneegans/Burn-My-Windows) open/close effect on KDE and GNOME (`kwick-effects open-close`,
+or the Animation menu in Settings), blur, translucency, dimmed inactive windows and Cover Flow Alt+Tab. All options and GIFs:
+[docs/EFFECTS.md](docs/EFFECTS.md).
 
 ## Optional packages
 
@@ -222,5 +224,8 @@ KwickOS sources are MIT-licensed. Images also contain GPL-2.0 software (Linux, B
 * The native KWin effect plugins link against KWin (GPL-2.0-or-later). The Flip plugin's source in `src/kwin-flip` is MIT, and its
   compiled `kwick_flip.so` (like the third-party KDE-Rounded-Corners plugin) is distributed under the GPL-2.0-or-later, with a note
   in `/usr/share/doc/kwick-flip/copyright`.
+* The Burn My Windows effects (KWin scripts and the GNOME extension) are GPL-3.0-or-later by Simon Schneegans. They are fetched
+  unmodified apart from two small changes listed in [docs/EFFECTS.md](docs/EFFECTS.md#open-and-close), with the license in
+  `/usr/share/licenses/burn-my-windows/LICENSE` (and in the GNOME extension's own folder).
 * OpenZFS is CDDL. It is never built into the kernel. The modules ship only in the separate `kwick-zfs-modules-*` packages with the
   CDDL text, and nothing ZFS-related is installed unless you install it. See [docs/STORAGE.md](docs/STORAGE.md#licensing).

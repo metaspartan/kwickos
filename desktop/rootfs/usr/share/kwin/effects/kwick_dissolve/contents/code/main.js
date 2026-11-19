@@ -54,8 +54,8 @@ class KwickDissolveEffect {
             return null;
         }
         this.hold(w);
-        const mx = Math.min(Math.max(0.25 * w.width, 80), 280);
-        const my = Math.min(Math.max(0.6 * w.height, 160), 460);
+        const mx = Math.min(Math.max(0.15 * w.width, 60), 180);
+        const my = Math.min(Math.max(0.3 * w.height, 90), 240);
         const sx = 1 + 2 * mx / Math.max(1, w.width);
         const sy = 1 + 2 * my / Math.max(1, w.height);
         const eg = w.expandedGeometry;

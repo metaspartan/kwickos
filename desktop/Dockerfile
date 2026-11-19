@@ -31,7 +31,7 @@ COPY --from=kwinflip /flip/out/ /
 COPY --from=kwinglass /glass/out/ /
 COPY --from=macstyle /style/out/ /
 RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen; locale-gen && update-locale LANG=en_US.UTF-8
-RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-gnome-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-gnome-effects / all && glib-compile-schemas /usr/share/glib-2.0/schemas
+RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-effects / all && glib-compile-schemas /usr/share/glib-2.0/schemas
 RUN set -e; \
     find /usr/lib/kwick /usr/bin/kwick-* /usr/bin/steam /usr/bin/steamos-session-select -type f -exec chmod 755 {} +; \
     /usr/lib/kwick/desktop-units enable; \

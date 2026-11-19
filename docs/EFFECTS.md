@@ -13,9 +13,58 @@ kwick-effects off|subtle|fluid|full
 | preset | what you get |
 |---|---|
 | off | no animations |
-| subtle | fades, blur, sliding popups, magic lamp |
+| subtle | scale open/close, blur, sliding popups, magic lamp |
 | fluid | plus curvy wobbly windows, sheets and the 3D flip open/close |
 | full | plus flame open/close, translucency, dimmed inactive windows, the lit 3D desktop cube and Cover Flow Alt+Tab |
+
+Every layout starts with the subtle look: magic lamp minimize into the dock and the quick scale open/close of macOS and
+Windows. On GNOME, fluid keeps GNOME's own scale and full uses Fire, since Flip and Flame are KWin effects.
+
+## Open and close
+
+One open/close animation is active at a time. Pick it with `kwick-effects open-close STYLE` or the Animation menu on the Effects
+page of KwickOS Settings, which plays a preview window right away and offers a duration slider (and the flame and 3D styles
+when those are picked). `kwick-effects open-close` prints the current style, `kwick-effects open-close list` prints every style
+as `name|on|off|na|label|description`, and `kwick-effects param duration MS` sets the length of the current one (100 to 5000;
+built-in KWin effects such as Scale and Glide follow the global speed instead and have no duration).
+
+| style | KDE | GNOME | what it does |
+|---|---|---|---|
+| `none` | yes | no | windows appear and disappear at once |
+| `scale` | yes | yes (GNOME's own) | windows zoom in and out, like macOS and Windows |
+| `fade` | yes | no | windows fade in and out |
+| `glide` | yes (KWin) | yes | windows tilt in and out in 3D |
+| `flip` | yes | no | windows swing in and out in perspective with lighting (styles flip, door, tilt) |
+| `flame` | yes | no | windows ignite and burn away, with tongues of fire licking just above the title bar |
+| `dissolve` | yes | no | closing windows crumble into glowing dust, which drifts up and fades out close to the window |
+| `fallapart` | yes | no | closing windows shatter into pieces |
+| `aura-glow`, `doom`, `energize-a`, `energize-b`, `fire`, `focus`, `glitch`, `hexagon`, `incinerate`, `pixelate`, `pixel-wheel`, `pixel-wipe`, `portal`, `rgbwarp`, `team-rocket`, `tv`, `tv-glitch`, `wisps` | yes | yes | [Burn My Windows](https://github.com/Schneegans/Burn-My-Windows) effects |
+| `apparition`, `broken-glass`, `matrix`, `mushroom`, `paint-brush`, `snap`, `trex` | no | yes | Burn My Windows effects that exist only for GNOME Shell |
+
+Styles a backend does not have show as `na` in `kwick-effects status` and are left out of the Settings menu. Hyprland has no
+per-window shaders, so it keeps its own open/close animation (the `flip` toggle there) and reports every style as `na`.
+`kwick-effects set STYLE on` still works and picks that style; `set STYLE off` goes back to `scale`.
+
+Burn My Windows 49 (GPL-3.0, Simon Schneegans) comes from its release page at image build time, pinned by sha256, through
+`/usr/lib/kwick/fetch-effects` (`fetch-effects / kwin` for the KWin effects in `/usr/share/kwin/effects/kwin6_effect_*`,
+`fetch-effects / burn` for the GNOME extension, `all` for everything). The license is in
+`/usr/share/licenses/burn-my-windows/LICENSE`. Two changes are made to the KWin effects: their translations are left out, and
+they no longer force blur and background contrast behind a window while it animates, which drew a square blur box under
+translucent windows (the same fix as Dissolve). KWin's own config dialogs for them stay in System Settings. On GNOME,
+`kwick-effects` writes a high-priority Burn My Windows profile, `~/.config/burn-my-windows/profiles/kwickos.conf`, with only the
+chosen effect enabled and its duration, so profiles you make in the extension's own settings keep working for other cases.
+
+Burn My Windows Fire and the KwickOS Flame are both kept, since they look nothing alike: Flame burns the window away from
+the bottom up along a sharp, charred edge, with tongues that only lick just above the title bar at the end, and is the full
+preset's choice; Fire is the classic wall of soft flames over the whole window, and the only fire on GNOME. On KDE, `glide` is
+KWin's native Glide. Burn My Windows' Glide is the same motion, but as a scripted shader effect it shows a still picture of the
+window while it opens, so its KWin version is not installed.
+
+All scripted shader effects on KDE (the Burn My Windows effects, Flame and Dissolve) open with the picture KWin takes of the
+window when it first appears: KWin draws that one picture for the whole animation, so content an app paints a moment later
+(Dolphin's folder view, say) shows up when the animation ends, and an app that resizes itself right after it appears (KCalc)
+is stretched for that moment. Closing always uses the last picture of the window, so it is never affected. Scale, Fade,
+Glide, Fall Apart and 3D Flip draw the live window.
 
 ## Single effects
 
@@ -26,15 +75,9 @@ on the Effects page of KwickOS Settings.
 |---|---|
 | `wobbly` | windows stretch like jelly while you drag them |
 | `lamp` | magic lamp minimize into the dock |
-| `flame` | windows ignite and burn away, with tongues of fire licking just above the title bar |
-| `flip` | windows swing in and out in 3D perspective with lighting (styles flip, door, tilt) |
-| `dissolve` | closing windows crumble into glowing dust |
-| `glide`, `fallapart` | the stock Glide and Fall Apart open/close effects |
 | `cube` | Meta+C shows the desktops as a cube; the desktop switch animation can be a cube too (`kwick-effects switch cube`, Meta+Ctrl+Left/Right) |
 | `blur`, `transparency`, `sheet`, `dim`, `overview` | frosted glass, translucency, dropping dialogs, dimmed inactive windows, overview |
 | `liquidglass` | Liquid Glass: the dock, menu bar, menus, popups, notifications and OSDs refract and frost what is behind them (see below) |
-
-Only one open/close effect is active at a time. `flame`, `flip`, `dissolve`, `glide` and `fallapart` replace each other.
 
 All Kwick effects follow the global animation speed (`AnimationDurationFactor`, the slider in System Settings). At
 "Instant" the flip, flame and dissolve effects are skipped. The desktop cube does not follow the slider yet.
@@ -175,7 +218,8 @@ All GIFs were captured in a KVM guest with a virgl GPU (KWin on OpenGL) on the m
 The window effects were slowed down so every frame is a real render, the cube is sampled at fixed points of its animation
 (`Scrub`, `ScrubFrom` and `ScrubTo` in `[Effect-kwick_cubeslide]` hold it at one point, for capture only), and the frames are
 played back at a steady rate, so the real effects run faster and smoother. Frame sheets are next to them in `docs/img`
-(`effects-*-frames.png`, and `effects-cube-before-frames.png` and `effects-3dopen*-before-frames.png` for the previous look).
+(`effects-*-frames.png`, and `effects-cube-before-frames.png`, `effects-3dopen*-before-frames.png` and
+`effects-dissolve-before-frames.png` for the previous look).
 
 | Wobbly windows (6/7) | Dissolve close | 3D desktop cube |
 |---|---|---|
@@ -192,6 +236,32 @@ played back at a steady rate, so the real effects run faster and smoother. Frame
 | Flame: blue | Flame: legacy | Magic lamp |
 |---|---|---|
 | <img src="img/effects-flame-blue.gif" width="280" alt="flame blue"> | <img src="img/effects-flame-legacy.gif" width="280" alt="flame legacy"> | <img src="img/effects-magiclamp.gif" width="280" alt="magic lamp"> |
+
+Burn My Windows on KDE, closing a window (each at twice its normal length):
+
+| Aura Glow | Doom | Energize A |
+|---|---|---|
+| <img src="img/effects-bmw-aura-glow.gif" width="280" alt="aura glow"> | <img src="img/effects-bmw-doom.gif" width="280" alt="doom"> | <img src="img/effects-bmw-energize-a.gif" width="280" alt="energize a"> |
+
+| Energize B | Fire | Focus |
+|---|---|---|
+| <img src="img/effects-bmw-energize-b.gif" width="280" alt="energize b"> | <img src="img/effects-bmw-fire.gif" width="280" alt="fire"> | <img src="img/effects-bmw-focus.gif" width="280" alt="focus"> |
+
+| Glitch | Hexagon | Incinerate |
+|---|---|---|
+| <img src="img/effects-bmw-glitch.gif" width="280" alt="glitch"> | <img src="img/effects-bmw-hexagon.gif" width="280" alt="hexagon"> | <img src="img/effects-bmw-incinerate.gif" width="280" alt="incinerate"> |
+
+| Pixelate | Pixel Wheel | Pixel Wipe |
+|---|---|---|
+| <img src="img/effects-bmw-pixelate.gif" width="280" alt="pixelate"> | <img src="img/effects-bmw-pixel-wheel.gif" width="280" alt="pixel wheel"> | <img src="img/effects-bmw-pixel-wipe.gif" width="280" alt="pixel wipe"> |
+
+| Portal | RGB Warp | Team Rocket |
+|---|---|---|
+| <img src="img/effects-bmw-portal.gif" width="280" alt="portal"> | <img src="img/effects-bmw-rgbwarp.gif" width="280" alt="rgb warp"> | <img src="img/effects-bmw-team-rocket.gif" width="280" alt="team rocket"> |
+
+| TV | TV Glitch | Wisps |
+|---|---|---|
+| <img src="img/effects-bmw-tv.gif" width="280" alt="tv"> | <img src="img/effects-bmw-tv-glitch.gif" width="280" alt="tv glitch"> | <img src="img/effects-bmw-wisps.gif" width="280" alt="wisps"> |
 
 The Terminal glass profile, with blur and translucency:
 

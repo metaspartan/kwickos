@@ -85,6 +85,9 @@ Windows checkout are stripped in a copy first (`buildrepo`). The kernel .debs ar
 | Flame close | visible: fire burns the window away from the top edge | `effects-flame.gif`, `effects-flame-frames.png` |
 | Blur / glass | glass theme on menu bar and dock; the static shot does not show the blur itself | `glass-blur.png` |
 | Cube | loads; no rotation was driven or captured | `isEffectLoaded cube` true only |
+| Burn My Windows 49 on KWin 6.3.6 | all 18 installed effects load and animate open and close; corners stay rounded under Liquid Glass; no blur box under a translucent Konsole | `effects-bmw-*.gif` |
+| Open/close frame rate (virgl, in KWin, `Profile=1`) | Burn My Windows 44 to 51 fps, Dissolve 49, Flip 44, Flame 39, KWin's Scale 41; the VM tops out there | `kwick_liquidglass` profile log |
+| GNOME 48 with Burn My Windows 49 | extension active; `kwick-effects open-close portal` writes the `kwickos.conf` profile and the portal plays; durations and presets apply | `gnome-extensions info`, `kwick-effects status`, frames of a closing Text Editor |
 | GNOME, macOS / Windows / Linux layouts | runs, each layout visibly different | `vm-gnome-macos.png`, `vm-gnome-windows.png`, `vm-gnome-linux.png` |
 | Hyprland 0.49.0 (`kwick-hyprland`), 3 layouts | runs, tiles three foot windows, bar and dock per layout; Windows layout has no bar (bug 3) | `vm-tiling-macos.png`, `vm-tiling-linux.png`, `vm-tiling-windows-nobar.png`, `vm-tiling-windows.png` |
 | Desktop ISO, UEFI | boots to the desktop, `KWICK-DESKTOP-UP uptime=26.80s` | `iso-uefi-desktop.png` |

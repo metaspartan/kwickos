@@ -23,8 +23,8 @@ kwin_plugin rounded mkroundedpkg.sh
 kwin_plugin flip mkflippkg.sh
 kwin_plugin liquidglass mkglasspkg.sh
 kwin_plugin macstyle mkmacstylepkg.sh
-chmod 755 "$P/usr/lib/kwick/fetch-gnome-effects"
-"$P/usr/lib/kwick/fetch-gnome-effects" "$P" all
+chmod 755 "$P/usr/lib/kwick/fetch-effects"
+"$P/usr/lib/kwick/fetch-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
 deps="linux-image-kwick-generic | linux-image-kwick-rpi, kwick-gpu, kwick-gaming, kwick-essentials, $deps"

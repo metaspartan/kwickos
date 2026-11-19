@@ -1,0 +1,89 @@
+#!/bin/sh
+set -eu
+
+ROOT=${1:-/}
+SET=${2:-all}
+GX=$ROOT/usr/share/gnome-shell/extensions
+KW=$ROOT/usr/share/kwin/effects
+
+BMW=https://github.com/Schneegans/Burn-My-Windows
+BMW_VER=v49
+BMW_SHA=e3f72cf1ab726b2affde5737f3b7fbc78a767f0c266d7d8de545e609bb24000c
+BMW_KWIN_SHA=633cfc8e27358605f0a777a02c0abe235bc0da772e4c6fb68c492efba9b14587
+BMW_LICENSE_SHA=3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
+
+CUBE_URL=https://github.com/Schneegans/Desktop-Cube/releases/download/v35/desktop-cube@schneegans.github.com.zip
+CUBE_SHA=e0e0ffc7cdddfd9d07f6c63acd704fe5b0e0e65c8f57456a067b41db085e01bb
+
+CZ=com''piz
+WOB_URL=https://github.com/hermes83/${CZ}-windows-effect/archive/2db7c8801a68692ffb44f886b3211c236c3909d0.tar.gz
+WOB_SHA=f1462392a43d6de43002470bc38092ab8107f262586d7d4b5967463ad0b181fb
+
+LAMP_URL=https://github.com/hermes83/${CZ}-alike-magic-lamp-effect/archive/69f0a5a17b554c9ce0119dace7044b9d6917c399.tar.gz
+LAMP_SHA=6eae52467a2a284e20d05d25fe2159c6eb4d413d899c91264bf99e26f78dc6bc
+
+T=$(mktemp -d)
+trap 'rm -rf "$T"' EXIT
+
+get() {
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 3 -o "$T/$3" "$1"; else wget -q -O "$T/$3" "$1"; fi
+  echo "$2  $T/$3" | sha256sum -c - >/dev/null
+}
+
+schemas() {
+  if [ -d "$1/schemas" ] && command -v glib-compile-schemas >/dev/null 2>&1; then glib-compile-schemas "$1/schemas"; fi
+}
+
+zipext() {
+  get "$1" "$2" "$3.zip"
+  d=$GX/$3
+  rm -rf "$d"; mkdir -p "$d"
+  unzip -oq "$T/$3.zip" -d "$d"
+  schemas "$d"
+}
+
+tarext() {
+  get "$1" "$2" "$3.tgz"
+  d=$GX/$3
+  rm -rf "$d"; mkdir -p "$d"
+  tar xzf "$T/$3.tgz" -C "$d" --strip-components=1
+  rm -rf "$d/assets" "$d/.git" "$d/install.sh" "$d/zip.sh"
+  schemas "$d"
+}
+
+burn() {
+  zipext "$BMW/releases/download/$BMW_VER/burn-my-windows@schneegans.github.com.zip" "$BMW_SHA" burn-my-windows@schneegans.github.com
+}
+
+burn_kwin() {
+  get "$BMW/releases/download/$BMW_VER/burn_my_windows_kwin6.tar.gz" "$BMW_KWIN_SHA" bmw-kwin.tgz
+  get "https://raw.githubusercontent.com/Schneegans/Burn-My-Windows/$BMW_VER/LICENSE" "$BMW_LICENSE_SHA" LICENSE
+  mkdir -p "$T/kwin" "$KW"
+  tar xzf "$T/bmw-kwin.tgz" -C "$T/kwin"
+  for d in "$T"/kwin/kwin6_effect_*; do
+    [ "${d##*/}" = kwin6_effect_glide ] && continue
+    rm -rf "$d/contents/locale" "$KW/${d##*/}"
+    sed -i 's/\(WindowForce[A-Za-z]*Role, \)true/\1false/' "$d/contents/code/main.js"
+    cp -r "$d" "$KW/"
+  done
+  install -Dm644 "$T/LICENSE" "$ROOT/usr/share/licenses/burn-my-windows/LICENSE"
+  chmod -R a+rX "$KW"
+}
+
+gnome() {
+  case $1 in
+    burn) burn ;;
+    cube) zipext "$CUBE_URL" "$CUBE_SHA" desktop-cube@schneegans.github.com ;;
+    wobbly) tarext "$WOB_URL" "$WOB_SHA" ${CZ}-windows-effect@hermes83.github.com ;;
+    lamp) tarext "$LAMP_URL" "$LAMP_SHA" ${CZ}-alike-magic-lamp-effect@hermes83.github.com ;;
+  esac
+  chmod -R a+rX "$GX"
+}
+
+case $SET in
+  burn|cube|wobbly|lamp) gnome "$SET" ;;
+  kwin) burn_kwin ;;
+  gnome) for s in burn cube wobbly lamp; do gnome $s; done ;;
+  all) for s in burn cube wobbly lamp; do gnome $s; done; burn_kwin ;;
+  *) echo "usage: fetch-effects ROOT burn|cube|wobbly|lamp|gnome|kwin|all" >&2; exit 1 ;;
+esac

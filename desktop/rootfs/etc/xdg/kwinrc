@@ -2,7 +2,7 @@
 blurEnabled=true
 contrastEnabled=true
 translucencyEnabled=true
-fadeEnabled=true
+fadeEnabled=false
 fadingpopupsEnabled=true
 slidingpopupsEnabled=true
 maximizeEnabled=true
@@ -12,7 +12,7 @@ sessionquitEnabled=true
 dialogparentEnabled=true
 magiclampEnabled=true
 wobblywindowsEnabled=false
-scaleEnabled=false
+scaleEnabled=true
 squashEnabled=false
 dimscreenEnabled=true
 shakecursorEnabled=true

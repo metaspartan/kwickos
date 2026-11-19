@@ -8,6 +8,9 @@ usage() { cat <<'USAGE'
 kwick-effects: window effects for KDE Plasma, GNOME and Hyprland.
   kwick-effects off|subtle|fluid|full     apply a preset (no argument: show the current one)
   kwick-effects status                    one line per effect: name on|off|na
+  kwick-effects open-close [STYLE]        open/close animation (no style: print the current one)
+  kwick-effects open-close list           every style as name|on|off|na|label|description
+  kwick-effects param duration [MS]       length of the current open/close animation (no value: print)
   kwick-effects wobbly AMOUNT CURVE       wobble amount and sway, each 1-10 (no argument: fluid preset)
   kwick-effects param wobbly              print the wobble amount and sway
   kwick-effects flame-style [NAME]        flame look: classic|inferno|ember|blue|legacy (no name: print)
@@ -20,13 +23,57 @@ kwick-effects: window effects for KDE Plasma, GNOME and Hyprland.
   kwick-effects check                     compositor: gpu|software|none
   kwick-effects backend                   kde|gnome|hyprland|sway|none
   kwick-effects auto                      at login: Liquid Glass on with a GPU, off on software rendering
-NAME: wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube liquidglass
+NAME: wobbly lamp blur transparency sheet dim overview cube liquidglass, or any open/close STYLE
+STYLE: none scale fade glide flip flame dissolve fallapart, and the Burn My Windows effects
+       apparition aura-glow broken-glass doom energize-a energize-b fire focus glitch hexagon
+       incinerate matrix mushroom paint-brush pixelate pixel-wheel pixel-wipe portal rgbwarp
+       snap team-rocket trex tv tv-glitch wisps (open-close list shows which work here)
   off      no animations
-  subtle   fades, blur, sliding popups, magic lamp
+  subtle   scale open/close, fades, blur, sliding popups, magic lamp
   fluid    plus curvy wobbly windows, sheets, 3D flip open/close and Liquid Glass
   full     plus flame open/close, translucency, dimmed inactive windows, 3D cube
 USAGE
 }
+
+OC_TABLE='none|-|-|None|Windows appear and disappear at once
+scale|scale|=|Scale|Windows zoom in and out, like macOS and Windows
+fade|fade|-|Fade|Windows fade in and out
+glide|glide|glide|Glide|Windows tilt in and out in 3D
+flip|kwick_flip|-|3D Flip|Windows swing in and out in perspective with lighting
+flame|kwick_flame|-|Flame|Windows ignite when they open and burn away when they close
+dissolve|kwick_dissolve|-|Dissolve|Closing windows crumble into glowing dust
+fallapart|fallapart|-|Fall Apart|Closing windows shatter into pieces
+apparition|-|apparition|Apparition|Windows twirl and fade like a ghost
+aura-glow|kwin6_effect_aura_glow|aura-glow|Aura Glow|A soft glow rims the window as it fades
+broken-glass|-|broken-glass|Broken Glass|Windows shatter like a pane of glass
+doom|kwin6_effect_doom|doom|Doom|Windows melt down like the Doom screen wipe
+energize-a|kwin6_effect_energize_a|energize-a|Energize A|Windows beam in and out in sparkles
+energize-b|kwin6_effect_energize_b|energize-b|Energize B|Windows beam in and out in a shimmer
+fire|kwin6_effect_fire|fire|Fire|Windows go up in a wall of fire
+focus|kwin6_effect_focus|focus|Focus|Windows blur in and out of focus
+glitch|kwin6_effect_glitch|glitch|Glitch|Windows break up into digital glitches
+hexagon|kwin6_effect_hexagon|hexagon|Hexagon|Windows dissolve into a honeycomb
+incinerate|kwin6_effect_incinerate|incinerate|Incinerate|Windows burn away from a glowing spark
+matrix|-|matrix|Matrix|Windows rain down as green code
+mushroom|-|mushroom|Mushroom|Windows warp like a retro power-up
+paint-brush|-|paint-brush|Paint Brush|Windows are painted on and wiped off with a brush
+pixelate|kwin6_effect_pixelate|pixelate|Pixelate|Windows break into fading pixels
+pixel-wheel|kwin6_effect_pixel_wheel|pixel-wheel|Pixel Wheel|Pixels spin away like a wheel
+pixel-wipe|kwin6_effect_pixel_wipe|pixel-wipe|Pixel Wipe|Pixels wipe across the window
+portal|kwin6_effect_portal|portal|Portal|Windows swirl through a portal
+rgbwarp|kwin6_effect_rgbwarp|rgbwarp|RGB Warp|Colour channels split and warp
+snap|-|snap|Snap|Windows turn to dust and blow away
+team-rocket|kwin6_effect_team_rocket|team-rocket|Team Rocket|Windows blast off into the sky with a twinkle
+trex|-|trex|T-Rex Attack|Claw marks tear the window apart
+tv|kwin6_effect_tv|tv|TV|Windows switch off like an old TV
+tv-glitch|kwin6_effect_tv_glitch|tv-glitch|TV Glitch|An old TV switches off with a glitch
+wisps|kwin6_effect_wisps|wisps|Wisps|Windows scatter into glowing wisps'
+
+ocf() { printf '%s\n' "$OC_TABLE" | awk -F'|' -v n="$1" -v f="$2" '$1 == n { print $f; exit }'; }
+oc_names() { printf '%s\n' "$OC_TABLE" | cut -d'|' -f1; }
+oc_kde_ids() { printf '%s\n' "$OC_TABLE" | cut -d'|' -f2 | grep -v '^-$'; }
+oc_gnome_nicks() { printf '%s\n' "$OC_TABLE" | cut -d'|' -f3 | grep -v '^[-=]$'; }
+is_oc() { [ -n "$(ocf "$1" 1)" ]; }
 
 backend() {
   d=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
@@ -87,15 +134,34 @@ need_gpu() {
   return 1
 }
 
+kde_avail=""
+kde_have() {
+  [ -n "$kde_avail" ] || kde_avail=" $(q org.kde.KWin /Effects org.kde.kwin.Effects.listOfEffects | tr '\n' ' ')"
+  [ "$kde_avail" = " " ] || case "$kde_avail" in *" $1 "*) ;; *) return 1 ;; esac
+}
 oc() {
-  for id in kwick_flame kwick_flip kwick_dissolve glide fade scale fallapart; do pl $id 0; done
-  case "$1" in none) ;; flame) pl kwick_flame 1 ;; flip) pl kwick_flip 1 ;; dissolve) pl kwick_dissolve 1 ;; *) pl "$1" 1 ;; esac
+  for id in $(oc_kde_ids); do pl $id 0; done
+  k=$(ocf "$1" 2)
+  [ "$k" = - ] || pl "$k" 1
 }
 oc_now() {
-  for id in kwick_flame kwick_flip kwick_dissolve glide fade fallapart scale; do
-    isplug $id $([ $id = scale ] && echo true || echo false) && { echo $id; return; }
+  for n in $(oc_names); do
+    k=$(ocf $n 2)
+    [ "$k" = - ] && continue
+    isplug "$k" "$([ "$k" = scale ] && echo true || echo false)" && { echo $n; return; }
   done
   echo none
+}
+oc_state_kde() {
+  k=$(ocf "$1" 2)
+  if [ "$1" != none ] && { [ "$k" = - ] || ! kde_have "$k"; }; then echo na
+  elif [ "$2" = "$1" ]; then echo on
+  else echo off; fi
+}
+kde_dur_default() {
+  f=/usr/share/kwin/effects/$1/contents/config/main.xml
+  if [ -f "$f" ]; then sed -n '/name="Duration"/,/<\/entry>/s/.*<default>\([0-9]*\)<.*/\1/p' "$f" | head -1
+  elif [ "$1" = kwick_flip ]; then echo 700; fi
 }
 lamp() {
   pl magiclamp "$1"; pl squash "$([ "$1" = 1 ] && echo 0 || echo 1)"
@@ -133,9 +199,7 @@ kde_wobbly_apply() {
   kw kwinrc Effect-wobblywindows ResizeWobble true
 }
 gnome_wobbly_apply() {
-  gx_have "$GX_WOBBLY" || return 0
-  d=/usr/share/gnome-shell/extensions/$GX_WOBBLY/schemas
-  [ -d "$d" ] || d=$HOME/.local/share/gnome-shell/extensions/$GX_WOBBLY/schemas
+  d=$(gx_dir "$GX_WOBBLY")/schemas || return 0
   [ -d "$d" ] || return 0
   a=$(wob_amount); c=$(wob_curve)
   sc=$(ls "$d"/*.gschema.xml 2>/dev/null | head -1 | sed 's|.*/||; s|\.gschema\.xml$||')
@@ -218,9 +282,9 @@ kde_tabbox_get() {
 preset_kde() {
   set_fx liquidglass_user ""
   case $1 in
-    off)    oc none; lamp 0; pl wobblywindows 0; blurfx 0; glass 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 0; helpers 0; kde_switch_set none; factor=0 ;;
-    subtle) oc scale; lamp 1; pl wobblywindows 0; blurfx 1; glass 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.7 ;;
-    fluid)  oc flip; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; glass 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
+    off)    oc none; lamp 0; pl cube 0; pl wobblywindows 0; blurfx 0; glass 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 0; helpers 0; kde_switch_set none; factor=0 ;;
+    subtle) oc scale; lamp 1; pl cube 0; pl wobblywindows 0; blurfx 1; glass 0; pl translucency 0; pl sheet 0; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.7 ;;
+    fluid)  oc flip; lamp 1; pl cube 0; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; glass 1; pl translucency 0; pl sheet 1; pl diminactive 0; popups 1; helpers 1; kde_switch_set slide; kde_tabbox_set windows; factor=0.8 ;;
     full)   oc flame; lamp 1; pl wobblywindows 1; kde_wobbly_apply; blurfx 1; glass 1; pl translucency 1; pl sheet 1; pl diminactive 1; popups 1; helpers 1; factor=1
             kde_switch_set cube || kde_switch_set slide
             cube_ok && { desktops 4; pl cube 1; kw kwinrc Effect-cube CubeFaceDisplacement 120; }
@@ -238,16 +302,9 @@ preset_kde() {
 }
 
 kde_status() {
-  oc=$(oc_now)
   s() { if isplug "$2" "$3"; then echo "$1 on"; else echo "$1 off"; fi; }
   s wobbly wobblywindows false
   s lamp magiclamp false
-  [ "$oc" = kwick_flame ] && echo "flame on" || echo "flame off"
-  [ "$oc" = kwick_flip ] && echo "flip on" || echo "flip off"
-  [ "$oc" = kwick_dissolve ] && echo "dissolve on" || echo "dissolve off"
-  s fallapart fallapart false
-  s glide glide false
-  s fade fade false
   s blur blur true
   s transparency translucency false
   s sheet sheet false
@@ -262,12 +319,6 @@ kde_set() {
   case $name in
     wobbly) [ $v = 1 ] && kde_wobbly_apply; pl wobblywindows $v ;;
     lamp) lamp $v ;;
-    flame) [ $v = 1 ] && oc flame || oc scale ;;
-    flip) [ $v = 1 ] && oc flip || oc scale ;;
-    dissolve) [ $v = 1 ] && oc dissolve || oc scale ;;
-    fallapart) [ $v = 1 ] && oc fallapart || oc scale ;;
-    glide) [ $v = 1 ] && oc glide || oc scale ;;
-    fade) [ $v = 1 ] && oc fade || oc scale ;;
     blur) blurfx $v; [ $v = 0 ] && glass 0 ;;
     liquidglass) glass_ok || { echo "Liquid Glass is not installed" >&2; return 1; }
           [ $v = 1 ] && [ "$(gl)" != gpu ] && { echo "Liquid Glass needs GPU rendering; it stays off with software OpenGL" >&2; glass 0; return 1; }
@@ -286,52 +337,91 @@ kde_set() {
 CZ=com''piz
 GX_WOBBLY=${CZ}-windows-effect@hermes83.github.com
 GX_LAMP=${CZ}-alike-magic-lamp-effect@hermes83.github.com
-GX_FLAME=burn-my-windows@schneegans.github.com
+GX_BURN=burn-my-windows@schneegans.github.com
 GX_CUBE=desktop-cube@schneegans.github.com
 GX_BLUR=blur-my-shell@aunetx
+BURN_SCHEMA=org.gnome.shell.extensions.burn-my-windows
 
 gx_uuid() {
   case $1 in
-    wobbly) echo $GX_WOBBLY ;; lamp) echo $GX_LAMP ;; flame) echo $GX_FLAME ;;
+    wobbly) echo $GX_WOBBLY ;; lamp) echo $GX_LAMP ;; burn) echo $GX_BURN ;;
     cube) echo $GX_CUBE ;; blur) echo $GX_BLUR ;; *) return 1 ;;
   esac
 }
-gx_have() {
-  [ -d "/usr/share/gnome-shell/extensions/$1" ] || [ -d "$HOME/.local/share/gnome-shell/extensions/$1" ]
+gx_dir() {
+  for d in "/usr/share/gnome-shell/extensions/$1" "$HOME/.local/share/gnome-shell/extensions/$1"; do
+    [ -d "$d" ] && { echo "$d"; return 0; }
+  done
+  return 1
 }
+gx_have() { gx_dir "$1" >/dev/null; }
 gx_set() {
   u=$(gx_uuid "$1") || return 1
-  gx_have "$u" || { echo "$1: extension is not installed (run: sudo /usr/lib/kwick/fetch-gnome-effects / all)" >&2; return 1; }
+  gx_have "$u" || { echo "$1: extension is not installed (run: sudo /usr/lib/kwick/fetch-effects / gnome)" >&2; return 1; }
   if [ "$2" = on ]; then gnome-extensions enable "$u" 2>/dev/null; else gnome-extensions disable "$u" 2>/dev/null; fi
   return 0
 }
 gx_on() { gnome-extensions list --enabled 2>/dev/null | grep -qx "$1"; }
 gnome_status() {
-  for n in wobbly lamp flame cube blur; do
+  for n in wobbly lamp cube blur; do
     u=$(gx_uuid $n)
     if ! gx_have "$u"; then echo "$n na"; elif gx_on "$u"; then echo "$n on"; else echo "$n off"; fi
   done
-  for n in flip dissolve fallapart glide fade transparency sheet dim liquidglass; do echo "$n na"; done
+  for n in transparency sheet dim liquidglass; do echo "$n na"; done
   echo "overview on"
 }
-gnome_burn() {
-  d=/usr/share/gnome-shell/extensions/$GX_FLAME/schemas
-  [ -d "$d" ] || d=$HOME/.local/share/gnome-shell/extensions/$GX_FLAME/schemas
-  [ -d "$d" ] || return 0
-  gsettings --schemadir "$d" set org.gnome.shell.extensions.burn-my-windows fire-enable-effect "$1" 2>/dev/null || true
-  gsettings --schemadir "$d" set org.gnome.shell.extensions.burn-my-windows fire-animation-time 900 2>/dev/null || true
+gnome_oc_now() {
+  gx_on $GX_BURN || { echo scale; return; }
+  v=$(get_fx open_close)
+  case $(ocf "$v" 3) in ''|-|=) echo fire ;; *) echo "$v" ;; esac
+}
+oc_state_gnome() {
+  case $(ocf "$1" 3) in
+    -) echo na; return ;;
+    =) ;;
+    *) gx_have $GX_BURN || { echo na; return; } ;;
+  esac
+  [ "$2" = "$1" ] && echo on || echo off
+}
+gnome_dur_default() {
+  d=$(gx_dir $GX_BURN) || return 0
+  sed -n "/name=\"$1-animation-time\"/,/<\/key>/s/.*<default>\([0-9]*\)<.*/\1/p" "$d"/schemas/*profile*.gschema.xml 2>/dev/null | head -1
+}
+gnome_burn_profile() {
+  d=$(gx_dir $GX_BURN) || return 0
+  n=$(gnome_oc_now); g=$(ocf "$n" 3)
+  p=${XDG_CONFIG_HOME:-$HOME/.config}/burn-my-windows/profiles
+  f=$p/kwickos.conf
+  mkdir -p "$p"
+  {
+    echo "[burn-my-windows-profile]"
+    echo "profile-high-priority=true"
+    for x in $(oc_gnome_nicks); do echo "$x-enable-effect=$([ "$x" = "$g" ] && echo true || echo false)"; done
+    ms=$(get_fx "duration_$n")
+    [ -n "$ms" ] && echo "$g-animation-time=$ms"
+  } > "$f"
+  gsettings --schemadir "$d/schemas" set $BURN_SCHEMA active-profile "" 2>/dev/null || true
+  gsettings --schemadir "$d/schemas" set $BURN_SCHEMA active-profile "$f" 2>/dev/null || true
+}
+gnome_oc() {
+  case $(ocf "$1" 3) in
+    ''|-) echo "$1 is not available on GNOME" >&2; return 1 ;;
+    =) set_fx open_close "$1"; gx_set burn off ;;
+    *) gx_have $GX_BURN || { echo "Burn My Windows is not installed (run: sudo /usr/lib/kwick/fetch-effects / burn)" >&2; return 1; }
+       set_fx open_close "$1"; gx_set burn on; gnome_burn_profile ;;
+  esac
 }
 preset_gnome() {
   case $1 in
-    off)    anim=false; w=off l=off f=off c=off bl=off ;;
-    subtle) anim=true;  w=off l=on  f=off c=off bl=on ;;
-    fluid)  anim=true;  w=on  l=on  f=off c=off bl=on ;;
-    full)   anim=true;  w=on  l=on  f=on  c=on  bl=on ;;
+    off)    anim=false; w=off l=off c=off bl=off o=scale ;;
+    subtle) anim=true;  w=off l=on  c=off bl=on  o=scale ;;
+    fluid)  anim=true;  w=on  l=on  c=off bl=on  o=scale ;;
+    full)   anim=true;  w=on  l=on  c=on  bl=on  o=fire ;;
   esac
   gsettings set org.gnome.desktop.interface enable-animations $anim 2>/dev/null || true
   [ $w = on ] && gnome_wobbly_apply
-  gx_set wobbly $w; gx_set lamp $l; gx_set flame $f; gx_set cube $c; gx_set blur $bl
-  gnome_burn "$([ $f = on ] && echo true || echo false)"
+  gx_set wobbly $w; gx_set lamp $l; gx_set cube $c; gx_set blur $bl
+  gnome_oc $o
   return 0
 }
 gnome_switch_set() {
@@ -349,7 +439,7 @@ fxv() { v=$(get_fx "$1"); if [ -n "$v" ]; then echo "$v"; else echo "${2:-off}";
 
 hypr_status() {
   for n in wobbly flip blur transparency dim; do echo "$n $(fxv $n off)"; done
-  for n in sheet lamp flame dissolve fallapart glide fade overview cube liquidglass; do echo "$n na"; done
+  for n in sheet lamp overview cube liquidglass; do echo "$n na"; done
 }
 hypr_write() {
   wob=$(fxv wobbly off); flp=$(fxv flip off); wa=$(wob_amount); wc=$(wob_curve); blr=$(fxv blur off); trn=$(fxv transparency off); dim=$(fxv dim off); sw=$(fxv switch slide)
@@ -431,15 +521,62 @@ preset_tiling() {
   tiling_write
 }
 
-status() {
+oc_cur() { case $be in kde) oc_now ;; gnome) gnome_oc_now ;; *) echo na ;; esac; }
+oc_state() { case $be in kde) oc_state_kde "$1" "$2" ;; gnome) oc_state_gnome "$1" "$2" ;; *) echo na ;; esac; }
+oc_list() {
+  cur=$(oc_cur)
+  printf '%s\n' "$OC_TABLE" | while IFS='|' read -r n k g l d; do echo "$n|$(oc_state "$n" "$cur")|$l|$d"; done
+}
+oc_apply() {
+  case $be in
+    kde) [ "$(oc_state_kde "$1" -)" = na ] && { echo "$1 is not available in KDE Plasma" >&2; return 1; }
+         oc "$1"; reload; need_gpu || true ;;
+    gnome) gnome_oc "$1" ;;
+    *) echo "open/close styles need KDE Plasma or GNOME; this session keeps its own animations" >&2; return 1 ;;
+  esac
+}
+dur_get() {
+  n=$(oc_cur)
+  case $be in
+    kde) k=$(ocf "$n" 2); d=$(kde_dur_default "$k"); [ "${d:-0}" -gt 0 ] || return 1
+         kreadconfig6 --file kwinrc --group "Effect-$k" --key Duration --default "$d" ;;
+    gnome) g=$(ocf "$n" 3); case $g in -|=) return 1 ;; esac
+           d=$(gnome_dur_default "$g"); [ "${d:-0}" -gt 0 ] || return 1
+           fxv "duration_$n" "$d" ;;
+    *) return 1 ;;
+  esac
+}
+dur_set() {
+  case $1 in ''|*[!0-9]*) echo "duration: 100-5000 ms" >&2; return 1 ;; esac
+  dms=$1; [ "$dms" -lt 100 ] && dms=100; [ "$dms" -gt 5000 ] && dms=5000
+  dstyle=$(oc_cur)
+  (dur_get >/dev/null) || { echo "$dstyle has no adjustable duration" >&2; return 1; }
+  case $be in
+    kde) k=$(ocf "$dstyle" 2); kw kwinrc "Effect-$k" Duration "$dms"; rcfg "$k" ;;
+    gnome) set_fx "duration_$dstyle" "$dms"; gnome_burn_profile ;;
+  esac
+  echo "$dstyle duration: $dms ms"
+}
+
+core_status() {
   case $be in
     kde) kde_status ;;
     gnome) gnome_status ;;
     hyprland) hypr_status ;;
     sway) for n in blur dim; do echo "$n $(fxv $n off)"; done
-          for n in wobbly lamp flame flip dissolve fallapart glide fade transparency sheet overview cube liquidglass; do echo "$n na"; done ;;
-    *) for n in wobbly lamp flame flip dissolve fallapart glide fade blur transparency sheet dim overview cube liquidglass; do echo "$n na"; done ;;
+          for n in wobbly lamp transparency sheet overview cube liquidglass; do echo "$n na"; done ;;
+    *) for n in wobbly lamp blur transparency sheet dim overview cube liquidglass; do echo "$n na"; done ;;
   esac
+}
+status() {
+  s=$(core_status)
+  printf '%s\n' "$s"
+  oc_list | while IFS='|' read -r n st l d; do
+    case "$n
+$s" in none*|*"
+$n "*) continue ;; esac
+    echo "$n $st"
+  done
 }
 
 p=${1:-}
@@ -486,13 +623,22 @@ case "$p" in
   set)
     [ $# -eq 3 ] || { usage; exit 1; }
     case $be in
-      kde) kde_set "$2" "$3" || exit 1; reload; need_gpu || true ;;
-      gnome) gx_set "$2" "$3" || exit 1 ;;
       hyprland|sway) case $2 in wobbly|flip|blur|transparency|dim) set_fx "$2" "$3"; tiling_write ;; *) echo "$2 is not available in this session" >&2; exit 1 ;; esac ;;
+      kde|gnome) if is_oc "$2"; then oc_apply "$([ "$3" = on ] && echo "$2" || echo scale)" || exit 1
+                 elif [ "$be" = kde ]; then kde_set "$2" "$3" || exit 1; reload; need_gpu || true
+                 else gx_set "$2" "$3" || exit 1; fi ;;
       *) echo "no supported session detected" >&2; exit 1 ;;
     esac
     echo custom > "$cfg/effects"
     echo "effect $2: $3"
+    exit 0 ;;
+  open-close)
+    if [ $# -lt 2 ]; then oc_cur; exit 0; fi
+    [ "$2" = list ] && { oc_list; exit 0; }
+    is_oc "$2" || { echo "unknown style: $2 (kwick-effects open-close list shows them)" >&2; exit 1; }
+    oc_apply "$2" || exit 1
+    echo custom > "$cfg/effects"
+    echo "open/close: $2"
     exit 0 ;;
   wobbly)
     [ $# -eq 3 ] || { usage; exit 1; }
@@ -516,6 +662,7 @@ case "$p" in
   param)
     case "${2:-}" in
       wobbly) echo "$(wob_amount) $(wob_curve)"; exit 0 ;;
+      duration) if [ $# -ge 3 ]; then dur_set "$3" || exit 1; else dur_get || echo na; fi; exit 0 ;;
       depth) if [ $# -ge 3 ]; then [ "$be" = kde ] || { echo "window depth is KDE only" >&2; exit 1; }; depth_set "$3" || exit 1; rcfg kwick_cubeslide; echo "window depth: $3"; else depth_get; fi; exit 0 ;;
       flip) if [ $# -ge 3 ]; then [ "$be" = kde ] || { echo "flip styles are KDE only" >&2; exit 1; }; flip_style_set "$3" || exit 1; rcfg kwick_flip; echo "flip style: $3"; else flip_style_get; fi; exit 0 ;;
       *) usage; exit 1 ;;

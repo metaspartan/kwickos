@@ -15,6 +15,9 @@ QtObject {
     property string switchMode: "slide"
     property string tabboxMode: "windows"
     property var fx: ({})
+    property var openCloseList: []
+    property string openClose: "scale"
+    property int openCloseDuration: 0
     property string compositor: "none"
     property string compositorType: ""
     property string gpuInfo: ""
@@ -99,6 +102,15 @@ QtObject {
             if (p.length === 2) f[p[0]] = p[1]
         })
         sys.fx = f
+        var oc = []
+        ;(s.openclose || []).forEach(function (l) {
+            var p = l.split("|")
+            if (p.length < 4) return
+            if (p[1] === "on") sys.openClose = p[0]
+            if (p[1] !== "na") oc.push({ id: p[0], label: p[2], sub: p[3] })
+        })
+        sys.openCloseList = oc
+        sys.openCloseDuration = s.duration && s.duration.length ? (parseInt(s.duration[0]) || 0) : 0
         if (s.backend && s.backend.length) sys.backend = s.backend[0].trim()
         if (s.switch && s.switch.length) sys.switchMode = s.switch[0].trim()
         if (s.tabbox && s.tabbox.length) sys.tabboxMode = s.tabbox[0].trim()
@@ -220,6 +232,17 @@ QtObject {
         sys.switchMode = m
         sys.preset = "custom"
         run("kwick-effects switch " + m, refresh)
+    }
+
+    function setOpenClose(id, cb) {
+        sys.openClose = id
+        sys.preset = "custom"
+        run("kwick-effects open-close " + id, function () { refresh(); if (cb) cb() })
+    }
+
+    function setOpenCloseDuration(ms) {
+        sys.openCloseDuration = ms
+        run("kwick-effects param duration " + ms, refresh)
     }
 
     function setTabbox(m) {

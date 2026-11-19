@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 
 ColumnLayout {
     id: page
@@ -8,25 +9,35 @@ ColumnLayout {
     readonly property var mainList: [
         { id: "wobbly", title: "Wobbly windows", sub: "Windows deform like jelly while you drag them" },
         { id: "lamp", title: "Magic lamp", sub: "Minimized windows are sucked into the dock" },
-        { id: "flame", title: "Flame open and close", sub: "Windows ignite when they open and burn away when they close" },
-        { id: "flip", title: "3D flip open and close", sub: "Windows swing in and out in perspective with lighting (replaces flame)" },
+        { id: "flip", title: "3D open and close", sub: "Windows spring in and sink away", only: "hyprland" },
         { id: "cube", title: "3D desktop cube", sub: "Meta+C shows your desktops as a cube with windows floating above the faces" },
         { id: "blur", title: "Blur", sub: "Frosted glass behind menus, docks and panels" },
         { id: "liquidglass", title: "Liquid Glass", sub: "The dock, menu bar, menus and notifications bend, frost and catch the light like real glass (needs a GPU)" },
         { id: "transparency", title: "Translucency", sub: "Inactive windows, dialogs and menus turn slightly see-through" }
     ]
     readonly property var moreList: [
-        { id: "dissolve", title: "Dissolve", sub: "Closing windows crumble into glowing dust (replaces flame)" },
-        { id: "glide", title: "Glide", sub: "Windows glide in and out in 3D (replaces flame)" },
-        { id: "fallapart", title: "Fall apart", sub: "Closing windows shatter into pieces (replaces flame)" },
         { id: "sheet", title: "Sheet", sub: "Dialogs drop down from the top of their window" },
         { id: "dim", title: "Dim inactive windows", sub: "Draws attention to the window you are working in" },
         { id: "overview", title: "Overview", sub: "Window and desktop overview" }
     ]
+    readonly property var kwickStyles: ["none", "scale", "fade", "glide", "flip", "flame", "dissolve", "fallapart"]
+    readonly property var styles: Sys.openCloseList.map(function (o) {
+        return { id: o.id, label: o.label, sub: o.sub, group: page.kwickStyles.indexOf(o.id) >= 0 ? "KwickOS" : "Burn My Windows" }
+    })
+    readonly property var style: {
+        for (var i = 0; i < styles.length; i++)
+            if (styles[i].id === Sys.openClose) return styles[i]
+        return null
+    }
+    readonly property bool flameOptions: Sys.backend === "kde" && Sys.openClose === "flame"
+    readonly property bool flipOptions: Sys.backend === "kde" && Sys.openClose === "flip"
 
     property int wobble: 6
     property int sway: 7
-    property bool wobbleReady: false
+    property string flipStyle: "flip"
+    property string flameStyle: "classic"
+    property int flameHeight: 100
+    property int windowDepth: 5
 
     function loadParams() {
         Sys.run("kwick-effects param wobbly", function (out) {
@@ -35,11 +46,10 @@ ColumnLayout {
                 page.wobble = parseInt(p[0])
                 page.sway = parseInt(p[1])
             }
-            page.wobbleReady = true
         })
         Sys.run("kwick-effects flame-style", function (out) {
             var v = String(out).trim()
-            if (v === "classic" || v === "inferno" || v === "ember" || v === "blue" || v === "legacy") page.flameStyle = v
+            if (["classic", "inferno", "ember", "blue", "legacy"].indexOf(v) >= 0) page.flameStyle = v
         })
         Sys.run("kwick-effects flame-height", function (out) {
             var v = parseInt(String(out).trim())
@@ -51,25 +61,57 @@ ColumnLayout {
         })
         Sys.run("kwick-effects param flip", function (out) {
             var v = String(out).trim()
-            if (v === "flip" || v === "door" || v === "tilt") page.flipStyle = v
+            if (["flip", "door", "tilt"].indexOf(v) >= 0) page.flipStyle = v
         })
     }
-    property string flipStyle: "flip"
-    property string flameStyle: "classic"
-    property int flameHeight: 100
-    property int windowDepth: 5
     function applyWobble() {
         Sys.run("kwick-effects wobbly " + page.wobble + " " + page.sway)
     }
     Component.onCompleted: loadParams()
 
+    function shown(item) {
+        return Sys.has(item.id) && (!item.only || item.only === Sys.backend)
+    }
     function lastVisible(list) {
         for (var i = list.length - 1; i >= 0; i--)
-            if (Sys.has(list[i].id)) return i
+            if (shown(list[i])) return i
         return -1
     }
     function anyVisible(list) {
         return lastVisible(list) >= 0
+    }
+    function preview() {
+        previewTimer.stop()
+        previewWindow.visible = false
+        previewWindow.visible = true
+        previewTimer.interval = Math.max(page.style && Sys.openCloseDuration > 0 ? Sys.openCloseDuration : 400, 400) + 900
+        previewTimer.start()
+    }
+
+    Window {
+        id: previewWindow
+        width: 420
+        height: 260
+        title: page.style ? page.style.label : "Preview"
+        color: Theme.bg
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 6
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                width: 44
+                height: 44
+                radius: 12
+                color: "#bf5af2"
+                Image { anchors.centerIn: parent; width: 26; height: 26; source: "icons/effects.svg"; sourceSize.width: 104; sourceSize.height: 104 }
+            }
+            Text { Layout.alignment: Qt.AlignHCenter; text: page.style ? page.style.label : ""; color: Theme.text; font.family: Theme.sans; font.pixelSize: 17; font.weight: Font.DemiBold }
+            Text { Layout.alignment: Qt.AlignHCenter; text: page.style ? page.style.sub : ""; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12 }
+        }
+    }
+    Timer {
+        id: previewTimer
+        onTriggered: previewWindow.visible = false
     }
 
     Rectangle {
@@ -107,7 +149,7 @@ ColumnLayout {
         Repeater {
             model: [
                 { id: "off", name: "Off", sub: "No animations" },
-                { id: "subtle", name: "Subtle", sub: "Fades, blur, magic lamp" },
+                { id: "subtle", name: "Subtle", sub: "Scale, blur, magic lamp" },
                 { id: "fluid", name: "Fluid", sub: "Wobbly windows, 3D flip" },
                 { id: "full", name: "Full", sub: "Flames, 3D cube, translucency" }
             ]
@@ -153,6 +195,79 @@ ColumnLayout {
         font.pixelSize: 12
     }
 
+    SectionTitle { text: "OPEN AND CLOSE"; visible: page.styles.length > 1 }
+    Card {
+        visible: page.styles.length > 1
+        Cell {
+            title: "Animation"
+            subtitle: page.style ? page.style.sub : ""
+            last: Sys.openCloseDuration <= 0 && !page.flameOptions && !page.flipOptions
+            Btn { text: "Preview"; onClicked: page.preview() }
+            Pick {
+                options: page.styles
+                current: Sys.openClose
+                onPicked: (id) => Sys.setOpenClose(id, page.preview)
+            }
+        }
+        Cell {
+            visible: Sys.openCloseDuration > 0
+            last: !page.flameOptions && !page.flipOptions
+            title: "Duration"
+            subtitle: "How long the animation plays"
+            Sld {
+                id: durationSlider
+                implicitWidth: 220
+                from: 100
+                to: 3000
+                step: 50
+                value: Sys.openCloseDuration
+                onReleased: (v) => Sys.setOpenCloseDuration(v)
+                Connections {
+                    target: Sys
+                    function onOpenCloseDurationChanged() { if (!durationSlider.pressed) durationSlider.value = Sys.openCloseDuration }
+                }
+            }
+            Text { Layout.preferredWidth: 58; horizontalAlignment: Text.AlignRight; text: (durationSlider.value / 1000).toFixed(2) + " s"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
+        }
+        Cell {
+            visible: page.flameOptions
+            title: "Flame style"
+            subtitle: "Classic rises above the window, Inferno flares out wide, Ember is a subtle burn with sparks, Blue is a gas flame, Legacy is the classic particle burn"
+            Seg {
+                options: [{ id: "classic", label: "Classic" }, { id: "inferno", label: "Inferno" }, { id: "ember", label: "Ember" }, { id: "blue", label: "Blue" }, { id: "legacy", label: "Legacy" }]
+                current: page.flameStyle
+                onPicked: (id) => { page.flameStyle = id; Sys.run("kwick-effects flame-style " + id, page.preview) }
+            }
+        }
+        Cell {
+            visible: page.flameOptions
+            last: true
+            title: "Flame height"
+            subtitle: "How far the flames rise past the window edges"
+            Sld {
+                implicitWidth: 220
+                from: 50
+                to: 200
+                step: 10
+                value: page.flameHeight
+                onValueChanged: if (pressed) page.flameHeight = value
+                onReleased: (v) => { page.flameHeight = v; Sys.run("kwick-effects flame-height " + v) }
+            }
+            Text { Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight; text: page.flameHeight + "%"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
+        }
+        Cell {
+            visible: page.flipOptions
+            last: true
+            title: "3D style"
+            subtitle: "Flip turns the window around its middle, Door hinges it on the left, Tilt drops it back"
+            Seg {
+                options: [{ id: "flip", label: "Flip" }, { id: "door", label: "Door" }, { id: "tilt", label: "Tilt" }]
+                current: page.flipStyle
+                onPicked: (id) => { page.flipStyle = id; Sys.run("kwick-effects param flip " + id, page.preview) }
+            }
+        }
+    }
+
     SectionTitle { text: "WINDOW EFFECTS"; visible: page.anyVisible(page.mainList) }
     Card {
         visible: page.anyVisible(page.mainList)
@@ -161,7 +276,7 @@ ColumnLayout {
             delegate: Cell {
                 required property var modelData
                 required property int index
-                visible: Sys.has(modelData.id)
+                visible: page.shown(modelData)
                 title: modelData.title
                 subtitle: modelData.sub
                 last: index === page.lastVisible(page.mainList)
@@ -173,7 +288,7 @@ ColumnLayout {
         }
     }
 
-    SectionTitle { text: "WOBBLE, FLAME AND 3D"; visible: Sys.backend === "kde" || Sys.backend === "gnome" || Sys.backend === "hyprland" }
+    SectionTitle { text: Sys.backend === "kde" ? "WOBBLE AND CUBE" : "WOBBLE"; visible: Sys.backend === "kde" || Sys.backend === "gnome" || Sys.backend === "hyprland" }
     Card {
         visible: Sys.backend === "kde" || Sys.backend === "gnome" || Sys.backend === "hyprland"
         Cell {
@@ -207,31 +322,7 @@ ColumnLayout {
         }
         Cell {
             visible: Sys.backend === "kde"
-            title: "Flame style"
-            subtitle: "Classic rises above the window, Inferno flares out wide, Ember is a subtle burn with sparks, Blue is a gas flame, Legacy is the classic particle burn"
-            Seg {
-                options: [{ id: "classic", label: "Classic" }, { id: "inferno", label: "Inferno" }, { id: "ember", label: "Ember" }, { id: "blue", label: "Blue" }, { id: "legacy", label: "Legacy" }]
-                current: page.flameStyle
-                onPicked: (id) => { page.flameStyle = id; Sys.run("kwick-effects flame-style " + id) }
-            }
-        }
-        Cell {
-            visible: Sys.backend === "kde"
-            title: "Flame height"
-            subtitle: "How far the flames rise past the window edges"
-            Sld {
-                implicitWidth: 220
-                from: 50
-                to: 200
-                step: 10
-                value: page.flameHeight
-                onValueChanged: if (pressed) page.flameHeight = value
-                onReleased: (v) => { page.flameHeight = v; Sys.run("kwick-effects flame-height " + v) }
-            }
-            Text { Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight; text: page.flameHeight + "%"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
-        }
-        Cell {
-            visible: Sys.backend === "kde"
+            last: true
             title: "Window depth"
             subtitle: "How far windows float off the cube faces while it turns"
             Sld {
@@ -244,17 +335,6 @@ ColumnLayout {
                 onReleased: (v) => { page.windowDepth = v; Sys.run("kwick-effects param depth " + v) }
             }
             Text { Layout.preferredWidth: 22; horizontalAlignment: Text.AlignRight; text: page.windowDepth; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 13 }
-        }
-        Cell {
-            visible: Sys.backend === "kde"
-            last: true
-            title: "3D open and close style"
-            subtitle: "Flip turns the window around its middle, Door hinges it on the left, Tilt drops it back"
-            Seg {
-                options: [{ id: "flip", label: "Flip" }, { id: "door", label: "Door" }, { id: "tilt", label: "Tilt" }]
-                current: page.flipStyle
-                onPicked: (id) => { page.flipStyle = id; Sys.run("kwick-effects param flip " + id) }
-            }
         }
     }
 
@@ -295,7 +375,7 @@ ColumnLayout {
             delegate: Cell {
                 required property var modelData
                 required property int index
-                visible: Sys.has(modelData.id)
+                visible: page.shown(modelData)
                 title: modelData.title
                 subtitle: modelData.sub
                 last: index === page.lastVisible(page.moreList)

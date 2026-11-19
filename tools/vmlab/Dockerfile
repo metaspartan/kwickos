@@ -24,6 +24,7 @@ COPY fx-flame.sh /usr/local/bin/fx-flame
 COPY shots-layouts.sh /usr/local/bin/shots-layouts
 COPY shots-tiling.sh /usr/local/bin/shots-tiling
 COPY fx-cube.sh /usr/local/bin/fx-cube
+COPY fx-oc.sh /usr/local/bin/fx-oc
 COPY mkiso.sh /usr/local/bin/mkiso
 RUN chmod +x /usr/local/bin/*
 ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib

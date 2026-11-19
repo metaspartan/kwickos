@@ -11,6 +11,10 @@ echo "[switch]"
 kwick-effects switch 2>/dev/null
 echo "[tabbox]"
 kwick-effects tabbox 2>/dev/null
+echo "[openclose]"
+kwick-effects open-close list 2>/dev/null
+echo "[duration]"
+kwick-effects param duration 2>/dev/null
 echo "[check]"
 kwick-effects check 2>/dev/null
 echo "[type]"

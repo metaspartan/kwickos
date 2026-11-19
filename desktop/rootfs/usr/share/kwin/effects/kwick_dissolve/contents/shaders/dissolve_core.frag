@@ -30,15 +30,29 @@ float vnoise(vec2 p) {
     return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 
+float octave(inout vec2 p, inout float a) {
+    float v = a * vnoise(p);
+    p = p * 2.03 + vec2(13.1, 7.7);
+    a *= 0.5;
+    return v;
+}
+
 float fbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;
     for (int i = 0; i < 5; i++) {
-        v += a * vnoise(p);
-        p = p * 2.03 + vec2(13.1, 7.7);
-        a *= 0.5;
+        v += octave(p, a);
     }
     return v;
+}
+
+float fbm3(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 3; i++) {
+        v += octave(p, a);
+    }
+    return v * 1.107;
 }
 
 vec3 ember(float h) {
@@ -67,53 +81,63 @@ void main() {
     vec2 mg = max(0.5 * (S - 1.0) * size, vec2(1.0));
     vec2 C = vec2(uCenterX, uCenterY);
     vec2 tc = C + (texcoord0 - C) * S;
-    vec2 pxp = (tc - 0.5) * size;
-    vec2 inWin = step(vec2(0.0), tc) * step(tc, vec2(1.0));
-    float inside = inWin.x * inWin.y;
+    vec2 ext = max(max(-tc, tc - 1.0), 0.0) * size;
+    float far = length(ext);
+    float edge = 1.0 - smoothstep(0.6, 1.0, max(ext.x / mg.x, ext.y / mg.y));
+    vec4 outColor = vec4(0.0);
+    if (far < 220.0 && edge > 0.0) {
+        vec2 pxp = (tc - 0.5) * size;
+        vec2 inWin = step(vec2(0.0), tc) * step(tc, vec2(1.0));
+        float inside = inWin.x * inWin.y;
 
-    float p = clamp(uProgress, 0.0, 1.0);
-    float t = uClock;
+        float p = clamp(uProgress, 0.0, 1.0);
+        float t = uClock;
 
-    vec2 np = vec2(tc.x * size.x, (1.0 - tc.y) * size.y) / 170.0 + vec2(uSeed, uSeed * 0.61);
-    float n = fbm(np);
-    float n2 = fbm(np * 2.3 + 7.0);
-    float field = n * 0.62 + (1.0 - tc.y) * 0.28 + 0.1;
-    float thr = mix(-0.1, 1.05, p);
-    float k = thr - field;
+        vec2 np = vec2(tc.x * size.x, (1.0 - tc.y) * size.y) / 170.0 + vec2(uSeed, uSeed * 0.61);
+        float n = fbm(np);
+        float n2 = fbm3(np * 2.3 + 7.0);
+        float field = n * 0.62 + (1.0 - tc.y) * 0.28 + 0.1;
+        float thr = mix(-0.1, 1.05, p);
+        float k = thr - field;
 
-    float gone = smoothstep(0.0, 0.16, k);
-    vec2 wind = vec2(0.35, 0.9) + (vec2(fbm(np * 1.6 + 3.0), fbm(np * 1.6 + 9.0)) - 0.5) * 1.2;
-    vec2 off = wind * gone * gone * (0.16 + 0.03 * sin(t * 5.0 + n * 8.0));
-    vec4 src = texture(sampler, clamp(tc - off, 0.001, 0.999)) * inside;
-    float a0 = src.a;
+        float gone = smoothstep(0.0, 0.16, k);
+        vec2 off = vec2(0.0);
+        if (inside > 0.0 && gone > 0.0) {
+            vec2 wind = vec2(0.35, 0.9) + (vec2(fbm3(np * 1.6 + 3.0), fbm3(np * 1.6 + 9.0)) - 0.5) * 1.2;
+            off = wind * gone * gone * (0.16 + 0.03 * sin(t * 5.0 + n * 8.0));
+        }
+        vec4 src = texture(sampler, clamp(tc - off, 0.001, 0.999)) * inside;
+        float a0 = src.a;
 
-    float front = exp(-pow((k - 0.02) / 0.03, 2.0));
-    float halo = exp(-pow((k - 0.05) / 0.16, 2.0));
-    float flick = 0.7 + 0.5 * n2 + 0.2 * sin(t * 14.0 + n * 20.0);
-    vec3 edgeCol = ember(clamp(0.1 + 0.5 * (1.0 - n2) + max(k, 0.0) * 1.5, 0.0, 1.0));
+        float front = exp(-pow((k - 0.02) / 0.03, 2.0));
+        float halo = exp(-pow((k - 0.05) / 0.16, 2.0));
+        float flick = 0.7 + 0.5 * n2 + 0.2 * sin(t * 14.0 + n * 20.0);
+        vec3 edgeCol = ember(clamp(0.1 + 0.5 * (1.0 - n2) + max(k, 0.0) * 1.5, 0.0, 1.0));
 
-    float visible = 1.0 - gone;
-    vec3 rgb = src.rgb * visible;
-    float a = a0 * visible;
-    rgb += edgeCol * front * flick * 0.75 * a0;
-    rgb += edgeCol * halo * 0.14 * a0 * visible;
-    a = max(a, front * 0.45 * a0);
+        float visible = 1.0 - gone;
+        vec3 rgb = src.rgb * visible;
+        float a = a0 * visible;
+        rgb += edgeCol * front * flick * 0.75 * a0;
+        rgb += edgeCol * halo * 0.14 * a0 * visible;
+        a = max(a, front * 0.45 * a0);
 
-    float zone = smoothstep(-0.05, 0.12, k) * (1.0 - smoothstep(0.35, 0.9, k)) * smoothstep(0.02, 0.1, p) * (1.0 - smoothstep(0.88, 1.0, p));
-    vec2 beyond = max(max(-tc, tc - 1.0), 0.0) * size / mg;
-    zone *= (1.0 - smoothstep(0.3 + 0.3 * n2, 0.95, beyond.x)) * (1.0 - smoothstep(0.3 + 0.3 * n2, 0.95, beyond.y));
-    float sp = particles(pxp, 6.0, 90.0, uSeed, t * 2.0, zone);
-    sp += particles(pxp, 10.0, 140.0, uSeed + 5.0, t * 2.4, zone) * 0.9;
-    sp += particles(pxp, 16.0, 210.0, uSeed + 11.0, t * 1.9, zone) * 0.8;
-    vec3 spCol = ember(0.05 + 0.4 * hash(floor(pxp / 4.0)));
-    rgb += spCol * sp * 1.3;
-    a = max(a, clamp(sp, 0.0, 1.0));
+        float reach = mix(90.0, 40.0, step(tc.y, 0.0)) * (0.75 + 0.5 * n2);
+        float zone = smoothstep(-0.05, 0.12, k) * (1.0 - smoothstep(0.35, 0.9, k)) * smoothstep(0.02, 0.1, p) * (1.0 - smoothstep(0.88, 1.0, p));
+        zone *= exp(-(far * far) / (reach * reach)) * edge;
+        if (zone > 0.001) {
+            float sp = particles(pxp, 6.0, 90.0, uSeed, t * 2.0, zone);
+            sp += particles(pxp, 10.0, 140.0, uSeed + 5.0, t * 2.4, zone) * 0.9;
+            sp += particles(pxp, 16.0, 210.0, uSeed + 11.0, t * 1.9, zone) * 0.8;
+            vec3 spCol = ember(0.05 + 0.4 * hash(floor(pxp / 4.0)));
+            rgb += spCol * sp * 1.3;
+            a = max(a, clamp(sp, 0.0, 1.0));
 
-    float haze = zone * smoothstep(0.45, 0.75, fbm(np * 1.2 + vec2(0.0, -t * 1.2))) * 0.18;
-    rgb += vec3(0.22, 0.12, 0.08) * haze;
-    a = max(a, haze);
-
-    vec4 outColor = vec4(min(rgb, vec3(a + 0.6)), clamp(a, 0.0, 1.0));
+            float haze = zone * smoothstep(0.45, 0.75, fbm3(np * 1.2 + vec2(0.0, -t * 1.2))) * 0.18;
+            rgb += vec3(0.22, 0.12, 0.08) * haze;
+            a = max(a, haze);
+        }
+        outColor = vec4(min(rgb, vec3(a + 0.6)), clamp(a, 0.0, 1.0));
+    }
     fragColor = outColor;
     fragColor = sourceEncodingToNitsInDestinationColorspace(fragColor);
     fragColor = nitsToDestinationEncoding(fragColor);
