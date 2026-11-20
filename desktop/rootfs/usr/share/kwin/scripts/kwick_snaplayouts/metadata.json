@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "KwickOS"
+            }
+        ],
+        "Description": "Windows 11 snap layouts: hover the maximize button or press Meta+Z, and Meta+arrow snapping",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-snaphelper",
+        "Id": "kwick_snaplayouts",
+        "License": "MIT",
+        "Name": "Snap Layouts"
+    },
+    "X-Plasma-API": "declarativescript",
+    "X-Plasma-MainScript": "ui/main.qml"
+}

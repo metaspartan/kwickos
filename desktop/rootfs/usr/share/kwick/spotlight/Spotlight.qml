@@ -4,16 +4,12 @@ import org.kde.kirigami as Kirigami
 Item {
     id: root
 
-    Kirigami.Theme.colorSet: Kirigami.Theme.Window
-    Kirigami.Theme.inherit: false
-
-    readonly property color base: Kirigami.Theme.backgroundColor
-    readonly property bool dark: 0.299 * base.r + 0.587 * base.g + 0.114 * base.b < 0.5
-    readonly property color accent: spotlight.accent.valid ? spotlight.accent : Kirigami.Theme.highlightColor
-    readonly property color ink: Kirigami.Theme.textColor
-    readonly property color label: Qt.rgba(ink.r, ink.g, ink.b, 0.92)
-    readonly property color secondary: Qt.rgba(ink.r, ink.g, ink.b, 0.55)
-    readonly property color tertiary: Qt.rgba(ink.r, ink.g, ink.b, 0.3)
+    readonly property bool dark: spotlight.dark
+    readonly property color accent: spotlight.accent.valid ? spotlight.accent : (dark ? "#0a84ff" : "#007aff")
+    readonly property color ink: dark ? "#ffffff" : "#000000"
+    readonly property color label: Qt.rgba(ink.r, ink.g, ink.b, dark ? 0.92 : 0.86)
+    readonly property color secondary: Qt.rgba(ink.r, ink.g, ink.b, dark ? 0.55 : 0.5)
+    readonly property color tertiary: Qt.rgba(ink.r, ink.g, ink.b, dark ? 0.3 : 0.28)
     readonly property color hairline: Qt.rgba(ink.r, ink.g, ink.b, dark ? 0.1 : 0.09)
     readonly property real ratio: Math.max(0.8, Math.min(1.2, spotlight.cornerRadius / 10))
     readonly property int fieldHeight: 52
@@ -72,10 +68,21 @@ Item {
     }
 
     function runCurrent(alternate) {
-        if (results.count > 0)
+        if (spotlight.current && results.count > 0)
             spotlight.run(current, alternate)
-        else if (spotlight.querying)
+        else if (!spotlight.current || spotlight.querying)
             pendingRun = true
+    }
+
+    function runPending() {
+        if (!pendingRun || !spotlight.current)
+            return
+        if (results.count > 0) {
+            pendingRun = false
+            spotlight.run(0, false)
+        } else if (!spotlight.querying) {
+            pendingRun = false
+        }
     }
 
     function toggleMode(name) {
@@ -114,11 +121,27 @@ Item {
         function onShownChanged() {
             if (spotlight.shown)
                 root.syncPanel()
+            else
+                root.pendingRun = false
+        }
+        function onCurrentChanged() {
+            root.runPending()
+        }
+        function onQueryingChanged() {
+            root.runPending()
         }
         function onActivated() {
             root.current = 0
             input.forceActiveFocus()
             input.selectAll()
+        }
+        function onTyped(text) {
+            if (input.selectionStart !== input.selectionEnd)
+                input.remove(input.selectionStart, input.selectionEnd)
+            input.insert(input.cursorPosition, text)
+        }
+        function onSubmitted() {
+            root.runCurrent(false)
         }
         function onQueryReplaced(text, cursor) {
             input.text = text
@@ -135,10 +158,7 @@ Item {
         function onCountChanged() {
             if (root.current >= results.count)
                 root.current = 0
-            if (root.pendingRun && results.count > 0) {
-                root.pendingRun = false
-                spotlight.run(0, false)
-            }
+            root.runPending()
         }
     }
 

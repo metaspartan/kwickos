@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.kwick-spotlight" path="/org/gnome/shell/extensions/kwick-spotlight/">
+    <key name="toggle" type="as">
+      <default>['&lt;Super&gt;space']</default>
+      <summary>Show or hide Spotlight Search</summary>
+    </key>
+  </schema>
+</schemalist>

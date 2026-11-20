@@ -1,0 +1,205 @@
+#panel {
+  height: 32px;
+  font-weight: 500;
+  font-size: 13px;
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+#panel .panel-button {
+  -natural-hpadding: 5px;
+  -minimum-hpadding: 5px;
+  border: none;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-radius: 6px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+#panel .panel-button#panelActivities {
+  -natural-hpadding: 10px;
+  -minimum-hpadding: 10px;
+}
+
+#panel .panel-button#panelActivities StBoxLayout {
+  padding: 0;
+}
+
+#panel .kwick-logo {
+  color: #ffffff;
+}
+
+#panel .panel-button.kwick-menu-button {
+  -natural-hpadding: 9px;
+  -minimum-hpadding: 7px;
+}
+
+#panel .kwick-app-name {
+  font-weight: 700;
+}
+
+#panel .kwick-menu-title {
+  font-weight: 500;
+}
+
+#panel .panel-button .system-status-icon {
+  icon-size: 22px;
+  -st-icon-style: regular;
+  padding: 0;
+  margin: 0;
+  color: #ffffff;
+}
+
+#panel .panel-button .panel-status-indicators-box,
+#panel .panel-button .panel-status-menu-box {
+  spacing: 10px;
+}
+
+#panel .panel-button.quick-settings {
+  -natural-hpadding: 5px;
+  -minimum-hpadding: 5px;
+}
+
+#panel .panel-button.clock-display {
+  -natural-hpadding: 0;
+  -minimum-hpadding: 0;
+}
+
+#panel .panel-button.clock-display .clock {
+  border: none;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-weight: 500;
+  font-feature-settings: "tnum";
+}
+
+#panel .panel-button.clock-display .messages-indicator {
+  icon-size: 16px;
+}
+
+.popup-menu-content,
+.quick-settings,
+.candidate-popup-content {
+  background-color: rgba(246, 246, 246, 0.98);
+  color: rgba(0, 0, 0, 0.847);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.popup-menu-item {
+  border-radius: 5px;
+  color: rgba(0, 0, 0, 0.847);
+}
+
+.popup-menu-item:hover,
+.popup-menu-item:focus,
+.popup-menu-item.selected {
+  background-color: #007aff;
+  color: #ffffff;
+}
+
+.popup-separator-menu-item .popup-separator-menu-item-separator {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+#dash .dash-background,
+#dashtodockContainer .dash-background {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.kwick-macos .popup-menu-content {
+  padding: 5px;
+}
+
+.kwick-macos .popup-menu-item {
+  padding: 3px 10px;
+  font-size: 13px;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-background,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-background {
+  margin-top: 7px;
+  margin-bottom: 8px;
+  border-radius: 18px;
+  spacing: 0;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash #dashtodockDashContainer,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash #dashtodockDashContainer {
+  padding: 0 3px;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container:ltr:first-child,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container:ltr:last-child,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container:ltr:first-child,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container:ltr:last-child {
+  margin: 0 1px;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:ltr:first-child,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:ltr:first-child,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:ltr:last-child,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:ltr:last-child,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:ltr:first-child,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:ltr:first-child,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:ltr:last-child,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:ltr:last-child {
+  padding: 8px 13px 3px 13px;
+  border-radius: 6px;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-separator,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-separator {
+  margin: 16px 6px 24px 6px;
+  width: 1px;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app.running .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile.running .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app.running .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile.focused .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:hover .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:focus .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:active .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile:selected .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile.running .overview-icon {
+  background-color: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .app-well-app .overview-icon,
+.kwick-macos #dashtodockContainer.bottom #dash .dash-item-container .overview-tile .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .app-well-app .overview-icon,
+.kwick-macos #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile .overview-icon {
+  padding-top: 1px;
+  padding-bottom: 12px;
+}

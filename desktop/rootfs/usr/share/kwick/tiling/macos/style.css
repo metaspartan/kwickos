@@ -80,20 +80,21 @@ window#waybar > box {
 }
 
 tooltip {
-  background: rgba(50, 50, 50, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.098);
+  background: @TIP_BG@;
+  border: 1px solid @TIP_BORDER@;
   border-radius: 6px;
 }
 
 tooltip label {
-  color: rgba(255, 255, 255, 0.9);
+  color: @TIP_TEXT@;
 }
 
 #bluetooth {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/bluetooth-active-symbolic.svg");
 }
 
-#bluetooth.off,\n#bluetooth.disabled {
+#bluetooth.off,
+#bluetooth.disabled {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/bluetooth-disabled-symbolic.svg");
 }
 
@@ -127,7 +128,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wired-activated-symbolic.svg");
 }
 
-#network.disconnected,\n#network.disabled {
+#network.disconnected,
+#network.disabled {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/network-wired-disconnected-symbolic.svg");
 }
 
@@ -187,7 +189,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-000-symbolic.svg");
 }
 
-#battery.b000.charging,\n#battery.b000.plugged {
+#battery.b000.charging,
+#battery.b000.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-000-charging-symbolic.svg");
 }
 
@@ -195,7 +198,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-010-symbolic.svg");
 }
 
-#battery.b010.charging,\n#battery.b010.plugged {
+#battery.b010.charging,
+#battery.b010.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-010-charging-symbolic.svg");
 }
 
@@ -203,7 +207,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-020-symbolic.svg");
 }
 
-#battery.b020.charging,\n#battery.b020.plugged {
+#battery.b020.charging,
+#battery.b020.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-020-charging-symbolic.svg");
 }
 
@@ -211,7 +216,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-030-symbolic.svg");
 }
 
-#battery.b030.charging,\n#battery.b030.plugged {
+#battery.b030.charging,
+#battery.b030.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-030-charging-symbolic.svg");
 }
 
@@ -219,7 +225,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-040-symbolic.svg");
 }
 
-#battery.b040.charging,\n#battery.b040.plugged {
+#battery.b040.charging,
+#battery.b040.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-040-charging-symbolic.svg");
 }
 
@@ -227,7 +234,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-050-symbolic.svg");
 }
 
-#battery.b050.charging,\n#battery.b050.plugged {
+#battery.b050.charging,
+#battery.b050.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-050-charging-symbolic.svg");
 }
 
@@ -235,7 +243,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-060-symbolic.svg");
 }
 
-#battery.b060.charging,\n#battery.b060.plugged {
+#battery.b060.charging,
+#battery.b060.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-060-charging-symbolic.svg");
 }
 
@@ -243,7 +252,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-070-symbolic.svg");
 }
 
-#battery.b070.charging,\n#battery.b070.plugged {
+#battery.b070.charging,
+#battery.b070.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-070-charging-symbolic.svg");
 }
 
@@ -251,7 +261,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-080-symbolic.svg");
 }
 
-#battery.b080.charging,\n#battery.b080.plugged {
+#battery.b080.charging,
+#battery.b080.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-080-charging-symbolic.svg");
 }
 
@@ -259,7 +270,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-090-symbolic.svg");
 }
 
-#battery.b090.charging,\n#battery.b090.plugged {
+#battery.b090.charging,
+#battery.b090.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-090-charging-symbolic.svg");
 }
 
@@ -267,7 +279,8 @@ tooltip label {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-symbolic.svg");
 }
 
-#battery.b100.charging,\n#battery.b100.plugged {
+#battery.b100.charging,
+#battery.b100.plugged {
   background-image: url("/usr/share/icons/KwickOS/scalable/status/battery-100-charging-symbolic.svg");
 }
 

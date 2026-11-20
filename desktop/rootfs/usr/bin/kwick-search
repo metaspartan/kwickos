@@ -1,7 +1,20 @@
 #!/bin/sh
+if command -v kwick-spotlight >/dev/null 2>&1; then
+  if command -v gdbus >/dev/null 2>&1; then
+    args="['kwick-spotlight'"
+    for a in "$@"; do
+      args="$args, '$(printf '%s' "$a" | sed "s/[\\\\']/\\\\&/g")'"
+    done
+    args="$args]"
+    data="{}"
+    [ -n "${XDG_ACTIVATION_TOKEN:-}" ] && data="{'activation-token': <'$XDG_ACTIVATION_TOKEN'>}"
+    gdbus call --session --timeout 5 --dest org.kwickos.kwick-spotlight --object-path /org/kwickos/kwick_spotlight \
+      --method org.kde.KDBusService.CommandLine "$args" "$PWD" "$data" >/dev/null 2>&1 && exit 0
+  fi
+  exec kwick-spotlight "$@"
+fi
 case $(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z') in
   *kde*)
-    command -v kwick-spotlight >/dev/null 2>&1 && exec kwick-spotlight "$@"
     exec qdbus6 org.kde.krunner /App org.kde.krunner.App.display ;;
   *gnome*)
     exec gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell \

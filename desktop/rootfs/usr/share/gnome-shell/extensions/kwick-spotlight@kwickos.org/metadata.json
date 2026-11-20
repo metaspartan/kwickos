@@ -1,0 +1,8 @@
+{
+  "uuid": "kwick-spotlight@kwickos.org",
+  "name": "KwickOS Spotlight",
+  "description": "Opens KwickOS Spotlight Search with Super+Space and hands it every key typed while it opens",
+  "shell-version": ["46", "47", "48", "49"],
+  "settings-schema": "org.gnome.shell.extensions.kwick-spotlight",
+  "version": 1
+}

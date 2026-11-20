@@ -421,10 +421,19 @@ FocusScope {
 
                     Kirigami.ShadowedImage {
                         id: face
+                        readonly property var sources: [
+                            "file:///var/lib/AccountsService/icons/" + user.loginName,
+                            "file:///usr/share/kwick/faces/kwickos.png"
+                        ]
+                        property int attempt: 0
                         anchors.fill: parent
                         radius: 16
-                        source: user.faceIconUrl
+                        source: user.loginName ? sources[Math.min(attempt, sources.length - 1)] : ""
                         visible: status === Image.Ready
+                        onStatusChanged: {
+                            if (status === Image.Error && attempt < sources.length - 1)
+                                attempt++
+                        }
                     }
                 }
 

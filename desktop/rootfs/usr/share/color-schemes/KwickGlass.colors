@@ -43,15 +43,15 @@ ForegroundVisited=191,90,242
 
 [Colors:Complementary]
 BackgroundAlternate=40,40,40
-BackgroundNormal=30,30,30
+BackgroundNormal=50,50,50
 DecorationFocus=10,132,255
 DecorationHover=10,132,255
 ForegroundActive=10,132,255
-ForegroundInactive=154,154,154
+ForegroundInactive=163,163,163
 ForegroundLink=65,156,255
 ForegroundNegative=255,69,58
 ForegroundNeutral=255,159,10
-ForegroundNormal=221,221,221
+ForegroundNormal=224,224,224
 ForegroundPositive=50,215,75
 ForegroundVisited=191,90,242
 

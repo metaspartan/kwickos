@@ -103,10 +103,16 @@ void ResultModel::setMatches(const QList<KRunner::QueryMatch> &matches, bool bro
         std::stable_sort(sorted.begin(), sorted.end(), [](const auto &a, const auto &b) {
             return a.relevance() > b.relevance();
         });
+        QSet<QString> seen;
         for (const auto &m : std::as_const(sorted)) {
             if (rows.size() >= BrowseLimit) {
                 break;
             }
+            const QString key = m.text() + QChar(0x1f) + m.subtext();
+            if (seen.contains(key)) {
+                continue;
+            }
+            seen.insert(key);
             rows.append({m, m.matchCategory()});
         }
     } else {

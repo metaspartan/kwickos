@@ -1,0 +1,24 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "mart@kde.org",
+                "Name": "Marco Martin"
+            },
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "",
+        "Description": "The Plasma panel with the contents drawn for the wallpaper behind it, used for the macOS menu bar",
+        "Id": "org.kwickos.menubar",
+        "License": "GPL-2.0+",
+        "Name": "Kwick Menu Bar",
+        "Version": "1.0"
+    },
+    "NoDisplay": true,
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-ContainmentType": "Panel"
+}

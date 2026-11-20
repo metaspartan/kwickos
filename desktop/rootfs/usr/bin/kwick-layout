@@ -40,8 +40,47 @@ light() { [ "$MODE" = light ]; }
 palette() { [ -f "$1/palette-$MODE" ] && sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/' "$1/palette-$MODE"; true; }
 
 colorscheme() {
-  gsettings set org.gnome.desktop.interface color-scheme "$(light && echo default || echo prefer-dark)" 2>/dev/null || true
-  gsettings set org.gnome.desktop.interface gtk-theme "$(light && echo Adwaita || echo Adwaita-dark)" 2>/dev/null || true
+  if light; then
+    gsettings set org.gnome.desktop.interface color-scheme prefer-light 2>/dev/null || gsettings set org.gnome.desktop.interface color-scheme default 2>/dev/null
+  else
+    gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null
+  fi
+  [ "${1:-}" = scheme ] || gsettings set org.gnome.desktop.interface gtk-theme "$(light && echo Adwaita || echo Adwaita-dark)" 2>/dev/null || true
+}
+
+gtkprefer() {
+  for v in gtk-3.0 gtk-4.0; do
+    f=${XDG_CONFIG_HOME:-$HOME/.config}/$v/settings.ini
+    mkdir -p "${f%/*}"
+    [ -f "$f" ] || printf '[Settings]\n' > "$f"
+    if grep -q '^gtk-application-prefer-dark-theme=' "$f"; then
+      sed -i "s/^gtk-application-prefer-dark-theme=.*/gtk-application-prefer-dark-theme=$1/" "$f"
+    else
+      sed -i "/^\[Settings\]/a gtk-application-prefer-dark-theme=$1" "$f"
+    fi
+  done
+}
+
+kdegtk() {
+  t=Adwaita$(light || echo -dark)
+  [ "$want" = linux ] && [ -d /usr/share/themes/Breeze/gtk-3.0 ] && t=Breeze
+  for v in gtk-3.0 gtk-4.0; do
+    f=${XDG_CONFIG_HOME:-$HOME/.config}/$v
+    [ -f "$f/settings.ini" ] && sed -i -e "s/^gtk-decoration-layout=.*/gtk-decoration-layout=$(gtklayout)/" \
+      -e "s/^gtk-icon-theme-name=.*/gtk-icon-theme-name=$(icontheme)/" "$f/settings.ini"
+    if [ "$t" = Breeze ] && ! grep -qs "@import 'colors.css'" "$f/gtk.css"; then
+      { echo "@import 'colors.css';"; cat "$f/gtk.css" 2>/dev/null; } > "$f/gtk.css.new" && mv "$f/gtk.css.new" "$f/gtk.css"
+    fi
+  done
+  gtkprefer "$([ "$t" = Breeze ] && ! light && echo true || echo false)"
+  gsettings set org.gnome.desktop.wm.preferences button-layout "$(gtklayout)" 2>/dev/null
+  if [ "$t" = Breeze ] && [ "$(gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)" = "'Breeze'" ]; then
+    gsettings set org.gnome.desktop.interface gtk-theme Breeze-Dark 2>/dev/null
+    sleep 0.5
+  fi
+  qdbus6 org.kde.kded6 /modules/gtkconfig org.kde.GtkConfig.setGtkTheme "$t" >/dev/null 2>&1
+  gsettings set org.gnome.desktop.interface gtk-theme "$t" 2>/dev/null
+  true
 }
 
 icontheme() { case $want in windows) echo KwickOS-Fluent ;; linux) echo KwickOS-Linux ;; *) echo KwickOS ;; esac; }
@@ -88,6 +127,18 @@ gnometerm() {
 } 2>/dev/null
 
 gtklayout() { case $want in macos) echo 'close,minimize,maximize:' ;; *) echo ':minimize,maximize,close' ;; esac; }
+
+gtkbuttons() {
+  b=$(gtklayout)
+  gsettings set org.gnome.desktop.wm.preferences button-layout "$b" 2>/dev/null || true
+  for v in gtk-3.0 gtk-4.0; do
+    f=${XDG_CONFIG_HOME:-$HOME/.config}/$v/settings.ini
+    [ -f "$f" ] && grep -q '^gtk-decoration-layout=' "$f" && sed -i "s|^gtk-decoration-layout=.*|gtk-decoration-layout=$b|" "$f"
+  done
+  f=${XDG_CONFIG_HOME:-$HOME/.config}/xsettingsd/xsettingsd.conf
+  [ -f "$f" ] && sed -i "s|^Gtk/DecorationLayout .*|Gtk/DecorationLayout \"$b\"|" "$f" && pkill -HUP -x xsettingsd 2>/dev/null
+  true
+}
 
 gtkstyle() {
   GC=${XDG_CONFIG_HOME:-$HOME/.config}
@@ -176,7 +227,7 @@ kde() {
   kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals Icons Theme "$ICO"
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
-  kw kdeglobals KDE widgetStyle "$(if [ "$want" = macos ] && ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then echo KwickMac; else echo Breeze; fi)"
+  kw kdeglobals KDE widgetStyle "$(if ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then case $want in macos) echo KwickMac ;; windows) echo KwickFluent ;; *) echo Breeze ;; esac; else echo Breeze; fi)"
   kw kdeglobals KDE DefaultDarkLookAndFeel "org.kwickos.$want"
   kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
@@ -187,21 +238,61 @@ kde() {
   kw kwinrc org.kde.kdecoration2 theme "$DECO"
   kw kwinrc org.kde.kdecoration2 BorderSize None
   kw kwinrc org.kde.kdecoration2 BorderSizeAuto false
-  kw kwinrc org.kde.kdecoration2 ButtonsOnLeft "$L"
-  kw kwinrc org.kde.kdecoration2 ButtonsOnRight "$R"
+  kwriteconfig6 --notify --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnLeft "$L"
+  kwriteconfig6 --notify --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnRight "$R"
   kw kwinrc TabBox LayoutName "$( [ "$want" = windows ] && echo kwick_fluent || echo thumbnail_grid )"
-  kw plasmarc Theme name "$(case $want in macos) echo kwick-glass$(light && echo -light) ;; windows) echo kwick-fluent$(light && echo -light) ;; *) echo default ;; esac)"
+  PT=$(case $want in macos) echo kwick-glass$(light && echo -light) ;; windows) echo kwick-fluent$(light && echo -light) ;; *) echo default ;; esac)
+  if [ "$(kreadconfig6 --file kwinrc --group Plugins --key kwick_liquidglassEnabled --default false)" = true ]; then
+    kw plasmarc Theme name "$PT"
+  elif [ "$(kreadconfig6 --file plasmarc --group Theme --key name --default default)" != "$PT" ]; then
+    plasma-apply-desktoptheme "$PT" >/dev/null 2>&1 || kw plasmarc Theme name "$PT"
+  fi
   kw kwinrc Effect-kwick_liquidglass MenuBar "$( [ "$want" = macos ] && echo false || echo true )"
   corners
   files
-  colorscheme
-  gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
   gtkstyle
+  colorscheme scheme
+  gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
+  kdegtk
+  gtkbuttons
   refresh_icons
+  dbus-send --session --type=signal /KDEPlatformTheme org.kde.KDEPlatformTheme.refreshFonts >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+  snaplayouts
   js=/usr/share/kwick/plasma/$want.js
   qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(echo "var KWICK_APPEARANCE = \"$MODE\";"; [ "$want" = macos ] && kwick-dock preamble 2>/dev/null; cat "$js")" >/dev/null 2>&1 \
     || echo "plasmashell not running: panels and wallpaper apply at next login"
+}
+
+gaccel() {
+  dbus-send --session --type=method_call --dest=org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.setForeignShortcut \
+    "array:string:kwin,$1,KWin,$2" "array:int32:$3" >/dev/null 2>&1 || true
+}
+
+snaplayouts() {
+  S=kwick_snaplayouts
+  [ -f /usr/share/kwin/scripts/$S/metadata.json ] || return 0
+  if [ "$want" = windows ]; then
+    kw kwinrc Plugins ${S}Enabled true
+    gaccel "Window Quick Tile Top" "Quick Tile Window to the Top" 0
+    gaccel "Window Quick Tile Bottom" "Quick Tile Window to the Bottom" 0
+    if [ "$(qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.isScriptLoaded $S 2>/dev/null)" != true ]; then
+      qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.loadDeclarativeScript /usr/share/kwin/scripts/$S/contents/ui/main.qml $S >/dev/null 2>&1
+      qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start >/dev/null 2>&1
+    fi
+    gaccel "Kwick Snap Up" "Maximize or snap to the top quarter" 285212691
+    gaccel "Kwick Snap Down" "Restore or minimize or snap to the bottom quarter" 285212693
+    gaccel "Kwick Snap Layouts" "Open snap layouts" 268435546
+  else
+    kw kwinrc Plugins ${S}Enabled false
+    gaccel "Kwick Snap Up" "Maximize or snap to the top quarter" 0
+    gaccel "Kwick Snap Down" "Restore or minimize or snap to the bottom quarter" 0
+    gaccel "Kwick Snap Layouts" "Open snap layouts" 0
+    qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript $S >/dev/null 2>&1
+    gaccel "Window Quick Tile Top" "Quick Tile Window to the Top" 285212691
+    gaccel "Window Quick Tile Bottom" "Quick Tile Window to the Bottom" 285212693
+  fi
+  true
 }
 
 corners() {
@@ -250,6 +341,37 @@ files() {
   gsettings set org.gnome.desktop.default-applications.terminal exec kwick-terminal 2>/dev/null || true
 }
 
+gnomespotlight() {
+  command -v kwick-spotlight >/dev/null 2>&1 || return 0
+  mk=org.gnome.settings-daemon.plugins.media-keys
+  p=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/kwick-spotlight/
+  cur=$(gsettings get $mk custom-keybindings 2>/dev/null) || return 0
+  ext=kwick-spotlight@kwickos.org
+  if [ -d "/usr/share/gnome-shell/extensions/$ext" ]; then
+    case $cur in
+      *"'$p'"*)
+        rest=$(printf '%s' "$cur" | sed "s|, '$p'||; s|'$p', ||; s|'$p'||")
+        [ "$rest" = "[]" ] && rest="@as []"
+        gsettings set $mk custom-keybindings "$rest" ;;
+    esac
+    on=$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null) || return 0
+    case $on in
+      *"'$ext'"*) ;;
+      *'[]'*) gsettings set org.gnome.shell enabled-extensions "['$ext']" ;;
+      *) gsettings set org.gnome.shell enabled-extensions "$(printf '%s' "$on" | sed "s|]\$|, '$ext']|")" ;;
+    esac
+    return 0
+  fi
+  case $cur in
+    *"'$p'"*) ;;
+    *'[]'*) gsettings set $mk custom-keybindings "['$p']" ;;
+    *) gsettings set $mk custom-keybindings "$(printf '%s' "$cur" | sed "s|]\$|, '$p']|")" ;;
+  esac
+  gsettings set $mk.custom-keybinding:$p name 'Spotlight Search'
+  gsettings set $mk.custom-keybinding:$p command 'kwick-search'
+  gsettings set $mk.custom-keybinding:$p binding '<Super>space'
+}
+
 gnome() {
   fontconf gnome
   gtkstyle
@@ -262,7 +384,13 @@ gnome() {
       [ -n "$schema" ] && gsettings set "$schema" "$key" "$val" 2>/dev/null
     done < "$f"
   done
+  start=/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-start-fluent.svg
+  if [ "$want" = windows ] && light && [ -f "$start" ]; then
+    sed 's/#ffffff/#005fb8/g' "$start" > "$cfg/start-light.svg"
+    gsettings set org.gnome.shell.extensions.dash-to-panel show-apps-icon-file "$cfg/start-light.svg" 2>/dev/null
+  fi
   colorscheme
+  gtkprefer false
   dtp=$(sed -n 's/.*"version": *\([0-9][0-9]*\).*/\1/p' /usr/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com/metadata.json 2>/dev/null | head -n 1)
   [ -z "$dtp" ] || gsettings set org.gnome.shell.extensions.dash-to-panel extension-version "$dtp" 2>/dev/null || true
   gsettings set org.gnome.desktop.interface font-name "$(printf '%s' "$UI" | sed 's/,/ /')"
@@ -270,6 +398,7 @@ gnome() {
   gsettings set org.gnome.desktop.interface monospace-font-name "$(printf '%s' "$MONO" | sed 's/,/ /')"
   gsettings set org.gnome.desktop.wm.preferences titlebar-font "$(printf '%s' "$UI" | sed 's/,.*//') $( [ "$want" = windows ] && echo 9 || echo Bold 10)"
   gnometerm
+  gnomespotlight
   true
 }
 
@@ -283,8 +412,8 @@ tiling() {
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$C/$v"
     sed -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" -e "s|^gtk-font-name=.*|gtk-font-name=$ui $pt|" \
-      -e "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=$(light && echo 0 || echo 1)|" \
-      -e "s|^gtk-theme-name=.*|gtk-theme-name=Breeze$(light || echo -Dark)|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
+      -e "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=0|" \
+      -e "s|^gtk-theme-name=.*|gtk-theme-name=Adwaita$(light || echo -dark)|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
     echo "gtk-decoration-layout=$(gtklayout)" >> "$C/$v/settings.ini"
   done
   gtkstyle
@@ -301,10 +430,21 @@ tiling() {
 ' "$(curradius)" >> "$C/hypr/kwick-layout.conf"
   [ -f "$C/hypr/kwick-effects.conf" ] || : > "$C/hypr/kwick-effects.conf"
   if [ -f "$T/$want/hyprbars.conf" ]; then sub x "$T/$want/hyprbars.conf" > "$C/hypr/kwick-bars.conf"; else : > "$C/hypr/kwick-bars.conf"; fi
+  [ -f "$T/$want/colors.conf" ] && sub x "$T/$want/colors.conf" >> "$C/hypr/kwick-bars.conf"
   sub sway "$T/common/sway.conf" > "$C/sway/config"
   sub sway "$T/$want/sway.conf" > "$C/sway/kwick-layout.conf"
   for wm in hyprland sway; do sub $wm "$T/$want/waybar.jsonc" > "$C/waybar/$wm.jsonc"; done
   sub x "$T/$want/style.css" > "$C/waybar/style.css"
+  rm -rf "$C/waybar/icons"
+  if light && [ "$want" != macos ]; then
+    mkdir -p "$C/waybar/icons"
+    for f in $(grep -oE 'url\("/usr/share/icons/[^"]*(/status/|/actions/|kwick-start-fluent)[^"]*\.svg"\)' "$C/waybar/style.css" | sed 's/^url("//; s/")$//' | sort -u); do
+      [ -f "$f" ] || continue
+      n=$(printf '%s' "${f#/usr/share/icons/}" | tr '/' '_')
+      sed -e 's/#ffffff/#1b1b1b/g' -e 's/#FFFFFF/#1b1b1b/g' "$f" > "$C/waybar/icons/$n"
+      sed -i "s|url(\"$f\")|url(\"$C/waybar/icons/$n\")|g" "$C/waybar/style.css"
+    done
+  fi
   rm -f "$C/waybar/dock.jsonc" "$C/waybar/dock.css"
   if [ -f "$T/$want/dock.jsonc" ]; then sub x "$T/$want/dock.jsonc" > "$C/waybar/dock.jsonc"; sub x "$T/$want/dock.css" > "$C/waybar/dock.css"; fi
   sub x "$T/$want/mako.conf" > "$C/mako/config"

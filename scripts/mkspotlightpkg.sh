@@ -11,7 +11,7 @@ if ! dpkg -s $DEPS >/dev/null 2>&1; then
 fi
 kwin_plugin_build "${SPOTLIGHT_SRC:-$HERE/../src/kwick-spotlight}" "$DEST"
 kwin_plugin_copyright "$DEST" kwick-spotlight <<'COPYRIGHT'
-kwick-spotlight (Spotlight Search for KDE Plasma) and the krunner_kwick KRunner
+kwick-spotlight (Spotlight Search for Plasma, GNOME and Hyprland) and the krunner_kwick KRunner
 plugin (KwickOS Settings pages, quick actions and a home folder file index)
 
 Source: src/kwick-spotlight in the KwickOS repository.

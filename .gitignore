@@ -9,3 +9,4 @@ src/kpkg/kpkg
 build/overlay/
 
 /keys/
+__pycache__/

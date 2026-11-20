@@ -69,13 +69,18 @@ MAC_LIGHT = {"window": 236, "under": 246, "control_bg": 255, "alt_row": 244, "bu
              "orange": "255,149,0", "green": "40,205,65", "ink": 0, "fill": 0.03, "button_alt": 0.05}
 
 
+def mac_fg(P, bg):
+    ink = P["ink"]
+    return {"ForegroundNormal": grey(over(P["label"], bg, ink)), "ForegroundInactive": grey(over(P["secondary"], bg, ink)),
+            "ForegroundActive": P["blue"], "ForegroundLink": P["link"], "ForegroundVisited": P["purple"],
+            "ForegroundNegative": P["red"], "ForegroundNeutral": P["orange"], "ForegroundPositive": P["green"]}
+
+
 def mac_scheme(name, P, base):
     ink = P["ink"]
 
     def fg(bg):
-        return {"ForegroundNormal": grey(over(P["label"], bg, ink)), "ForegroundInactive": grey(over(P["secondary"], bg, ink)),
-                "ForegroundActive": P["blue"], "ForegroundLink": P["link"], "ForegroundVisited": P["purple"],
-                "ForegroundNegative": P["red"], "ForegroundNeutral": P["orange"], "ForegroundPositive": P["green"]}
+        return mac_fg(P, bg)
 
     scheme(name, grey(P["window"]), grey(over(P["fill"], P["window"], ink)), grey(P["control_bg"]), grey(P["alt_row"]),
            grey(P["button"]), grey(over(P["button_alt"], P["button"], ink)), P["blue"], P["blue"], grey(P["window"]), {
@@ -85,7 +90,7 @@ def mac_scheme(name, P, base):
                "Colors:Header": fg(P["window"]),
                "Colors:Header[Inactive]": dict(fg(P["under"]), BackgroundNormal=grey(P["under"]), BackgroundAlternate=grey(P["under"])),
                "Colors:Tooltip": dict(fg(P["window"]), BackgroundNormal=grey(P["window"]), BackgroundAlternate=grey(P["under"])),
-               "Colors:Complementary": dict(fg(P["control_bg"]), BackgroundNormal=grey(P["control_bg"]), BackgroundAlternate=grey(P["under"])),
+               "Colors:Complementary": dict(mac_fg(MAC, MAC["window"]), BackgroundNormal=grey(MAC["window"]), BackgroundAlternate=grey(MAC["under"])),
                "Colors:Selection": {"BackgroundAlternate": "0,88,208", "ForegroundNormal": "255,255,255", "ForegroundActive": "255,255,255",
                                     "ForegroundInactive": grey(over(MAC["label"], 0)), "ForegroundLink": "255,255,255",
                                     "ForegroundVisited": "255,255,255", "ForegroundNegative": P["red"],
@@ -136,8 +141,8 @@ flu_scheme("KwickFluent", FLU)
 flu_scheme("KwickFluentLight", FLU_LIGHT, BREEZE_LIGHT)
 scheme("KwickDark", "22,23,31", "29,30,41", "17,18,26", "24,25,34", "35,37,50", "44,46,62",
        "94,129,244", "94,129,244", "26,27,37")
-scheme("KwickLight", "225,226,231", "214,216,223", "233,233,237", "225,226,231", "208,213,227", "196,200,218",
-       "46,125,233", "46,125,233", "214,216,223", base=BREEZE_LIGHT)
+scheme("KwickLight", "239,240,244", "230,231,237", "255,255,255", "246,247,250", "251,251,253", "239,240,244",
+       "46,125,233", "46,125,233", "228,230,236", base=BREEZE_LIGHT)
 
 
 def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):
@@ -302,7 +307,7 @@ aurorae("KwickFluentLight", 32, 1, 8, ("#f3f3f3", 1), ("#f3f3f3", 1), ("#f3f3f3"
         grey(over(FLU_LIGHT["text3"], FLU_LIGHT["base"], 0)), shadow=(6, 10, 14, 0.12, 0.06), layout=FLU_CAPTION)
 
 
-def frame_svg(r, fill, op, stroke=None, stroke_op=0.0, prefix="", margins=(4, 4, 4, 4), bottom_extra="", ox=0, oy=0, edge=None, inset=0):
+def frame_svg(r, fill, op, stroke=None, stroke_op=0.0, prefix="", margins=(4, 4, 4, 4), bottom_extra="", ox=0, oy=0, edge=None, inset=0, bw=64):
     e = edge or r or 4
     pieces = []
 
@@ -332,7 +337,7 @@ def frame_svg(r, fill, op, stroke=None, stroke_op=0.0, prefix="", margins=(4, 4,
             piece(nm, x, y, e, e, f'<rect x="{x}" y="{y}" width="{e}" height="{e}" {f}/>' if op else "")
     line = lambda x1, y1, x2, y2: (f'<rect x="{min(x1, x2) - (0.5 if x1 == x2 else 0)}" y="{min(y1, y2) - (0.5 if y1 == y2 else 0)}" width="{abs(x2 - x1) or 1}" height="{abs(y2 - y1) or 1}" fill="{stroke}" fill-opacity="{stroke_op}"/>' if s and r else "")
     piece("top", x0 + 20, y0, 10, e, f'<rect x="{x0 + 20}" y="{y0}" width="10" height="{e}" {f}/>' + line(x0 + 20, y0 + 0.5, x0 + 30, y0 + 0.5))
-    piece("bottom", x0 + 20, y0 + 40, 10 if not bottom_extra else 64, e, f'<rect x="{x0 + 20}" y="{y0 + 40}" width="{10 if not bottom_extra else 64}" height="{e}" {f}/>' +
+    piece("bottom", x0 + 20, y0 + 40, 10 if not bottom_extra else bw, e, f'<rect x="{x0 + 20}" y="{y0 + 40}" width="{10 if not bottom_extra else bw}" height="{e}" {f}/>' +
           line(x0 + 20, y0 + 40 + e - 0.5, x0 + 30, y0 + 40 + e - 0.5) + bottom_extra.format(x=x0 + 20, y=y0 + 40))
     piece("left", x0, y0 + 20, e, 10, f'<rect x="{x0}" y="{y0 + 20}" width="{e}" height="10" {f}/>' + line(x0 + 0.5, y0 + 20, x0 + 0.5, y0 + 30))
     piece("right", x0 + 40, y0 + 20, e, 10, f'<rect x="{x0 + 40}" y="{y0 + 20}" width="{e}" height="10" {f}/>' + line(x0 + 40 + e - 0.5, y0 + 20, x0 + 40 + e - 0.5, y0 + 30))
@@ -385,7 +390,7 @@ def plasma_theme(name, title, panel, tasks, menubar=None, tabbar=None, dialog=No
     body = '<rect id="hint-stretch-borders" x="380" y="380" width="4" height="4" fill="#000" fill-opacity="0"/>'
     for i, (state, spec) in enumerate(tasks.items()):
         body += frame_svg(spec.get("r", 0), spec.get("fill", "#ffffff"), spec.get("op", 0.0), prefix=f"{state}-",
-                          margins=spec.get("margins", (4, 4, 4, 4)), bottom_extra=spec.get("mark", ""), ox=0, oy=i * 80,
+                          margins=spec.get("margins", (4, 4, 4, 4)), bottom_extra=spec.get("mark", ""), bw=spec.get("bw", 64), ox=0, oy=i * 80,
                           edge=spec.get("edge", 6), inset=spec.get("inset", 0))
     w(f"{d}/widgets/tasks.svg", head.replace('height="400"', 'height="420"').replace("0 0 400 400", "0 0 400 420") + body + "</svg>\n")
     if menubar:
@@ -412,8 +417,8 @@ def dot(col, op, size=4, h=6):
             f'transform="translate(32 {h - size / 2 - 1})"/>')
 
 
-def pill(col, wd, ht, h=6):
-    return f'<rect x="{{x}}" y="{{y}}" width="{wd}" height="{ht}" rx="{ht / 2}" fill="{col}" transform="translate({32 - wd / 2} {h - ht - 1})"/>'
+def pill(col, wd, ht, h=6, bw=64):
+    return f'<rect x="{{x}}" y="{{y}}" width="{wd}" height="{ht}" rx="{ht / 2}" fill="{col}" transform="translate({bw / 2 - wd / 2} {h - ht - 1})"/>'
 
 
 mac_dot = dot("#ffffff", 0.55)
@@ -428,18 +433,17 @@ plasma_theme("kwick-glass-light", "KwickGlass Light",
              {"r": 18, "fill": "#f6f6f6", "op": 0.6, "edge_op": 0, "stroke": "#000000", "stroke_op": 0.12, "margins": (2, 2, 6, 6), "north_margins": (5, 5, 6, 6)},
              {"normal": {"mark": mac_dot_light}, "focus": {"mark": mac_dot_light}, "minimized": {"mark": mac_dot_light},
               "hover": {}, "attention": {"mark": dot("#ff9500", 1.0)}},
-             {"normal": {"inset": 4}, "hover": {"r": 6, "edge": 6, "fill": "#000000", "op": 0.08, "inset": 4},
-              "pressed": {"r": 6, "edge": 6, "fill": "#000000", "op": 0.12, "inset": 4}},
+             {"normal": {"inset": 4}, "hover": {"r": 6, "edge": 6, "op": 0.2, "inset": 4}, "pressed": {"r": 6, "edge": 6, "op": 0.24, "inset": 4}},
              {"r": 6, "edge": 6, "fill": "#000000", "op": 0.12, "inset": 4}, blur=False)
 
 
 def fluent_theme(name, title, bar, bar_op, fill, tint, hover, idle, accent, warn, flyout, stroke, stroke_op, shade):
-    task = {"r": 4, "edge": 6, "fill": tint, "op": hover, "inset": 4, "margins": (12, 12, 10, 10)}
+    task = {"r": 4, "edge": 6, "fill": tint, "op": hover, "inset": 4, "margins": (12, 12, 10, 10), "bw": 36}
     plasma_theme(name, title,
                  {"r": 0, "fill": bar, "op": bar_op, "margins": (4, 4, 4, 4)},
-                 {"normal": dict(task, op=0.0, mark=pill(idle, 6, 3)), "minimized": dict(task, op=0.0, mark=pill(idle, 6, 3)),
-                  "focus": dict(task, op=hover * 0.75, mark=pill(accent, 16, 3)), "hover": task,
-                  "attention": dict(task, mark=pill(warn, 16, 3))},
+                 {"normal": dict(task, op=0.0, mark=pill(idle, 6, 3, bw=36)), "minimized": dict(task, op=0.0, mark=pill(idle, 6, 3, bw=36)),
+                  "focus": dict(task, op=hover * 0.75, mark=pill(accent, 16, 3, bw=36)), "hover": task,
+                  "attention": dict(task, mark=pill(warn, 16, 3, bw=36))},
                  dialog={"r": 8, "fill": fill, "op": 0.94, "stroke": stroke, "stroke_op": stroke_op, "margins": (1, 1, 1, 1),
                          "shadow": (28, shade, 6)},
                  tooltip={"r": 4, "fill": flyout, "op": 1.0, "stroke": stroke, "stroke_op": stroke_op, "margins": (8, 8, 10, 10),
@@ -451,73 +455,6 @@ fluent_theme("kwick-fluent", "KwickFluent", "#202020", 0.85, "#242424", "#ffffff
 fluent_theme("kwick-fluent-light", "KwickFluent Light", "#eeeeee", 0.93, "#f2f2f2", "#000000", 0x09 / 255, "#868686", "#005fb8", "#9d5d00",
              "#f9f9f9", "#000000", 0.07, 0.18)
 
-
-def wallpaper(name, painter, size=(2560, 1440)):
-    from PIL import Image
-    img = painter(size)
-    rnd = Image.effect_noise(size, 12).convert("RGB")
-    img = Image.blend(img, Image.merge("RGB", [rnd.split()[0]] * 3), 0.025)
-    d = f"usr/share/wallpapers/{name}/contents/images"
-    os.makedirs(os.path.join(R, d), exist_ok=True)
-    img.save(os.path.join(R, d, "2560x1440.png"), optimize=True)
-    img.resize((1920, 1080), Image.LANCZOS).save(os.path.join(R, d, "1920x1080.png"), optimize=True)
-    w(f"usr/share/wallpapers/{name}/metadata.json", json.dumps({"KPlugin": {"Authors": [{"Name": "KwickOS"}],
-                                                                           "Id": name, "License": "CC-BY-SA-4.0", "Name": name}}, indent=4) + "\n")
-
-
-def glass_wall(size):
-    from PIL import Image, ImageDraw, ImageFilter, ImageChops
-    W, H = size
-    s = 4
-    base = Image.new("RGB", (W // s, H // s), (9, 10, 22))
-    blobs = [(0.18, 0.25, 0.42, (40, 60, 190)), (0.72, 0.20, 0.38, (120, 60, 200)), (0.55, 0.78, 0.46, (20, 120, 200)),
-             (0.10, 0.85, 0.30, (70, 40, 150)), (0.92, 0.75, 0.28, (30, 90, 170))]
-    for cx, cy, r, col in blobs:
-        layer = Image.new("RGB", base.size, (0, 0, 0))
-        ld = ImageDraw.Draw(layer)
-        for k in range(24, 0, -1):
-            f = k / 24
-            rr = int(r * W / s * f)
-            a_ = tuple(int(c * (1 - f) ** 1.6 * 0.42) for c in col)
-            ld.ellipse([cx * W / s - rr, cy * H / s - rr, cx * W / s + rr, cy * H / s + rr], fill=a_)
-        base = ImageChops.add(base, layer)
-    base = base.filter(ImageFilter.GaussianBlur(14))
-    return base.resize((W, H), Image.BICUBIC)
-
-
-def glass_wall_light(size):
-    from PIL import Image, ImageChops
-    tint = glass_wall(size).point(lambda v: min(255, int(v * 2.6)))
-    return Image.blend(Image.new("RGB", size, (246, 247, 252)), ImageChops.add(tint, Image.new("RGB", size, (60, 70, 110))), 0.42)
-
-
-def fluent_wall(size):
-    from PIL import Image, ImageDraw, ImageFilter, ImageChops
-    W, H = size
-    s = 4
-    base = Image.new("RGB", (W // s, H // s), (6, 12, 28))
-    cx, cy = W / s * 0.5, H / s * 0.52
-    for ang in range(0, 360, 60):
-        layer = Image.new("RGB", base.size, (0, 0, 0))
-        for k in range(30, 0, -1):
-            f = k / 30
-            rx, ry = W / s * 0.30 * f, H / s * 0.11 * f
-            col = (int(10 * (1 - f)), int(110 * (1 - f) ** 1.5), int(255 * (1 - f) ** 1.2))
-            ex = cx + math.cos(math.radians(ang)) * W / s * 0.12
-            ey = cy + math.sin(math.radians(ang)) * H / s * 0.12
-            petal = Image.new("RGB", base.size, (0, 0, 0))
-            pd = ImageDraw.Draw(petal)
-            pd.ellipse([ex - rx, ey - ry, ex + rx, ey + ry], fill=col)
-            petal = petal.rotate(-ang + 90, center=(cx, cy))
-            layer = ImageChops.add(layer, petal)
-        base = ImageChops.add(base, layer.point(lambda v: int(v * 0.55)))
-    base = base.filter(ImageFilter.GaussianBlur(10))
-    return base.resize((W, H), Image.BICUBIC)
-
-
-wallpaper("KwickGlass", glass_wall)
-wallpaper("KwickGlassLight", glass_wall_light)
-wallpaper("KwickFluent", fluent_wall)
 
 def rgb(c):
     return f"{c[0]},{c[1]},{c[2]}"

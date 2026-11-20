@@ -2,10 +2,13 @@
 
 #include "resultmodel.h"
 
+#include <KPluginMetaData>
+
 #include <QColor>
 #include <QElapsedTimer>
 #include <QObject>
 #include <QPointer>
+#include <QSet>
 
 class QAction;
 class QFileSystemWatcher;
@@ -33,6 +36,8 @@ class Spotlight : public QObject
     Q_PROPERTY(bool clipboard READ clipboard NOTIFY clipboardChanged)
     Q_PROPERTY(bool shown READ shown NOTIFY shownChanged)
     Q_PROPERTY(QString layout READ layout NOTIFY layoutChanged)
+    Q_PROPERTY(bool dark READ dark NOTIFY darkChanged)
+    Q_PROPERTY(bool current READ current NOTIFY currentChanged)
 
 public:
     explicit Spotlight(QObject *parent = nullptr);
@@ -49,6 +54,8 @@ public:
     bool clipboard() const;
     bool shown() const;
     QString layout() const;
+    bool dark() const;
+    bool current() const;
 
     void handle(const QStringList &arguments);
 
@@ -57,6 +64,9 @@ public:
     Q_INVOKABLE void hide();
     Q_INVOKABLE void run(int row, bool alternate);
     Q_INVOKABLE void setPanel(qreal x, qreal y, qreal width, qreal height, qreal radius);
+
+protected:
+    bool eventFilter(QObject *object, QEvent *event) override;
 
 Q_SIGNALS:
     void queryChanged();
@@ -68,15 +78,28 @@ Q_SIGNALS:
     void clipboardChanged();
     void shownChanged();
     void layoutChanged();
+    void darkChanged();
+    void currentChanged();
     void activated();
     void queryReplaced(const QString &text, int cursor);
+    void typed(const QString &text);
+    void submitted();
 
 private:
     void createView();
     void launch();
+    void relaunch();
     void commit();
     void refreshEnvironment();
+    void refreshFiles();
+    void watchFiles();
     void applyShortcuts();
+    void setMaterial(const QString &material);
+    void probeHyprland();
+    void queueRunners();
+    void loadNextRunner();
+    bool ensureRunner(const QString &id);
+    void setCurrent(bool current);
     void trace(const char *what, qint64 ms) const;
 
     KRunner::RunnerManager *m_manager = nullptr;
@@ -85,17 +108,26 @@ private:
     LayerShellQt::Window *m_layer = nullptr;
     QAction *m_action = nullptr;
     QFileSystemWatcher *m_watcher = nullptr;
+    QList<KPluginMetaData> m_pendingRunners;
+    QSet<QString> m_loaded;
+    QString m_desktop;
     QString m_query;
     QString m_mode;
     QString m_layout;
-    QString m_material = QStringLiteral("blur");
+    QString m_material = QStringLiteral("solid");
+    QString m_launched;
     int m_cornerRadius = 10;
     QColor m_accent;
+    bool m_layered = false;
+    bool m_dark = true;
+    bool m_current = true;
     bool m_clipboard = false;
     bool m_shown = false;
+    bool m_wasActive = false;
     bool m_tracing = false;
     bool m_waitFrame = false;
     bool m_waitResults = false;
+    bool m_relaunchQueued = false;
     QElapsedTimer m_openClock;
     QElapsedTimer m_keyClock;
 };

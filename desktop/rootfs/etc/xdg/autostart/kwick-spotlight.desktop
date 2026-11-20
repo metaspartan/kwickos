@@ -2,6 +2,7 @@
 Type=Application
 Name=Spotlight Search
 Exec=kwick-spotlight --daemon
-OnlyShowIn=KDE;
+OnlyShowIn=KDE;GNOME;
 X-KDE-autostart-phase=2
+X-GNOME-Autostart-Phase=Applications
 NoDisplay=true

@@ -682,8 +682,16 @@ gr_default() {
 	sync
 }
 
+fs_of() {
+	awk -v p="$1/" '{ m = $2 == "/" ? "/" : $2 "/" } index(p, m) == 1 && length(m) >= l { l = length(m); t = $3 } END { print t }' /proc/mounts
+}
+
 gr_try() {
 	gr_setup
+	case $(fs_of "$(dirname "$GENV")") in
+	ext2 | ext3 | ext4 | vfat | msdos) ;;
+	*) die "GRUB cannot clear a one-shot entry on the $(fs_of "$(dirname "$GENV")") file system that holds $GENV, so a failed trial could not fall back; use: kwick-kernel default VERSION" ;;
+	esac
 	gr_keep_default
 	entry_files "$1"
 	gr_write_cfg

@@ -58,9 +58,11 @@ private:
     void matchPages(KRunner::RunnerContext &context, const QString &query);
     void matchCommands(KRunner::RunnerContext &context, const QString &query, bool browse);
     void matchFiles(KRunner::RunnerContext &context, const QString &query, bool browse);
-    void matchApps(KRunner::RunnerContext &context, const QString &query);
+    void matchApps(KRunner::RunnerContext &context, const QString &query, bool search);
     void matchClipboard(KRunner::RunnerContext &context, const QString &query);
+    void matchPanels(KRunner::RunnerContext &context, const QString &query);
     void runCommand(const QString &id);
+    bool prompts() const;
 
     static double score(const QString &query, const QString &title, const QString &keywords);
     QString category(const FileIndex::Hit &hit) const;
@@ -70,4 +72,8 @@ private:
     QList<Page> m_pages;
     const std::shared_ptr<Shared> m_shared;
     const QString m_home;
+    const QString m_desktop;
+    QList<Page> m_panels;
+    QStringList m_panelIds;
+    bool m_panelsLoaded = false;
 };

@@ -44,8 +44,11 @@ When the upgrade brings a new kernel package, `kwick-update` does not let the pa
 `kwick-kernel try NEW --promote`: the new kernel starts once at the next restart and becomes the default only after that boot
 is confirmed. If it does not come up, the next power cycle starts the old default again (see the boot path table in
 [KERNELS](KERNELS.md)). On boot paths without a one-shot boot (Raspberry Pi firmware, Apple Silicon) the new kernel becomes the
-default directly and the previous one stays for `kwick-kernel rollback`. Installing a kernel from the Settings page
-(`kwick-update kernel install VERSION:FLAVOR`) follows the same rule.
+default directly and the previous one stays for `kwick-kernel rollback`. If a trial cannot be set up on a boot path that has
+one (no `efibootmgr`, or GRUB whose `grubenv` sits on btrfs, xfs or ZFS where GRUB cannot clear the one-shot entry), the
+old default stays and the new kernel waits for `kwick-kernel try`. An upgrade of a kernel package of another flavor than the
+default (for example `virt` next to `generic`) only installs it. Installing a kernel from the Settings page
+(`kwick-update kernel install VERSION:FLAVOR`) follows the same rule, except that it may switch the flavor.
 
 ## Automatic updates
 

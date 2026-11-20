@@ -1,0 +1,49 @@
+.kwick-windows .panel-button.kwick-taskbar-button {
+  padding: 0 8px;
+  margin: 4px 2px;
+  border-radius: 4px;
+}
+
+.kwick-windows .panel-button.kwick-clock {
+  padding: 0 10px;
+  margin: 4px 0;
+  border-radius: 4px;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.kwick-windows .kwick-clock-label {
+  font-size: 12px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.kwick-windows .popup-menu-content {
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.kwick-windows .popup-menu-item {
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.kwick-windows #panel .panel-button,
+.kwick-windows #panel .panel-button .system-status-icon,
+.kwick-windows #panel .panel-button .clock,
+.kwick-windows .kwick-clock-label {
+  color: #1b1b1b;
+}
+
+.kwick-windows #panel .panel-button:hover,
+.kwick-windows #panel .panel-button:focus {
+  background-color: rgba(0, 0, 0, 0.06);
+  box-shadow: none;
+}
+
+.kwick-windows #panel .panel-button:active,
+.kwick-windows #panel .panel-button:checked {
+  background-color: rgba(0, 0, 0, 0.04);
+  box-shadow: none;
+}

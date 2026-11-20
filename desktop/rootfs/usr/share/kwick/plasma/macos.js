@@ -14,7 +14,7 @@ for (var j = 0; j < desktopsArray.length; j++) {
     var d = desktopsArray[j];
     d.wallpaperPlugin = "org.kde.image";
     d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-    d.writeConfig("Image", "file:///usr/share/wallpapers/" + (typeof KWICK_APPEARANCE !== "undefined" && KWICK_APPEARANCE === "light" ? "KwickGlassLight" : "KwickGlass") + "/contents/images/2560x1440.png");
+    d.writeConfig("Image", "file:///usr/share/wallpapers/KwickGlass/contents/images/2560x1440.png");
     d.writeConfig("FillMode", "2");
 }
 panels().forEach(function (p) { p.remove(); });
@@ -22,7 +22,7 @@ panels().forEach(function (p) { p.remove(); });
 var launchers = dockCfg.pinned.split(",").filter(function (s) { return s.length > 0; })
     .map(function (s) { return "applications:" + s; }).join(",");
 
-var top = new Panel;
+var top = new Panel(knownWidgetTypes.indexOf("org.kwickos.menubar") >= 0 ? "org.kwickos.menubar" : "org.kde.panel");
 top.location = "top";
 top.height = Math.round(gridUnit * 1.8);
 top.floating = false;

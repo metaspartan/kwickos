@@ -115,3 +115,100 @@ headerbar button:not(.titlebutton):checked {
 window.background {
   background-color: @BASE@;
 }
+
+window.popup.background,
+window.csd.popup.background {
+  background-color: transparent;
+}
+
+.csd.popup decoration,
+.csd.menu decoration {
+  border-radius: 8px;
+  box-shadow: 0 8px 16px @MENU_SHADOW@, 0 0 0 1px @BORDER@;
+}
+
+menu,
+.menu,
+.context-menu {
+  padding: 2px 0;
+  border-radius: 8px;
+  border: none;
+  background-color: @POPOVER@;
+}
+
+menu menuitem {
+  min-height: 28px;
+  padding: 0 12px;
+  margin: 2px 4px;
+  border-radius: 4px;
+  color: @FG@;
+}
+
+menu menuitem:hover {
+  background-color: @HOVER@;
+  color: @FG@;
+}
+
+menu menuitem:active {
+  background-color: @PRESS@;
+}
+
+menu menuitem:disabled {
+  color: @FG_DISABLED@;
+}
+
+menu menuitem accelerator {
+  margin-left: 32px;
+  color: @FG_SECONDARY@;
+}
+
+menu menuitem:hover accelerator {
+  color: @FG_SECONDARY@;
+}
+
+menu menuitem arrow {
+  min-width: 12px;
+  min-height: 12px;
+  color: @FG_SECONDARY@;
+}
+
+menu menuitem check,
+menu menuitem radio {
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0 8px 0 -2px;
+  border: none;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  -gtk-icon-source: none;
+  -gtk-icon-shadow: none;
+  color: @FG@;
+}
+
+menu menuitem check:checked {
+  -gtk-icon-source: -gtk-recolor(url("file:///usr/share/kwick/gtk/windows/menu-check-symbolic.svg"));
+}
+
+menu menuitem radio:checked {
+  -gtk-icon-source: -gtk-recolor(url("file:///usr/share/kwick/gtk/windows/menu-radio-symbolic.svg"));
+}
+
+menu separator {
+  margin: 4px 0;
+  min-height: 1px;
+  background-color: @BORDER@;
+}
+
+menubar > menuitem {
+  min-height: 28px;
+  padding: 0 10px;
+  margin: 2px 0;
+  border-radius: 4px;
+}
+
+menubar > menuitem:hover {
+  background-color: @HOVER@;
+  box-shadow: none;
+  color: @FG@;
+}

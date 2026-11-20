@@ -34,7 +34,7 @@ MouseArea {
 
         Kirigami.Icon {
             id: glyph
-            visible: source !== ""
+            visible: !!source && String(source) !== ""
             Layout.preferredWidth: 24
             Layout.preferredHeight: 24
             isMask: button.mask

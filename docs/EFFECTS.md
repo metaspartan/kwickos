@@ -187,7 +187,10 @@ Menus are drawn by `KwickMac`, a small Qt widget style (`src/kwick-macstyle`, bu
 layout selects. It is a proxy over Breeze, so everything else keeps the Breeze look and the dark palette; it only replaces menu
 items: 22 px rows, a 5 px rounded accent highlight inset 5 px from the menu edge with white text and icons, 1 px separators
 inset 10 px at 12% white, right-aligned shortcuts in the secondary label colour, disabled items at 25%, 5 px top and bottom
-padding, checkmarks and submenu chevrons drawn as thin strokes. Kvantum was considered; a full Kvantum theme would restyle every
+padding, checkmarks and submenu chevrons drawn as thin strokes. The same plugin also provides `KwickFluent`, which the Windows
+layout selects: 8 px panels at #2c2c2c (#f9f9f9 in light) with a 1 px border and a softer shadow, 32 px rows with a 4 px rounded
+hover fill inset 4 px, text that stays in the normal colour, an icon column whenever any item has an icon, and shortcuts in Windows
+notation. Kvantum was considered; a full Kvantum theme would restyle every
 widget and fight the palette, while the proxy changes menus only.
 
 Notification popups use a Tahoe-style card from `/usr/local/share/plasma/plasmoids/org.kde.plasma.notifications` (Plasma 6.3.6's

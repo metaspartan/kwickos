@@ -10,7 +10,7 @@ function iconButton(name, icon, cb) {
     const button = new PanelMenu.Button(0.0, name, true);
     button.add_style_class_name('kwick-taskbar-button');
     button.add_child(new St.Icon({
-        gicon: new Gio.ThemedIcon({name: icon}),
+        gicon: new Gio.ThemedIcon({names: icon}),
         icon_size: 24,
         y_align: Clutter.ActorAlign.CENTER,
         x_align: Clutter.ActorAlign.CENTER,
@@ -25,13 +25,17 @@ function iconButton(name, icon, cb) {
 export default class KwickTaskbar extends Extension {
     enable() {
         Main.layoutManager.uiGroup.add_style_class_name('kwick-windows');
-        this._search = iconButton('kwick-search', 'edit-find', () => {
+        this._search = iconButton('kwick-search', ['kwick-search-taskbar-symbolic', 'edit-find-symbolic'], () => {
+            if (GLib.find_program_in_path('kwick-spotlight')) {
+                GLib.spawn_command_line_async('kwick-search');
+                return;
+            }
             Main.overview.show();
             const entry = Main.overview.searchEntry;
             if (entry)
                 entry.grab_key_focus();
         });
-        this._view = iconButton('kwick-taskview', 'kwick-taskview', () => Main.overview.toggle());
+        this._view = iconButton('kwick-taskview', ['kwick-taskview-symbolic', 'kwick-taskview'], () => Main.overview.toggle());
         Main.panel.addToStatusArea('kwick-search', this._search, 0, 'left');
         Main.panel.addToStatusArea('kwick-taskview', this._view, 1, 'left');
 

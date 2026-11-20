@@ -144,9 +144,9 @@ ColumnLayout {
         })
     }
 
-    function check() { page.priv("check") }
-    function upgrade(what) { page.priv("upgrade " + what) }
-    function kernel(args) { page.priv("kernel " + args) }
+    function check() { page.priv("check --quiet") }
+    function upgrade(what) { page.priv("upgrade " + what + " --quiet") }
+    function kernel(args) { page.priv("kernel " + args + " --quiet") }
 
     function setAuto(key, on) {
         var a = Object.assign({}, page.auto)
@@ -708,6 +708,7 @@ ColumnLayout {
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
         }
         Item {
+            id: lastTrial
             readonly property var res: (page.kern.last_result || "").split(" ")
             visible: !page.kern.trial && res.length > 2
             Layout.fillWidth: true
@@ -717,10 +718,10 @@ ColumnLayout {
                 anchors.leftMargin: 16
                 anchors.rightMargin: 16
                 spacing: 8
-                Rectangle { width: 8; height: 8; radius: 4; color: parent.parent.res[0] === "ok" ? Theme.good : Theme.bad }
+                Rectangle { width: 8; height: 8; radius: 4; color: lastTrial.res[0] === "ok" ? Theme.good : Theme.bad }
                 Text {
                     Layout.fillWidth: true
-                    readonly property var r: parent.parent.res
+                    readonly property var r: lastTrial.res
                     text: r[0] === "ok" ? "The trial of " + page.kname(r[1]) + " started and was confirmed." : "The trial of " + page.kname(r[1]) + " did not start, so KwickOS went back to " + page.kname(r[6] || page.kern.default) + "."
                     color: Theme.sub
                     font.family: Theme.sans

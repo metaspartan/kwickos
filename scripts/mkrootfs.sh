@@ -41,8 +41,8 @@ for l in apt apt-get apt-cache apt-mark dpkg dpkg-query dpkg-deb dpkg-trigger dp
          dpkg-statoverride dpkg-architecture update-alternatives apk; do ln -sf kpkg usr/bin/$l; done
 
 cp -r --no-preserve=mode,ownership,timestamps "$SRC/rootfs/." "$R/"
-find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" "$R/usr/sbin/kwick-kernel" "$R/usr/bin/kwick-shell" "$R/usr/sbin/add-shell" "$R/usr/sbin/remove-shell" "$R/usr/share/kwick/zsh" -type f -exec sed -i 's/\r$//' {} +
-chmod 0755 usr/bin/kwick-shell usr/sbin/add-shell usr/sbin/remove-shell usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-kernel usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/bin/setpriv usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb
+find "$R/etc" "$R/usr/lib/systemd" "$R/usr/share/udhcpc" "$R/usr/lib/kwick" "$R/usr/sbin/kwick-install" "$R/usr/sbin/kwick-installer-tui" "$R/usr/bin/kwick-installer" "$R/usr/sbin/kwick-kernel" "$R/usr/sbin/kwick-update" "$R/usr/bin/kwick-vpn" "$R/usr/bin/kwick-shell" "$R/usr/sbin/add-shell" "$R/usr/sbin/remove-shell" "$R/usr/share/kwick/zsh" -type f -exec sed -i 's/\r$//' {} +
+chmod 0755 usr/bin/kwick-shell usr/sbin/add-shell usr/sbin/remove-shell usr/share/udhcpc/default.script usr/lib/kwick/autologin usr/sbin/kwick-kernel-install usr/sbin/kwick-kernel usr/sbin/kwick-gpu usr/lib/kwick/bash-on-demand usr/bin/kwick-brew usr/bin/kfetch usr/sbin/kwick-install usr/sbin/kwick-installer-tui usr/bin/kwick-installer usr/lib/kwick/zram-setup usr/sbin/kwick-bootctl usr/bin/setpriv usr/lib/kwick/boot-ok usr/lib/kwick/init-crumb usr/sbin/kwick-update usr/bin/kwick-vpn
 rm -f usr/bin/bash && cp usr/lib/kwick/bash-on-demand usr/bin/bash && chmod 0755 usr/bin/bash
 
 sed 's/\r$//' /usr/share/base-passwd/passwd.master > etc/passwd

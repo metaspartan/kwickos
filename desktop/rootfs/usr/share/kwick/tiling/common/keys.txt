@@ -1,5 +1,6 @@
 SUPER + Return            Terminal (foot)
-SUPER + Space / D         Launcher
+SUPER + Space             Spotlight search
+SUPER + D                 Launcher
 SUPER + B                 Web browser
 SUPER + E                 File manager
 SUPER + W / Q             Close window

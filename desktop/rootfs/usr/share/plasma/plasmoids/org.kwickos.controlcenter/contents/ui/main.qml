@@ -45,9 +45,7 @@ PlasmoidItem {
     }
 
     function enableNight() {
-        run("kwriteconfig6 --file kwinrc --group NightColor --key Active true")
-        run("kwriteconfig6 --file kwinrc --group NightColor --key Mode Constant")
-        reconfigure.start()
+        run("kwriteconfig6 --notify --file kwinrc --group NightColor --key Mode Constant; kwriteconfig6 --notify --file kwinrc --group NightColor --key Active true")
     }
 
     Plasmoid.icon: "kwick-controlcenter-symbolic"
@@ -64,12 +62,6 @@ PlasmoidItem {
         id: exec
         engine: "executable"
         onNewData: source => disconnectSource(source)
-    }
-
-    Timer {
-        id: reconfigure
-        interval: 300
-        onTriggered: root.run("qdbus6 org.kde.KWin /KWin reconfigure")
     }
 
     NotificationManager.Settings {

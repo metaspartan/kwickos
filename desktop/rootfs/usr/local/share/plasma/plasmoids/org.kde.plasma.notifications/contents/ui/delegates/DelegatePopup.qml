@@ -3,6 +3,7 @@ import QtQuick.Layouts
 
 import org.kde.plasma.components as PlasmaComponents3
 import org.kde.kirigami as Kirigami
+import org.kde.ksvg as KSvg
 
 import org.kde.notificationmanager as NotificationManager
 
@@ -24,7 +25,9 @@ BaseDelegate {
 
     readonly property bool critical: modelInterface.urgency === NotificationManager.Notifications.CriticalUrgency
     readonly property string title: modelInterface.summary.length > 0 ? modelInterface.summary : modelInterface.applicationName
-    readonly property color secondary: Qt.rgba(0.9, 0.9, 0.9, 0.8)
+    readonly property bool glass: KSvg.ImageSet.imageSetName === "kwick-liquidglass"
+    readonly property color primary: glass ? "#ffffff" : Kirigami.Theme.textColor
+    readonly property color secondary: glass ? Qt.rgba(0.9, 0.9, 0.9, 0.8) : Qt.rgba(primary.r, primary.g, primary.b, 0.7)
     property date now: new Date()
 
     function stamp(t) {
@@ -72,7 +75,7 @@ BaseDelegate {
             Layout.fillWidth: true
             text: delegateRoot.title
             textFormat: Text.PlainText
-            color: "#ffffff"
+            color: delegateRoot.primary
             font.weight: Font.DemiBold
             elide: Text.ElideRight
             maximumLineCount: 1
@@ -131,16 +134,16 @@ BaseDelegate {
         x: 4
         y: 4
         z: 10
-        color: closeArea.pressed ? "#3a3a3c" : "#48484a"
+        color: delegateRoot.glass ? (closeArea.pressed ? "#3a3a3c" : "#48484a") : (closeArea.pressed ? Kirigami.Theme.alternateBackgroundColor : Kirigami.Theme.backgroundColor)
         border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.14)
+        border.color: delegateRoot.glass ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(delegateRoot.primary.r, delegateRoot.primary.g, delegateRoot.primary.b, 0.2)
 
         Kirigami.Icon {
             anchors.centerIn: parent
             width: 9
             height: 9
             source: "window-close-symbolic"
-            color: "#ffffff"
+            color: delegateRoot.primary
             isMask: true
         }
 

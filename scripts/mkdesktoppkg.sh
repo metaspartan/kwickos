@@ -55,6 +55,11 @@ fi
 if [ -f /usr/share/kwick/faces/kwickos.png ]; then
   mkdir -p /var/lib/AccountsService/icons /var/lib/AccountsService/users
   awk -F: '$3 >= 1000 && $3 < 60000 { print $1 }' /etc/passwd | while read -r u; do
+    h=$(getent passwd "$u" | cut -d: -f6)
+    if [ -n "$h" ] && [ -f /etc/skel/.face ] && [ -f "$h/.face" ] && [ ! -L "$h/.face" ] && cmp -s /etc/skel/.face "$h/.face"; then
+      cp /usr/share/kwick/faces/kwickos.png "$h/.face"
+      chown "$u:" "$h/.face" 2>/dev/null || true
+    fi
     [ -e "/var/lib/AccountsService/icons/$u" ] && continue
     cp /usr/share/kwick/faces/kwickos.png "/var/lib/AccountsService/icons/$u"
     chmod 644 "/var/lib/AccountsService/icons/$u"

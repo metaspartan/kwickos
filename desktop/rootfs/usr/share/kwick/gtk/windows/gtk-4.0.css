@@ -130,3 +130,60 @@ windowcontrols button.close:active image {
 window.csd:not(.maximized):not(.fullscreen):not(.tiled) {
   border-radius: @RADIUS@px;
 }
+
+popover.menu > contents {
+  padding: 2px 0;
+  border-radius: 8px;
+  background-color: @POPOVER@;
+  box-shadow: 0 8px 16px @MENU_SHADOW@, 0 0 0 1px @BORDER@;
+}
+
+popover.menu modelbutton {
+  min-height: 28px;
+  padding: 0 12px;
+  margin: 2px 4px;
+  border-radius: 4px;
+  color: @FG@;
+}
+
+popover.menu modelbutton:hover,
+popover.menu modelbutton:selected {
+  background-color: @HOVER@;
+  color: @FG@;
+}
+
+popover.menu modelbutton:active {
+  background-color: @PRESS@;
+}
+
+popover.menu modelbutton:disabled {
+  color: @FG_DISABLED@;
+}
+
+popover.menu modelbutton accelerator {
+  margin-left: 32px;
+  color: @FG_SECONDARY@;
+}
+
+popover.menu modelbutton arrow {
+  color: @FG_SECONDARY@;
+}
+
+popover.menu separator {
+  margin: 4px 0;
+  background-color: @BORDER@;
+}
+
+menubar > item {
+  min-height: 28px;
+  padding: 0 10px;
+  margin: 2px 0;
+  border-radius: 4px;
+}
+
+menubar > item:hover,
+menubar > item:selected {
+  background-color: @HOVER@;
+  box-shadow: none;
+  color: @FG@;
+}

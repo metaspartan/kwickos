@@ -31,7 +31,7 @@ def both(ctx, msgs):
     return d
 
 
-hdr = {"": "Content-Type: text/plain; charset=UTF-8\nPlural-Forms: nplurals=2; plural=(n != 1);\n"}
+hdr = {}
 mo("usr/share/locale/en_KW/LC_MESSAGES/dolphin.mo", {**hdr, **both("@title", {"Dolphin": "Files"})})
 mo("usr/share/locale/en_KW/LC_MESSAGES/konsole.mo", {**hdr, **both("@title", {"Konsole": "Terminal"})})
 mo("usr/share/locale/en_KW/LC_MESSAGES/plasma-discover.mo", {**hdr, **both("@title", {"Discover": "Software"})})

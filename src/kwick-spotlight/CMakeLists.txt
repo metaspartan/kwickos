@@ -13,7 +13,7 @@ include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
-find_package(Qt6 ${QT_MIN_VERSION} CONFIG REQUIRED COMPONENTS Core Gui DBus Qml Quick)
+find_package(Qt6 ${QT_MIN_VERSION} CONFIG REQUIRED COMPONENTS Core Gui DBus Network Qml Quick)
 find_package(Qt6Gui ${QT_MIN_VERSION} CONFIG REQUIRED COMPONENTS Private)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS Config CoreAddons DBusAddons GlobalAccel KIO Runner Service WindowSystem)
 find_package(LayerShellQt REQUIRED)
@@ -21,7 +21,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(WaylandClient REQUIRED IMPORTED_TARGET wayland-client)
 
 add_executable(kwick-spotlight main.cpp spotlight.cpp resultmodel.cpp)
-target_link_libraries(kwick-spotlight PRIVATE Qt6::DBus Qt6::GuiPrivate Qt6::Quick PkgConfig::WaylandClient KF6::ConfigCore KF6::DBusAddons KF6::GlobalAccel KF6::Runner KF6::WindowSystem LayerShellQt::Interface)
+target_link_libraries(kwick-spotlight PRIVATE Qt6::DBus Qt6::GuiPrivate Qt6::Network Qt6::Quick PkgConfig::WaylandClient KF6::ConfigCore KF6::DBusAddons KF6::GlobalAccel KF6::Runner KF6::WindowSystem LayerShellQt::Interface)
 install(TARGETS kwick-spotlight DESTINATION ${KDE_INSTALL_BINDIR})
 
 kcoreaddons_add_plugin(krunner_kwick SOURCES kwickrunner.cpp fileindex.cpp INSTALL_NAMESPACE "kf6/krunner")

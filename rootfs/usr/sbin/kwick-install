@@ -1346,6 +1346,9 @@ cfg_users() {
 		cp -a "$T/etc/skel/." "$T/home/$USERN/" 2>/dev/null
 	fi
 	if [ -f "$T/usr/share/kwick/faces/kwickos.png" ]; then
+		if [ -f "$T/etc/skel/.face" ] && [ -f "$T/home/$USERN/.face" ] && [ ! -L "$T/home/$USERN/.face" ] && cmp -s "$T/etc/skel/.face" "$T/home/$USERN/.face"; then
+			cp "$T/usr/share/kwick/faces/kwickos.png" "$T/home/$USERN/.face"
+		fi
 		[ -e "$T/home/$USERN/.face.icon" ] || cp "$T/usr/share/kwick/faces/kwickos.png" "$T/home/$USERN/.face.icon"
 		mkdir -p "$T/var/lib/AccountsService/icons" "$T/var/lib/AccountsService/users"
 		cp "$T/usr/share/kwick/faces/kwickos.png" "$T/var/lib/AccountsService/icons/$USERN"

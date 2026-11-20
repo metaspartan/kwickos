@@ -22,6 +22,8 @@
 #include <QThreadPool>
 #include <QUrl>
 
+#include <algorithm>
+
 K_PLUGIN_CLASS_WITH_JSON(KwickRunner, "kwickrunner.json")
 
 using KRunner::QueryMatch;
@@ -91,6 +93,24 @@ QStringList clipboardHistory()
         300);
     return reply.isValid() ? reply.value() : QStringList();
 }
+
+QString currentDesktop()
+{
+    const QString current = qEnvironmentVariable("XDG_CURRENT_DESKTOP").toLower();
+    if (current.contains(QLatin1String("kde"))) {
+        return QStringLiteral("kde");
+    }
+    if (current.contains(QLatin1String("gnome"))) {
+        return QStringLiteral("gnome");
+    }
+    if (current.contains(QLatin1String("hyprland")) || qEnvironmentVariableIsSet("HYPRLAND_INSTANCE_SIGNATURE")) {
+        return QStringLiteral("hyprland");
+    }
+    if (current.contains(QLatin1String("sway")) || qEnvironmentVariableIsSet("SWAYSOCK")) {
+        return QStringLiteral("sway");
+    }
+    return current;
+}
 }
 
 KwickRunner::KwickRunner(QObject *parent, const KPluginMetaData &metaData)
@@ -98,6 +118,7 @@ KwickRunner::KwickRunner(QObject *parent, const KPluginMetaData &metaData)
     , m_files(QDir::homePath())
     , m_shared(std::make_shared<Shared>())
     , m_home(QDir::homePath())
+    , m_desktop(currentDesktop())
 {
     setMinLetterCount(0);
     loadPages();
@@ -168,9 +189,9 @@ QList<KwickRunner::Command> KwickRunner::commands() const
     QList<Command> list = {
         {QStringLiteral("lock"), QStringLiteral("Lock Screen"), QStringLiteral("lock screen away"), glyph(QStringLiteral("lock")), {}},
         {QStringLiteral("sleep"), QStringLiteral("Sleep"), QStringLiteral("suspend sleep standby"), glyph(QStringLiteral("sleep")), {}},
-        {QStringLiteral("restart"), QStringLiteral("Restart…"), QStringLiteral("restart reboot"), glyph(QStringLiteral("restart")), {}},
-        {QStringLiteral("shutdown"), QStringLiteral("Shut Down…"), QStringLiteral("shut down shutdown power off poweroff turn off halt"), glyph(QStringLiteral("shutdown")), {}},
-        {QStringLiteral("logout"), QStringLiteral("Log Out…"), QStringLiteral("log out logout sign out signout leave session"), glyph(QStringLiteral("logout")), {}},
+        {QStringLiteral("restart"), prompts() ? QStringLiteral("Restart…") : QStringLiteral("Restart"), QStringLiteral("restart reboot"), glyph(QStringLiteral("restart")), {}},
+        {QStringLiteral("shutdown"), prompts() ? QStringLiteral("Shut Down…") : QStringLiteral("Shut Down"), QStringLiteral("shut down shutdown power off poweroff turn off halt"), glyph(QStringLiteral("shutdown")), {}},
+        {QStringLiteral("logout"), prompts() ? QStringLiteral("Log Out…") : QStringLiteral("Log Out"), QStringLiteral("log out logout sign out signout leave session"), glyph(QStringLiteral("logout")), {}},
         s.dark ? Command{QStringLiteral("light"), QStringLiteral("Turn On Light Mode"), QStringLiteral("light mode appearance theme bright day dark mode"), glyph(QStringLiteral("appearance")), {}}
                : Command{QStringLiteral("dark"), QStringLiteral("Turn On Dark Mode"), QStringLiteral("dark mode appearance theme night light mode"), glyph(QStringLiteral("appearance")), {}},
     };
@@ -249,17 +270,27 @@ void KwickRunner::match(KRunner::RunnerContext &context)
     query = query.trimmed().toLower();
     m_files.refresh(90);
     if (mode.isNull()) {
+        const bool apps = m_desktop != QLatin1String("kde");
         if (query.size() < 2) {
+            if (apps && !query.isEmpty()) {
+                matchApps(context, query, true);
+            }
             return;
         }
+        if (apps) {
+            matchApps(context, query, true);
+        }
         matchPages(context, query);
+        if (m_desktop == QLatin1String("gnome")) {
+            matchPanels(context, query);
+        }
         matchCommands(context, query, false);
         matchFiles(context, query, false);
         return;
     }
     switch (mode.unicode()) {
     case 'a':
-        matchApps(context, query);
+        matchApps(context, query, false);
         break;
     case 'f':
         matchFiles(context, query, true);
@@ -292,6 +323,39 @@ void KwickRunner::matchPages(KRunner::RunnerContext &context, const QString &que
         m.setCategoryRelevance(s >= 0.9 ? QueryMatch::CategoryRelevance::High : QueryMatch::CategoryRelevance::Low);
         m.setRelevance(s * 0.9);
         m.setData(QVariantList{QStringLiteral("page"), page.name});
+        matches.append(m);
+    }
+    context.addMatches(matches);
+}
+
+void KwickRunner::matchPanels(KRunner::RunnerContext &context, const QString &query)
+{
+    if (!m_panelsLoaded) {
+        m_panelsLoaded = true;
+        const KService::List panels = KApplicationTrader::query([](const KService::Ptr &service) {
+            return service->categories().contains(QLatin1String("X-GNOME-Settings-Panel")) && !service->exec().isEmpty();
+        });
+        for (const KService::Ptr &panel : panels) {
+            m_panels.append({panel->name(), panel->keywords().join(QLatin1Char(' ')) + QLatin1Char(' ') + panel->genericName(), QIcon::fromTheme(panel->icon())});
+            m_panelIds.append(panel->storageId());
+        }
+    }
+    QList<QueryMatch> matches;
+    for (int i = 0; i < m_panels.size(); ++i) {
+        const Page &panel = m_panels.at(i);
+        const double s = score(query, panel.name, panel.keywords + QStringLiteral(" settings preferences"));
+        if (s <= 0.0) {
+            continue;
+        }
+        QueryMatch m(this);
+        m.setId(QStringLiteral("panel:") + m_panelIds.at(i));
+        m.setText(panel.name);
+        m.setSubtext(QStringLiteral("GNOME Settings"));
+        m.setIcon(panel.icon);
+        m.setMatchCategory(QStringLiteral("System Settings"));
+        m.setCategoryRelevance(s >= 0.9 ? QueryMatch::CategoryRelevance::High : QueryMatch::CategoryRelevance::Low);
+        m.setRelevance(s * 0.86);
+        m.setData(QVariantList{QStringLiteral("app"), m_panelIds.at(i)});
         matches.append(m);
     }
     context.addMatches(matches);
@@ -392,17 +456,24 @@ void KwickRunner::matchFiles(KRunner::RunnerContext &context, const QString &que
     context.addMatches(matches);
 }
 
-void KwickRunner::matchApps(KRunner::RunnerContext &context, const QString &query)
+void KwickRunner::matchApps(KRunner::RunnerContext &context, const QString &query, bool search)
 {
-    const KService::List apps = KApplicationTrader::query([](const KService::Ptr &service) {
+    KService::List apps = KApplicationTrader::query([](const KService::Ptr &service) {
         return !service->noDisplay() && !service->exec().isEmpty();
     });
+    if (query.isEmpty()) {
+        std::sort(apps.begin(), apps.end(), [](const KService::Ptr &a, const KService::Ptr &b) {
+            return QString::localeAwareCompare(a->name(), b->name()) < 0;
+        });
+    }
+    const double floor = search && query.size() < 2 ? 0.8 : 0.0;
     QList<QueryMatch> matches;
-    for (const KService::Ptr &app : apps) {
-        double s = 1.0;
+    for (int i = 0; i < apps.size(); ++i) {
+        const KService::Ptr &app = apps.at(i);
+        double s = 1.0 - i * 0.0001;
         if (!query.isEmpty()) {
             s = score(query, app->name(), app->genericName() + QLatin1Char(' ') + app->keywords().join(QLatin1Char(' ')));
-            if (s <= 0.0) {
+            if (s <= floor) {
                 continue;
             }
         }
@@ -412,6 +483,9 @@ void KwickRunner::matchApps(KRunner::RunnerContext &context, const QString &quer
         m.setSubtext(app->genericName());
         m.setIconName(app->icon());
         m.setMatchCategory(QStringLiteral("Applications"));
+        if (search) {
+            m.setCategoryRelevance(s >= 0.9 ? QueryMatch::CategoryRelevance::Highest : QueryMatch::CategoryRelevance::Moderate);
+        }
         m.setRelevance(s);
         m.setData(QVariantList{QStringLiteral("app"), app->storageId()});
         matches.append(m);
@@ -474,23 +548,65 @@ void KwickRunner::run(const KRunner::RunnerContext &context, const KRunner::Quer
     }
 }
 
+bool KwickRunner::prompts() const
+{
+    return m_desktop == QLatin1String("kde") || m_desktop == QLatin1String("gnome");
+}
+
 void KwickRunner::runCommand(const QString &id)
 {
     const QString prompt = QStringLiteral("org.kde.LogoutPrompt");
+    const QString gnome = QStringLiteral("org.gnome.SessionManager");
+    const bool kde = m_desktop == QLatin1String("kde");
+    const bool isGnome = m_desktop == QLatin1String("gnome");
     auto session = [](const QDBusMessage &msg) {
         QDBusConnection::sessionBus().asyncCall(msg);
     };
-    if (id == QLatin1String("lock")) {
-        session(call(QStringLiteral("org.freedesktop.ScreenSaver"), QStringLiteral("/ScreenSaver"), QStringLiteral("org.freedesktop.ScreenSaver"), QStringLiteral("Lock")));
-    } else if (id == QLatin1String("sleep")) {
+    auto logind = [](const QString &method) {
         QDBusConnection::systemBus().asyncCall(
-            call(QStringLiteral("org.freedesktop.login1"), QStringLiteral("/org/freedesktop/login1"), QStringLiteral("org.freedesktop.login1.Manager"), QStringLiteral("Suspend"), {true}));
+            call(QStringLiteral("org.freedesktop.login1"), QStringLiteral("/org/freedesktop/login1"), QStringLiteral("org.freedesktop.login1.Manager"), method, {true}));
+    };
+    auto gnomeSession = [&](const QString &method, const QVariantList &args = {}) {
+        session(call(gnome, QStringLiteral("/org/gnome/SessionManager"), gnome, method, args));
+    };
+    if (id == QLatin1String("lock")) {
+        if (kde) {
+            session(call(QStringLiteral("org.freedesktop.ScreenSaver"), QStringLiteral("/ScreenSaver"), QStringLiteral("org.freedesktop.ScreenSaver"), QStringLiteral("Lock")));
+        } else if (isGnome) {
+            session(call(QStringLiteral("org.gnome.ScreenSaver"), QStringLiteral("/org/gnome/ScreenSaver"), QStringLiteral("org.gnome.ScreenSaver"), QStringLiteral("Lock")));
+        } else if (!QStandardPaths::findExecutable(QStringLiteral("swaylock")).isEmpty()) {
+            QProcess::startDetached(QStringLiteral("swaylock"), {QStringLiteral("-f")});
+        } else {
+            QProcess::startDetached(QStringLiteral("loginctl"), {QStringLiteral("lock-session")});
+        }
+    } else if (id == QLatin1String("sleep")) {
+        logind(QStringLiteral("Suspend"));
     } else if (id == QLatin1String("restart")) {
-        session(call(prompt, QStringLiteral("/LogoutPrompt"), prompt, QStringLiteral("promptReboot")));
+        if (kde) {
+            session(call(prompt, QStringLiteral("/LogoutPrompt"), prompt, QStringLiteral("promptReboot")));
+        } else if (isGnome) {
+            gnomeSession(QStringLiteral("Reboot"));
+        } else {
+            logind(QStringLiteral("Reboot"));
+        }
     } else if (id == QLatin1String("shutdown")) {
-        session(call(prompt, QStringLiteral("/LogoutPrompt"), prompt, QStringLiteral("promptShutDown")));
+        if (kde) {
+            session(call(prompt, QStringLiteral("/LogoutPrompt"), prompt, QStringLiteral("promptShutDown")));
+        } else if (isGnome) {
+            gnomeSession(QStringLiteral("Shutdown"));
+        } else {
+            logind(QStringLiteral("PowerOff"));
+        }
     } else if (id == QLatin1String("logout")) {
-        session(call(prompt, QStringLiteral("/LogoutPrompt"), prompt, QStringLiteral("promptLogout")));
+        if (kde) {
+            session(call(prompt, QStringLiteral("/LogoutPrompt"), prompt, QStringLiteral("promptLogout")));
+        } else if (isGnome) {
+            gnomeSession(QStringLiteral("Logout"), {QVariant::fromValue(0u)});
+        } else if (m_desktop == QLatin1String("hyprland")) {
+            QProcess::startDetached(QStringLiteral("hyprctl"), {QStringLiteral("dispatch"), QStringLiteral("exit")});
+        } else if (m_desktop == QLatin1String("sway")) {
+            QProcess::startDetached(QStringLiteral("swaymsg"), {QStringLiteral("exit")});
+        }
     } else if (id == QLatin1String("light") || id == QLatin1String("dark")) {
         QProcess::startDetached(QStringLiteral("kwick-layout"), {QStringLiteral("appearance"), id});
     } else if (id.startsWith(QLatin1String("wifi-"))) {

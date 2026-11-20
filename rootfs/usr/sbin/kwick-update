@@ -109,6 +109,7 @@ job_begin() {
 	printf '0\t%s\n' "$2" >"$VAR/progress"
 	chmod 644 "$VAR/job" "$VAR/log" "$VAR/progress"
 	JOBKIND=$1
+	trap '' HUP PIPE
 	trap 'job_end 130 "Cancelled"' INT TERM
 }
 
@@ -156,7 +157,7 @@ run_fed() {
 	shift 3
 	rm -f "$VAR/rc"
 	{
-		"$@" 2>&1
+		"$@" </dev/null 2>&1
 		echo "__rc $?"
 	} | feed "$from" "$span" "$total"
 	rc=$(cat "$VAR/rc" 2>/dev/null)
@@ -273,13 +274,28 @@ kernel_guard_off() {
 	new=$(cat "$KSTATE/registered" 2>/dev/null)
 	def=$(cat "$KSTATE/default" 2>/dev/null)
 	[ -n "$new" ] && [ "$new" != "$KREG" ] && [ "$new" != "$def" ] || return 0
-	progress 96 "Preparing kernel $new for a trial boot…"
-	if /usr/sbin/kwick-kernel try "$new" --promote >>"$VAR/log" 2>&1; then
-		log "kernel $new boots once on the next restart and becomes the default when that boot is confirmed"
-		st_put kernel_trial "$new"
-	else
-		/usr/sbin/kwick-kernel default "$new" >>"$VAR/log" 2>&1 && log "kernel $new is the default from the next restart (rollback: kwick-kernel rollback)"
+	if [ "${1:-}" = same ] && [ -n "$def" ] && [ "${new%%-*}" != "${def%%-*}" ]; then
+		log "kernel $new is installed; the default stays $def because it is a different flavor (try it with: kwick-kernel try $new)"
+		return 0
 	fi
+	bp=$(/usr/sbin/kwick-kernel status --json 2>/dev/null | sed -n 's/.*"boot":"\([^"]*\)".*/\1/p')
+	case $bp in
+	efistub | grub | systemd-boot | uboot)
+		progress 96 "Preparing kernel $new for a trial boot…"
+		if /usr/sbin/kwick-kernel try "$new" --promote >>"$VAR/log" 2>&1; then
+			log "kernel $new boots once on the next restart and becomes the default when that boot is confirmed"
+			st_put kernel_trial "$new"
+		else
+			log "kernel $new is installed but could not be set up for a trial boot; the default stays ${def:-unchanged} (try it with: kwick-kernel try $new)"
+		fi
+		;;
+	rpi | apple)
+		/usr/sbin/kwick-kernel default "$new" >>"$VAR/log" 2>&1 && log "kernel $new is the default from the next restart (rollback: kwick-kernel rollback)"
+		;;
+	*)
+		log "kernel $new is installed; the default stays ${def:-unchanged}"
+		;;
+	esac
 }
 
 security_pkgs() { awk -F'\t' '$1 == "system" && $7 == 1 { print $2 }' "$VAR/updates" 2>/dev/null; }
@@ -305,7 +321,7 @@ cmd_upgrade() {
 		else
 			run_fed 2 "$split" "$sys" apt-get upgrade -y || rc=1
 		fi
-		kernel_guard_off
+		kernel_guard_off same
 	fi
 	if [ "$app" -gt 0 ] && have flatpak; then
 		progress $((split + 2)) "Updating apps…"

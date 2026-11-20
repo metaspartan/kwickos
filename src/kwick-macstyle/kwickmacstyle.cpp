@@ -3,6 +3,7 @@
 
 #include <QEvent>
 #include <QMenu>
+#include <QMenuBar>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPlatformSurfaceEvent>
@@ -18,23 +19,38 @@
 namespace
 {
 
-constexpr int ItemHeight = 24;
-constexpr int SeparatorHeight = 11;
-constexpr int HeaderHeight = 24;
-constexpr int Inset = 5;
-constexpr int PanelRadius = 12;
-constexpr int Radius = PanelRadius - Inset;
-constexpr int VMargin = 5;
-constexpr int LeftPad = 14;
-constexpr int RightPad = 14;
-constexpr int IconSize = 16;
-constexpr int IconGap = 7;
-constexpr int ShortcutGap = 28;
-constexpr int ArrowWidth = 16;
-constexpr int ShadowBlur = 22;
-constexpr int ShadowOffset = 8;
-constexpr int ShadowMargin = ShadowBlur + ShadowOffset;
-constexpr qreal PanelAlpha = 0.78;
+struct Look {
+    bool fluent;
+    int itemHeight;
+    int separatorHeight;
+    int headerHeight;
+    int inset;
+    int itemVInset;
+    int panelRadius;
+    int radius;
+    int vMargin;
+    int leftPad;
+    int rightPad;
+    int iconSize;
+    int iconGap;
+    int shortcutGap;
+    int arrowWidth;
+    int minWidth;
+    int shadowBlur;
+    int shadowOffset;
+    int shadowAlpha;
+    int shadowRimAlpha;
+    qreal panelAlpha;
+    int submenuDelay;
+
+    constexpr int shadowMargin() const
+    {
+        return shadowBlur + shadowOffset;
+    }
+};
+
+constexpr Look MacLook{false, 24, 11, 24, 5, 0, 12, 7, 5, 14, 14, 16, 7, 28, 16, 160, 22, 8, 165, 90, 0.78, 150};
+constexpr Look FluentLook{true, 32, 9, 28, 4, 2, 8, 4, 2, 12, 12, 16, 12, 32, 20, 200, 18, 8, 110, 0, 0.92, 300};
 
 QString labelOf(const QString &text)
 {
@@ -125,9 +141,55 @@ bool menuShowsIcons(const QWidget *widget)
     return items > 1;
 }
 
-bool hasLeadColumn(const QStyleOptionMenuItem *item, const QWidget *widget)
+bool menuHasIcon(const QWidget *widget)
 {
+    const auto menu = qobject_cast<const QMenu *>(widget);
+    if (!menu) {
+        return false;
+    }
+    const auto actions = menu->actions();
+    for (const QAction *action : actions) {
+        if (action->isVisible() && !action->isSeparator() && !action->icon().isNull() && action->isIconVisibleInMenu()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool hasLeadColumn(const Look &look, const QStyleOptionMenuItem *item, const QWidget *widget)
+{
+    if (look.fluent) {
+        return item->menuHasCheckableItems || menuHasIcon(widget);
+    }
     return item->menuHasCheckableItems || menuShowsIcons(widget);
+}
+
+bool drawsIcon(const Look &look, const QWidget *widget)
+{
+    return look.fluent ? menuHasIcon(widget) : menuShowsIcons(widget);
+}
+
+QString rawShortcutOf(const QString &text)
+{
+    const int tab = text.indexOf(QLatin1Char('\t'));
+    if (tab < 0) {
+        return QString();
+    }
+    QStringList parts = text.mid(tab + 1).section(QStringLiteral("; "), 0, 0).trimmed().split(QLatin1Char('+'));
+    static const QHash<QString, QString> names{
+        {QStringLiteral("Return"), QStringLiteral("Enter")},
+        {QStringLiteral("PgDown"), QStringLiteral("PgDn")},
+        {QStringLiteral("Meta"), QStringLiteral("Win")},
+    };
+    for (QString &part : parts) {
+        part = names.value(part, part);
+    }
+    return parts.join(QLatin1Char('+'));
+}
+
+QString shortcutFor(const Look &look, const QString &text, const QFont &font)
+{
+    return look.fluent ? rawShortcutOf(text) : shortcutOf(text, font);
 }
 
 QColor accentColor()
@@ -144,10 +206,10 @@ QColor accentColor()
     return QColor(10, 132, 255);
 }
 
-QPainterPath panelPath(const QRectF &rect)
+QPainterPath panelPath(const QRectF &rect, int radius)
 {
     QPainterPath path;
-    path.addRoundedRect(rect, PanelRadius, PanelRadius);
+    path.addRoundedRect(rect, radius, radius);
     return path;
 }
 
@@ -188,13 +250,17 @@ QImage blurredAlpha(QImage image, int radius)
     return image;
 }
 
-QList<KWindowShadowTile::Ptr> shadowTiles(qreal dpr)
+QList<KWindowShadowTile::Ptr> shadowTiles(const Look &look, qreal dpr)
 {
     static QHash<int, QList<KWindowShadowTile::Ptr>> cache;
-    const int key = qRound(dpr * 100);
+    const int key = qRound(dpr * 100) * 2 + (look.fluent ? 1 : 0);
     if (cache.contains(key)) {
         return cache.value(key);
     }
+    const int PanelRadius = look.panelRadius;
+    const int ShadowMargin = look.shadowMargin();
+    const int ShadowBlur = look.shadowBlur;
+    const int ShadowOffset = look.shadowOffset;
     const int core = 2 * PanelRadius + 1;
     const int side = 2 * ShadowMargin + core;
     const int px = qCeil(side * dpr);
@@ -205,21 +271,23 @@ QList<KWindowShadowTile::Ptr> shadowTiles(qreal dpr)
         p.setRenderHint(QPainter::Antialiasing);
         p.scale(dpr, dpr);
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(0, 0, 0, 165));
-        p.drawPath(panelPath(QRectF(ShadowMargin, ShadowMargin + ShadowOffset, core, core).adjusted(2, 2, -2, -2)));
+        p.setBrush(QColor(0, 0, 0, look.shadowAlpha));
+        p.drawPath(panelPath(QRectF(ShadowMargin, ShadowMargin + ShadowOffset, core, core).adjusted(2, 2, -2, -2), PanelRadius));
     }
     image = blurredAlpha(image, qMax(1, qRound(ShadowBlur * dpr / 3.0)));
     {
         QPainter p(&image);
         p.setRenderHint(QPainter::Antialiasing);
         p.scale(dpr, dpr);
-        p.setPen(QPen(QColor(0, 0, 0, 90), 1.0));
-        p.setBrush(Qt::NoBrush);
-        p.drawPath(panelPath(QRectF(ShadowMargin, ShadowMargin, core, core).adjusted(-0.5, -0.5, 0.5, 0.5)));
+        if (look.shadowRimAlpha > 0) {
+            p.setPen(QPen(QColor(0, 0, 0, look.shadowRimAlpha), 1.0));
+            p.setBrush(Qt::NoBrush);
+            p.drawPath(panelPath(QRectF(ShadowMargin, ShadowMargin, core, core).adjusted(-0.5, -0.5, 0.5, 0.5), PanelRadius));
+        }
         p.setCompositionMode(QPainter::CompositionMode_DestinationOut);
         p.setPen(Qt::NoPen);
         p.setBrush(Qt::black);
-        p.drawPath(panelPath(QRectF(ShadowMargin, ShadowMargin, core, core)));
+        p.drawPath(panelPath(QRectF(ShadowMargin, ShadowMargin, core, core), PanelRadius));
     }
     image.setDevicePixelRatio(dpr);
     const int a = ShadowMargin + PanelRadius;
@@ -243,7 +311,11 @@ QList<KWindowShadowTile::Ptr> shadowTiles(qreal dpr)
 class MenuDecorator : public QObject
 {
 public:
-    using QObject::QObject;
+    MenuDecorator(const Look &look, QObject *parent)
+        : QObject(parent)
+        , m_look(look)
+    {
+    }
 
     bool eventFilter(QObject *object, QEvent *event) override
     {
@@ -254,23 +326,25 @@ public:
         switch (event->type()) {
         case QEvent::PlatformSurface:
             if (static_cast<QPlatformSurfaceEvent *>(event)->surfaceEventType() == QPlatformSurfaceEvent::SurfaceCreated) {
-                install(menu);
+                install(m_look, menu);
             }
             break;
         case QEvent::Show:
-        case QEvent::Resize:
-            updateBlur(menu);
-            QTimer::singleShot(0, menu, [menu] {
-                updateBlur(menu);
+        case QEvent::Resize: {
+            updateBlur(m_look, menu);
+            const Look look = m_look;
+            QTimer::singleShot(0, menu, [look, menu] {
+                updateBlur(look, menu);
             });
             break;
+        }
         default:
             break;
         }
         return false;
     }
 
-    static void install(QMenu *menu)
+    static void install(const Look &look, QMenu *menu)
     {
         QWindow *window = menu->windowHandle();
         if (!window) {
@@ -281,7 +355,8 @@ public:
             shadow = new KWindowShadow(window);
         }
         shadow->destroy();
-        const auto tiles = shadowTiles(window->devicePixelRatio());
+        const auto tiles = shadowTiles(look, window->devicePixelRatio());
+        const int ShadowMargin = look.shadowMargin();
         shadow->setTopLeftTile(tiles.at(0));
         shadow->setTopTile(tiles.at(1));
         shadow->setTopRightTile(tiles.at(2));
@@ -293,16 +368,16 @@ public:
         shadow->setPadding(QMargins(ShadowMargin, ShadowMargin, ShadowMargin, ShadowMargin));
         shadow->setWindow(window);
         shadow->create();
-        updateBlur(menu);
+        updateBlur(look, menu);
     }
 
-    static void updateBlur(QMenu *menu)
+    static void updateBlur(const Look &look, QMenu *menu)
     {
         QWindow *window = menu->windowHandle();
         if (!window || !blurAvailable()) {
             return;
         }
-        const QRegion region(panelPath(QRectF(menu->rect())).toFillPolygon().toPolygon());
+        const QRegion region(panelPath(QRectF(menu->rect()), look.panelRadius).toFillPolygon().toPolygon());
         KWindowEffects::enableBlurBehind(window, true, region);
     }
 
@@ -310,15 +385,19 @@ public:
     {
         return KWindowEffects::isEffectAvailable(KWindowEffects::BlurBehind);
     }
+
+private:
+    Look m_look;
 };
 
 class KwickMacStyle : public QProxyStyle
 {
 public:
-    KwickMacStyle()
+    explicit KwickMacStyle(const Look &look)
         : QProxyStyle(QStyleFactory::create(QStringLiteral("Breeze")))
+        , m_look(look)
         , m_accent(accentColor())
-        , m_decorator(new MenuDecorator(this))
+        , m_decorator(new MenuDecorator(look, this))
     {
     }
 
@@ -329,7 +408,7 @@ public:
             menu->removeEventFilter(m_decorator);
             menu->installEventFilter(m_decorator);
             if (menu->testAttribute(Qt::WA_WState_Created)) {
-                MenuDecorator::install(menu);
+                MenuDecorator::install(m_look, menu);
             }
             return;
         }
@@ -351,11 +430,11 @@ public:
         case PM_MenuHMargin:
             return 0;
         case PM_MenuVMargin:
-            return VMargin;
+            return m_look.vMargin;
         case PM_MenuPanelWidth:
             return 0;
         case PM_SubMenuOverlap:
-            return -Inset;
+            return -m_look.inset;
         default:
             return QProxyStyle::pixelMetric(metric, option, widget);
         }
@@ -365,7 +444,7 @@ public:
     {
         switch (hint) {
         case SH_Menu_SubMenuPopupDelay:
-            return 150;
+            return m_look.submenuDelay;
         case SH_Menu_Scrollable:
             return true;
         case SH_Menu_MouseTracking:
@@ -382,18 +461,30 @@ public:
         if (type == CT_MenuItem) {
             if (const auto item = qstyleoption_cast<const QStyleOptionMenuItem *>(option)) {
                 if (item->menuItemType == QStyleOptionMenuItem::Separator) {
-                    return QSize(contentsSize.width(), item->text.isEmpty() ? SeparatorHeight : HeaderHeight);
+                    return QSize(contentsSize.width(), item->text.isEmpty() ? m_look.separatorHeight : m_look.headerHeight);
                 }
                 const QFontMetrics fm(item->font);
-                int width = LeftPad + (hasLeadColumn(item, widget) ? IconSize + IconGap : 0) + fm.horizontalAdvance(labelOf(item->text)) + RightPad;
-                const QString shortcut = shortcutOf(item->text, item->font);
+                int width = m_look.leftPad + (hasLeadColumn(m_look, item, widget) ? m_look.iconSize + m_look.iconGap : 0)
+                    + fm.horizontalAdvance(labelOf(item->text)) + m_look.rightPad;
+                const QString shortcut = shortcutFor(m_look, item->text, item->font);
                 if (item->reservedShortcutWidth > 0 || !shortcut.isEmpty()) {
-                    width += ShortcutGap + std::max(item->reservedShortcutWidth, fm.horizontalAdvance(shortcut));
+                    width += m_look.shortcutGap + std::max(item->reservedShortcutWidth, fm.horizontalAdvance(shortcut));
                 }
                 if (item->menuItemType == QStyleOptionMenuItem::SubMenu) {
-                    width += ArrowWidth;
+                    width += m_look.arrowWidth;
                 }
-                return QSize(std::max(width, 160), ItemHeight);
+                if (m_look.fluent) {
+                    width += 2 * m_look.inset;
+                }
+                return QSize(std::max(width, m_look.minWidth), m_look.itemHeight);
+            }
+        }
+        if (type == CT_MenuBarItem && m_look.fluent) {
+            if (const auto item = qstyleoption_cast<const QStyleOptionMenuItem *>(option)) {
+                if (item->menuItemType != QStyleOptionMenuItem::Separator) {
+                    const QFontMetrics fm(item->font);
+                    return QSize(fm.horizontalAdvance(labelOf(item->text)) + 20, 30);
+                }
             }
         }
         return QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
@@ -423,12 +514,180 @@ public:
         if (element == CE_MenuEmptyArea) {
             return;
         }
+        if (m_look.fluent && element == CE_MenuBarItem) {
+            if (const auto item = qstyleoption_cast<const QStyleOptionMenuItem *>(option)) {
+                drawFluentMenuBarItem(item, painter, widget);
+                return;
+            }
+        }
+        if (m_look.fluent && element == CE_MenuBarEmptyArea) {
+            painter->fillRect(option->rect, option->palette.color(QPalette::Window));
+            return;
+        }
         QProxyStyle::drawControl(element, option, painter, widget);
     }
 
 private:
+    static bool isDark(const QPalette &palette)
+    {
+        return palette.color(QPalette::Window).lightnessF() < 0.5;
+    }
+
+    void drawFluentMenuPanel(const QStyleOption *option, QPainter *painter) const
+    {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setCompositionMode(QPainter::CompositionMode_Source);
+        const QRectF r(option->rect);
+        const bool dark = isDark(option->palette);
+        QColor base = dark ? QColor(44, 44, 44) : QColor(249, 249, 249);
+        base.setAlphaF(MenuDecorator::blurAvailable() ? std::min(1.0, m_look.panelAlpha + (dark ? 0.0 : 0.05)) : 1.0);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(base);
+        painter->drawPath(panelPath(r, m_look.panelRadius));
+        painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
+        const QColor rim = dark ? QColor(255, 255, 255, 23) : QColor(0, 0, 0, 26);
+        painter->setPen(QPen(rim, 1.0));
+        painter->setBrush(Qt::NoBrush);
+        QPainterPath inner;
+        inner.addRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), m_look.panelRadius - 0.5, m_look.panelRadius - 0.5);
+        painter->drawPath(inner);
+        painter->restore();
+    }
+
+    void drawFluentMenuBarItem(const QStyleOptionMenuItem *item, QPainter *painter, const QWidget *widget) const
+    {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        const bool dark = isDark(item->palette);
+        painter->fillRect(item->rect, item->palette.color(QPalette::Window));
+        const bool enabled = item->state & State_Enabled;
+        const bool sunken = item->state & State_Sunken;
+        const bool hot = enabled && (item->state & State_Selected);
+        if (hot) {
+            const QColor fill = dark ? QColor(255, 255, 255, sunken ? 11 : 15) : QColor(0, 0, 0, sunken ? 6 : 10);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(fill);
+            painter->drawRoundedRect(QRectF(item->rect).adjusted(1.0, 2.0, -1.0, -2.0), 4.0, 4.0);
+        }
+        QColor fg = item->palette.color(QPalette::Active, QPalette::WindowText);
+        if (!enabled) {
+            fg.setAlphaF(0.36);
+        }
+        painter->setPen(fg);
+        painter->setFont(item->font);
+        const bool mnemonics = proxy()->styleHint(SH_UnderlineShortcut, item, widget);
+        painter->drawText(item->rect, Qt::AlignCenter | Qt::TextShowMnemonic | (mnemonics ? 0 : Qt::TextHideMnemonic), item->text);
+        painter->restore();
+    }
+
+    void drawFluentMenuItem(const QStyleOptionMenuItem *item, QPainter *painter, const QWidget *widget) const
+    {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        const QRect r = item->rect;
+        const bool dark = isDark(item->palette);
+        const QColor text = dark ? QColor(255, 255, 255) : QColor(0, 0, 0, 228);
+        const int x0 = r.left() + m_look.inset;
+        const int x1 = r.right() + 1 - m_look.inset;
+
+        if (item->menuItemType == QStyleOptionMenuItem::Separator) {
+            if (item->text.isEmpty()) {
+                const QColor line = dark ? QColor(255, 255, 255, 21) : QColor(0, 0, 0, 20);
+                painter->fillRect(QRectF(r.left(), r.top() + r.height() / 2, r.width(), 1.0), line);
+            } else {
+                QColor header = text;
+                header.setAlphaF(dark ? 0.786 : 0.62);
+                QFont font = item->font;
+                font.setWeight(QFont::DemiBold);
+                painter->setFont(font);
+                painter->setPen(header);
+                painter->drawText(QRect(x0 + m_look.leftPad, r.top(), x1 - x0 - m_look.leftPad - m_look.rightPad, r.height()),
+                                  Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, labelOf(item->text));
+            }
+            painter->restore();
+            return;
+        }
+
+        const bool enabled = item->state & State_Enabled;
+        const bool selected = enabled && (item->state & State_Selected);
+        const bool sunken = selected && (item->state & State_Sunken);
+        if (selected) {
+            const QColor fill = dark ? QColor(255, 255, 255, sunken ? 11 : 15) : QColor(0, 0, 0, sunken ? 6 : 10);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(fill);
+            painter->drawRoundedRect(QRectF(x0, r.top() + m_look.itemVInset, x1 - x0, r.height() - 2 * m_look.itemVInset), m_look.radius, m_look.radius);
+        }
+
+        QColor fg = text;
+        if (!enabled) {
+            fg = dark ? QColor(255, 255, 255, 93) : QColor(0, 0, 0, 92);
+        }
+        QColor secondary = dark ? QColor(255, 255, 255, 200) : QColor(0, 0, 0, 158);
+        if (!enabled) {
+            secondary = fg;
+        }
+
+        int x = x0 + m_look.leftPad;
+        const int cy = r.top() + r.height() / 2;
+        if (hasLeadColumn(m_look, item, widget)) {
+            const QRect iconRect(x, cy - m_look.iconSize / 2, m_look.iconSize, m_look.iconSize);
+            if (item->checkType != QStyleOptionMenuItem::NotCheckable && item->checked) {
+                if (item->checkType == QStyleOptionMenuItem::Exclusive) {
+                    painter->setBrush(fg);
+                    painter->setPen(Qt::NoPen);
+                    painter->drawEllipse(QPointF(iconRect.center()) + QPointF(0.5, 0.5), 3.0, 3.0);
+                } else {
+                    QPen pen(fg, 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+                    painter->setPen(pen);
+                    painter->setBrush(Qt::NoBrush);
+                    QPainterPath check;
+                    check.moveTo(iconRect.left() + 2.5, cy + 0.5);
+                    check.lineTo(iconRect.left() + 6.0, cy + 4.0);
+                    check.lineTo(iconRect.left() + 13.5, cy - 3.5);
+                    painter->drawPath(check);
+                }
+            } else if (!item->icon.isNull() && drawsIcon(m_look, widget)) {
+                const QIcon::Mode mode = !enabled ? QIcon::Disabled : QIcon::Normal;
+                item->icon.paint(painter, iconRect, Qt::AlignCenter, mode, QIcon::Off);
+            }
+            x += m_look.iconSize + m_look.iconGap;
+        }
+
+        int right = x1 - m_look.rightPad;
+        if (item->menuItemType == QStyleOptionMenuItem::SubMenu) {
+            QPen pen(secondary, 1.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            painter->setPen(pen);
+            painter->setBrush(Qt::NoBrush);
+            const qreal ax = right - 3.0;
+            QPainterPath arrow;
+            arrow.moveTo(ax - 2.5, cy - 4.5);
+            arrow.lineTo(ax + 2.0, cy + 0.0);
+            arrow.lineTo(ax - 2.5, cy + 4.5);
+            painter->drawPath(arrow);
+            right -= m_look.arrowWidth;
+        }
+
+        painter->setFont(item->font);
+        const QFontMetrics fm(item->font);
+        const QString shortcut = shortcutFor(m_look, item->text, item->font);
+        if (!shortcut.isEmpty()) {
+            painter->setPen(secondary);
+            painter->drawText(QRect(x, r.top(), right - x, r.height()), Qt::AlignRight | Qt::AlignVCenter | Qt::TextSingleLine, shortcut);
+        }
+        painter->setPen(fg);
+        const int labelWidth = right - x - (shortcut.isEmpty() ? 0 : fm.horizontalAdvance(shortcut) + m_look.shortcutGap);
+        const QString label = fm.elidedText(labelOf(item->text), Qt::ElideRight, std::max(0, labelWidth));
+        painter->drawText(QRect(x, r.top(), std::max(0, labelWidth), r.height()), Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, label);
+        painter->restore();
+    }
+
     void drawMenuPanel(const QStyleOption *option, QPainter *painter) const
     {
+        if (m_look.fluent) {
+            drawFluentMenuPanel(option, painter);
+            return;
+        }
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setCompositionMode(QPainter::CompositionMode_Source);
@@ -436,22 +695,34 @@ private:
         QColor base = option->palette.color(QPalette::Window);
         const bool dark = base.lightnessF() < 0.5;
         base = dark ? QColor::fromRgbF(base.redF() * 0.86, base.greenF() * 0.86, base.blueF() * 0.86) : base.lighter(103);
-        base.setAlphaF(MenuDecorator::blurAvailable() ? PanelAlpha : 1.0);
+        base.setAlphaF(MenuDecorator::blurAvailable() ? m_look.panelAlpha : 1.0);
         painter->setPen(Qt::NoPen);
         painter->setBrush(base);
-        painter->drawPath(panelPath(r));
+        painter->drawPath(panelPath(r, m_look.panelRadius));
         painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
         QColor rim = dark ? QColor(255, 255, 255, 38) : QColor(0, 0, 0, 30);
         painter->setPen(QPen(rim, 1.0));
         painter->setBrush(Qt::NoBrush);
         QPainterPath inner;
-        inner.addRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), PanelRadius - 0.5, PanelRadius - 0.5);
+        inner.addRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), m_look.panelRadius - 0.5, m_look.panelRadius - 0.5);
         painter->drawPath(inner);
         painter->restore();
     }
 
     void drawMenuItem(const QStyleOptionMenuItem *item, QPainter *painter, const QWidget *widget) const
     {
+        if (m_look.fluent) {
+            drawFluentMenuItem(item, painter, widget);
+            return;
+        }
+        const int LeftPad = m_look.leftPad;
+        const int RightPad = m_look.rightPad;
+        const int Inset = m_look.inset;
+        const int Radius = m_look.radius;
+        const int IconSize = m_look.iconSize;
+        const int IconGap = m_look.iconGap;
+        const int ShortcutGap = m_look.shortcutGap;
+        const int ArrowWidth = m_look.arrowWidth;
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         const QRect r = item->rect;
@@ -494,7 +765,7 @@ private:
 
         int x = r.left() + LeftPad;
         const int cy = r.top() + r.height() / 2;
-        if (hasLeadColumn(item, widget)) {
+        if (hasLeadColumn(m_look, item, widget)) {
             const QRect iconRect(x, cy - IconSize / 2, IconSize, IconSize);
             if (item->checkType != QStyleOptionMenuItem::NotCheckable && item->checked) {
                 QPen pen(fg, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -545,6 +816,7 @@ private:
         painter->restore();
     }
 
+    Look m_look;
     QColor m_accent;
     MenuDecorator *m_decorator;
 };
@@ -560,7 +832,10 @@ public:
     QStyle *create(const QString &key) override
     {
         if (key.compare(QStringLiteral("KwickMac"), Qt::CaseInsensitive) == 0) {
-            return new KwickMacStyle;
+            return new KwickMacStyle(MacLook);
+        }
+        if (key.compare(QStringLiteral("KwickFluent"), Qt::CaseInsensitive) == 0) {
+            return new KwickMacStyle(FluentLook);
         }
         return nullptr;
     }

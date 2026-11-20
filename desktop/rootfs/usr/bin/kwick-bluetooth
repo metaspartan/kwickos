@@ -22,9 +22,14 @@ usage: kwick-bluetooth <command> [args]
 EOF
 }
 
-btctl() { have bluetoothctl || return 1; timeout 6 bluetoothctl "$@" 2>/dev/null; }
+btctl() { have bluetoothctl || return 1; timeout "${BT_WAIT:-6}" bluetoothctl "$@" 2>/dev/null; }
 
-available() { btctl show | grep -q '^Controller '; }
+has_adapter() {
+  for h in /sys/class/bluetooth/hci*; do [ -e "$h" ] && return 0; done
+  return 1
+}
+
+available() { has_adapter && btctl show | grep -q '^Controller '; }
 
 powered() { btctl show | grep -q 'Powered: yes'; }
 
@@ -90,12 +95,12 @@ is_connected() { btctl info "$1" | grep -q 'Connected: yes'; }
 cmd_connect() {
   [ -n "${1:-}" ] || die "missing device address"
   powered || cmd_power on
-  btctl connect "$1" | grep -q 'Connection successful' || is_connected "$1" || die "could not connect to $(device_name "$1")"
+  BT_WAIT=25 btctl connect "$1" | grep -q 'Connection successful' || is_connected "$1" || die "could not connect to $(device_name "$1")"
 }
 
 cmd_disconnect() {
   [ -n "${1:-}" ] || die "missing device address"
-  btctl disconnect "$1" >/dev/null
+  BT_WAIT=15 btctl disconnect "$1" >/dev/null
   ! is_connected "$1" || die "could not disconnect $(device_name "$1")"
 }
 

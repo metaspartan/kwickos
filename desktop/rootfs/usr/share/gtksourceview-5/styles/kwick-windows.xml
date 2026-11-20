@@ -4,6 +4,7 @@
   <description>Adwaita dark on the Windows 11 secondary background</description>
   <metadata>
     <property name="variant">dark</property>
+    <property name="light-variant">kwick-windows-light</property>
   </metadata>
   <style name="text" foreground="#ffffff" background="#1c1c1c"/>
   <style name="current-line" background="#232323"/>

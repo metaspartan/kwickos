@@ -17,3 +17,4 @@
 @RED@ #ff99a4
 @YELLOW@ #fce100
 @GREEN@ #6ccb5f
+@MENU_SHADOW@ rgba(0, 0, 0, 0.37)

@@ -7,7 +7,7 @@
   "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "custom/editor", "custom/store", "custom/steam", "custom/settings", "wlr/taskbar"],
   "modules-right": ["tray", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/start": { "format": " ", "tooltip-format": "Start", "on-click": "fuzzel" },
-  "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "fuzzel" },
+  "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "kwick-search" },
   "custom/files": {
     "exec": "/usr/lib/kwick/dock-state 'org.gnome.Nautilus|org.kde.dolphin|thunar|pcmanfm'",
     "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Files",
