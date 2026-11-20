@@ -24,6 +24,7 @@ uniform vec2 uDark;
 uniform float uMul;
 uniform float uVeil;
 uniform float uAdapt;
+uniform vec2 uMilk;
 
 in vec2 vUv;
 
@@ -126,7 +127,7 @@ void main()
         float k = clamp(darken, 0.0, 0.9);
         col = mix(mix(col, vec3(0.05, 0.055, 0.07), k), col * (1.0 - k), uMul) + vec3(lift);
     } else if (uStyle < 1.5) {
-        float milk = uTint * mix(0.32, 0.14, smoothstep(0.3, 0.9, m));
+        float milk = uTint * mix(uMilk.x, uMilk.y, smoothstep(0.3, 0.9, m));
         col = mix(col, vec3(0.97, 0.975, 0.99), clamp(milk, 0.0, 0.9));
     }
 

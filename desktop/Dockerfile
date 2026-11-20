@@ -55,6 +55,7 @@ RUN set -e; \
     printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf; \
     rm -f /etc/kinit/autologin; \
     mkdir -p /etc/xdg; printf '[Daemon]\nAutolock=false\nLockOnResume=false\n' > /etc/xdg/kscreenlockerrc; \
+    for p in AC Battery LowBattery; do printf '[%s][SuspendAndShutdown]\nAutoSuspendAction=0\n\n[%s][Display]\nDimDisplayWhenIdle=false\nTurnOffDisplayWhenIdle=false\n\n' "$p" "$p"; done > /etc/xdg/powerdevilrc; \
     echo "KwickOS Desktop $(cat /etc/kwick-release | cut -d' ' -f2)" > /etc/kwick-edition; \
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true; \
     ls -l /usr/libexec/elogind /usr/lib/systemd/systemd-udevd /usr/bin/startplasma-wayland

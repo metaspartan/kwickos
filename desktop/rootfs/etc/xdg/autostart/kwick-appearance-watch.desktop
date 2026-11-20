@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KwickOS appearance
+Comment=Keeps the KwickOS appearance in step with the Dark Style switch in Quick Settings
+Exec=/usr/lib/kwick/appearance-watch
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Phase=Applications
+X-GNOME-AutoRestart=true

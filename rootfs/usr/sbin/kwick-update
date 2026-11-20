@@ -192,7 +192,8 @@ collect_apt() {
 		/^$/ { if (p != "") print p "\t" v "\t" s "\t" d; p = v = s = d = "" }
 		END { if (p != "") print p "\t" v "\t" s "\t" d }
 	' >"$VAR/apt.show"
-	RELEASE_CAND=$(awk -F'\t' -v n="$rp" '$1 == n { print $2 }' "$VAR/apt.show" | tail -n 1)
+	RELEASE_CAND=""
+	[ -n "$(installed_version "$rp")" ] && RELEASE_CAND=$(awk -F'\t' -v n="$rp" '$1 == n { print $2 }' "$VAR/apt.show" | tail -n 1)
 	names=$(cut -f1 "$VAR/apt.plan")
 	[ -n "$names" ] && dpkg-query -W $names 2>/dev/null | awk -F'\t' '{ sub(/:.*/, "", $1); print $1 "\t" $2 }' >"$VAR/apt.have"
 	while IFS="$(printf '\t')" read -r n to origin; do
@@ -468,7 +469,7 @@ cmd_scheduled() {
 	QUIET=1
 	renice -n 10 -p $$ >/dev/null 2>&1
 	(cmd_check) || return 0
-	if ! on_battery; then
+	if ! on_battery && [ "$(count_of)" -gt 0 ]; then
 		if [ "$INSTALL_SYSTEM" = 1 ] || [ "$INSTALL_APPS" = 1 ]; then
 			w=all
 			[ "$INSTALL_SYSTEM" = 1 ] || w=apps

@@ -1,0 +1,6 @@
+#!/bin/sh
+command -v gsettings >/dev/null 2>&1 || exit 0
+gsettings monitor org.gnome.desktop.interface color-scheme | while read -r _ v; do
+  case $v in *prefer-dark*) m=dark ;; *) m=light ;; esac
+  [ "$m" = "$(kwick-layout appearance)" ] || kwick-layout appearance "$m" >/dev/null 2>&1
+done

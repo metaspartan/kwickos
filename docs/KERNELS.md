@@ -43,9 +43,9 @@ Installing needs root. `list` and `status` do not.
 | Boot path | default | one-shot `try` | fallback if the trial is not confirmed |
 |---|---|---|---|
 | EFI stub (no bootloader) | the default kernel is `EFI/BOOT/BOOTx64.EFI` (the previous one stays as `EFI/kwick/previous.efi`); other kernels are copied only when selected, so a small ESP is fine | the kernel is copied to `EFI/kwick/trial.efi` and `efibootmgr` creates a boot entry and sets `BootNext` (installs `efibootmgr` if missing) | the firmware consumes `BootNext`; the next boot uses the default again |
-| GRUB (UEFI or BIOS) | `grub.cfg` has one entry per kernel (`/EFI/kwick/k/<id>/` or `/boot/k/<id>/`), the default is `saved_entry` in `grubenv` | `next_entry` in `grubenv`, which `grub.cfg` clears before booting (the same mechanism as `grub-reboot`) | `next_entry` is already gone, the next boot uses the default |
-| systemd-boot | one `loader/entries/kwick-<id>.conf` per kernel, `default` in `loader.conf` plus `bootctl set-default` | `bootctl set-oneshot` (or the `LoaderEntryOneShot` EFI variable directly) | the boot loader clears the one-shot variable |
-| U-Boot boards (BPI-F3) | `kwick-bootctl set-kernel <release>`, which also appends the kernel's own `uboot.txt` (the mainline flavor uses it to boot with the SoC watchdog armed) | the same call; `kwick-bootctl` falls back to the vendor system when the boot is unconfirmed | `kwick-kernel confirm` restores the previous kernel selection after a failed trial |
+| GRUB (UEFI or BIOS) | `grub.cfg` has one entry per kernel (`/EFI/kwick/k/<id>/` or `/boot/k/<id>/`), the default is `saved_entry` in `grubenv` | `next_entry` in `grubenv`, which `grub.cfg` clears before booting (the same mechanism as `grub-reboot`) | `next_entry` is already gone, the next boot uses the default. When `grubenv` is on btrfs, xfs or ZFS (BIOS installs keep it in `/boot/grub` on the root file system) GRUB cannot write it, so `try` is refused and new kernels wait for `kwick-kernel default` |
+| systemd-boot | one `loader/entries/kwick-<id>.conf` per kernel, `default` in `loader.conf` plus `bootctl set-default` | `bootctl set-oneshot`, or the `LoaderEntryOneShot` EFI variable directly when `bootctl` is not installed (the usual case: `kwick-install` only installs `systemd-boot-efi`) | the boot loader clears the one-shot variable |
+| U-Boot boards (BPI-F3) | `kwick-bootctl set-kernel <release>`, which also appends the kernel's own `uboot.txt` (the mainline flavor uses it to boot with the SoC watchdog armed) | `kwick-bootctl try-kernel <release>`: the same selection plus a `kwick_fallback` override in `kwick.txt` | U-Boot itself: when it finds `kwick-attempt` left over (or cannot load the trial kernel) it copies `kwick.prv` back over `kwick.txt`, removes `kwick-attempt` and `kwick-mode-armbian` and resets, so the previous kernel boots, not Armbian |
 | Raspberry Pi 4 and 5 (Pi firmware) | `kwick-rpi-boot install <release>` copies `kernel8.img`, the bcm2711/bcm2712 device trees and the overlays of that kernel to `/boot/firmware` (the previous image stays as `kernel8.prev.img`); `config.txt` and `cmdline.txt` are written only when missing | not available | none; `kwick-rpi-boot rollback` or `kwick-kernel rollback` restores the previous kernel from a running system, otherwise copy `kernel8.prev.img` over `kernel8.img` on another computer |
 | Apple Silicon | `kwick-apple-boot install <release>` | not available | none |
 | containers, direct-kernel boot | nothing to switch (the kernel is stored under `/usr/lib/kwick/kernels`) | | |
@@ -53,8 +53,17 @@ Installing needs root. `list` and `status` do not.
 * **Confirmation.** `kwick-kernel-confirm.service` runs `kwick-kernel confirm --wait` at every boot. After a short delay
   (`CONFIRM_DELAY`, 30 s by default) it compares the running kernel with the pending trial. A match records the trial as
   confirmed (and with `--promote` makes it the default). Anything else records it as failed. Because every one-shot
-  mechanism above is consumed by the firmware or boot loader itself, a kernel that hangs needs nothing more than a
-  power cycle to come back on the default.
+  mechanism above is consumed by the firmware or boot loader itself, the next boot after a failed trial is the default.
+* **Coming back without help.** A trial boot carries `panic=10` (on EFI stub in the trial boot entry's options, on GRUB
+  and systemd-boot in every entry `kwick-kernel` and `kwick-install` write; `PANIC_REBOOT` in `/etc/kwick/kernel.conf`).
+  A trial kernel that panics, or whose embedded init cannot find the root file system, reboots after 10 seconds and the
+  default comes up on its own. A trial kernel that hangs without panicking needs a power cycle on PCs and VMs (there is
+  no watchdog armed before userspace there); on the BPI-F3 the SoC watchdog resets the board.
+* **Kept kernels.** `keep N` and the automatic cleanup never remove the running, default, previous or pending kernel, so
+  `rollback` always has its target.
+* **Release names.** The `virt` flavor's kernel release ends in `-kwick-virt` (for example `7.3.5-kwick-virt`), the
+  `generic` flavor's in `-kwick`. Before, both used `-kwick`, so the two packages of the same version wrote the same
+  `/usr/lib/kwick/kernels/<release>` and the second overwrote the first.
 * `kwick-kernel-install <release>` (what the kernel packages call in their `postinst`) now forwards to `kwick-kernel`,
   so a kernel installed with `apt install` becomes the default exactly as before, the previous default is remembered
   for `rollback`, and `kwick-kernel-install --list` and `--rollback` still work. On GRUB and systemd-boot installs
@@ -94,6 +103,9 @@ repository offers with **Install**, **Roll Back** and **Keep**. It reads `kwick-
 `kwick-update upgrade`, are tried once with `--promote` before they become the default.
 
 ## Testing
+
+The end-to-end run of updates and kernel trials on every boot path (EFI stub, systemd-boot, UEFI GRUB, BIOS GRUB on
+ext4 and btrfs, U-Boot in the U-Boot sandbox) and the Settings page is in [VERIFICATION](VERIFICATION.md#software-update-and-kernel-trials-end-to-end).
 
 `tests/kernel-switch.sh efistub|grub` boots the image under QEMU/UEFI nine times with real kernels: an older and a newer
 virt kernel and the generic kernel are packaged into a signed repository, installed through apt with `kwick-kernel`,

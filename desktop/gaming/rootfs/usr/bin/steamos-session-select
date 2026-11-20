@@ -7,17 +7,32 @@ esac
 STATE=${XDG_STATE_HOME:-$HOME/.local/state}/kwick
 sudo -n /usr/bin/kwick-gaming session-select "$target" >/dev/null 2>&1
 
+mine() {
+  for p in $(pgrep -x "$1" 2>/dev/null); do
+    [ "$(stat -c %u "/proc/$p" 2>/dev/null)" = "$(id -u)" ] && return 0
+  done
+  return 1
+}
+
 end_session() {
   sid=${XDG_SESSION_ID:-$(loginctl show-user "$(id -un)" -p Display --value 2>/dev/null)}
-  if [ -n "$sid" ]; then loginctl terminate-session "$sid"; else loginctl terminate-user "$(id -un)"; fi
+  if [ -z "$sid" ]; then loginctl terminate-user "$(id -un)"; return; fi
+  leader=$(loginctl show-session "$sid" -p Leader --value 2>/dev/null)
+  loginctl terminate-session "$sid" 2>/dev/null
+  i=0
+  while [ "$i" -lt 4 ] && [ -n "$leader" ] && [ -d "/proc/$leader" ]; do
+    sleep 0.5
+    i=$((i + 1))
+  done
+  [ -n "$leader" ] && [ -d "/proc/$leader" ] && pkill -TERM -P "$leader"
 }
 
 if [ "${XDG_CURRENT_DESKTOP:-}" = gamescope ]; then
   mkdir -p "$STATE" && : > "$STATE/gamemode-switching"
-  if pgrep -u "$(id -u)" -x steam >/dev/null 2>&1; then
+  if mine steam; then
     steam -shutdown >/dev/null 2>&1 &
     i=0
-    while [ "$i" -lt 20 ] && pgrep -u "$(id -u)" -x steam >/dev/null 2>&1; do
+    while [ "$i" -lt 20 ] && mine steam; do
       sleep 1
       i=$((i + 1))
     done
@@ -30,5 +45,7 @@ fi
 case ${XDG_CURRENT_DESKTOP:-} in
   *KDE*) dbus-send --session --print-reply --dest=org.kde.Shutdown /Shutdown org.kde.Shutdown.logout >/dev/null && exit 0 ;;
   *GNOME*) gnome-session-quit --logout --no-prompt && exit 0 ;;
+  *Hyprland*) hyprctl dispatch exit >/dev/null && exit 0 ;;
+  *sway*) swaymsg exit >/dev/null && exit 0 ;;
 esac
 end_session

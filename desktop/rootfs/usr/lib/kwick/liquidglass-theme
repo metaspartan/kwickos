@@ -10,9 +10,11 @@ kr() { kreadconfig6 --file "$1" --group "$2" --key "$3" --default "$4" 2>/dev/nu
 kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
 frame() {
-  f=$1 R=$2 M=$3 A=$4 S=$5 SA=$6 T=${7:-0}
+  f=$1 R=$2 M=$3 A=$4 S=$5 SA=$6 T=${7:-0} MR=${8:-$2}
   [ "$R" -lt 2 ] && R=2
-  E=10; F=$((2 * R + E)); MX=$((F + 20)); SY=$((F + 20)); G=$((2 * S + E)); HX=$((MX + F + 20))
+  [ "$MR" -lt "$R" ] && MR=$R
+  FR=$R
+  E=10; F=$((2 * R + E)); MF=$((2 * MR + E)); MX=$((F + 20)); SY=$((MF + 20)); G=$((2 * S + E)); HX=$((MX + MF + 20))
   corner() {
     id=$1 x=$2 y=$3 fill=$4 op=$5
     case $id in
@@ -49,7 +51,9 @@ frame() {
     done
     printf '</defs>\n'
     block "" 0 "#10131a" "$A"
+    R=$MR
     block "mask-" "$MX" "#000000" 1
+    R=$FR
     [ "$S" -gt 0 ] && {
     printf '<rect id="shadow-topleft" x="0" y="%s" width="%s" height="%s" fill="url(#gtl)"/>\n' "$SY" "$S" "$S"
     printf '<rect id="shadow-top" x="%s" y="%s" width="%s" height="%s" fill="url(#gv)"/>\n' "$S" "$SY" $E "$S"
@@ -123,9 +127,9 @@ generate() {
   done
   mkdir -p "$D/widgets" "$D/dialogs" "$D/solid/widgets" "$D/solid/dialogs"
   dr=$(( r / 2 )); [ "$dr" -lt 3 ] && dr=3; [ "$dr" -gt 8 ] && dr=8
-  frame "$D/widgets/panel-background.svg" 4 2 0.01 0 0 2
-  frame "$D/dialogs/background.svg" "$dr" 10 0.03 0 0
-  frame "$D/widgets/tooltip.svg" 4 4 0.03 0 0
+  frame "$D/widgets/panel-background.svg" 4 2 0.01 0 0 2 28
+  frame "$D/dialogs/background.svg" "$dr" 10 0.03 0 0 0 20
+  frame "$D/widgets/tooltip.svg" 4 4 0.03 0 0 0 11
   menubar "$D/widgets/menubaritem.svg"
   cp "$D/widgets/panel-background.svg" "$D/widgets/tooltip.svg" "$D/solid/widgets/"
   cp "$D/dialogs/background.svg" "$D/solid/dialogs/"

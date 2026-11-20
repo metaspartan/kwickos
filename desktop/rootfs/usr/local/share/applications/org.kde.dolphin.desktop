@@ -5,6 +5,7 @@ GenericName=File Manager
 Icon=kwick-files
 Exec=dolphin %u
 Categories=Qt;KDE;System;FileTools;FileManager;
+Keywords=dolphin;files;file manager;file management;folders;finder;explorer;browse;network shares;
 MimeType=inode/directory;
 StartupNotify=true
 Terminal=false

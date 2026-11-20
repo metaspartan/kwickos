@@ -1160,6 +1160,8 @@ do_copy() {
 		echo './mnt/*'
 		echo './media/*'
 		echo './var/tmp/*'
+		echo './boot/efi/*'
+		echo './var/lib/kwick/kernel-state'
 		echo './var/lib/apt/lists/*'
 		echo './var/cache/apt/archives/*.deb'
 		echo './root/.bash_history'
@@ -1468,7 +1470,7 @@ cfg_autologin() {
 }
 
 cfg_liveclean() {
-	rm -f "$T/etc/xdg/kscreenlockerrc" "$T/etc/sudoers.d/kwick-live" "$T/etc/kwick-live" "$T/etc/xdg/autostart/kwick-installer-live.desktop" "$T/usr/lib/kwick/installer-live"
+	rm -f "$T/etc/xdg/kscreenlockerrc" "$T/etc/xdg/powerdevilrc" "$T/etc/sudoers.d/kwick-live" "$T/etc/kwick-live" "$T/etc/xdg/autostart/kwick-installer-live.desktop" "$T/usr/lib/kwick/installer-live"
 	: >"$T/etc/machine-id"
 	uuidgen 2>/dev/null | tr -d '-' >"$T/etc/machine-id"
 	[ -s "$T/etc/machine-id" ] || cat /proc/sys/kernel/random/uuid | tr -d '-' >"$T/etc/machine-id"
@@ -1828,7 +1830,7 @@ install_boot_files() {
 write_grub_cfg() {
 	cfgfile=$1
 	mkdir -p "$(dirname "$cfgfile")"
-	cl="$(boot_cmdline) quiet"
+	cl="$(boot_cmdline) quiet panic=10"
 	if [ "$FW" = uefi ]; then fsu=$ESP_UUID; else fsu=${BOOT_UUID:-$ROOT_UUID}; fi
 	ini=""
 	[ "$(need_initrd)" = 1 ] && ini="	initrd $BREL/initrd.img"
@@ -1842,7 +1844,7 @@ write_grub_cfg() {
 }
 
 write_sdboot_entries() {
-	cl="$(boot_cmdline) quiet"
+	cl="$(boot_cmdline) quiet panic=10"
 	mkdir -p "$ESPDIR/loader/entries"
 	printf 'default kwickos.conf\ntimeout 0\nconsole-mode keep\n' >"$ESPDIR/loader/loader.conf"
 	for v in "kwickos:KwickOS:" "kwickos-safe:KwickOS (safe graphics): nomodeset"; do

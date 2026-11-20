@@ -5,7 +5,7 @@ SRC=${SRC:-/src}; OUT=${OUT:-/out}
 VER=$(kwick_version)
 join() { local IFS=,; echo "$*" | sed 's/,/, /g'; }
 ESS_DEPENDS=(
-  ca-certificates curl wget jq sudo
+  kwick-update ca-certificates curl wget jq sudo
   bind9-dnsutils net-tools iproute2 iputils-ping traceroute openssh-client rsync
   git less nano vim-tiny htop
   unzip zip zstd xz-utils bzip2

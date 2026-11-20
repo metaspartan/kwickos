@@ -14,11 +14,33 @@ esac
 efibin() { if [ -f "$1/vmlinuz.efi" ]; then echo "$1/vmlinuz.efi"; else echo "$1/vmlinuz"; fi; }
 EFIV=$(efibin "$KV")
 cp "$EFIV" "$D/kwickos-$ARCH.efi"
+SRC=${SRC:-/src}
+kdeb() {
+  local t="$W/kpkg-$2"
+  mkdir -p "$t/$ARCH"; cp -a "$1" "$t/$ARCH/kernel-$2"
+  OUT=$t SRC=$SRC bash "$SRC/scripts/mkkernelpkg.sh" "$ARCH" "$2" >/dev/null
+  ls "$t"/repo/pool/main/linux-image-kwick-"$2"_*.deb
+}
+register() {
+  local R=$1 deb=$2 pkg x
+  pkg=$(dpkg-deb -f "$deb" Package)
+  x="$W/ctl-$pkg"; rm -rf "$x"; mkdir -p "$x"
+  dpkg-deb -x "$deb" "$R"
+  dpkg-deb -e "$deb" "$x"
+  for s in preinst postinst prerm postrm md5sums conffiles; do
+    [ -f "$x/$s" ] && cp -p "$x/$s" "$R/var/lib/dpkg/info/$pkg.$s"
+  done
+  dpkg-deb --fsys-tarfile "$deb" | tar -t | sed -e 's|^\./|/|' -e 's|/$||' -e 's|^$|/.|' | sort -u > "$R/var/lib/dpkg/info/$pkg.list"
+  { echo; dpkg-deb -f "$deb" | awk '{ print } /^Package:/ { print "Status: install ok installed" }'; echo; } >> "$R/var/lib/dpkg/status"
+  chmod 755 "$R"
+}
+RD="$W/rootfs-disk"; cp -a "$R0" "$RD"
+register "$RD" "$(kdeb "$KV" virt)"
 
 ( cd "$R0" && find . -mindepth 1 | LC_ALL=C sort | cpio --quiet -o -H newc -R 0:0 ) | zstd -19 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" -q > "$D/kwickos-$ARCH-initramfs.cpio.zst"
 
 ROOTMB=${ROOTMB:-1024}; ESPMB=48
-mke2fs -q -t ext4 -L kwick-root -E root_owner=0:0 -d "$R0" "$W/root.ext4" "${ROOTMB}M"
+mke2fs -q -t ext4 -L kwick-root -E root_owner=0:0 -d "$RD" "$W/root.ext4" "${ROOTMB}M"
 mkfs.vfat -n KWICK-ESP -C "$W/esp.vfat" $((ESPMB * 1024)) >/dev/null
 mmd -i "$W/esp.vfat" ::/EFI ::/EFI/BOOT ::/EFI/kwick
 mcopy -i "$W/esp.vfat" "$EFIV" "::/EFI/BOOT/$EFINAME"
@@ -34,12 +56,9 @@ dd if="$W/root.ext4" of="$W/disk.img" bs=1M seek=$((1 + ESPMB)) conv=notrunc,spa
 mv "$W/disk.img" "$D/kwickos-$ARCH.img"
 qemu-img convert -c -O qcow2 "$D/kwickos-$ARCH.img" "$D/kwickos-$ARCH.qcow2"
 
-KI=$KV; [ -f "$KG/vmlinuz" ] && KI=$KG
-RI="$R0"
-if [ -f "$KI/modules.tar.zst" ]; then
-  RI="$W/rootfs-iso"; cp -a "$R0" "$RI"
-  zstd -dc "$KI/modules.tar.zst" | tar -C "$RI/usr" -x
-fi
+KI=$KV; KF=virt; [ -f "$KG/vmlinuz" ] && KI=$KG && KF=generic
+RI="$W/rootfs-iso"; cp -a "$R0" "$RI"
+register "$RI" "$(kdeb "$KI" $KF)"
 EFII=$(efibin "$KI")
 . "$(cd "$(dirname "$0")" && pwd)/live-boot.sh"
 uki_build "$ARCH" "$EFII" "$W/live-efi.efi" kwick.live && EFII="$W/live-efi.efi"

@@ -1,5 +1,3 @@
-org.gnome.desktop.interface color-scheme 'prefer-dark'
-org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
 org.gnome.desktop.interface icon-theme 'KwickOS'
 org.gnome.desktop.interface cursor-theme 'breeze_cursors'
 org.gnome.desktop.interface cursor-size 24

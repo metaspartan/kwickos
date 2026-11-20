@@ -6,6 +6,14 @@ VER=$(kwick_version)
 P=$(mktemp -d); mkdir -p "$P/DEBIAN"
 cp -r --no-preserve=ownership "$SRC/desktop/rootfs/." "$P/"
 find "$P" -type f \( -path '*/usr/lib/kwick/*' -o -path '*/usr/bin/kwick-*' \) -exec chmod 755 {} +
+T="$P/usr/share/kwick/tiling"; K="$P/etc/skel/.config"
+mkdir -p "$K/hypr" "$K/sway"
+cp "$T/common/hyprland.conf" "$K/hypr/hyprland.conf"
+cp "$T/macos/hyprland.conf" "$K/hypr/kwick-layout.conf"
+: > "$K/hypr/kwick-effects.conf"; : > "$K/hypr/kwick-bars.conf"; : > "$K/hypr/kwick-touch.conf"
+cp "$T/common/sway.conf" "$K/sway/config"
+sed 's/@UI@/Inter/g' "$T/macos/sway.conf" > "$K/sway/kwick-layout.conf"
+for l in macos windows linux; do cp "$P/usr/share/kwick/plasma/$l.js" "$P/usr/share/plasma/look-and-feel/org.kwickos.$l/contents/layouts/org.kde.plasma.desktop-layout.js"; done
 chmod 755 "$P/usr/lib/kwick/fetch-fonts"
 "$P/usr/lib/kwick/fetch-fonts" "$P" all
 kwin_plugin() {
@@ -29,7 +37,7 @@ chmod 755 "$P/usr/lib/kwick/fetch-effects"
 "$P/usr/lib/kwick/fetch-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
-deps="linux-image-kwick-generic | linux-image-kwick-rpi, kwick-gpu, kwick-gaming, kwick-essentials, $deps"
+deps="linux-image-kwick-generic | linux-image-kwick-rpi, kwick-gpu, kwick-gaming, kwick-essentials, kwick-update, $deps"
 deb_control "$P" kwick-desktop "$VER" "$ARCH" metapackages 40000 <<EOF
 Depends: $deps
 Description: KwickOS Desktop (KDE Plasma 6, Wayland)
@@ -69,7 +77,7 @@ fi
 if command -v locale-gen >/dev/null; then
   grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen 2>/dev/null || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
   locale-gen >/dev/null 2>&1 || true
-  [ -f /etc/default/locale ] || update-locale LANG=en_US.UTF-8 >/dev/null 2>&1 || true
+  grep -qs '^LANG=' /etc/default/locale || update-locale LANG=en_US.UTF-8 >/dev/null 2>&1 || true
 fi
 rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 for t in KwickOS KwickOS-Fluent KwickOS-Linux hicolor; do command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t /usr/share/icons/$t >/dev/null 2>&1 || true; done

@@ -5,6 +5,7 @@ GenericName=Terminal Emulator
 Icon=kwick-terminal
 Exec=konsole
 Categories=Qt;KDE;System;TerminalEmulator;
+Keywords=konsole;terminal;console;shell;command;command line;prompt;cli;bash;zsh;sh;cmd;
 StartupNotify=true
 Terminal=false
 OnlyShowIn=KDE;

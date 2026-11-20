@@ -19,9 +19,9 @@ Source for the Bazzite side: the Bazzite docs (docs.bazzite.gg) and its `ujust` 
 | Feature | Bazzite way | KwickOS way | Status |
 |---|---|---|---|
 | Steam | Fedora Steam RPM plus Steam Deck patches | `steam` module: Debian `steam-installer` via `kwick-gpu steam` (i386 multiarch, udev, uinput), Flathub fallback | Done (x86_64 only) |
-| Gaming Mode session | `gamescope-session-plus` and `gamescope-session-steam`, Steam Deck UI | `gamescope-session` module: `Gaming Mode` session on SDDM, `kwick-gamescope-session`, Gamescope 3.16 from `trixie-backports` (Flathub extension as the fallback) | Done on x86_64 |
+| Gaming Mode session | `gamescope-session-plus` and `gamescope-session-steam`, Steam Deck UI | `gamescope-session` module: `Gaming Mode` session on SDDM, `kwick-gamescope-session`, Gamescope 3.16 from `trixie-backports` (for the Steam Flatpak, `org.freedesktop.Platform.VulkanLayer.gamescope` on Steam's runtime branch as the fallback) | Done on x86_64 |
 | Boot to Gaming Mode, Switch to Desktop | `bazzite-deck` image, `steamos-manager` / `steamosctl` | `kwick-gaming session boot-on`, `quick-on`; `steamos-session-select`, a hidden one-shot desktop session, SDDM `Relogin` drop-in | Done (SDDM only), see [Gaming Mode](#gaming-mode) |
-| Steam's SteamOS hooks | `steamos-select-branch`, `steamos-update`, `jupiter-biosupdate`, `steamos-polkit-helpers` | Same names as stubs: one branch (`stable`), "no update" (exit 7), BIOS no-op; KwickOS updates come from Settings | Done |
+| Steam's SteamOS hooks | `steamos-select-branch`, `steamos-update`, `jupiter-biosupdate`, `jupiter-dock-updater`, `steamos-polkit-helpers` | Same names as stubs: one branch (`stable`), "no update" (exit 7), BIOS and dock firmware no-ops; KwickOS updates come from Settings | Done |
 | Crash fallback | short-session tracker in `gamescope-session-plus` | 3 sessions under 60 s (1 when only quick switching is on) open the desktop and show a notification | Done |
 | Performance overlay | `mangoapp`, driven by Steam's quick access menu | Steam's slider when `mangoapp` exists; Debian 13 and the MangoHud release ship none, so Settings sets a MangoHud preset for games in Gaming Mode | Partial |
 | TDP in Steam's quick access menu | `steamos-manager`, HHD | HHD (`handheld` module) and Decky plugins; no `steamos-manager` | Partial |
@@ -72,7 +72,8 @@ user run `kwick-gaming session-select game|desktop|desktop-persistent|settle` wi
 * `steamos-session-select` is what Steam's power menu calls (`plasma`, `plasma-wayland-persistent`, `gamescope`, ...). It has
   `session-select` write `/etc/sddm.conf.d/90-kwick-gamemode.conf` (`[Autologin]`, `Relogin=true`, the target session) and ends the
   current session: in Gaming Mode `steam -shutdown`, then Gamescope; on Plasma `org.kde.Shutdown.logout`; on GNOME
-  `gnome-session-quit`; otherwise `loginctl terminate-session`. SDDM rereads its configuration for every new display, so it logs
+  `gnome-session-quit`; on Hyprland and sway their exit command; otherwise `loginctl terminate-session`, and when elogind cannot end the
+  session (no cgroups under kinit) the session leader's child process is stopped. SDDM rereads its configuration for every new display, so it logs
   straight in to the target.
 * Each session settles the drop-in when it starts: with boot on it points back to Gaming Mode (logging out of the desktop returns to
   it, as on SteamOS); with only quick switching on it is removed (a later logout or reboot shows the login screen).
@@ -86,9 +87,9 @@ the desktop and leaves a marker that the autostart entry turns into a notificati
 ends on the login screen. SDDM treats a session exit status of 1 as an authentication error and then neither logs in again nor
 restarts the greeter (black screen), so the session script always exits 0.
 
-Steam hooks. On SteamOS, Steam calls `steamos-select-branch`, `steamos-update`, `jupiter-biosupdate` and the same names under
-`/usr/bin/steamos-polkit-helpers/`. The stubs report one branch, "no update" (exit 7, as on ChimeraOS) and a BIOS no-op, so Steam's
-System settings work and never try to update the OS.
+Steam hooks. On SteamOS, Steam calls `steamos-select-branch`, `steamos-update`, `jupiter-biosupdate`, `jupiter-dock-updater` and the same
+names under `/usr/bin/steamos-polkit-helpers/`. The stubs report one branch, "no update" (exit 7, as on ChimeraOS) and BIOS and dock
+firmware no-ops, so Steam's System settings work and never try to update the OS.
 
 Environment. The session exports what `gamescope-session-plus` and `gamescope-session-steam` export for Steam (multiple Xwaylands,
 tearing, VRR, NIS, dynamic frame limiter, volume keys, the Steam keyboard input method, `ENABLE_GAMESCOPE_WSI`) and runs

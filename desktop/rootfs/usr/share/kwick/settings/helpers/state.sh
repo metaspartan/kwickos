@@ -24,10 +24,17 @@ qdbus6 org.kde.KWin /Compositor org.kde.kwin.Compositing.compositingType 2>/dev/
 echo "[radius]"
 kwick-layout radius 2>/dev/null
 echo "[accent]"
-kreadconfig6 --file kdeglobals --group General --key AccentColor 2>/dev/null
+case ${XDG_CURRENT_DESKTOP:-} in
+  *GNOME*)
+    case $(gsettings get org.gnome.desktop.interface accent-color 2>/dev/null) in
+      "'blue'") echo 10,132,255 ;; "'purple'") echo 191,90,242 ;; "'pink'") echo 255,55,95 ;; "'red'") echo 255,69,58 ;;
+      "'orange'") echo 255,159,10 ;; "'yellow'") echo 255,214,10 ;; "'green'") echo 48,209,88 ;; "'slate'") echo 152,152,157 ;;
+    esac ;;
+  *) kreadconfig6 --file kdeglobals --group General --key AccentColor 2>/dev/null ;;
+esac
 echo "[gpu]"
 kwick-gpu 2>&1 | head -6
 echo "[sessions]"
-sudo -n kwick-desktop list 2>/dev/null
+kwick-desktop list 2>/dev/null
 echo "[shell]"
 kwick-shell --current 2>/dev/null

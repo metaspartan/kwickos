@@ -8,6 +8,7 @@ ColumnLayout {
     property var mods: ({})
     property var gm: ({})
     property bool loaded: false
+    property bool busy: false
     readonly property var session: page.mods["gamescope-session"] || ({ state: "no", desc: "", note: "" })
     readonly property bool ready: session.state === "yes"
     readonly property bool unavailable: session.state === "na"
@@ -52,7 +53,13 @@ ColumnLayout {
     }
 
     function act(verb, id) {
-        Sys.terminal(Sys.elevated("/usr/bin/kwick-gaming " + verb + " " + id))
+        if (page.busy)
+            return
+        page.busy = true
+        Sys.terminal(Sys.elevated("/usr/bin/kwick-gaming " + verb + " " + id), function () {
+            page.busy = false
+            page.load()
+        })
         refreshTimer.restart()
     }
 
@@ -119,8 +126,8 @@ ColumnLayout {
                 }
             }
             Btn { visible: (row.have || row.part) && row.open !== ""; text: "Open"; onClicked: Sys.run(row.open) }
-            Btn { visible: row.have || row.part; text: "Remove"; danger: true; onClicked: page.act("remove", row.mod) }
-            Btn { visible: !row.have; enabled: !row.gone; text: row.part ? "Repair" : "Install"; primary: true; onClicked: page.act("install", row.mod) }
+            Btn { visible: row.have || row.part; enabled: !page.busy; text: "Remove"; danger: true; onClicked: page.act("remove", row.mod) }
+            Btn { visible: !row.have; enabled: !row.gone && !page.busy; text: row.part ? "Repair" : "Install"; primary: true; onClicked: page.act("install", row.mod) }
         }
         Rectangle {
             visible: !row.last
@@ -201,7 +208,7 @@ ColumnLayout {
                 }
                 Btn {
                     visible: !page.ready
-                    enabled: page.loaded && !page.unavailable
+                    enabled: page.loaded && !page.unavailable && !page.busy
                     text: page.session.state === "part" ? "Repair…" : "Set Up…"
                     primary: true
                     onClicked: page.act("install", "gamescope-session")
@@ -222,7 +229,7 @@ ColumnLayout {
             subtitle: "Starts Steam at power on. Switch to Desktop in Steam opens this desktop until you log out."
             Toggle {
                 checked: page.boot
-                enabled: page.ready
+                enabled: page.ready && !page.busy
                 onToggled: function (v) { page.setSession({ boot: v ? "yes" : "no" }, v ? "boot-on" : "boot-off") }
             }
         }
@@ -252,7 +259,7 @@ ColumnLayout {
             }
             Btn {
                 visible: !page.mangoapp && !page.mangohud
-                enabled: page.ready
+                enabled: page.ready && !page.busy
                 text: "Install"
                 onClicked: page.act("install", "overlay")
             }
@@ -262,7 +269,7 @@ ColumnLayout {
             last: true
             title: "Remove Gaming Mode"
             subtitle: "Removes the session and Gamescope. Steam and your games stay."
-            Btn { text: "Remove…"; danger: true; onClicked: page.act("remove", "gamescope-session") }
+            Btn { text: "Remove…"; danger: true; enabled: !page.busy; onClicked: page.act("remove", "gamescope-session") }
         }
     }
 
@@ -308,7 +315,7 @@ ColumnLayout {
             last: true
             title: "Install everything"
             subtitle: "Every module this machine supports. Performance tools: use gamemoderun %command% or mangohud %command% in Steam launch options"
-            Btn { text: "Install all"; primary: true; onClicked: page.act("all", "") }
+            Btn { text: "Install all"; primary: true; enabled: !page.busy; onClicked: page.act("all", "") }
         }
     }
     Btn { Layout.alignment: Qt.AlignRight; text: "Refresh status"; onClicked: page.load() }

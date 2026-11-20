@@ -5,6 +5,7 @@ Comment=Find and install applications
 Icon=kwick-software
 Exec=plasma-discover %F
 Categories=System;PackageManager;
+Keywords=discover;software;store;app store;apps;applications;install;uninstall;update;flatpak;packages;
 StartupNotify=true
 Terminal=false
 OnlyShowIn=KDE;

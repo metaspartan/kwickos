@@ -28,6 +28,8 @@ Rectangle {
     implicitHeight: 26
     radius: 7
     color: area.pressed ? Theme.controlPressed : area.containsMouse ? Theme.controlHover : Theme.control
+    border.width: Theme.light ? 1 : 0
+    border.color: Theme.lineStrong
 
     Text {
         id: label
@@ -37,7 +39,7 @@ Rectangle {
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
         text: pick.currentOption ? pick.currentOption.label : ""
-        color: "#e6ffffff"
+        color: Theme.onControl
         font.family: Theme.sans
         font.pixelSize: 13
         elide: Text.ElideRight

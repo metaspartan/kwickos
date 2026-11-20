@@ -2,7 +2,7 @@
 D=/etc/systemd/system
 W=$D/multi-user.target.wants
 BOOT="dbus kwick-elogind systemd-udevd kwick-udev-trigger kwick-session-report sddm"
-BUS="NetworkManager bluetooth upower rtkit-daemon udisks2 power-profiles-daemon"
+BUS="NetworkManager bluetooth upower rtkit-daemon udisks2 power-profiles-daemon iio-sensor-proxy"
 MASK="systemd-udev-trigger NetworkManager-wait-online"
 ONDEMAND="networking wpa_supplicant strongswan-starter openvpn"
 XKCMS="kcm_fonts_init kcm_style_init"

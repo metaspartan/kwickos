@@ -33,7 +33,7 @@ QtObject {
     property bool dockAvailable: false
     property bool dockFloatingSupported: false
     property string dockPosition: "bottom"
-    property int dockSize: 56
+    property int dockSize: 48
     property bool dockAutohide: false
     property bool dockFloating: true
     property bool dockMagnify: true
@@ -154,7 +154,7 @@ QtObject {
             var k = l.slice(0, i).trim().toLowerCase()
             var v = l.slice(i + 1).trim().replace(/^"|"$/g, "")
             if (k === "position") sys.dockPosition = v
-            else if (k === "size") sys.dockSize = parseInt(v) || 56
+            else if (k === "size" || k === "iconsize") sys.dockSize = parseInt(v) || 48
             else if (k === "autohide") sys.dockAutohide = /^(on|true|1|yes)$/i.test(v)
             else if (k === "floating") { sys.dockFloating = /^(on|true|1|yes)$/i.test(v); sys.dockFloatingSupported = true }
             else if (k === "magnify") sys.dockMagnify = /^(on|true|1|yes)$/i.test(v)
@@ -226,7 +226,7 @@ QtObject {
     function setAccent(a) {
         sys.accentName = a.name
         Theme.accent = a.hex
-        run("kwriteconfig6 --file kdeglobals --group General --key AccentColor '" + a.rgb + "'; plasma-apply-colorscheme --accent-color '" + a.hex + "'", refresh)
+        run("kwriteconfig6 --file kdeglobals --group General --key AccentColor '" + a.rgb + "'; plasma-apply-colorscheme --accent-color '" + a.hex + "'; gsettings set org.gnome.desktop.interface accent-color '" + (a.name === "graphite" ? "slate" : a.name) + "'", refresh)
     }
 
     function setPreset(p) {

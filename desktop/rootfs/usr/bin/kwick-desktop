@@ -1,33 +1,37 @@
 #!/bin/sh
 set -e
-[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+tiling="swaybg waybar fuzzel foot mako-notifier swaylock swayidle grim slurp wl-clipboard xdg-desktop-portal-wlr"
 pkgs() { case "$1" in
   kde) echo "plasma-desktop plasma-workspace kwin-wayland" ;;
   gnome) echo "gnome-session gnome-shell gnome-control-center nautilus gnome-terminal gnome-text-editor" ;;
   xfce) echo "xfce4 xfce4-terminal thunar" ;;
   cinnamon) echo "cinnamon cinnamon-session nemo gnome-terminal" ;;
-  hyprland) if apt-cache policy kwick-hyprland 2>/dev/null | grep -q "Candidate: [0-9]"; then echo "kwick-hyprland waybar fuzzel foot mako-notifier swaybg swaylock swayidle grim slurp wl-clipboard xdg-desktop-portal-wlr"; else echo "sway swaybg waybar fuzzel foot mako-notifier swaylock swayidle grim slurp wl-clipboard xdg-desktop-portal-wlr"; fi ;;
+  hyprland) if apt-cache policy kwick-hyprland 2>/dev/null | grep -q "Candidate: [0-9]"; then echo "kwick-hyprland $tiling"; else echo "sway $tiling"; fi ;;
+  sway) echo "sway $tiling" ;;
   mate) echo "mate-desktop-environment-core" ;;
   lxqt) echo "lxqt-core" ;;
   *) return 1 ;; esac; }
 session() { case "$1" in
-  kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;; hyprland) if [ -e /usr/share/wayland-sessions/hyprland.desktop ]; then echo hyprland; else echo sway; fi ;;
+  kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;; hyprland) echo hyprland ;; sway) echo sway ;;
   mate) echo mate ;; lxqt) echo lxqt ;; esac; }
 have() { for _dir in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$_dir/$(session "$1").desktop" ] && return 0; done; return 1; }
 cmd=${1:-list}; de=${2:-}
+[ "$cmd" = list ] || [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
 case "$cmd" in
-  list) for d in kde gnome hyprland xfce cinnamon mate lxqt; do
+  list) cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null || true)
+        [ -n "$cur" ] || cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/20-autologin.conf 2>/dev/null || true)
+        for d in kde gnome hyprland sway xfce cinnamon mate lxqt; do
           if have $d; then s=installed; else s=available; fi
-          cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null || true)
           [ "$cur" = "$(session $d)" ] && s="$s, default"
           printf '%-10s %s\n' $d "$s"; done ;;
   install) pkgs "$de" >/dev/null || { echo "unknown desktop: $de"; exit 1; }
            apt update; apt install -y $(pkgs "$de") ;;
   switch) pkgs "$de" >/dev/null || { echo "unknown desktop: $de"; exit 1; }
+          if [ "$de" = hyprland ] && ! have hyprland && have sway; then de=sway; fi
           have "$de" || { echo "$de is not installed; run: kwick-desktop install $de"; exit 1; }
           mkdir -p /etc/sddm.conf.d
           printf '[Autologin]\nSession=%s\n' "$(session "$de")" > /etc/sddm.conf.d/30-kwick-session.conf
           for f in /etc/sddm.conf.d/20-autologin.conf; do [ -f $f ] && sed -i "s/^Session=.*/Session=$(session "$de")/" $f; done
           echo "Default session is now $de. Log out to apply." ;;
-  *) sed -n '2,6p' "$0"; exit 1 ;;
+  *) echo "usage: kwick-desktop list | install <desktop> | switch <desktop>"; echo "desktops: kde gnome hyprland sway xfce cinnamon mate lxqt"; exit 1 ;;
 esac

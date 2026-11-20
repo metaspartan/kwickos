@@ -45,7 +45,7 @@ p.addWidget("org.kde.plasma.panelspacer");
 if (fluent) {
     var start = p.addWidget("org.kwickos.start");
     start.globalShortcut = "Alt+F1";
-    button("kwick-search", "Search", "kwick-search");
+    button("kwick-search-taskbar-symbolic", "Search","kwick-search");
     button("kwick-taskview", "Task View", "qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut Overview");
 } else {
     var k = p.addWidget("org.kde.plasma.kickoff");

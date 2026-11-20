@@ -11,9 +11,12 @@ ICONF=${KWICK_ICONF:-/etc/kwick/install.conf}
 ESP=${KWICK_ESP:-/boot/efi}
 KEEPFLAG=${KWICK_KEEPFLAG:-/run/kwick-kernel.keep}
 MARK=.kwick-retained
+BOOTOK=${KWICK_BOOTOK:-/run/kwick-boot-ok}
+BOOTOK_WAIT=900
 
 KEEP=3
 CONFIRM_DELAY=30
+PANIC_REBOOT=10
 [ -f "$KCONF" ] && . "$KCONF"
 
 JSON=0
@@ -88,6 +91,7 @@ flavor_hint() {
 	*-asahi-kwick*) echo apple ;;
 	*-kwick-k1mainline*) echo k1mainline ;;
 	*-kwick-rpi*) echo rpi ;;
+	*-kwick-virt*) echo virt ;;
 	*-kwick-k1*) echo k1 ;;
 	*) return 1 ;;
 	esac
@@ -341,10 +345,18 @@ pkg_versions() {
 }
 
 repo_versions() {
-	pk=$(repo_pkgs)
-	[ -n "$pk" ] || return 0
-	m=$(apt-cache madison $pk 2>/dev/null | awk -F'|' 'NF >= 2 { p = $1; v = $2; gsub(/[ \t]/, "", p); gsub(/[ \t]/, "", v); if (v != "") print p "|" v }')
-	[ -n "$m" ] || m=$(for p in $pk; do pkg_versions "$p" | sed "s/^/$p|/"; done)
+	command -v apt-cache >/dev/null 2>&1 || return 0
+	pk="linux-image-kwick-generic linux-image-kwick-virt linux-image-kwick-k1 linux-image-kwick-k1mainline linux-image-kwick-gb10 linux-image-kwick-rpi kwick-kernel-asahi"
+	m=$(apt-cache madison $pk 2>/dev/null | awk -F'|' '
+		NF >= 2 { p = $1; v = $2; gsub(/[ \t]/, "", p); gsub(/[ \t]/, "", v); if (v != "") print p "|" v; next }
+		/^[^ \t|]+:$/ { n = $0; sub(/:$/, "", n); t = 0; next }
+		/Version table:/ { t = 1; next }
+		t && n != "" && /^ +(\*\*\* )?[^ ]+ +[0-9]+$/ { k = split($0, a, " "); print n "|" a[k - 1] }')
+	if [ -z "$m" ]; then
+		pk=$(repo_pkgs)
+		[ -n "$pk" ] || return 0
+		m=$(for p in $pk; do pkg_versions "$p" | sed "s/^/$p|/"; done)
+	fi
 	printf '%s\n' "$m" | while IFS='|' read -r p v; do
 		[ -n "$p" ] && printf '%s|%s|%s\n' "$p" "$v" "$(flavor_of_pkg "$p")"
 	done | awk -F'|' '!seen[$1 "|" $2]++' | awk -F'|' '
@@ -528,7 +540,7 @@ es_try() {
 	part=$2
 	es_untry
 	es_copy "$(image_of "$(entry_dir "$id")")" "$ESP/EFI/kwick/trial.efi"
-	out=$(efibootmgr -C -d "$disk" -p "$part" -L "KwickOS trial $id" -l '\EFI\kwick\trial.efi' 2>&1) || die "efibootmgr could not create the boot entry: $out"
+	out=$(efibootmgr -C -d "$disk" -p "$part" -L "KwickOS trial $id" -l '\EFI\kwick\trial.efi' -u "quiet panic=$PANIC_REBOOT" 2>&1) || die "efibootmgr could not create the boot entry: $out"
 	num=$(printf '%s\n' "$out" | sed -n "s/^Boot\([0-9A-Fa-f]\{4\}\)\*\{0,1\} KwickOS trial .*/\1/p" | head -n 1)
 	[ -n "$num" ] || die "efibootmgr did not report the new boot entry"
 	efibootmgr -n "$num" >/dev/null 2>&1 || die "efibootmgr could not set BootNext"
@@ -634,7 +646,7 @@ genv_get() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
 
 gr_write_cfg() {
 	local cl def eid ini
-	cl="$(boot_cmdline) quiet"
+	cl="$(boot_cmdline) quiet panic=$PANIC_REBOOT"
 	def=${CFGDEF:-$(st_get default)}
 	mkdir -p "$(dirname "$GCFG")"
 	{
@@ -730,7 +742,7 @@ sd_setup() {
 
 sd_write_entries() {
 	local cl eid
-	cl="$(boot_cmdline) quiet"
+	cl="$(boot_cmdline) quiet panic=$PANIC_REBOOT"
 	rm -f "$ESP"/loader/entries/kwick-*.conf
 	for eid in $(sorted | cut -d'|' -f1); do
 		[ -f "$BOOTDIR/k/$eid/vmlinuz" ] || continue
@@ -824,6 +836,16 @@ ub_default() {
 	/usr/sbin/kwick-bootctl set-kernel "$(entry_rel "$1")" || die "kwick-bootctl set-kernel failed"
 }
 
+ub_try() {
+	materialize "$1" || die "kernel $1 is not available for kwick-bootctl"
+	/usr/sbin/kwick-bootctl try-kernel "$(entry_rel "$1")" || die "kwick-bootctl try-kernel failed"
+}
+
+ub_untry() {
+	[ -x /usr/sbin/kwick-bootctl ] && /usr/sbin/kwick-bootctl cancel-trial >/dev/null 2>&1
+	return 0
+}
+
 ap_default() {
 	materialize "$1" || die "kernel $1 is not available for kwick-apple-boot"
 	/usr/sbin/kwick-apple-boot install "$(entry_rel "$1")" || die "kwick-apple-boot install failed"
@@ -869,7 +891,7 @@ bp_try() {
 	efistub) es_try "$1" ;;
 	grub) gr_try "$1" ;;
 	systemd-boot) sd_try "$1" ;;
-	uboot) ub_default "$1" ;;
+	uboot) ub_try "$1" ;;
 	*) die "one-shot boots are not supported on boot path '$BP'" ;;
 	esac
 }
@@ -879,6 +901,7 @@ bp_untry() {
 	efistub) es_untry ;;
 	grub) gr_untry ;;
 	systemd-boot) sd_untry ;;
+	uboot) ub_untry ;;
 	esac
 }
 
@@ -927,6 +950,7 @@ protected() {
 	[ "$1" = "$(running_id)" ] && return 0
 	[ "$1" = "$(st_get default)" ] && return 0
 	[ "$1" = "$(trial_id)" ] && return 0
+	[ "$1" = "$(st_get previous)" ] && return 0
 	return 1
 }
 
@@ -1289,7 +1313,7 @@ cmd_try() {
 	st_set trial "$id $mode $(date +%s) $(cat /proc/sys/kernel/random/boot_id 2>/dev/null)"
 	st_del result
 	case $BP in
-	uboot) say "kernel $id is selected for the next boot; an unconfirmed boot falls back to the previous system (kwick-bootctl)" ;;
+	uboot) say "kernel $id is selected for the next boot; if that boot is not confirmed, U-Boot restores the previous kernel ($(st_get default))" ;;
 	*) say "$id will boot once on the next reboot; if that boot does not come up, the default ($(st_get default)) boots again" ;;
 	esac
 	[ "$mode" = promote ] && say "it becomes the default when the boot is confirmed"
@@ -1308,6 +1332,12 @@ cmd_rollback() {
 		cp "$ESP/EFI/BOOT/$name" "$ESP/EFI/kwick/rollback-from.efi" 2>/dev/null
 		cp "$ESP/EFI/kwick/previous.efi" "$ESP/EFI/BOOT/$name.new" && mv "$ESP/EFI/BOOT/$name.new" "$ESP/EFI/BOOT/$name"
 		sync
+		rm -f "$ESP/EFI/kwick/default"
+		st_del default
+		for eid in $(sorted | cut -d'|' -f1); do
+			img=$(image_of "$(entry_dir "$eid")")
+			[ -n "$img" ] && cmp -s "$ESP/EFI/BOOT/$name" "$img" && { st_set default "$eid"; printf '%s\n' "$eid" >"$ESP/EFI/kwick/default"; break; }
+		done
 		say "Rolled back to the previous boot image. Reboot to use it."
 		return 0
 	fi
@@ -1408,6 +1438,17 @@ cmd_sync() {
 	say "boot entries are up to date ($BP)"
 }
 
+ub_boot_ok() {
+	local n
+	n=0
+	while [ ! -e "$BOOTOK" ]; do
+		[ "$n" -ge "$BOOTOK_WAIT" ] && return 1
+		sleep 5
+		n=$((n + 5))
+	done
+	return 0
+}
+
 cmd_confirm() {
 	need_root confirm
 	[ "${1:-}" = --wait ] && sleep "$CONFIRM_DELAY"
@@ -1424,6 +1465,10 @@ cmd_confirm() {
 		if [ -n "$armed_boot" ] && [ "$armed_boot" = "$now_boot" ]; then
 			say "trial $tid is armed, reboot to run it"
 			return 0
+		fi
+		if [ "$BP" = uboot ] && [ "$tid" = "$run" ] && ! ub_boot_ok; then
+			warn "trial of $tid is not settled: this boot was not confirmed to U-Boot within ${BOOTOK_WAIT} s (kwick-boot-ok), the SoC watchdog decides"
+			return 1
 		fi
 		bp_untry
 		[ "$BP" = uboot ] && mode=promote

@@ -24,14 +24,22 @@ Rectangle {
         border.color: "#26ffffff"
         width: parent.width * 0.5
         height: parent.height * 0.5
-        x: p.kind === "windows" ? (parent.width - width) / 2 : parent.width * 0.22
+        x: p.kind === "windows" ? (parent.width - width) / 2 : p.kind === "linux" ? parent.width * 0.28 : parent.width * 0.22
         y: p.kind === "windows" ? parent.height * 0.14 : p.kind === "linux" ? parent.height * 0.2 : parent.height * 0.16
         Row {
             x: 6
             y: 5
             spacing: 3
-            visible: p.kind !== "windows"
+            visible: p.kind === "macos"
             Repeater { model: ["#ff5f57", "#febc2e", "#28c840"]; Rectangle { width: 5; height: 5; radius: 2.5; color: modelData } }
+        }
+        Row {
+            anchors.right: parent.right
+            anchors.rightMargin: 6
+            y: 5
+            spacing: 3
+            visible: p.kind === "linux"
+            Repeater { model: 3; Rectangle { width: 5; height: 5; radius: 2.5; color: index === 2 ? "#5e81f4" : "#80ffffff" } }
         }
         Row {
             anchors.right: parent.right
@@ -87,15 +95,15 @@ Rectangle {
 
     Rectangle {
         visible: p.kind === "linux"
-        width: parent.width
-        height: 11
-        anchors.bottom: parent.bottom
+        y: 8
+        width: 12
+        height: parent.height - 8
         color: "#f01a1b26"
-        Row {
-            x: 6
-            anchors.verticalCenter: parent.verticalCenter
+        Column {
+            y: 6
+            anchors.horizontalCenter: parent.horizontalCenter
             spacing: 3
-            Repeater { model: 4; Rectangle { width: 10; height: 5; radius: 1.5; color: index === 0 ? "#5e81f4" : "#80ffffff" } }
+            Repeater { model: 4; Rectangle { width: 6; height: 6; radius: 1.5; color: index === 0 ? "#5e81f4" : "#80ffffff" } }
         }
     }
 }

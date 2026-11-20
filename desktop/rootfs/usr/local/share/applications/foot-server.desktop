@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Foot Server
+Icon=kwick-terminal
+Exec=foot --server
+Categories=System;TerminalEmulator;
+Terminal=false
+NoDisplay=true

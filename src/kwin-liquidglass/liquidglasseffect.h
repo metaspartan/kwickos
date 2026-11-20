@@ -146,6 +146,7 @@ private:
     int m_radius = 12;
     bool m_titleBars = false;
     bool m_menuBar = false;
+    bool m_light = false;
     bool m_interactive = true;
     bool m_profile = false;
     bool m_bypass = false;

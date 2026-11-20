@@ -21,13 +21,32 @@ def carve(shape, holes):
     return SVGPath.from_commands(difference(seqs, ["nonzero"] * len(seqs))).round_floats(3).d
 
 
+def colored(path, src):
+    from picosvg.svg import SVG
+    if "url(#" in src or 'stroke="' not in src:
+        return False
+    pico = SVG.fromstring(src).topicosvg()
+    parts = []
+    for shape in (s for s in pico.shapes() if s.d):
+        op = shape.opacity * shape.fill_opacity
+        attr = f' fill-opacity="{op:.3g}"' if op < 0.999 else ""
+        parts.append(f'<path d="{shape.d}" fill="{shape.fill}"{attr}/>')
+    if not parts:
+        return False
+    vb = pico.view_box()
+    out = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{vb.w:g}" height="{vb.h:g}" viewBox="{vb.x:g} {vb.y:g} {vb.w:g} {vb.h:g}">'
+           f'{"".join(parts)}</svg>\n')
+    path.write_text(out, encoding="utf-8", newline="\n")
+    return True
+
+
 def convert(path):
     from picosvg.svg import SVG
     src = path.read_text(encoding="utf-8")
-    if 'stroke="currentColor"' not in src:
-        return False
     m = STYLE.search(src)
     if not m:
+        return path.name.endswith("-symbolic.svg") and colored(path, src)
+    if 'stroke="currentColor"' not in src:
         return False
     cls, default = m.group(1), m.group(2)
     plain = STYLE.sub("", src).replace(f' class="{cls}"', "").replace("currentColor", "#000000")

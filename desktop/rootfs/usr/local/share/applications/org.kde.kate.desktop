@@ -5,6 +5,7 @@ Comment=Plain text and code editor
 Icon=kwick-editor
 Exec=kate -b %U
 Categories=System;Utility;TextEditor;
+Keywords=kate;text;txt;editor;textedit;notepad;code;programming;development;markdown;
 StartupNotify=true
 Terminal=false
 OnlyShowIn=KDE;

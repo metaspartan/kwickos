@@ -35,6 +35,7 @@ int main(int argc, char **argv)
     app.setOrganizationDomain(QStringLiteral("kwickos.org"));
     app.setDesktopFileName(QStringLiteral("kwick-search"));
     app.setQuitOnLastWindowClosed(false);
+    app.setQuitLockEnabled(false);
 
     if (app.arguments().contains(QStringLiteral("--list-runners"))) {
         QTextStream out(stdout);

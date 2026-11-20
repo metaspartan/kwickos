@@ -21,6 +21,7 @@
 #include <QDynamicPropertyChangeEvent>
 #include <QFile>
 #include <QMatrix4x4>
+#include <QStandardPaths>
 #include <QVector2D>
 #include <QVector3D>
 #include <QVector4D>
@@ -114,6 +115,14 @@ void LiquidGlassEffect::reconfigure(ReconfigureFlags flags)
     m_style = std::clamp(group.readEntry("Style", 0), 0, 2);
     m_titleBars = group.readEntry("TitleBars", false);
     m_menuBar = group.readEntry("MenuBar", false);
+    QString appearance = group.readEntry("Appearance", QString());
+    if (appearance.isEmpty()) {
+        QFile file(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kwick/appearance"));
+        if (file.open(QIODevice::ReadOnly)) {
+            appearance = QString::fromUtf8(file.readAll()).trimmed();
+        }
+    }
+    m_light = appearance == QLatin1String("light");
     m_interactive = group.readEntry("Interactive", true);
     m_roundWindows = group.readEntry("Windows", true);
     const int profile = group.readEntry("Profile", 0);
@@ -811,7 +820,13 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     shader->setUniform("uDark", QVector2D(look.darkMin, look.darkMax));
     shader->setUniform("uMul", look.mul);
     shader->setUniform("uTint", look.tint);
-    shader->setUniform("uStyle", float(m_style));
+    const bool lightGlass = m_light && kind != Kind::Window && kind != Kind::Frame;
+    QVector2D milk(0.32f, 0.14f);
+    if (lightGlass) {
+        milk = kind == Kind::Dock ? QVector2D(0.62f, 0.5f) : (kind == Kind::Bar ? QVector2D(0.82f, 0.74f) : QVector2D(0.88f, 0.8f));
+    }
+    shader->setUniform("uStyle", lightGlass ? 1.0f : float(m_style));
+    shader->setUniform("uMilk", milk);
     shader->setUniform("uOpacity", opacity);
     shader->setUniform("uScale", float(scale));
     shader->setUniform("uLight", light);
@@ -1023,7 +1038,17 @@ bool LiquidGlassEffect::drawClipped(const RenderTarget &renderTarget, const Rend
     shader->setUniform("uRadius", float(glass.clipRadius * scale));
     const bool window = glass.kind == Kind::Window;
     const bool active = w == effects->activeWindow();
-    shader->setUniform("uShadow", window ? QVector3D(active ? 0.62f : 0.42f, float((active ? 14.0 : 8.0) * scale), float((active ? 17.0 : 12.0) * scale)) : QVector3D(0.0f, 0.0f, 1.0f));
+    const QRectF frameRect = w->frameGeometry();
+    const double roomSides = std::max(0.0, std::min(frameRect.left() - geometry.left(), geometry.right() - frameRect.right())) * scale;
+    const double roomTop = std::max(0.0, frameRect.top() - geometry.top()) * scale;
+    const double roomBottom = std::max(0.0, geometry.bottom() - frameRect.bottom()) * scale;
+    double sigma = std::min((active ? 17.0 : 12.0) * scale, roomSides / 2.5);
+    double offset = std::clamp(roomBottom - 2.5 * sigma, 0.0, (active ? 14.0 : 8.0) * scale);
+    if (2.5 * sigma - offset > roomTop) {
+        sigma = (roomTop + offset) / 2.5;
+    }
+    shader->setUniform("uShadow", window ? QVector3D(active ? 0.62f : 0.42f, float(offset), float(sigma)) : QVector3D(0.0f, 0.0f, 1.0f));
+    shader->setUniform("uAmbient", float(std::max(0.5, std::min(5.0 * scale, std::min({roomSides, roomTop, roomBottom}) / 4.0))));
     shader->setUniform("uStroke", window ? QVector2D(active ? 0.09f : 0.05f, active ? 0.38f : 0.26f) : QVector2D(0.0f, 0.0f));
     shader->setUniform("uScale", float(scale));
     shader->setUniform("uMean", 1);

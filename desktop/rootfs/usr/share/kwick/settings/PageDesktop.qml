@@ -10,7 +10,8 @@ ColumnLayout {
             model: [
                 { id: "kde", name: "KDE Plasma", sub: "The default KwickOS desktop with KWin effects, Wayland and X11" },
                 { id: "gnome", name: "GNOME", sub: "GNOME Shell with dock, blur, wobbly windows and a 3D cube" },
-                { id: "hyprland", name: "Tiling", sub: "Sway tiling compositor with waybar and wofi" }
+                { id: "hyprland", name: "Hyprland", sub: "Animated tiling Wayland compositor with waybar, fuzzel and Spotlight" },
+                { id: "sway", name: "Sway", sub: "Lightweight i3-style tiling with waybar, fuzzel and Spotlight" }
             ]
             delegate: Item {
                 id: sr
@@ -30,7 +31,7 @@ ColumnLayout {
                         width: 40
                         height: 40
                         radius: 10
-                        color: ["#1d99f3", "#4a86cf", "#e0a63a"][sr.index]
+                        color: ["#1d99f3", "#4a86cf", "#e0a63a", "#68a35d"][sr.index]
                         Image { anchors.centerIn: parent; width: 24; height: 24; source: "icons/desktop.svg"; sourceSize.width: 48; sourceSize.height: 48 }
                     }
                     ColumnLayout {
@@ -51,7 +52,7 @@ ColumnLayout {
                     Btn { visible: sr.installed && !sr.isDefault; text: "Make default"; primary: true; onClicked: Sys.setDefaultSession(sr.modelData.id) }
                 }
                 Rectangle {
-                    visible: sr.index < 2
+                    visible: sr.index < 3
                     height: 1
                     color: Theme.line
                     anchors.left: parent.left

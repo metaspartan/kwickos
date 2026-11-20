@@ -185,6 +185,7 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkpenpkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkessentialspkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkagentspkg.sh
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkupdatepkg.sh
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkstoragepkg.sh
           for a in arm64 riscv64; do docker run --rm --platform linux/$a -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-$a && bash /src/scripts/mkglasspkg.sh /out/kwin-liquidglass-$a && bash /src/scripts/mkmacstylepkg.sh /out/kwin-macstyle-$a && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-$a && bash /src/scripts/mkkeyboardpkg.sh /out/kwin-keyboard-$a && bash /src/scripts/mkspotlightpkg.sh /out/kwin-spotlight-$a"; done
           for a in amd64 arm64 riscv64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done

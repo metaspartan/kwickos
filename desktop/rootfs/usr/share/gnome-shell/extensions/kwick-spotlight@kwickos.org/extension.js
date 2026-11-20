@@ -13,6 +13,38 @@ const CAPTURE_LIMIT = 3000;
 const HANDOFF = 400;
 const MODIFIERS = Clutter.ModifierType.CONTROL_MASK | Clutter.ModifierType.MOD1_MASK | Clutter.ModifierType.SUPER_MASK | Clutter.ModifierType.MOD4_MASK;
 
+const daemon = {client: null, process: null};
+
+function spawnDaemon(argv) {
+    if (daemon.client)
+        return true;
+    if (!GLib.find_program_in_path(argv[0]))
+        return false;
+    try {
+        const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.NONE});
+        let client, process;
+        if (Meta.WaylandClient.new_subprocess) {
+            client = Meta.WaylandClient.new_subprocess(global.context, launcher, argv);
+            process = client.get_subprocess();
+        } else {
+            client = Meta.WaylandClient.new(global.context, launcher);
+            process = client.spawnv(global.display, argv);
+        }
+        daemon.client = client;
+        daemon.process = process;
+        process.wait_async(null, () => {
+            if (daemon.process !== process)
+                return;
+            daemon.client = null;
+            daemon.process = null;
+        });
+        return true;
+    } catch (e) {
+        console.warn(`kwick-spotlight: ${e.message}`);
+        return false;
+    }
+}
+
 export default class KwickSpotlight extends Extension {
     enable() {
         this._settings = this.getSettings();
@@ -29,6 +61,10 @@ export default class KwickSpotlight extends Extension {
         Main.wm.addKeybinding('toggle', this._settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW, () => this._toggle());
         this._createdId = global.display.connect('window-created', (display, window) => this._windowCreated(window));
+        this._command(['--daemon'], ok => {
+            if (!ok)
+                spawnDaemon(['kwick-spotlight', '--daemon']);
+        });
     }
 
     disable() {
@@ -69,11 +105,8 @@ export default class KwickSpotlight extends Extension {
         this._command([], ok => {
             if (ok)
                 return;
-            try {
-                GLib.spawn_async(null, ['kwick-spotlight'], null, GLib.SpawnFlags.SEARCH_PATH, null);
-            } catch (e) {
+            if (!spawnDaemon(['kwick-spotlight']))
                 this._release();
-            }
         });
     }
 
@@ -123,6 +156,8 @@ export default class KwickSpotlight extends Extension {
     }
 
     _windowCreated(window) {
+        if (daemon.client?.owns_window(window))
+            daemon.client.hide_from_window_list(window);
         if (!this._grab)
             return;
         const id = window.connect('shown', () => {

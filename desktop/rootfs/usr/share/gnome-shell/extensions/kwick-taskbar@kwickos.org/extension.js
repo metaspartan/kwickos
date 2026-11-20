@@ -25,6 +25,11 @@ function iconButton(name, icon, cb) {
 export default class KwickTaskbar extends Extension {
     enable() {
         Main.layoutManager.uiGroup.add_style_class_name('kwick-windows');
+        if (Main.layoutManager._startingUp) {
+            this._hadOverview = Main.sessionMode.hasOverview;
+            Main.sessionMode.hasOverview = false;
+            this._startupId = Main.layoutManager.connect('startup-complete', () => this._restoreOverview());
+        }
         this._search = iconButton('kwick-search', ['kwick-search-taskbar-symbolic', 'edit-find-symbolic'], () => {
             if (GLib.find_program_in_path('kwick-spotlight')) {
                 GLib.spawn_command_line_async('kwick-search');
@@ -42,35 +47,37 @@ export default class KwickTaskbar extends Extension {
         const dateMenu = Main.panel.statusArea.dateMenu;
         this._clockLabel = dateMenu?._clockDisplay ?? null;
         this._wallClock = dateMenu?._clock ?? null;
-        if (this._clockLabel && this._wallClock) {
+        if (this._clockLabel) {
             dateMenu.add_style_class_name('kwick-clock');
             this._clockLabel.add_style_class_name('kwick-clock-label');
             this._clockLabel.clutter_text.single_line_mode = false;
             this._clockLabel.clutter_text.line_alignment = 1;
-            this._clockId = this._wallClock.connect_after('notify::clock', () => this._tick());
+            this._textId = this._clockLabel.connect('notify::text', () => this._tick());
             this._tick();
-            this._idle = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                this._tick();
-                this._idle = 0;
-                return GLib.SOURCE_REMOVE;
-            });
         }
     }
 
     _tick() {
         const now = GLib.DateTime.new_now_local();
-        this._clockLabel.text = `${now.format('%-l:%M %p')}\n${now.format('%-m/%-d/%Y')}`;
+        const text = `${now.format('%-l:%M %p')}\n${now.format('%-m/%-d/%Y')}`;
+        if (this._clockLabel.text !== text)
+            this._clockLabel.text = text;
+    }
+
+    _restoreOverview() {
+        if (!this._startupId)
+            return;
+        Main.layoutManager.disconnect(this._startupId);
+        this._startupId = 0;
+        Main.sessionMode.hasOverview = this._hadOverview;
     }
 
     disable() {
         Main.layoutManager.uiGroup.remove_style_class_name('kwick-windows');
-        if (this._idle) {
-            GLib.source_remove(this._idle);
-            this._idle = 0;
-        }
-        if (this._clockId) {
-            this._wallClock.disconnect(this._clockId);
-            this._clockId = 0;
+        this._restoreOverview();
+        if (this._textId) {
+            this._clockLabel.disconnect(this._textId);
+            this._textId = 0;
         }
         if (this._clockLabel) {
             Main.panel.statusArea.dateMenu?.remove_style_class_name('kwick-clock');

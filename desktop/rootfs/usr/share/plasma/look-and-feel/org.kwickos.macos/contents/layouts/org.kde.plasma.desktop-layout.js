@@ -24,7 +24,7 @@ var launchers = dockCfg.pinned.split(",").filter(function (s) { return s.length 
 
 var top = new Panel(knownWidgetTypes.indexOf("org.kwickos.menubar") >= 0 ? "org.kwickos.menubar" : "org.kde.panel");
 top.location = "top";
-top.height = Math.round(gridUnit * 1.8);
+top.height = 36;
 top.floating = false;
 top.hiding = "none";
 top.opacity = "translucent";

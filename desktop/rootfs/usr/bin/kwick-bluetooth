@@ -57,20 +57,16 @@ cmd_status() {
   if powered; then echo "powered yes"; else echo "powered no"; fi
 }
 
-json_str() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
-
 cmd_json() {
   a=false; p=false
   available && a=true
   [ "$a" = true ] && powered && p=true
   printf '{"available":%s,"powered":%s,"devices":[' "$a" "$p"
-  first=1
-  cmd_list | while IFS="$TAB" read -r mac name conn bat icon; do
-    [ $first -eq 1 ] || printf ','
-    first=0
-    printf '{"address":"%s","name":"%s","connected":%s,"battery":%s,"icon":"%s"}' \
-      "$mac" "$(json_str "$name")" "$([ "$conn" = yes ] && echo true || echo false)" "${bat:-null}" "$(json_str "$icon")"
-  done
+  cmd_list | awk -F"$TAB" '
+    function esc(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return s }
+    NF {
+      printf "%s{\"address\":\"%s\",\"name\":\"%s\",\"connected\":%s,\"battery\":%s,\"icon\":\"%s\"}", (n++ ? "," : ""), $1, esc($2), ($3 == "yes" ? "true" : "false"), ($4 ~ /^[0-9]+$/ ? $4 : "null"), esc($5)
+    }'
   printf ']}\n'
 }
 
@@ -108,18 +104,22 @@ cmd_toggle() {
   if is_connected "${1:-}"; then cmd_disconnect "$1"; else cmd_connect "$1"; fi
 }
 
-device_name() { device_line "$1" | cut -f2; }
+device_name() { n=$(device_line "$1" | cut -f2); echo "${n:-$1}"; }
 
 notify() { have notify-send && notify-send -a Bluetooth -i bluetooth-active-symbolic ${3:+-u "$3"} "$1" "$2"; true; }
 
 cmd_settings() {
   de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+  kcm=$(find /usr/lib -name 'kcm_bluetooth.so' 2>/dev/null | head -n 1)
   case $de in
-    *kde*) have kcmshell6 && exec kcmshell6 kcm_bluetooth ;;
+    *kde*)
+      have kcmshell6 && exec kcmshell6 kcm_bluetooth
+      have systemsettings && [ -n "$kcm" ] && exec systemsettings kcm_bluetooth ;;
     *gnome*) have gnome-control-center && exec gnome-control-center bluetooth ;;
   esac
   have blueman-manager && exec blueman-manager
-  have kcmshell6 && [ -n "$(find /usr/lib -name 'kcm_bluetooth.so' 2>/dev/null | head -n 1)" ] && exec kcmshell6 kcm_bluetooth
+  [ -n "$kcm" ] && have kcmshell6 && exec kcmshell6 kcm_bluetooth
+  [ -n "$kcm" ] && have systemsettings && exec systemsettings kcm_bluetooth
   for t in kwick-terminal foot; do have "$t" && exec "$t" -e bluetoothctl; done
   die "no Bluetooth settings found"
 }

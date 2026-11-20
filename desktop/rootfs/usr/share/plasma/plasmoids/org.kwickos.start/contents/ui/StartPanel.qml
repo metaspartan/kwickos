@@ -40,7 +40,7 @@ FocusScope {
     }
 
     width: cols * 96 + pad * 2
-    height: Math.min(864, area.height - 24)
+    height: Math.min(864, area.height)
     focus: true
 
     Keys.onEscapePressed: {
@@ -466,7 +466,7 @@ FocusScope {
 
     MenuPopup {
         id: userMenu
-        MenuEntry { text: "Change account settings"; onTriggered: { userMenu.close(); panel.start.close(); panel.start.exec("kcmshell6 kcm_users") } }
+        MenuEntry { text: "Change account settings"; onTriggered: { userMenu.close(); panel.start.close(); panel.start.exec("kcmshell6 kcm_users || systemsettings kcm_users") } }
         MenuEntry { text: "Lock"; visible: session.canLock; onTriggered: { userMenu.close(); panel.start.close(); session.lock() } }
         MenuEntry { text: "Sign out"; visible: session.canLogout; onTriggered: { userMenu.close(); panel.start.close(); session.requestLogout() } }
     }

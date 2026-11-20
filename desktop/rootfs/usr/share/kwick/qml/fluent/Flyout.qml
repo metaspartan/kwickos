@@ -15,7 +15,7 @@ PlasmaCore.Dialog {
         } else if (Date.now() - closedAt > 300) {
             const panel = anchorItem ? anchorItem.Window.window : null
             if (panel)
-                area = Qt.size(anchorItem.Screen.width, anchorItem.Screen.height - panel.height)
+                area = Qt.size(anchorItem.Screen.width, anchorItem.Screen.height - panel.height - 24 - margins.top - margins.bottom)
             visible = true
         }
     }
@@ -31,7 +31,7 @@ PlasmaCore.Dialog {
 
     visible: false
     location: PlasmaCore.Types.Floating
-    type: PlasmaCore.Dialog.PopupMenu
+    type: PlasmaCore.Dialog.AppletPopup
     hideOnWindowDeactivate: true
     flags: Qt.WindowStaysOnTopHint
 

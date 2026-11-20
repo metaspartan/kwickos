@@ -19,12 +19,32 @@ QtObject {
                     name: d.name || d.address,
                     connected: d.connected,
                     battery: d.battery ? d.battery.percentage : -1,
-                    icon: d.icon || "bluetooth-active"
+                    icon: bt.glyph(d.icon)
                 })
         }
         return list.sort((a, b) => (b.connected - a.connected) || a.name.localeCompare(b.name))
     }
     readonly property int connected: devices.filter(d => d.connected).length
+
+    readonly property var glyphs: ({
+        "audio-card": "audio-card",
+        "audio-headset": "audio-card",
+        "audio-headphones": "audio-card",
+        "multimedia-player": "audio-card",
+        "computer": "video-display",
+        "video-display": "video-display",
+        "input-gaming": "input-gaming",
+        "input-keyboard": "input-keyboard",
+        "input-mouse": "input-mouse",
+        "input-tablet": "input-tablet",
+        "phone": "phone",
+        "printer": "printer",
+        "network-wireless": "network-wireless"
+    })
+
+    function glyph(name) {
+        return glyphs[name] || "bluetooth-active"
+    }
 
     function setOn(value) {
         manager.bluetoothBlocked = !value

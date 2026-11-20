@@ -228,7 +228,7 @@ ColumnLayout {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: 8
                     spacing: 8
-                    Btn { text: "Network Editor…"; onClicked: Sys.run("kcmshell6 kcm_networkmanagement || nm-connection-editor || gnome-control-center network") }
+                    Btn { text: "Network Editor…"; onClicked: Sys.run("kcmshell6 kcm_networkmanagement || systemsettings kcm_networkmanagement || nm-connection-editor || gnome-control-center network") }
                     Btn { text: "Import Configuration…"; primary: true; onClicked: picker.open() }
                 }
             }
@@ -352,7 +352,7 @@ ColumnLayout {
                 anchors.rightMargin: 16
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 8
-                Btn { text: "Network Editor…"; onClicked: Sys.run("kcmshell6 kcm_networkmanagement || nm-connection-editor || gnome-control-center network") }
+                Btn { text: "Network Editor…"; onClicked: Sys.run("kcmshell6 kcm_networkmanagement || systemsettings kcm_networkmanagement || nm-connection-editor || gnome-control-center network") }
                 Btn { text: "Import Configuration…"; primary: true; onClicked: picker.open() }
             }
         }

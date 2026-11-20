@@ -13,14 +13,14 @@ Rectangle {
     opacity: enabled ? 1 : 0.4
     color: primary ? (area.pressed ? Qt.darker(Theme.accent, 1.2) : area.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent)
                    : (area.pressed ? Theme.controlPressed : area.containsMouse ? Theme.controlHover : Theme.control)
-    border.width: 0
-    border.color: Theme.line
+    border.width: Theme.light && !primary ? 1 : 0
+    border.color: Theme.lineStrong
 
     Text {
         id: label
         anchors.centerIn: parent
         text: b.text
-        color: b.danger ? Theme.bad : "#e6ffffff"
+        color: b.danger ? Theme.bad : b.primary ? "#ffffff" : Theme.onControl
         font.family: Theme.sans
         font.pixelSize: 13
         font.weight: Font.Medium

@@ -22,8 +22,15 @@ gamescope_bin() {
   [ -x /usr/games/gamescope ] && echo /usr/games/gamescope
 }
 
+FP_GAMESCOPE=org.freedesktop.Platform.VulkanLayer.gamescope
+
+fp_gamescope_ref() {
+  b=$(flatpak info com.valvesoftware.Steam 2>/dev/null | sed -n 's|^ *Runtime: .*/||p' | head -n 1)
+  echo "$FP_GAMESCOPE${b:+//$b}"
+}
+
 gamescope_available() {
-  [ -n "$(gamescope_bin)" ] || fp_have com.valvesoftware.Steam.Utility.gamescope
+  [ -n "$(gamescope_bin)" ] || fp_have "$(fp_gamescope_ref)"
 }
 
 gamescope_session_state() {
@@ -39,9 +46,9 @@ gamescope_install_binary() {
   if apt_have_candidate gamescope; then
     apt_get_backports gamescope && return 0
   fi
-  warn "no gamescope package from Debian 13 or trixie-backports, using the Flathub Steam gamescope extension"
+  warn "no gamescope package from Debian 13 or trixie-backports, using the Flathub gamescope extension for the Steam Flatpak"
   fp_have com.valvesoftware.Steam || fp_install com.valvesoftware.Steam || return 1
-  fp_install com.valvesoftware.Steam.Utility.gamescope
+  fp_install "$(fp_gamescope_ref)"
 }
 
 desktop_entry() {
@@ -91,7 +98,7 @@ gamescope_session_remove() {
   rm -f "$(gm_icon_path "$(target_user)")"
   rm -f "$SESSION_FILE" "$SESSION_DIR/$DESK_SESSION.desktop" "$RETURN_APP" "$NOTICE_APP" "$GM_USER_FILE" "$DESK_FILE"
   apt_remove gamescope
-  fp_remove com.valvesoftware.Steam.Utility.gamescope
+  fp_remove "$(fp_gamescope_ref)" com.valvesoftware.Steam.Utility.gamescope
   return 0
 }
 
@@ -208,11 +215,14 @@ session_notice() {
   [ -e "$m" ] || return 0
   rm -f "$m"
   msg="Steam or Gamescope stopped right after starting. Details: ~/.local/state/kwick/gamemode.log"
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
-      --method org.freedesktop.Notifications.Notify "Gaming Mode" 0 steam "Gaming Mode did not start" "$msg" "[]" "{'image-path': <'steam'>, 'desktop-entry': <'kwick-return-to-gamemode'>}" 0 >/dev/null 2>&1 && break
-    sleep 2
+  for _ in $(seq 30); do
+    gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+      --method org.freedesktop.DBus.NameHasOwner org.freedesktop.Notifications 2>/dev/null | grep -q true && break
+    sleep 1
   done
+  sleep 3
+  gdbus call --session --timeout 60 --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+    --method org.freedesktop.Notifications.Notify "Gaming Mode" 0 steam "Gaming Mode did not start" "$msg" "[]" "{'image-path': <'steam'>, 'desktop-entry': <'kwick-return-to-gamemode'>}" 20000 >/dev/null 2>&1
   say "$msg"
 }
 

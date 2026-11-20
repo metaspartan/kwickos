@@ -7,7 +7,7 @@ SubPage {
     title: "Sound output"
     link: "More volume settings"
     empty: "No output devices"
-    onLinkClicked: qs.open("kcmshell6 kcm_pulseaudio")
+    onLinkClicked: qs.open("kcmshell6 kcm_pulseaudio || systemsettings kcm_pulseaudio")
 
     Repeater {
         model: SinkModel {}

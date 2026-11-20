@@ -4,6 +4,7 @@ uniform sampler2D uTex;
 uniform vec4 uRect;
 uniform float uRadius;
 uniform vec3 uShadow;
+uniform float uAmbient;
 uniform vec2 uStroke;
 uniform float uScale;
 uniform sampler2D uMean;
@@ -41,7 +42,7 @@ void main()
         float s = sdRound(p - vec2(0.0, uShadow.y), b, r);
         float t = clamp((s + sigma * 0.5) / (sigma * 3.0), 0.0, 1.0);
         float soft = (1.0 - t) * (1.0 - t) * (1.0 - t);
-        float ambient = exp(-max(d, 0.0) / (5.0 * uScale));
+        float ambient = exp(-max(d, 0.0) / max(uAmbient, 0.5));
         shadow = uShadow.x * soft + uShadow.x * 0.45 * ambient;
         shadow += uStroke.y * band(d, 0.0, uScale);
         shadow = min(shadow, 0.95);

@@ -248,6 +248,7 @@ kde() {
     plasma-apply-desktoptheme "$PT" >/dev/null 2>&1 || kw plasmarc Theme name "$PT"
   fi
   kw kwinrc Effect-kwick_liquidglass MenuBar "$( [ "$want" = macos ] && echo false || echo true )"
+  kw kwinrc Effect-kwick_liquidglass Appearance "$MODE"
   corners
   files
   gtkstyle
@@ -341,6 +342,30 @@ files() {
   gsettings set org.gnome.desktop.default-applications.terminal exec kwick-terminal 2>/dev/null || true
 }
 
+gsetonce() {
+  cur=$(gsettings get "$1" "$2" 2>/dev/null) || { gsettings set "$1" "$2" "$3" 2>/dev/null; return 0; }
+  case $3 in
+    \[*|\{*) [ "$(printf '%s' "$cur" | tr -d ' ')" = "$(printf '%s' "$3" | tr -d ' ')" ] && return 0 ;;
+    *) [ "$cur" = "$3" ] && return 0 ;;
+  esac
+  gsettings set "$1" "$2" "$3" 2>/dev/null
+  true
+}
+
+gnomeexts() {
+  v=$1
+  [ -n "$v" ] || v=$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null) || return 0
+  ext=kwick-spotlight@kwickos.org
+  if command -v kwick-spotlight >/dev/null 2>&1 && [ -d "/usr/share/gnome-shell/extensions/$ext" ]; then
+    case $v in
+      *"'$ext'"*) ;;
+      *'[]'*) v="['$ext']" ;;
+      *) v=$(printf '%s' "$v" | sed "s|]\$|, '$ext']|") ;;
+    esac
+  fi
+  gsetonce org.gnome.shell enabled-extensions "$v"
+}
+
 gnomespotlight() {
   command -v kwick-spotlight >/dev/null 2>&1 || return 0
   mk=org.gnome.settings-daemon.plugins.media-keys
@@ -353,12 +378,6 @@ gnomespotlight() {
         rest=$(printf '%s' "$cur" | sed "s|, '$p'||; s|'$p', ||; s|'$p'||")
         [ "$rest" = "[]" ] && rest="@as []"
         gsettings set $mk custom-keybindings "$rest" ;;
-    esac
-    on=$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null) || return 0
-    case $on in
-      *"'$ext'"*) ;;
-      *'[]'*) gsettings set org.gnome.shell enabled-extensions "['$ext']" ;;
-      *) gsettings set org.gnome.shell enabled-extensions "$(printf '%s' "$on" | sed "s|]\$|, '$ext']|")" ;;
     esac
     return 0
   fi
@@ -378,12 +397,16 @@ gnome() {
   G=/usr/share/kwick/gnome
   GSETTINGS_SCHEMA_DIR=$(ls -d /usr/share/gnome-shell/extensions/*/schemas 2>/dev/null | tr "
 " ":"); export GSETTINGS_SCHEMA_DIR
+  exts=
   for f in "$G/common.settings" "$G/$want.settings" "$G/$want-$MODE.settings"; do
     [ -f "$f" ] || continue
     while read -r schema key val; do
-      [ -n "$schema" ] && gsettings set "$schema" "$key" "$val" 2>/dev/null
+      [ -n "$schema" ] || continue
+      if [ "$schema $key" = "org.gnome.shell enabled-extensions" ]; then exts=$val; continue; fi
+      gsetonce "$schema" "$key" "$val"
     done < "$f"
   done
+  gnomeexts "$exts"
   start=/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-start-fluent.svg
   if [ "$want" = windows ] && light && [ -f "$start" ]; then
     sed 's/#ffffff/#005fb8/g' "$start" > "$cfg/start-light.svg"

@@ -26,7 +26,8 @@ kwick-update log [N]                      output of the last task
 * **App updates**: `flatpak remote-ls --updates --system`, with the installed version from `flatpak list`. Per-user Flatpak
   installs are not covered.
 * **A new KwickOS release**: the candidate version of `kwick-desktop` (or `kwick-essentials` on a headless system) in the
-  KwickOS repository, compared with the installed package and `/etc/kwick-release`. No extra request is made: the version comes
+  KwickOS repository, compared with the installed package and `/etc/kwick-release`. Only when that package is installed:
+  a headless system without `kwick-essentials` has nothing an update could move to the new release, so none is announced. No extra request is made: the version comes
   from the package lists `apt update` already fetched. Installing the update moves the desktop packages to the new release; the
   base image itself (BusyBox, kinit, kpkg, `/etc/kwick-release`) changes only with a new image.
 
@@ -37,13 +38,21 @@ page and `kwick-update status` never need a password.
 
 `kwick-update upgrade` runs `apt-get upgrade -y`, then `flatpak update --system`, and writes its progress to
 `/var/lib/kwick/update/progress` (percent and a line such as "Configuring libfoo…", computed from apt's Get, Unpacking and
-Setting up lines). Only one task runs at a time.
+Setting up lines). Only one task runs at a time. `upgrade security` installs only the packages that come from a
+`*-security` suite.
+
+Closing Settings while a task runs does not stop it: the window closes at once, the task finishes (including the kernel
+trial setup at the end), and the page reattaches to a running task when it is opened again.
+Kernels reach a system as the package `linux-image-kwick-<flavor>`. Images register the kernel they boot as that
+package (`scripts/mkimage.sh`: `linux-image-kwick-virt` on the disk image, the live kernel's package on the ISO), so a
+plain `kwick-update upgrade` brings kernel updates on a headless system too. Images built before this had the kernel
+only on the ESP: there, `kwick-kernel install latest` installs the package once and later updates follow.
 
 When the upgrade brings a new kernel package, `kwick-update` does not let the package switch the default kernel. It sets
 `/run/kwick-kernel.keep` for the duration of apt, so the new kernel is only registered, and then runs
 `kwick-kernel try NEW --promote`: the new kernel starts once at the next restart and becomes the default only after that boot
-is confirmed. If it does not come up, the next power cycle starts the old default again (see the boot path table in
-[KERNELS](KERNELS.md)). On boot paths without a one-shot boot (Raspberry Pi firmware, Apple Silicon) the new kernel becomes the
+is confirmed. If it panics or cannot find its root file system, it reboots after 10 seconds into the old default by
+itself; if it hangs, the next power cycle starts the old default (see the boot path table in [KERNELS](KERNELS.md)). On boot paths without a one-shot boot (Raspberry Pi firmware, Apple Silicon) the new kernel becomes the
 default directly and the previous one stays for `kwick-kernel rollback`. If a trial cannot be set up on a boot path that has
 one (no `efibootmgr`, or GRUB whose `grubenv` sits on btrfs, xfs or ZFS where GRUB cannot clear the one-shot entry), the
 old default stays and the new kernel waits for `kwick-kernel try`. An upgrade of a kernel package of another flavor than the
@@ -58,22 +67,32 @@ the base. `kwick-update auto on` writes one line to root's crontab (`KWICK_JOB=u
 than the interval (12 hours by default), so a machine that was off at the usual time catches up within the hour. Nothing runs
 while automatic updates are off, and `crond` is stopped again when no crontab has any job left.
 
-A scheduled run checks at lower priority (`renice 10`), then, as configured, installs system, security or app updates (not
-while the computer runs on battery) or only downloads them, and finally notifies the desktop.
+A scheduled run checks at lower priority (`renice 10`), then, when the check found something, installs system, security
+or app updates as configured (not while the computer runs on battery) or only downloads them, and finally notifies the
+desktop. The result of the check stays the last task when there was nothing to install.
 
-Settings are in `/etc/kwick/update.conf`:
+Automatic updates are off on a new system and no `/etc/kwick/update.conf` exists. `kwick-update auto` writes the file;
+after `kwick-update auto on` and `kwick-update auto set system on` it reads:
 
 ```
 CHECK=1
-DOWNLOAD=1
-INSTALL_SYSTEM=0
+DOWNLOAD=0
+INSTALL_SYSTEM=1
 INSTALL_APPS=0
-INSTALL_SECURITY=1
+INSTALL_SECURITY=0
 NOTIFY=1
 INTERVAL=12
 ```
 
-Turning on any install or download option turns checking on.
+Turning on any install or download option turns checking on; `auto off` turns everything off.
+
+## Systems installed from an older image
+
+`kwick-update`, `kwick-kernel`, `kwick-kernel-install`, `kwick-bootctl`, `kwick-kernel-confirm.service`, `crond.service`
+and `kwick-boot-ok.service` are part of the base image, and the base changes only with a new image. An older install that
+is upgraded with apt gets them from the `kwick-update` package (`scripts/mkupdatepkg.sh`), which `kwick-essentials` and
+`kwick-desktop` depend on. Its postinst enables `kwick-kernel-confirm.service` and `kwick-boot-ok.service`. On a current
+image the package takes over the same files from the base.
 
 ## The notification
 

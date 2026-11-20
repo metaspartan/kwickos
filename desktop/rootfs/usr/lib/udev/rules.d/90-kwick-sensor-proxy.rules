@@ -1,0 +1,1 @@
+ACTION=="add", ENV{IIO_SENSOR_PROXY_TYPE}=="?*", RUN+="/usr/bin/dbus-send --system --type=method_call --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.StartServiceByName string:net.hadess.SensorProxy uint32:0"

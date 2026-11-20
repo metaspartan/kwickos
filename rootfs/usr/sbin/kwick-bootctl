@@ -3,6 +3,7 @@ set -eu
 MNT=/run/kwick-sdboot
 KDIR=/usr/lib/kwick/kernels
 EMMC_ESP=/boot/efi
+uenv=""
 
 usage() {
 	cat <<'EOF'
@@ -14,6 +15,8 @@ kwick-bootctl - boot control for U-Boot boards with the KwickOS boot env (Banana
   once kwickos|armbian       boot the other system once on the next reboot
   set-kernel <release>       boot /usr/lib/kwick/kernels/<release> (copied to the eMMC ESP)
   set-kernel vendor          boot the board vendor kernel, initrd and DTB from the SD boot partition
+  try-kernel <release>       like set-kernel for one trial: if that boot fails, U-Boot restores the previous selection
+  cancel-trial               drop a pending trial selection and restore the previous one
   rollback                   restore the previous kernel selection
   list                       list kernels that set-kernel can use
 EOF
@@ -39,12 +42,19 @@ done_boot() {
 	umount "$MNT" 2>/dev/null || true
 }
 
+is_trial() { grep -qs '^kwick_trial=1' "$MNT/kwick.txt"; }
+
 setflag() { : > "$MNT/$1"; }
 clrflag() { rm -f "$MNT/$1"; }
 
 write_conf() {
-	[ -f "$MNT/kwick.txt" ] && cp "$MNT/kwick.txt" "$MNT/kwick.prv"
 	printf '%s\n' "$@" > "$MNT/kwick.tmp"
+	[ -n "$uenv" ] && cat "$uenv" >> "$MNT/kwick.tmp"
+	if [ -f "$MNT/kwick.txt" ] && cmp -s "$MNT/kwick.tmp" "$MNT/kwick.txt"; then
+		rm -f "$MNT/kwick.tmp"
+		return 0
+	fi
+	if [ -f "$MNT/kwick.txt" ]; then cp "$MNT/kwick.txt" "$MNT/kwick.prv"; fi
 	mv "$MNT/kwick.tmp" "$MNT/kwick.txt"
 }
 
@@ -68,6 +78,7 @@ kernel_files() {
 	[ -f "$src/initrd.img" ] && rd="$src/initrd.img"
 	uenv=""
 	[ -f "$src/uboot.txt" ] && uenv="$src/uboot.txt"
+	return 0
 }
 
 cmd=${1:-status}
@@ -78,6 +89,7 @@ case "$cmd" in
 		if [ -f "$MNT/kwick-mode-armbian" ]; then echo "default: armbian"; else echo "default: kwickos"; fi
 		[ -f "$MNT/kwick-try" ] && echo "next boot: kwickos (once)"
 		[ -f "$MNT/kwick-once-armbian" ] && echo "next boot: armbian (once)"
+		if is_trial; then echo "kernel trial: pending (an unconfirmed boot restores the previous selection)"; fi
 		[ -f "$MNT/kwick-attempt" ] && echo "unconfirmed boot: yes (kwick-attempt present; a reboot before mark-good falls back to Armbian)"
 		echo "kernel selection:"
 		if [ -f "$MNT/kwick.txt" ]; then sed 's/^/  /' "$MNT/kwick.txt"; else echo "  kwick_kernel=armbianrd (built-in default)"; fi
@@ -114,11 +126,19 @@ case "$cmd" in
 		mv "$MNT/kwick.tmp" "$MNT/kwick.prv"
 		cat "$MNT/kwick.txt"
 		done_boot ;;
-	set-kernel)
+	cancel-trial)
+		mount_boot
+		if is_trial && [ -f "$MNT/kwick.prv" ]; then
+			mv "$MNT/kwick.prv" "$MNT/kwick.txt"
+			echo "kernel trial cancelled, the previous selection is back"
+		fi
+		done_boot ;;
+	set-kernel|try-kernel)
 		rel=${2:-}
 		[ -n "$rel" ] || { usage; exit 1; }
 		if [ "$rel" = vendor ]; then
 			mount_boot
+			if is_trial && [ -f "$MNT/kwick.prv" ]; then mv "$MNT/kwick.prv" "$MNT/kwick.txt"; fi
 			write_conf "kwick_kernel=armbianrd"
 			done_boot
 			echo "next boot: vendor kernel from the SD boot partition"
@@ -135,14 +155,23 @@ case "$cmd" in
 		sync
 		root=PARTLABEL=kwick-root
 		mount_boot
+		if is_trial && [ -f "$MNT/kwick.prv" ]; then mv "$MNT/kwick.prv" "$MNT/kwick.txt"; fi
+		if [ "$cmd" = try-kernel ] && [ ! -f "$MNT/kwick.txt" ]; then printf 'kwick_kernel=armbianrd\n' > "$MNT/kwick.txt"; fi
+		old=$(cat "$MNT/kwick.txt" 2>/dev/null)
 		write_conf "kwick_kernel=custom" \
 			"kwick_c_dev=mmc 2:1" "kwick_c_ddev=mmc 2:1" "kwick_c_rdev=mmc 2:1" \
 			"kwick_c_root=$root" \
 			"kwick_c_knl=kwick/$rel/Image.itb" "kwick_c_dtb=kwick/$rel/board.dtb" "$rdline" \
 			"kwick_c_extra=${KWICK_BOOT_EXTRA:-}"
-		if [ -n "$uenv" ]; then
-			cat "$MNT/kwick.txt" "$uenv" > "$MNT/kwick.tmp"
-			mv "$MNT/kwick.tmp" "$MNT/kwick.txt"
+		if [ "$cmd" = try-kernel ]; then
+			[ "$(cat "$MNT/kwick.txt")" = "$old" ] && cp "$MNT/kwick.txt" "$MNT/kwick.prv"
+			cat >> "$MNT/kwick.txt" <<'EOF'
+kwick_trial=1
+kwick_fallback=echo "KwickOS: kernel trial failed, restoring the previous kernel"; if load mmc 0:1 ${kwick_mark} kwick.prv; then fatwrite mmc 0:1 ${kwick_mark} kwick.txt ${filesize}; fatrm mmc 0:1 kwick-mode-armbian; fatrm mmc 0:1 kwick-attempt; reset; fi; echo "KwickOS: booting Armbian"; run armbian_boot
+EOF
+			done_boot
+			echo "next boot: $rel, once: if that boot is not confirmed, U-Boot restores the previous kernel selection"
+			exit 0
 		fi
 		done_boot
 		echo "next boot: $rel (an unconfirmed boot falls back to Armbian; restore with: kwick-bootctl rollback)" ;;

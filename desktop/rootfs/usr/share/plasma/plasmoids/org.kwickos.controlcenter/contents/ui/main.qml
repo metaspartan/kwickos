@@ -28,7 +28,7 @@ PlasmoidItem {
 
     function settings(module) {
         root.expanded = false
-        run("kcmshell6 " + module)
+        run("kcmshell6 " + module + " || systemsettings " + module)
     }
 
     function setFocus(on) {

@@ -78,7 +78,7 @@ echo "gamescope: ${GS:-flatpak} $ARGS -- steam $STEAM_ARGS"
 if [ -n "$GS" ]; then
   "$GS" $ARGS -- steam $STEAM_ARGS
 else
-  flatpak run --device=all --command=gamescope com.valvesoftware.Steam $ARGS -- steam $STEAM_ARGS
+  flatpak run --device=all --command=/usr/lib/extensions/vulkan/gamescope/bin/gamescope com.valvesoftware.Steam $ARGS -- steam $STEAM_ARGS
 fi
 rc=$?
 ran=$(( $(date +%s) - start ))

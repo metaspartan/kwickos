@@ -149,6 +149,65 @@ Not verified for `kwick-kernel`: systemd-boot (the `loader/entries` and `bootctl
 (BPI-F3) and Apple paths, BIOS GRUB, installs that need a generated initramfs (btrfs, xfs, ZFS, LUKS), arm64 and riscv64,
 the Settings page in a running KDE session, and `kwick-kernel-confirm.service` under real systemd (kinit ran it).
 
+## Software update and kernel trials, end to end
+
+Run on 2026-11-20 with KVM VMs (QEMU, OVMF or SeaBIOS) in a lab container. Everything came from this tree: kpkg,
+BusyBox and kinit, the virt kernels 7.3.4 and 7.3.5 (`scripts/build-kernel.sh`), the generic kernel 7.3.5 (the generic
+7.3.4 build in `out/amd64` was reused), the rootfs and the headless image (`mkrootfs.sh`, `mkimage.sh`), and the
+packages (`mkkernelpkg.sh`, `mkstoragepkg.sh`, `mkagentspkg.sh`, `mkessentialspkg.sh`, `mkupdatepkg.sh`). A local signed
+repository came in four stages: A has the 0.6.4 packages and the 7.3.4 kernels. B adds the 0.6.5 packages (`kwick-agents`
+0.6.5 in a `stable-security` suite) and the 7.3.5 kernels. C adds a virt "7.3.6" whose init exits at once (kernel panic,
+"Attempted to kill init"), and D adds a virt "7.3.7" whose init sleeps forever (a hang without a panic).
+
+Installed systems were made with `kwick-install run` from the headless image: UEFI GRUB, systemd-boot, BIOS GRUB on
+ext4 (installer booted through SeaBIOS) and BIOS GRUB on btrfs (installer running the generic kernel). Each one went
+through: check, security-only upgrade, full upgrade with a kernel (trial armed, default unchanged), trial boot,
+confirmation and promotion, reboot on the new default, the panicking trial, rollback, `default`, and the hanging trial.
+
+| Boot path | Result |
+| --- | --- |
+| EFI stub (the image itself) | 14 of 14 |
+| UEFI GRUB | 14 of 14 |
+| systemd-boot (`bootctl` not installed, so `LoaderEntryOneShot` is set directly) | 14 of 14 |
+| BIOS GRUB, ext4 | 14 of 14 |
+| BIOS GRUB, btrfs | `try` refused with the btrfs message; the upgrade installed generic and virt 7.3.5 and left the default; `default 7.3.5` built its initramfs and booted; `rollback` booted 7.3.4 |
+| U-Boot (BPI-F3) | the board's own `env_k1-x.txt` in the U-Boot 2022.10 sandbox, with `kwick-bootctl` and `kwick-kernel` writing the SD and eMMC FAT images: 17 of 17 (see below) |
+
+The panicking trial comes back by itself on every path: "Kernel panic ... Rebooting in 10 seconds", then the default
+kernel, and the next confirmation records "failed". Before the fix the same trial stopped at the panic until a power
+cycle. A hanging trial still needs a power cycle (QMP `system_reset` in the test), after which the default boots and the
+failure is recorded.
+
+Automatic updates: `kwick-update auto on` and `auto set system on` write the crontab line and start `crond`. With the
+guest clock set to 20 s before the chosen minute, `crond` ran `kwick-update scheduled` (syslog `USER root ... cmd
+KWICK_JOB=update`), which checked and installed. `auto off` removed the line and stopped `crond`.
+
+U-Boot sandbox: `sed` maps `mmc 0:1` and `mmc 2:1` to two host image files and replaces `bootm` with a marker plus
+`poweroff`. U-Boot's `reset` relaunches the sandbox, which counts as the next power-on. Checked:
+* a trial kernel that dies before confirmation: the next power-on finds `kwick-attempt`, restores `kwick.prv`, resets
+  and boots the previous kernel, with no `kwick-mode-armbian` left;
+* a trial kernel whose files cannot be loaded falls back in the same power-on;
+* a confirmed trial is promoted, with `kwick.prv` holding the old kernel;
+* `try --cancel` and `rollback` work;
+* a later failure of a confirmed kernel still goes to Armbian, as before.
+
+Desktop: an existing 0.4.0 desktop install (a qcow2 overlay on a lab disk) was upgraded with `apt-get upgrade` from
+repository B. kpkg installed the new dependency `kwick-update` of `kwick-essentials` 0.6.5, which brought
+`kwick-update` and `kwick-kernel` and enabled `kwick-kernel-confirm.service` and `kwick-boot-ok.service`. The Settings
+Software Update page from this tree, with the polkit policy and rule, was then checked:
+* opening it with a stale check runs `pkexec kwick-update check` without a prompt, with progress;
+* Update Now shows the KDE polkit dialog, installs the generic 7.3.5 kernel and arms its trial;
+* the trial boot is confirmed and promoted;
+* Roll Back asks, authorizes and shows Restart Required;
+* closing Settings during an upgrade closes the window at once while the task finishes, trial setup included.
+
+The kernel list (`kwick-kernel list --json`) took 31 to 39 s on that desktop, whose base still has the 0.4.0 kpkg
+(about 5 s per `apt-cache` call there, and its `madison` prints the `policy` format). It now takes one `apt-cache` call
+that understands both formats: 5.4 s there and about 1 s on a current image.
+
+Not verified: real BPI-F3 hardware for the new trial fallback (sandbox only, `bootm` stubbed, no watchdog), a watchdog for
+hanging trial kernels on PCs (none exists), the full Settings flow for app (Flatpak) updates, arm64 and riscv64 images.
+
 ## Touch and tablet
 
 VM: overlay on the installed desktop disk (`vpn-1.qcow2`), KVM, virgl, 1600x900 at scale 1.0, `EXTRA='-device virtio-multitouch-pci'`

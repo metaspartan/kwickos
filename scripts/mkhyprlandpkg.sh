@@ -143,6 +143,7 @@ index 6c7d906..dbdec28 100644
          g_pHyprOpenGL->renderRectWithBlur(titleBarBox, color, scaledRounding, m_pWindow->roundingPower(), a);
      else
 PATCH
+sed -i '/addNotification(PHANDLE, "\[hyprbars\] Initialized successfully!"/d' hyprland-plugins/hyprbars/main.cpp
 if [ -f hyprland-plugins/hyprbars/CMakeLists.txt ]; then
   cmake -S hyprland-plugins/hyprbars -B hyprland-plugins/hyprbars/build -G Ninja -DCMAKE_BUILD_TYPE=Release
   cmake --build hyprland-plugins/hyprbars/build -j8

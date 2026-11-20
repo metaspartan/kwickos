@@ -74,9 +74,11 @@ system-wide long-press for Qt Widgets apps on Plasma 6.3.
 
 ## Rotation
 
-`iio-sensor-proxy` (138 KB) provides the accelerometer. KwickOS runs without systemd, so it ships a D-Bus activation file
-(`/usr/share/dbus-1/system-services/net.hadess.SensorProxy.service`) and the daemon starts the first time KWin, GNOME or
-`monitor-sensor` asks for it.
+`iio-sensor-proxy` (138 KB) provides the accelerometer. KwickOS runs without systemd, so the upstream udev rule that pulls in the
+systemd unit does nothing. Instead kinit starts the daemon at boot (it exits at once when the machine has no sensor), and
+`/usr/lib/udev/rules.d/90-kwick-sensor-proxy.rules` starts it through D-Bus activation
+(`/usr/share/dbus-1/system-services/net.hadess.SensorProxy.service`) when a sensor appears later. `monitor-sensor` and KWin only
+watch for the service, they do not start it.
 
 * KDE: KWin rotates in tablet mode. KWin 6.3 has no command line for its per-output rotation policy, so the lock rewrites
   `autoRotation` in `~/.config/kwinoutputconfig.json` and applies from the next login.

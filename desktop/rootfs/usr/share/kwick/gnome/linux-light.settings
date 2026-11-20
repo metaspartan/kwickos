@@ -1,3 +1,7 @@
 org.gnome.desktop.screensaver picture-uri 'file:///usr/share/wallpapers/KwickOS/contents/images/2560x1440.png'
 org.gnome.shell.extensions.dash-to-dock background-color '#eff0f4'
 org.gnome.shell.extensions.dash-to-dock background-opacity 0.92
+org.gnome.shell.extensions.dash-to-dock custom-theme-customize-running-dots true
+org.gnome.shell.extensions.dash-to-dock custom-theme-running-dots-color '#2e3440'
+org.gnome.shell.extensions.dash-to-dock custom-theme-running-dots-border-color '#2e3440'
+org.gnome.shell.extensions.dash-to-dock custom-theme-running-dots-border-width 0

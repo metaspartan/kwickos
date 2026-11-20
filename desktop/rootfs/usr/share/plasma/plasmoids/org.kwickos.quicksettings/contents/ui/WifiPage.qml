@@ -10,7 +10,7 @@ SubPage {
     link: "More Wi-Fi settings"
     empty: on ? "No networks found" : "Wi-Fi is turned off"
     onToggled: value => qs.net.setWifi(value)
-    onLinkClicked: qs.open("kcmshell6 kcm_networkmanagement")
+    onLinkClicked: qs.open("kcmshell6 kcm_networkmanagement || systemsettings kcm_networkmanagement")
 
     PlasmaNM.Handler {
         id: handler
