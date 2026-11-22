@@ -96,6 +96,8 @@ func parseOpts(a []string) (opts, error) {
 			} else if strings.HasPrefix(s, "-") && len(s) > 1 && len(o.args) > 0 && (o.args[0] == "run" || o.args[0] == "shell") {
 				o.rest = append(o.rest, a[i:]...)
 				i = len(a)
+			} else if len(o.args) == 0 && (s == "--help" || s == "--version") {
+				o.args = append(o.args, s)
 			} else if strings.HasPrefix(s, "--") {
 				return o, fmt.Errorf("unknown option %s", s)
 			} else {

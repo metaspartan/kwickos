@@ -187,6 +187,7 @@ func Update() error {
 		}(groups[k])
 	}
 	wg.Wait()
+	pruneLists(srcs)
 	el := time.Since(start).Seconds()
 	if fetched > 0 {
 		fmt.Printf("Fetched %s in %.0fs (%s/s)\n", human(fetched), el+0.5, human(int64(float64(fetched)/max(el, 0.001))))
@@ -216,6 +217,33 @@ func Update() error {
 		}
 	}
 	return nil
+}
+
+func pruneLists(srcs []*Source) {
+	ents, err := os.ReadDir(cfg.Lists)
+	if err != nil {
+		return
+	}
+	var keep []string
+	for _, s := range srcs {
+		keep = append(keep, s.base()+"_")
+	}
+	for _, e := range ents {
+		n := e.Name()
+		if !e.Type().IsRegular() || !strings.Contains(n, "_dists_") {
+			continue
+		}
+		known := false
+		for _, k := range keep {
+			if strings.HasPrefix(n, k) {
+				known = true
+				break
+			}
+		}
+		if !known {
+			os.Remove(filepath.Join(cfg.Lists, n))
+		}
+	}
 }
 
 func updateSuite(ss []*Source, pr *progress) (int64, error) {

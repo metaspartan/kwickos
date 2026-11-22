@@ -28,8 +28,8 @@ kwick-update log [N]                      output of the last task
 * **A new KwickOS release**: the candidate version of `kwick-desktop` (or `kwick-essentials` on a headless system) in the
   KwickOS repository, compared with the installed package and `/etc/kwick-release`. Only when that package is installed:
   a headless system without `kwick-essentials` has nothing an update could move to the new release, so none is announced. No extra request is made: the version comes
-  from the package lists `apt update` already fetched. Installing the update moves the desktop packages to the new release; the
-  base image itself (BusyBox, kinit, kpkg, `/etc/kwick-release`) changes only with a new image.
+  from the package lists `apt update` already fetched. Installing the update moves the desktop packages to the new release,
+  and with them kinit, kpkg and the release files (`kwick-core`, see below); BusyBox changes only with a new image.
 
 Results live in `/var/lib/kwick/update` (`state`, `updates`, `log`, `kernels.json`), readable by everyone, so the Settings
 page and `kwick-update status` never need a password.
@@ -92,11 +92,21 @@ Turning on any install or download option turns checking on; `auto off` turns ev
 
 ## Systems installed from an older image
 
-`kwick-update`, `kwick-kernel`, `kwick-kernel-install`, `kwick-bootctl`, `kwick-kernel-confirm.service`, `crond.service`
-and `kwick-boot-ok.service` are part of the base image, and the base changes only with a new image. An older install that
-is upgraded with apt gets them from the `kwick-update` package (`scripts/mkupdatepkg.sh`), which `kwick-essentials` and
-`kwick-desktop` depend on. Its postinst enables `kwick-kernel-confirm.service` and `kwick-boot-ok.service`. On a current
-image the package takes over the same files from the base.
+`kwick-update`, `kwick-kernel`, `kwick-kernel-install`, `kwick-bootctl`, `kwick-snapshot`, `kwick-kernel-confirm.service`,
+`crond.service` and `kwick-boot-ok.service` are part of the base image. An older install that is upgraded with apt gets them
+from the `kwick-update` package (`scripts/mkupdatepkg.sh`), which `kwick-essentials` and `kwick-desktop` depend on, together
+with the base tools the desktop calls: `kwick-shell` with `shell-helper`, the prompt presets and the per-shell setup files,
+`kwick-vpn` and `kfetch`, and `add-shell`/`remove-shell`, which the maintainer scripts of Debian's shell packages call (put in
+place only when missing). Its postinst enables `kwick-kernel-confirm.service` and `kwick-boot-ok.service` and hooks
+`/etc/ashrc` into an `/etc/profile` that predates it. `kwick-update` depends on `kwick-core` (`scripts/mkcorepkg.sh`, one per
+architecture, taken from the release's root file system): kinit, kpkg, `/etc/kwick-release` and `os-release`, so an upgraded
+system runs the release's init and package manager (kinit from the next boot) and reports the release it is on. kpkg never
+lets a package overwrite `/usr/sbin/kinit` or `/usr/bin/kpkg`, so the package ships both under `/usr/lib/kwick/core` and its
+postinst moves them into place. On a current image both packages take over the same files from the base.
+
+An update that stops half-way (a maintainer script that fails) leaves packages unconfigured. apt then ends with an error
+that names them, and `kwick-update upgrade` runs `dpkg --configure -a` before it installs anything, so Software Update
+finishes the interrupted update by itself.
 
 ## The notification
 

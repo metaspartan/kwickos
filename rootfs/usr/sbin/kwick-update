@@ -337,6 +337,11 @@ cmd_upgrade() {
 	what=${1:-all}
 	case $what in all | system | apps | security | arch) ;; *) die "upgrade what? all, system, apps, security or arch" ;; esac
 	job_begin upgrade "Preparing…"
+	if have dpkg && [ "$what" != apps ] && [ "$what" != arch ] && [ -n "$(dpkg --audit 2>/dev/null)" ]; then
+		progress 1 "Finishing an interrupted update…"
+		log "finishing packages an earlier update left unconfigured"
+		dpkg --configure -a >>"$VAR/log" 2>&1 || log "dpkg --configure -a did not finish"
+	fi
 	[ -f "$VAR/updates" ] || collect
 	sys=0
 	app=0

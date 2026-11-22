@@ -81,7 +81,7 @@ echo "13.0" > etc/debian_version
 printf 'KwickOS %s \\n \\l\n\n' "$VERSION" > etc/issue
 printf '/bin/sh\n/usr/bin/sh\n/bin/ash\n/bin/bash\n/usr/bin/bash\n' > etc/shells
 printf '# <file system> <mount point> <type> <options> <dump> <pass>\n' > etc/fstab
-printf 'include /etc/ld.so.conf.d/*.conf\n' > etc/ld.so.conf
+printf 'include /etc/ld.so.conf.d/*.conf\n\n' > etc/ld.so.conf
 : > etc/resolv.conf
 ln -sf /proc/self/mounts etc/mtab
 echo root > etc/kinit/autologin

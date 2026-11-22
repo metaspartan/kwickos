@@ -15,6 +15,7 @@ bash "$SRC/scripts/mkgpupkg.sh"
 bash "$SRC/scripts/mkgamingpkg.sh"
 bash "$SRC/scripts/mkessentialspkg.sh"
 bash "$SRC/scripts/mkupdatepkg.sh"
+bash "$SRC/scripts/mkcorepkg.sh" amd64 /out/amd64/kwickos-rootfs-amd64.tar.gz
 bash "$SRC/scripts/mkarchpkg.sh"
 if command -v go >/dev/null 2>&1; then ARCHES=amd64 bash "$SRC/scripts/mkagentspkg.sh"; else echo "buildrepo: no Go toolchain, kwick-agents skipped (build it with kwick-builder and pass EXTRA_DEBS)"; fi
 bash "$SRC/scripts/mkdesktoppkg.sh" amd64

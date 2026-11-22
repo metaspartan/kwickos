@@ -172,7 +172,28 @@ func mainApt(name string, args []string) int {
 	if err != nil {
 		die(err)
 	}
+	if needRoot[cmd] && cmd != "update" && cmd != "clean" && cmd != "autoclean" && !cfg.DryRun {
+		if left := interrupted(); len(left) > 0 {
+			fmt.Fprintf(os.Stderr, "E: not fully installed or configured: %s\nE: run 'dpkg --configure -a' to finish them\n", strings.Join(left, ", "))
+			return 100
+		}
+	}
 	return 0
+}
+
+func interrupted() []string {
+	db, err := OpenDB()
+	if err != nil {
+		return nil
+	}
+	var left []string
+	for _, k := range sortedKeys(db.Installed) {
+		switch db.Installed[k].State() {
+		case "unpacked", "half-configured", "half-installed":
+			left = append(left, db.Installed[k].Name)
+		}
+	}
+	return left
 }
 
 func resolveRequest(db *DB, req string) (*Pkg, error) {

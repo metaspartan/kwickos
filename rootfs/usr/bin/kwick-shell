@@ -242,8 +242,8 @@ apt_install() {
 	say "installing $*"
 	if ! apt-get install -y -q --no-install-recommends "$@" </dev/null >/dev/null 2>&1; then
 		apt-get update -q </dev/null >/dev/null 2>&1
-		apt-get install -y -q --no-install-recommends "$@" </dev/null >/dev/null 2>&1 ||
-			die "could not install $*, check the network connection"
+		e=$(apt-get install -y -q --no-install-recommends "$@" </dev/null 2>&1) ||
+			die "could not install $*: $(printf '%s\n' "$e" | grep -E '^E: ' | head -n 1 | sed 's/^E: //')"
 	fi
 }
 

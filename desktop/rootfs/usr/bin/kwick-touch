@@ -229,12 +229,12 @@ kde_rotation() {
 
 apply_kde() {
   kw Input TabletMode "$tablet"
-  if [ "$osk" = on ] && [ -f "$osk_desktop" ]; then
-    kw Wayland InputMethod "$osk_desktop"; kw Wayland VirtualKeyboardEnabled true
+  if [ "$osk" = on ] && [ -f "$osk_desktop" ] && { hasdev TOUCHSCREEN || [ "$tablet" = on ]; }; then
+    kw Wayland InputMethod "$osk_desktop"; kw Wayland VirtualKeyboardEnabled true; vk=true
   else
-    kw Wayland VirtualKeyboardEnabled false
+    kw Wayland InputMethod ""; kw Wayland VirtualKeyboardEnabled false; vk=false
   fi
-  kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled "$([ "$osk" = on ] && echo true || echo false)"
+  kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled "$vk"
   set -- $(edges)
   kw Effect-overview TouchBorderActivate "$1"
   kw TouchEdges Left "$2"

@@ -1769,6 +1769,8 @@ static int cmd_invoke_rcd(int argc, char **argv)
 	unit_name(svc, name, sizeof name);
 	int has_unit = find_unit_file(name, p, sizeof p);
 	if (has_unit && skip_native && access("/run/systemd/system", F_OK) == 0) return 0;
+	char rp[PATH_MAX];
+	if (has_unit && realpath(p, rp) && !strcmp(rp, "/dev/null")) return 0;
 	if (policy_denies()) return 0;
 	if (access(SOCK_PATH, F_OK)) return 0;
 	if (has_unit) {
