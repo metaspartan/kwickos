@@ -188,9 +188,9 @@ def aurorae(name, title_h, border, radius, bar_a, bar_i, edge, buttons, btn_w, b
                                       ("rbl", ps + cr, -cr, ps, pb, (fb + fs) / 2), ("rbr", -cr, -cr, ps, pb, (fb + fs) / 2)):
             inner = cr / ((sx + sy) / 2 + cr) if cr else 0.0
             defs += f'<radialGradient id="{nm}{k}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate({cx} {cy}) scale({sx + cr} {sy + cr})">{rstops(f, inner)}</radialGradient>'
-        tl = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtl{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gl{k})"/>'
+        tl = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtl{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gl{k})"/>' + (f'<rect x="{ps - ov}" y="{pt}" width="{ov}" height="{T + 1}" fill="{col}" fill-opacity="{op}"/>' if ov else "")
         tp = f'<rect x="0" y="0" width="8" height="{pt}" fill="url(#gt{k})"/>{svg_rect_path(0, pt, 8, T + 1, fill=col, op=op)}'
-        tr = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtr{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gr{k})"/>'
+        tr = f'<rect x="0" y="0" width="{ps}" height="{pt}" fill="url(#rtr{k})"/><rect x="0" y="{pt}" width="{ps}" height="{T}" fill="url(#gr{k})"/>' + (f'<rect x="0" y="{pt}" width="{ov}" height="{T + 1}" fill="{col}" fill-opacity="{op}"/>' if ov else "")
         pieces = {
             "topleft": (0, tl),
             "top": (30, tp),
