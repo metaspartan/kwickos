@@ -244,6 +244,8 @@ Item {
                     const cmd = event.modifiers & (Qt.ControlModifier | Qt.MetaModifier)
                     if (cmd && event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
                         root.toggleMode(root.modes[event.key - Qt.Key_1].name)
+                    } else if (cmd && event.key === Qt.Key_Y && results.count > 0) {
+                        spotlight.preview(root.current)
                     } else if (event.key === Qt.Key_Down) {
                         cmd ? root.jumpSection(1) : root.select(root.current + 1)
                     } else if (event.key === Qt.Key_Up) {

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/all;
+X-KDE-Priority=TopLevel
+Actions=quicklook
+
+[Desktop Action quicklook]
+Name=Quick Look
+Icon=kwick-quicklook
+Exec=kwick-quicklook --toggle %F

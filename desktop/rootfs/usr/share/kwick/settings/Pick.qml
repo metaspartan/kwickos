@@ -39,7 +39,7 @@ Rectangle {
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
         text: pick.currentOption ? pick.currentOption.label : ""
-        color: Theme.onControl
+        color: Theme.controlText
         font.family: Theme.sans
         font.pixelSize: 13
         elide: Text.ElideRight

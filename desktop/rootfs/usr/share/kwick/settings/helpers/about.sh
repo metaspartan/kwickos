@@ -14,6 +14,6 @@ echo "memory=$(awk '/^MemTotal/ {printf "%.0f", $2 / 1048576}' /proc/meminfo)"
 gpu=$(LC_ALL=C lspci 2>/dev/null | sed -n 's/.*\(VGA compatible controller\|3D controller\|Display controller\): //p' | head -n 1)
 [ -n "$gpu" ] || gpu=$(cat /sys/class/drm/card*/device/uevent 2>/dev/null | sed -n 's/^DRIVER=//p' | head -n 1)
 echo "gpu=$gpu"
-echo "display=$(cat /sys/class/drm/card*-*/modes 2>/dev/null | head -n 1)"
+echo "display=$(cat /sys/class/drm/card*-*/modes 2>/dev/null | head -n 1 | sed 's/x/ × /')"
 echo "plasma=$(plasmashell --version 2>/dev/null | sed -n 's/^plasmashell //p')"
-echo "disk=$(df -h / 2>/dev/null | awk 'NR == 2 {print $4 " available of " $2}')"
+echo "disk=$(df -H --output=avail,size / 2>/dev/null | awk 'NR == 2 { for (i = 1; i <= 2; i++) { sub(/T$/, " TB", $i); sub(/G$/, " GB", $i); sub(/M$/, " MB", $i) } print $1 " available of " $2 }')"

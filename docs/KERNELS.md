@@ -69,6 +69,7 @@ Installing needs root. `list` and `status` do not.
   for `rollback`, and `kwick-kernel-install --list` and `--rollback` still work. On GRUB and systemd-boot installs
   `kwick-kernel` writes the boot entries itself (the initramfs for btrfs, xfs, ZFS and encrypted roots still comes from
   `kwick-install initrd`); `kwick-kernel sync` rewrites them after a manual change.
+* **Btrfs installs** carry `rootflags=subvol=@,noatime,compress=zstd:1` (from `ROOT_SUBVOL` and `ROOT_FLAGS` in `/etc/kwick/install.conf`) in every entry, and every GRUB or systemd-boot change ends with `kwick-snapshot boot-sync`, which keeps the snapshot entries pointing at installed kernels ([SNAPSHOTS](SNAPSHOTS.md)).
 
 ## Where the ideas come from
 

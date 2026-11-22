@@ -23,6 +23,7 @@ type Plan struct {
 	instProv map[string][]provider
 	queue    []*Pkg
 	extra    map[string][]string
+	Hooks    bool
 }
 
 func (db *DB) NewPlan(opts ResolveOpts) *Plan {

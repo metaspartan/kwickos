@@ -226,6 +226,7 @@ ColumnLayout {
                         Text {
                             Layout.fillWidth: true
                             text: gr.have ? "Installed" : gr.part ? "Partly installed" : gr.gone ? "Unavailable: " + gr.info.note : gr.info.desc
+                            visible: text.length > 0
                             color: gr.have ? Theme.good : gr.part ? Theme.accent : Theme.sub
                             font.family: Theme.sans
                             font.pixelSize: 12

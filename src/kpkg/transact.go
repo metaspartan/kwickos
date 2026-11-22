@@ -415,6 +415,12 @@ func (pl *Plan) Execute(purge bool) error {
 	if cfg.DownloadOnly {
 		return nil
 	}
+	if pl.Hooks {
+		if err := runInvokeHooks("DPkg::Pre-Invoke"); err != nil {
+			return err
+		}
+		defer runInvokeHooks("DPkg::Post-Invoke")
+	}
 	tf, _ := os.CreateTemp(cfg.Admin, "kpkg-triggers")
 	if tf != nil {
 		triggerFile = tf.Name()

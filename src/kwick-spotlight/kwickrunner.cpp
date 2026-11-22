@@ -8,8 +8,12 @@
 #include <KRunner/Action>
 #include <KRunner/RunnerContext>
 
+#include <QClipboard>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
+#include <QDateTime>
+#include <QGuiApplication>
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDir>
@@ -45,6 +49,7 @@ QString keywordsFor(const QString &page)
         {QStringLiteral("Gaming"), QStringLiteral("steam proton games gamemode mangohud")},
         {QStringLiteral("Storage"), QStringLiteral("disk drive partition zfs btrfs space")},
         {QStringLiteral("VPN"), QStringLiteral("wireguard openvpn tailscale network tunnel")},
+        {QStringLiteral("Privacy & Security"), QStringLiteral("camera microphone mic screen recording sharing location permissions firmware fwupd secure boot encryption")},
         {QStringLiteral("About"), QStringLiteral("system version hardware info specs this computer")},
         {QStringLiteral("Software Update"), QStringLiteral("upgrade apt packages updates")},
     };
@@ -94,6 +99,47 @@ QStringList clipboardHistory()
     return reply.isValid() ? reply.value() : QStringList();
 }
 
+QString clipboardDir(const QString &kind)
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kwick/clipboard/") + kind;
+}
+
+QStringList clipboardStore(const QString &kind)
+{
+    QDir dir(clipboardDir(kind));
+    QStringList out;
+    const QStringList names = dir.entryList({QStringLiteral("*.txt")}, QDir::Files, QDir::Name | QDir::Reversed);
+    for (const QString &name : names) {
+        QFile file(dir.filePath(name));
+        if (file.open(QIODevice::ReadOnly)) {
+            out.append(QString::fromUtf8(file.read(65536)));
+        }
+        if (out.size() >= 200) {
+            break;
+        }
+    }
+    return out;
+}
+
+void setPinned(const QString &text, bool on)
+{
+    QDir dir(clipboardDir(QStringLiteral("pinned")));
+    for (const QString &name : dir.entryList({QStringLiteral("*.txt")}, QDir::Files)) {
+        QFile file(dir.filePath(name));
+        if (file.open(QIODevice::ReadOnly) && QString::fromUtf8(file.readAll()) == text) {
+            file.close();
+            file.remove();
+        }
+    }
+    if (on) {
+        dir.mkpath(QStringLiteral("."));
+        QFile file(dir.filePath(QString::number(QDateTime::currentMSecsSinceEpoch()) + QStringLiteral(".txt")));
+        if (file.open(QIODevice::WriteOnly)) {
+            file.write(text.toUtf8());
+        }
+    }
+}
+
 QString currentDesktop()
 {
     const QString current = qEnvironmentVariable("XDG_CURRENT_DESKTOP").toLower();
@@ -133,8 +179,12 @@ void KwickRunner::loadPages()
     }
     static const QRegularExpression entry(QString::fromLatin1(R"re(\{\s*name:\s*"([^"]+)"\s*,\s*icon:\s*"([^"]+)")re"));
     const QString text = QString::fromUtf8(file.readAll());
+    const bool updateApp = QFileInfo::exists(QStringLiteral("/usr/share/applications/kwick-software-update.desktop"));
     for (auto it = entry.globalMatch(text); it.hasNext();) {
         const auto m = it.next();
+        if (updateApp && m.captured(1) == QLatin1String("Software Update")) {
+            continue;
+        }
         const QString svg = SettingsDir + QStringLiteral("/icons/obj-") + m.captured(2) + QStringLiteral(".svg");
         m_pages.append({m.captured(1), keywordsFor(m.captured(1)), QFileInfo::exists(svg) ? QIcon(svg) : QIcon::fromTheme(QStringLiteral("kwick-settings"))});
     }
@@ -195,6 +245,14 @@ QList<KwickRunner::Command> KwickRunner::commands() const
         s.dark ? Command{QStringLiteral("light"), QStringLiteral("Turn On Light Mode"), QStringLiteral("light mode appearance theme bright day dark mode"), glyph(QStringLiteral("appearance")), {}}
                : Command{QStringLiteral("dark"), QStringLiteral("Turn On Dark Mode"), QStringLiteral("dark mode appearance theme night light mode"), glyph(QStringLiteral("appearance")), {}},
     };
+    if (!QStandardPaths::findExecutable(QStringLiteral("kwick-capture")).isEmpty()) {
+        list.append({QStringLiteral("capture:"), QStringLiteral("Capture Screen…"), QStringLiteral("capture screenshot screen shot snip snipping tool print"), glyph(QStringLiteral("capture")), QStringLiteral("Capture")});
+        list.append({QStringLiteral("capture:--area"), QStringLiteral("Take Screenshot of Selection"), QStringLiteral("screenshot selection area region snip capture"), glyph(QStringLiteral("capture")), QStringLiteral("Capture")});
+        list.append({QStringLiteral("capture:--text"), QStringLiteral("Copy Text from Screen"), QStringLiteral("copy text ocr recognize live text extract read screen"), glyph(QStringLiteral("text")), QStringLiteral("Capture")});
+        list.append({QStringLiteral("capture:--color"), QStringLiteral("Pick Color from Screen"), QStringLiteral("color colour picker pick eyedropper hex rgb"), glyph(QStringLiteral("color")), QStringLiteral("Capture")});
+        list.append({QStringLiteral("capture:--record"), QStringLiteral("Record Screen"), QStringLiteral("record recording screen video screencast capture"), glyph(QStringLiteral("record")), QStringLiteral("Capture")});
+    }
+    list.append({QStringLiteral("clipboard"), QStringLiteral("Clipboard History"), QStringLiteral("clipboard history paste copied pinned"), glyph(QStringLiteral("clipboard")), QStringLiteral("Super+V")});
     if (s.wifiHardware) {
         list.append(s.wifi ? Command{QStringLiteral("wifi-off"), QStringLiteral("Turn Wi-Fi Off"), QStringLiteral("wifi wi-fi wireless wlan network off disable"), glyph(QStringLiteral("wifi-off")), {}}
                            : Command{QStringLiteral("wifi-on"), QStringLiteral("Turn Wi-Fi On"), QStringLiteral("wifi wi-fi wireless wlan network on enable"), glyph(QStringLiteral("wifi")), {}});
@@ -495,26 +553,42 @@ void KwickRunner::matchApps(KRunner::RunnerContext &context, const QString &quer
 
 void KwickRunner::matchClipboard(KRunner::RunnerContext &context, const QString &query)
 {
-    const QStringList history = clipboardHistory();
+    const QStringList pinned = clipboardStore(QStringLiteral("pinned"));
+    QStringList history = clipboardHistory();
+    if (history.isEmpty()) {
+        history = clipboardStore(QStringLiteral("history"));
+    }
+    const KRunner::Action pin(QStringLiteral("pin"), QStringLiteral("pin"), QStringLiteral("Pin"));
+    const KRunner::Action unpin(QStringLiteral("unpin"), QStringLiteral("window-unpin"), QStringLiteral("Unpin"));
     QList<QueryMatch> matches;
-    for (int i = 0; i < history.size(); ++i) {
-        const QString &text = history.at(i);
-        if (!query.isEmpty() && !text.toLower().contains(query)) {
-            continue;
+    auto add = [&](const QString &text, int i, bool isPinned) {
+        if (text.trimmed().isEmpty() || (!query.isEmpty() && !text.toLower().contains(query))) {
+            return;
         }
         QString title = text.simplified();
         if (title.size() > 120) {
             title = title.left(119) + QStringLiteral("…");
         }
+        const int lines = text.count(QLatin1Char('\n')) + 1;
         QueryMatch m(this);
-        m.setId(QStringLiteral("clip:%1").arg(i));
+        m.setId(QStringLiteral("clip:%1:%2").arg(isPinned ? QStringLiteral("p") : QStringLiteral("h")).arg(i));
         m.setText(title);
-        m.setSubtext(text.contains(QLatin1Char('\n')) ? QStringLiteral("%1 lines").arg(text.count(QLatin1Char('\n')) + 1) : QString());
-        m.setIconName(QStringLiteral("edit-paste"));
-        m.setMatchCategory(QStringLiteral("Clipboard"));
-        m.setRelevance(1.0 - i * 0.001);
+        m.setSubtext(lines > 1 ? QStringLiteral("%1 lines").arg(lines) : QString());
+        m.setIconName(isPinned ? QStringLiteral("pin") : QStringLiteral("edit-paste"));
+        m.setMatchCategory(isPinned ? QStringLiteral("Pinned") : QStringLiteral("Clipboard"));
+        m.setCategoryRelevance(isPinned ? QueryMatch::CategoryRelevance::Highest : QueryMatch::CategoryRelevance::High);
+        m.setRelevance((isPinned ? 1.0 : 0.9) - i * 0.001);
+        m.setActions({isPinned ? unpin : pin});
         m.setData(QVariantList{QStringLiteral("clip"), text});
         matches.append(m);
+    };
+    for (int i = 0; i < pinned.size(); ++i) {
+        add(pinned.at(i), i, true);
+    }
+    for (int i = 0; i < history.size() && i < 200; ++i) {
+        if (!pinned.contains(history.at(i))) {
+            add(history.at(i), i, false);
+        }
     }
     context.addMatches(matches);
 }
@@ -526,7 +600,7 @@ void KwickRunner::run(const KRunner::RunnerContext &context, const KRunner::Quer
     const QString kind = data.value(0).toString();
     const QString value = data.value(1).toString();
     if (kind == QLatin1String("page")) {
-        QProcess::startDetached(QStringLiteral("kwick-settings"), {value.toLower()});
+        QProcess::startDetached(QStringLiteral("kwick-settings"), {value.toLower().replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral(" ")).trimmed()});
     } else if (kind == QLatin1String("cmd")) {
         runCommand(value);
     } else if (kind == QLatin1String("file")) {
@@ -543,8 +617,17 @@ void KwickRunner::run(const KRunner::RunnerContext &context, const KRunner::Quer
             (new KIO::ApplicationLauncherJob(service))->start();
         }
     } else if (kind == QLatin1String("clip")) {
-        QDBusConnection::sessionBus().asyncCall(
-            call(QStringLiteral("org.kde.klipper"), QStringLiteral("/klipper"), QStringLiteral("org.kde.klipper.klipper"), QStringLiteral("setClipboardContents"), {value}));
+        const QString action = match.selectedAction().id();
+        if (action == QLatin1String("pin") || action == QLatin1String("unpin")) {
+            setPinned(value, action == QLatin1String("pin"));
+        } else if (QDBusConnection::sessionBus().interface()->isServiceRegistered(QStringLiteral("org.kde.klipper"))) {
+            QDBusConnection::sessionBus().asyncCall(
+                call(QStringLiteral("org.kde.klipper"), QStringLiteral("/klipper"), QStringLiteral("org.kde.klipper.klipper"), QStringLiteral("setClipboardContents"), {value}));
+        } else {
+            QMetaObject::invokeMethod(qApp, [value]() {
+                QGuiApplication::clipboard()->setText(value);
+            }, Qt::QueuedConnection);
+        }
     }
 }
 
@@ -620,6 +703,11 @@ void KwickRunner::runCommand(const QString &id)
         QProcess::startDetached(QStringLiteral("kwick-vpn"), {QStringLiteral("toggle"), id.mid(4)});
     } else if (id.startsWith(QLatin1String("layout:"))) {
         QProcess::startDetached(QStringLiteral("kwick-layout"), {id.mid(7)});
+    } else if (id.startsWith(QLatin1String("capture:"))) {
+        const QString arg = id.mid(8);
+        QProcess::startDetached(QStringLiteral("sh"), {QStringLiteral("-c"), QStringLiteral("sleep 0.3; exec kwick-capture ") + arg});
+    } else if (id == QLatin1String("clipboard")) {
+        QProcess::startDetached(QStringLiteral("sh"), {QStringLiteral("-c"), QStringLiteral("sleep 0.2; exec kwick-search --mode clipboard")});
     }
 }
 

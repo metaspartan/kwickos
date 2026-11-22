@@ -20,6 +20,16 @@ COPY --from=spotlightsrc . /spot/src/kwick-spotlight
 COPY --from=kwickscripts mkspotlightpkg.sh kwin-plugin.sh /spot/scripts/
 RUN bash /spot/scripts/mkspotlightpkg.sh /spot/out
 
+FROM debian:trixie AS settingsapp
+COPY --from=settingssrc . /sapp/src/kwick-settings
+COPY --from=kwickscripts mksettingspkg.sh kwin-plugin.sh /sapp/scripts/
+RUN bash /sapp/scripts/mksettingspkg.sh /sapp/out
+FROM debian:trixie AS native
+COPY --from=nativesrc kwick-quicklook /native/src/kwick-quicklook
+COPY --from=nativesrc kwick-capture /native/src/kwick-capture
+COPY --from=kwickscripts mknativepkg.sh /native/scripts/
+RUN bash /native/scripts/mknativepkg.sh /native/out
+
 FROM debian:trixie AS osk
 COPY --from=kwickscripts mkkeyboardpkg.sh kwin-plugin.sh /osk/scripts/
 RUN bash /osk/scripts/mkkeyboardpkg.sh /osk/out
@@ -40,6 +50,8 @@ COPY --from=kwinflip /flip/out/ /
 COPY --from=kwinglass /glass/out/ /
 COPY --from=macstyle /style/out/ /
 COPY --from=spotlight /spot/out/ /
+COPY --from=settingsapp /sapp/out/ /
+COPY --from=native /native/out/ /
 COPY --from=osk /osk/out/ /
 RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen; locale-gen && update-locale LANG=en_US.UTF-8
 RUN chmod 755 /usr/lib/kwick/fetch-fonts /usr/lib/kwick/fetch-effects && /usr/lib/kwick/fetch-fonts / all && fc-cache -f && /usr/lib/kwick/fetch-effects / all && glib-compile-schemas /usr/share/glib-2.0/schemas

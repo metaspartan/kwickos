@@ -25,8 +25,11 @@ ApplicationWindow {
         { name: "Gaming", icon: "gaming", color: "#ff453a", page: "PageGaming.qml" },
         { name: "Storage", icon: "storage", color: "#64d2ff", page: "PageStorage.qml" },
         { name: "VPN", icon: "vpn", color: "#2c5aa0", page: "PageVPN.qml" },
+        { name: "Agents", icon: "agents", color: "#5e5ce6", page: "PageAgents.qml", keys: "ai agents mcp claude codex gemini opencode ollama llama keys permissions sandbox" },
+        { name: "Privacy & Security", icon: "privacy", color: "#0a84ff", page: "PagePrivacy.qml", keys: "camera microphone mic screen recording sharing location permissions flatpak portal firmware fwupd lvfs secure boot encryption security" },
         { name: "About", icon: "about", color: "#64d2ff", page: "PageAbout.qml" },
-        { name: "Software Update", icon: "update", color: "#8e8e93", page: "PageUpdate.qml", keys: "updates upgrade kernel" }
+        { name: "Software Update", icon: "update", color: "#8e8e93", page: "PageUpdate.qml", keys: "updates upgrade kernel" },
+        { name: "Snapshots", icon: "snapshots", color: "#22b39a", page: "PageSnapshots.qml", keys: "time machine backup restore rollback undo btrfs history versions" }
     ]
 
     function matches(p, q) {

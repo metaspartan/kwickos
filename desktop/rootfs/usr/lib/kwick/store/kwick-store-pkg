@@ -1,0 +1,188 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LC_ALL=C
+DEBIAN_FRONTEND=noninteractive
+export PATH LC_ALL DEBIAN_FRONTEND
+
+VAR=${KWICK_STORE_STATE:-/var/lib/kwick/store}
+UPD=${KWICK_UPDATE_DIR:-/var/lib/kwick/update}
+PROTECT="kwick-desktop kwick-essentials kwick-base kwick-update kwick-gpu kwick-gaming kwick-hyprland"
+
+usage() {
+	cat <<'EOF'
+usage: kwick-store-pkg ACTION SOURCE NAME...
+
+  install apt PKG              install a Debian or KwickOS package
+  remove apt PKG               remove a package (refused if KwickOS needs it)
+  update apt PKG...            upgrade the named packages
+  install flatpak REMOTE APPID install a Flatpak app system-wide
+  remove flatpak APPID         uninstall a system-wide Flatpak app
+  update flatpak APPID         update a system-wide Flatpak app
+  install agent MODULE         run kwick-agents install MODULE
+  remove agent MODULE          run kwick-agents remove MODULE
+EOF
+}
+
+die() { printf 'kwick-store: %s\n' "$*" >&2; exit 1; }
+now() { date +%s; }
+
+valid() {
+	case $1 in
+	pkg) printf '%s' "$2" | grep -Eq '^[a-z0-9][a-z0-9+.-]{0,99}$' ;;
+	app) printf '%s' "$2" | grep -Eq '^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+){2,}$' ;;
+	remote) printf '%s' "$2" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' ;;
+	module) printf '%s' "$2" | grep -Eq '^[a-z0-9][a-z0-9_-]{0,63}$' ;;
+	*) return 1 ;;
+	esac
+}
+
+busy_pid() {
+	set -- $(cat "$1" 2>/dev/null)
+	[ -n "${1:-}" ] && [ -d "/proc/$1" ] && [ "$1" != "$$" ] && echo "$1"
+}
+
+job_begin() {
+	mkdir -p "$VAR"
+	chmod 755 "$VAR"
+	[ -n "$(busy_pid "$VAR/job")" ] && die "another install is running"
+	[ -n "$(busy_pid "$UPD/job")" ] && die "Software Update is installing updates; try again when it finishes"
+	JOBKIND=$1
+	JOBTARGET=$2
+	printf '%s %s %s %s\n' "$$" "$JOBKIND" "$JOBTARGET" "$(now)" >"$VAR/job"
+	: >"$VAR/log"
+	printf '0\t%s\n' "$3" >"$VAR/progress"
+	chmod 644 "$VAR/job" "$VAR/log" "$VAR/progress"
+	trap '' HUP PIPE
+	trap 'job_end 130 "Cancelled"' INT TERM
+}
+
+job_end() {
+	trap - INT TERM
+	printf '%s %s %s %s %s\n' "$JOBKIND" "$1" "$(now)" "$JOBTARGET" "$2" >"$VAR/result"
+	chmod 644 "$VAR/result"
+	rm -f "$VAR/job" "$VAR/progress"
+	[ "$1" = 0 ] || printf '%s\n' "$2"
+	exit "$1"
+}
+
+progress() { printf '%s\t%s\n' "$1" "$2" >"$VAR/progress"; }
+
+last_error() {
+	grep -E '^(E:|error:|Error:|kwick-agents:|kwick-store:)' "$VAR/log" 2>/dev/null | tail -n 1 | sed -e 's/^E: //' -e 's/^[Ee]rror: //'
+}
+
+feed() {
+	awk -v logf="$VAR/log" -v prog="$VAR/progress" -v rcf="$VAR/rc" -v kind="$1" '
+		function emit(p, m) {
+			if (p < last) p = last
+			if (p > 99) p = 99
+			last = p
+			printf "%d\t%s\n", p, m > prog
+			close(prog)
+		}
+		BEGIN { last = 2; total = 0; RS = "[\r\n]+" }
+		/^__rc [0-9]+$/ { print $2 > rcf; close(rcf); next }
+		{ print >> logf; fflush(logf) }
+		kind == "apt" && /Upgrading: [0-9]+, Installing: [0-9]+/ { s = $0; gsub(/[^0-9 ]/, " ", s); split(s, a, " "); total = a[1] + a[2]; next }
+		kind == "apt" && /^Get:[0-9]+ / && !/InRelease|Packages/ { got++; emit(total ? 5 + 40 * got / total : last + 1, "Downloading " $(NF - 2) "…"); next }
+		kind == "apt" && /^Unpacking / { unp++; emit(total ? 45 + 30 * unp / total : last + 1, "Installing " $2 "…"); next }
+		kind == "apt" && /^Setting up / { cfg++; emit(total ? 75 + 22 * cfg / total : last + 1, "Configuring " $3 "…"); next }
+		kind == "apt" && /^Removing / { emit(last + 4, "Removing " $2 "…"); next }
+		kind == "flatpak" && /[0-9]+\/[0-9]+/ {
+			if (match($0, /[0-9]+\/[0-9]+/)) { split(substr($0, RSTART, RLENGTH), op, "/"); cur = op[1]; ops = op[2] }
+			pct = 0
+			if (match($0, /[0-9]+%/)) pct = substr($0, RSTART, RLENGTH - 1) + 0
+			if (ops > 0) emit(3 + 95 * ((cur - 1) + pct / 100) / ops, (/[Uu]ninstall/ ? "Removing" : /[Uu]pdat/ ? "Updating" : "Installing") " " cur " of " ops "…")
+			next
+		}
+		kind == "flatpak" && /^(Installing|Updating|Uninstalling)/ { emit(last + 2, $0); next }
+		kind == "agent" && /^== / { emit(last + 10, "Setting up " $2 "…"); next }
+		kind == "agent" && /[0-9]+(\.[0-9])?%/ { if (match($0, /[0-9]+(\.[0-9])?%/)) emit(10 + 0.8 * substr($0, RSTART, RLENGTH - 1), "Downloading…"); next }
+	'
+}
+
+run_fed() {
+	kind=$1
+	shift
+	rm -f "$VAR/rc"
+	{
+		"$@" </dev/null 2>&1
+		echo "__rc $?"
+	} | feed "$kind"
+	rc=$(cat "$VAR/rc" 2>/dev/null)
+	rm -f "$VAR/rc"
+	return "${rc:-1}"
+}
+
+protected() {
+	for p in $PROTECT; do [ "$1" = "$p" ] && return 0; done
+	return 1
+}
+
+apt_remove_guard() {
+	protected "$1" && die "$1 is part of KwickOS and cannot be removed here"
+	plan=$(apt-get -s remove "$1" 2>&1) || die "$(printf '%s\n' "$plan" | grep -E '^E:' | tail -n 1 | sed 's/^E: //')"
+	for p in $PROTECT; do
+		if printf '%s\n' "$plan" | grep -Eq "^Remv $p( |$)"; then
+			die "removing $1 would also remove $p, which KwickOS needs"
+		fi
+	done
+}
+
+act=${1:-}
+src=${2:-}
+[ $# -ge 2 ] && shift 2
+case $act in -h | --help | help | "") usage; exit 0 ;; esac
+[ "$(id -u)" = 0 ] || die "this helper runs as root through pkexec"
+
+case $act:$src in
+install:apt)
+	[ $# = 1 ] && valid pkg "$1" || die "expected one package name"
+	command -v apt-get >/dev/null || die "apt-get is not available"
+	job_begin install "apt:$1" "Preparing $1…"
+	if run_fed apt apt-get install -y "$1"; then job_end 0 "Installed $1"; else job_end 1 "$(last_error)"; fi
+	;;
+remove:apt)
+	[ $# = 1 ] && valid pkg "$1" || die "expected one package name"
+	apt_remove_guard "$1"
+	job_begin remove "apt:$1" "Removing $1…"
+	if run_fed apt apt-get remove -y "$1"; then job_end 0 "Removed $1"; else job_end 1 "$(last_error)"; fi
+	;;
+update:apt)
+	[ $# -ge 1 ] || die "expected package names"
+	for p; do valid pkg "$p" || die "invalid package name '$p'"; done
+	job_begin update "apt:$1" "Preparing updates…"
+	if run_fed apt apt-get install -y --only-upgrade "$@"; then job_end 0 "Updated $*"; else job_end 1 "$(last_error)"; fi
+	;;
+install:flatpak)
+	[ $# = 2 ] && valid remote "$1" && valid app "$2" || die "expected a remote and an app ID"
+	command -v flatpak >/dev/null || die "flatpak is not installed"
+	job_begin install "flathub:$2" "Preparing $2…"
+	if run_fed flatpak flatpak install -y --noninteractive --system "$1" "app/$2//stable"; then job_end 0 "Installed $2"; else
+		if run_fed flatpak flatpak install -y --noninteractive --system "$1" "$2"; then job_end 0 "Installed $2"; else job_end 1 "$(last_error)"; fi
+	fi
+	;;
+remove:flatpak)
+	[ $# = 1 ] && valid app "$1" || die "expected an app ID"
+	job_begin remove "flathub:$1" "Removing $1…"
+	if run_fed flatpak flatpak uninstall -y --noninteractive --system "$1"; then
+		flatpak uninstall -y --noninteractive --system --unused >/dev/null 2>&1
+		job_end 0 "Removed $1"
+	else job_end 1 "$(last_error)"; fi
+	;;
+update:flatpak)
+	[ $# = 1 ] && valid app "$1" || die "expected an app ID"
+	job_begin update "flathub:$1" "Updating $1…"
+	if run_fed flatpak flatpak update -y --noninteractive --system "$1"; then job_end 0 "Updated $1"; else job_end 1 "$(last_error)"; fi
+	;;
+install:agent | remove:agent)
+	[ $# = 1 ] && valid module "$1" || die "expected one module name"
+	command -v kwick-agents >/dev/null || die "kwick-agents is not installed"
+	job_begin "$act" "agent:$1" "Preparing $1…"
+	if run_fed agent kwick-agents "$act" "$1"; then job_end 0 "$([ "$act" = install ] && echo Installed || echo Removed) $1"; else job_end 1 "$(last_error)"; fi
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac

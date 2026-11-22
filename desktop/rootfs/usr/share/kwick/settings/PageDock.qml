@@ -152,8 +152,8 @@ ColumnLayout {
                     spacing: 12
                     AppIcon { name: prow.info.name; icon: prow.info.icon }
                     Text { Layout.fillWidth: true; text: prow.info.name; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13; elide: Text.ElideRight }
-                    Btn { text: "↑"; implicitWidth: 30; enabled: prow.index > 0; onClicked: Sys.movePinned(prow.index, -1) }
-                    Btn { text: "↓"; implicitWidth: 30; enabled: prow.index < Sys.pinned.length - 1; onClicked: Sys.movePinned(prow.index, 1) }
+                    Btn { chevron: "up"; implicitWidth: 30; enabled: prow.index > 0; onClicked: Sys.movePinned(prow.index, -1) }
+                    Btn { chevron: "down"; implicitWidth: 30; enabled: prow.index < Sys.pinned.length - 1; onClicked: Sys.movePinned(prow.index, 1) }
                     Btn { text: "Remove"; danger: true; onClicked: Sys.unpin(prow.modelData) }
                 }
                 Rectangle {

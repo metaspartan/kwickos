@@ -26,8 +26,9 @@ BaseDelegate {
     readonly property bool critical: modelInterface.urgency === NotificationManager.Notifications.CriticalUrgency
     readonly property string title: modelInterface.summary.length > 0 ? modelInterface.summary : modelInterface.applicationName
     readonly property bool glass: KSvg.ImageSet.imageSetName === "kwick-liquidglass"
-    readonly property color primary: glass ? "#ffffff" : Kirigami.Theme.textColor
-    readonly property color secondary: glass ? Qt.rgba(0.9, 0.9, 0.9, 0.8) : Qt.rgba(primary.r, primary.g, primary.b, 0.7)
+    readonly property bool lightUi: Kirigami.Theme.backgroundColor.hslLightness > 0.5
+    readonly property color primary: glass ? (lightUi ? "#1d1d1f" : "#ffffff") : Kirigami.Theme.textColor
+    readonly property color secondary: glass ? (lightUi ? Qt.rgba(0.11, 0.11, 0.12, 0.62) : Qt.rgba(0.9, 0.9, 0.9, 0.8)) : Qt.rgba(primary.r, primary.g, primary.b, 0.7)
     property date now: new Date()
 
     function stamp(t) {
@@ -134,9 +135,9 @@ BaseDelegate {
         x: 4
         y: 4
         z: 10
-        color: delegateRoot.glass ? (closeArea.pressed ? "#3a3a3c" : "#48484a") : (closeArea.pressed ? Kirigami.Theme.alternateBackgroundColor : Kirigami.Theme.backgroundColor)
+        color: delegateRoot.glass ? (delegateRoot.lightUi ? (closeArea.pressed ? "#d1d1d6" : "#e5e5ea") : (closeArea.pressed ? "#3a3a3c" : "#48484a")) : (closeArea.pressed ? Kirigami.Theme.alternateBackgroundColor : Kirigami.Theme.backgroundColor)
         border.width: 1
-        border.color: delegateRoot.glass ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(delegateRoot.primary.r, delegateRoot.primary.g, delegateRoot.primary.b, 0.2)
+        border.color: delegateRoot.glass ? (delegateRoot.lightUi ? Qt.rgba(0, 0, 0, 0.12) : Qt.rgba(1, 1, 1, 0.14)) : Qt.rgba(delegateRoot.primary.r, delegateRoot.primary.g, delegateRoot.primary.b, 0.2)
 
         Kirigami.Icon {
             anchors.centerIn: parent

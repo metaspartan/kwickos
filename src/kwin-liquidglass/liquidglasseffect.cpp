@@ -115,6 +115,7 @@ void LiquidGlassEffect::reconfigure(ReconfigureFlags flags)
     m_style = std::clamp(group.readEntry("Style", 0), 0, 2);
     m_titleBars = group.readEntry("TitleBars", false);
     m_menuBar = group.readEntry("MenuBar", false);
+    m_acrylic = group.readEntry("Acrylic", false);
     QString appearance = group.readEntry("Appearance", QString());
     if (appearance.isEmpty()) {
         QFile file(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kwick/appearance"));
@@ -399,7 +400,7 @@ LiquidGlassEffect::Look LiquidGlassEffect::lookFor(Kind kind) const
         look = {0.8f, 0.9f, 14.0f, 3, 1.7f, 1.0f, 1.3f, 0.0f, 0.1f, 0.0f, 0.05f};
         break;
     case Kind::Bar:
-        look = {0.5f, 0.8f, 8.0f, 3, 2.4f, 1.0f, 1.15f, 0.0f, 0.18f};
+        look = m_acrylic ? Look{0.0f, 1.0f, 1.0f, 4, 3.4f, 1.0f, 0.55f, 0.72f, 0.82f} : Look{0.5f, 0.8f, 8.0f, 3, 2.4f, 1.0f, 1.15f, 0.0f, 0.18f};
         break;
     case Kind::Menu:
         look = {0.5f, 1.0f, 7.0f, 4, 3.4f, 1.0f, 0.06f, 0.64f, 0.74f, 0.0f};
@@ -814,8 +815,8 @@ bool LiquidGlassEffect::paintGlass(const RenderTarget &renderTarget, const Rende
     shader->setUniform("uBevel", float(look.bevel * scale));
     shader->setUniform("uRefract", look.refract);
     shader->setUniform("uFrost", look.frost);
-    shader->setUniform("uDisperse", float(kind == Kind::Window ? 0.0 : m_dispersion));
-    shader->setUniform("uSpec", float(kind == Kind::Window ? 0.0 : (kind == Kind::Bar ? m_specular * 0.35 : m_specular)));
+    shader->setUniform("uDisperse", float(kind == Kind::Window || (kind == Kind::Bar && m_acrylic) ? 0.0 : m_dispersion));
+    shader->setUniform("uSpec", float(kind == Kind::Window ? 0.0 : (kind == Kind::Bar ? (m_acrylic ? 0.0 : m_specular * 0.35) : m_specular)));
     shader->setUniform("uSat", look.sat);
     shader->setUniform("uDark", QVector2D(look.darkMin, look.darkMax));
     shader->setUniform("uMul", look.mul);

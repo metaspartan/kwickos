@@ -277,14 +277,14 @@ PageFrame {
             id: adv
             Layout.topMargin: 6
             title: "Advanced Options"
-            open: Inst.encrypt || Inst.fs !== "ext4"
+            open: Inst.encrypt || Inst.fs !== "btrfs"
 
             KCard {
                 KRow {
                     title: "File system"
-                    subtitle: Inst.fs === "btrfs" ? "Snapshots and compression" : Inst.fs === "xfs" ? "Fast with very large files" : "The dependable default"
+                    subtitle: Inst.fs === "btrfs" ? "Recommended. Takes a snapshot before every update and every hour, so you can undo an update or get back a file." : Inst.fs === "xfs" ? "Fast with very large files. No snapshots: updates can’t be undone and older versions of files aren’t kept." : "Simple and dependable. No snapshots: updates can’t be undone and older versions of files aren’t kept."
                     KSeg {
-                        options: [{ id: "ext4", label: "ext4" }, { id: "btrfs", label: "Btrfs" }, { id: "xfs", label: "XFS" }]
+                        options: [{ id: "btrfs", label: "Btrfs" }, { id: "ext4", label: "ext4" }, { id: "xfs", label: "XFS" }]
                         current: Inst.fs
                         onPicked: (id) => Inst.fs = id
                     }

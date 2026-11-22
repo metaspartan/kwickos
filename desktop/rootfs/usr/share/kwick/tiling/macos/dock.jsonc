@@ -33,9 +33,9 @@
     "on-click": "/usr/lib/kwick/dock-state open 'org.kde.kate|org.gnome.TextEditor|mousepad' kwick-app editor"
   },
   "custom/store": {
-    "exec": "/usr/lib/kwick/dock-state 'org.kde.discover|org.gnome.Software'",
-    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Software",
-    "on-click": "/usr/lib/kwick/dock-state open 'org.kde.discover|org.gnome.Software' kwick-app software"
+    "exec": "/usr/lib/kwick/dock-state 'kwick-store|org.kwickos.store.qml|org.kde.discover|org.gnome.Software'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "App Store",
+    "on-click": "/usr/lib/kwick/dock-state open 'kwick-store|org.kwickos.store.qml|org.kde.discover|org.gnome.Software' kwick-app software"
   },
   "custom/settings": {
     "exec": "/usr/lib/kwick/dock-state 'org.kwickos.settings.qml|kwick-settings'",
@@ -51,6 +51,6 @@
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
-    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kde.discover", "org.gnome.Software", "org.kwickos.settings.qml", "kwick-settings"]
+    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kwickos.store.qml", "kwick-store", "org.kde.discover", "org.gnome.Software", "org.kwickos.settings.qml", "kwick-settings"]
   }
 }

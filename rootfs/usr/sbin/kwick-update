@@ -32,8 +32,9 @@ usage: kwick-update <command> [options]
 
   status [--json]                cached result of the last check, settings and the running task
   check [--quiet]                refresh apt (and Flatpak) and list what can be updated
-  upgrade [all|system|apps|security]
+  upgrade [all|system|apps|security|arch]
                                  install updates; a new kernel is tried once before it becomes the default
+  cve [--json]                   known CVEs of installed packages (Debian security tracker, Arch environment)
   download                       fetch system updates without installing them
   auto [show|on|off]             automatic checks through crond
   auto set KEY on|off ...        check, download, system, apps, security, notify
@@ -221,10 +222,36 @@ collect_flatpak() {
 	rm -f "$VAR/fp.list"
 }
 
+ARCH_CLI=${KWICK_ARCH_CLI:-/usr/bin/kwick-arch}
+DEBSEC=${KWICK_DEBSEC:-/usr/lib/kwick/debsec}
+
+arch_on() { [ -x "$ARCH_CLI" ] && grep -q '"enabled": true' /var/lib/kwick/arch/state.json 2>/dev/null; }
+
+collect_arch() {
+	arch_on || return 0
+	"$ARCH_CLI" _tsv 2>/dev/null
+}
+
+check_cve() {
+	if [ -x "$DEBSEC" ]; then
+		progress 75 "Checking installed packages for known vulnerabilities…"
+		"$DEBSEC" "$VAR" >>"$VAR/log" 2>&1 || log "the Debian security tracker check did not finish (see kwick-update cve)"
+	fi
+	if arch_on; then
+		progress 80 "Checking the Arch environment…"
+		"$ARCH_CLI" upgrade --check --json >/dev/null 2>>"$VAR/log" || log "the Arch environment check did not finish"
+	fi
+}
+
+cve_json() { if [ -s "$VAR/cve.json" ]; then tr -d '\n' <"$VAR/cve.json"; else printf null; fi; }
+
+arch_json() { if arch_on; then "$ARCH_CLI" _summary 2>/dev/null | tr -d '\n' | grep . || printf null; else printf null; fi; }
+
 collect() {
 	{
 		collect_apt
 		collect_flatpak
+		collect_arch
 	} >"$VAR/updates.new"
 	mv "$VAR/updates.new" "$VAR/updates"
 	chmod 644 "$VAR/updates"
@@ -254,6 +281,7 @@ cmd_check() {
 		progress 70 "Checking Flatpak apps…"
 		flatpak update --appstream --system >/dev/null 2>&1
 	fi
+	check_cve
 	progress 85 "Reading the update list…"
 	collect
 	st_put checked "$(now)"
@@ -304,17 +332,28 @@ security_pkgs() { awk -F'\t' '$1 == "system" && $7 == 1 { print $2 }' "$VAR/upda
 cmd_upgrade() {
 	need_root upgrade
 	what=${1:-all}
-	case $what in all | system | apps | security) ;; *) die "upgrade what? all, system, apps or security" ;; esac
+	case $what in all | system | apps | security | arch) ;; *) die "upgrade what? all, system, apps, security or arch" ;; esac
 	job_begin upgrade "Preparing…"
 	[ -f "$VAR/updates" ] || collect
 	sys=0
 	app=0
+	arc=0
 	case $what in all | system) sys=$(count_of system) ;; security) sys=$(count_of security) ;; esac
 	case $what in all | apps) app=$(count_of apps) ;; esac
-	total=$((sys + app))
+	case $what in all | arch) arc=$(count_of arch) ;; esac
+	total=$((sys + app + arc))
 	[ "$total" -gt 0 ] || { collect; job_end 0 "Everything is up to date"; return 0; }
 	split=$((sys * 92 / total))
 	rc=0
+	snap_pre=""
+	sdesc="Software Update ($total update$([ "$total" = 1 ] || echo s))"
+	if [ -x /usr/sbin/kwick-snapshot ]; then
+		progress 1 "Taking a snapshot…"
+		snap_pre=$(/usr/sbin/kwick-snapshot create --type pre --cleanup number -d "$sdesc" 2>/dev/null)
+		[ -n "$snap_pre" ] && log "snapshot $snap_pre holds the system before the update"
+	fi
+	KWICK_SNAPSHOT_SKIP=1
+	export KWICK_SNAPSHOT_SKIP
 	if [ "$sys" -gt 0 ] && have apt-get; then
 		kernel_guard_on
 		if [ "$what" = security ]; then
@@ -327,6 +366,20 @@ cmd_upgrade() {
 	if [ "$app" -gt 0 ] && have flatpak; then
 		progress $((split + 2)) "Updating apps…"
 		run_fed $((split + 2)) $((96 - split)) "$app" flatpak update -y --noninteractive --system || rc=1
+	fi
+	if [ "$arc" -gt 0 ] && arch_on; then
+		progress 94 "Updating the Arch environment…"
+		if ! "$ARCH_CLI" upgrade --yes >>"$VAR/log" 2>&1; then
+			log "Arch environment updates were held back: $(grep '^kwick-arch:' "$VAR/log" | tail -n 1 | sed 's/^kwick-arch: //')"
+			[ "$what" = arch ] && rc=1
+		fi
+		"$ARCH_CLI" upgrade --check --json >/dev/null 2>>"$VAR/log"
+	fi
+	if [ -n "$snap_pre" ]; then
+		progress 97 "Taking a snapshot…"
+		snap_post=$(KWICK_SNAPSHOT_SKIP=0 /usr/sbin/kwick-snapshot create --type post --pre "$snap_pre" --cleanup number -d "$sdesc" 2>/dev/null)
+		[ -n "$snap_post" ] && log "snapshot $snap_post holds the system after the update"
+		/usr/sbin/kwick-snapshot cleanup -q >/dev/null 2>&1
 	fi
 	progress 98 "Finishing…"
 	collect
@@ -560,6 +613,8 @@ cmd_status() {
 		printf 'last check     %s\n' "$(c=$(st_get checked); [ -n "$c" ] && date -d "@$c" '+%Y-%m-%d %H:%M' 2>/dev/null || echo never)"
 		[ -n "$(st_get error)" ] && printf 'check error    %s\n' "$(st_get error)"
 		printf 'updates        %s (system %s, security %s, apps %s)\n' "$(count_of)" "$(count_of system)" "$(count_of security)" "$(count_of apps)"
+		[ "$(count_of arch)" -gt 0 ] && printf 'arch updates   %s\n' "$(count_of arch)"
+		[ -s "$VAR/cve.json" ] && printf 'known CVEs     %s\n' "$(sed -n 's/.*"fixable":\([0-9]*\),"open":{"high":\([0-9]*\),"medium":\([0-9]*\).*/\1 fixable by an update, open without a fix: \2 high, \3 medium (kwick-update cve)/p' "$VAR/cve.json")"
 		printf 'automatic      %s\n' "$([ "$CHECK" = 1 ] && echo "checks every ${INTERVAL}h" || echo off)"
 		[ -n "$jp" ] && printf 'running        %s %s%% %s\n' "$jk" "$pp" "$pm"
 		[ -n "$rk" ] && printf 'last task      %s %s %s\n' "$rk" "$([ "$rc" = 0 ] && echo ok || echo failed)" "$rm_"
@@ -585,7 +640,32 @@ cmd_status() {
 		printf '{"kind":"%s","name":"%s","from":"%s","to":"%s","size":%s,"summary":"%s","security":%s}' \
 			"$k" "$(jstr "$n")" "$(jstr "$f")" "$(jstr "$t")" "${s:-0}" "$(jstr "$d")" "$(jbool "$sec")"
 	done <"$VAR/updates"
-	printf ']}\n'
+	printf '],"cve":%s,"arch":%s}\n' "$(cve_json)" "$(arch_json)"
+}
+
+cmd_cve() {
+	if [ "${1:-}" = refresh ]; then
+		need_root "cve refresh"
+		[ -x "$DEBSEC" ] && "$DEBSEC" "$VAR"
+		arch_on && "$ARCH_CLI" upgrade --check --json >/dev/null
+	fi
+	if [ "$JSON" = 1 ]; then
+		printf '{"ok":true,"host":%s,"arch":%s}\n' "$(cve_json)" "$(arch_json)"
+		return 0
+	fi
+	if [ -s "$VAR/cve.json" ]; then
+		c=$(sed -n 's/.*"checked":\([0-9]*\).*/\1/p' "$VAR/cve.json")
+		printf 'host (Debian security tracker, %s): ' "$(date -d "@${c:-0}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
+		sed -n 's/.*"fixable":\([0-9]*\),"open":{"high":\([0-9]*\),"medium":\([0-9]*\),"low":\([0-9]*\),"unknown":\([0-9]*\)}.*/\1 CVE(s) with a fix available; open without a fix: \2 high, \3 medium, \4 low, \5 unrated/p' "$VAR/cve.json"
+		echo
+		grep -o '"error":"[^"]*"' "$VAR/cve.json" | sed 's/^"error":"/host check error: /; s/"$//'
+		[ -s "$VAR/cve.tsv" ] && awk -F'\t' '$6 == 1 { printf "  %-28s %-28s %-18s fixed in %s (%s)\n", $1, $2, $3, $5, $4 }' "$VAR/cve.tsv"
+	else
+		echo "host (Debian security tracker): not checked yet (kwick-update check)"
+	fi
+	if arch_on; then
+		"$ARCH_CLI" upgrade --check 2>/dev/null | sed 's/^/arch: /'
+	fi
 }
 
 cmd_log() { tail -n "${1:-40}" "$VAR/log" 2>/dev/null; }
@@ -609,6 +689,7 @@ download) cmd_download ;;
 auto) cmd_auto "$@" ;;
 kernel) cmd_kernel "$@" ;;
 log) cmd_log "$@" ;;
+cve) cmd_cve "$@" ;;
 notify) cmd_notify ;;
 scheduled) cmd_scheduled ;;
 _toast) cmd_toast "$@" ;;

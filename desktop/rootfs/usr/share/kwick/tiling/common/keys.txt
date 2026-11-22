@@ -1,11 +1,13 @@
 SUPER + Return            Terminal (foot)
-SUPER + Space             Spotlight search
+SUPER + Space             Spotlight search (Ctrl+Y previews a file)
 SUPER + D                 Launcher
 SUPER + B                 Web browser
 SUPER + E                 File manager
 SUPER + W / Q             Close window
 SUPER + F                 Fullscreen
-SUPER + V                 Toggle floating
+SUPER + V                 Clipboard history
+SUPER + Shift + V         Toggle floating
+SUPER + Shift + S         Capture (screenshots, recording, text, color)
 SUPER + J                 Toggle split direction
 SUPER + Arrows            Move focus
 SUPER + Shift + Arrows    Move window
@@ -16,5 +18,5 @@ SUPER + Tab               Next workspace
 SUPER + Mouse drag        Move (left) / resize (right) window
 SUPER + L                 Lock screen
 SUPER + K or /            This cheat sheet
-Print / Shift + Print     Screenshot region / screen to clipboard
+Print / Shift + Print     Capture selection / entire screen
 SUPER + Shift + E         Exit session

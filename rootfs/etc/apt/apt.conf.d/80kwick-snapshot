@@ -1,0 +1,2 @@
+DPkg::Pre-Invoke { "if [ -x /usr/sbin/kwick-snapshot ]; then /usr/sbin/kwick-snapshot apt-pre; fi || true"; };
+DPkg::Post-Invoke { "if [ -x /usr/sbin/kwick-snapshot ]; then /usr/sbin/kwick-snapshot apt-post; fi || true"; };

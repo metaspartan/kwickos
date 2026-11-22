@@ -142,13 +142,14 @@ Nothing below is in the base image. Each one is a small package or command that 
 | `kwick-essentials` | common tools in one step: curl, jq, sudo, dnsutils, net-tools, build-essential and similar | `apt install kwick-essentials` | [BASE](docs/BASE.md) |
 | `kwick-gaming` | Bazzite-style gaming modules: Steam, SteamOS-style Gaming Mode, Proton-GE, launchers, overlays, handhelds, streaming | `apt install kwick-gaming` (included with the desktop) | [GAMING](docs/GAMING.md) |
 | `kwick-pen` | Kali-style security toolkit from Debian and pinned upstream sources, for authorized testing | `apt install kwick-pen` | [PEN](docs/PEN.md) |
-| `kwick-agents` | AI agent tooling, starting with the Cybara agent platform | `apt install kwick-agents` | [AGENTS](docs/AGENTS.md) |
+| `kwick-agents` | AI agents (Claude Code, Codex, Gemini CLI, opencode, oh-my-pi, OpenClaw, Hermes, Aider, Goose, Cybara, Ollama, llama.cpp), pinned and verified, in bubblewrap sandboxes, with a keystore and the kwick-mcp MCP server | `apt install kwick-agents` | [AGENTS](docs/AGENTS.md) |
 | `kwick-storage`, `kwick-zfs` | NAS modules: prebuilt OpenZFS, RAID, SnapRAID arrays, SMB and NFS shares, Cockpit | `apt install kwick-storage`, then `kwick-storage install zfs` | [STORAGE](docs/STORAGE.md) |
 | `kwick-vpn` | import WireGuard and OpenVPN profiles, add Tailscale, Mullvad, Proton, ZeroTier or NetBird | in the base: `kwick-vpn install tailscale` | [VPN](docs/VPN.md) |
 | `kwick-brew` | Homebrew (Linuxbrew) with the official installer, amd64 and arm64 | in the base: `kwick-brew install` | [BASE](docs/BASE.md#homebrew) |
 | `kwick-shell` | switches the login shell between zsh, bash, ash and fish, zsh is the desktop default | in the base: `kwick-shell zsh` | [BASE](docs/BASE.md#shells) |
 | `kwick-gpu` | detects GPUs and installs AMD, Intel or NVIDIA drivers and firmware | `apt install kwick-gpu` (included with the desktop) | [HARDWARE](docs/HARDWARE.md) |
 | `kwick-darling` | runs macOS command-line programs with Darling (amd64) | `apt install kwick-darling` | [DARLING](docs/DARLING.md) |
+| `kwick-arch` | Arch Linux repositories (core, extra, multilib) and the AUR in a managed Arch environment, CVE-gated and with AUR review (x86_64) | `apt install kwick-arch`, then `kwick-arch enable` | [ARCH](docs/ARCH.md) |
 
 Most of them share one interface: `list`, `status`, `install <module...>`, `remove <module...>` and `all`.
 
@@ -215,7 +216,8 @@ Cross builds, the source tree, releases and CI: [docs/BUILDING.md](docs/BUILDING
 | [HARDWARE](docs/HARDWARE.md) | kernel flavors, GPUs, Apple Silicon, GB10, riscv64 boards |
 | [KERNELS](docs/KERNELS.md) | `kwick-kernel`: install, switch, try once and roll back kernels |
 | [UPDATES](docs/UPDATES.md) | `kwick-update` and the Software Update page: checks, updates, automatic updates, notifications |
-| [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md) | optional packages |
+| [SNAPSHOTS](docs/SNAPSHOTS.md) | `kwick-snapshot` and the Snapshots page: Btrfs snapshots around every update and every hour, file restore, rollback, starting a snapshot from the boot menu |
+| [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md), [ARCH](docs/ARCH.md) | optional packages |
 | [BUILDING](docs/BUILDING.md) and [VERIFICATION](docs/VERIFICATION.md) | building from source, CI, and what was tested |
 
 ## License

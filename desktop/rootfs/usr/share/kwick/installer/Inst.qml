@@ -42,7 +42,7 @@ QtObject {
     property string layout: "macos"
     property string disk: ""
     property string mode: "erase"
-    property string fs: "ext4"
+    property string fs: "btrfs"
     property bool encrypt: false
     property string passphrase: ""
     property string passphrase2: ""
@@ -410,7 +410,7 @@ QtObject {
     }
 
     function fsName(f) {
-        return f === "btrfs" ? "Btrfs" : f === "xfs" ? "XFS" : "ext4"
+        return f === "btrfs" ? "Btrfs with snapshots" : f === "xfs" ? "XFS, no snapshots" : "ext4, no snapshots"
     }
 
     function swapName(s) {

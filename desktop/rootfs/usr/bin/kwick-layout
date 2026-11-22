@@ -8,10 +8,26 @@ usage: kwick-layout radius [0-24|default]
   set the window corner radius for the current layout, or print "current default"
 usage: kwick-layout appearance [dark|light]
   switch every layout and desktop to dark or light, or print the current appearance
+usage: kwick-layout status [--json]
+  layout, appearance, corner radius and desktop session
 USAGE
 }
 set -u
 cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick; mkdir -p "$cfg"
+if [ "${1:-}" = status ]; then
+  sl=$(cat "$cfg/layout" 2>/dev/null || echo macos)
+  sa=$(cat "$cfg/appearance" 2>/dev/null)
+  [ "$sa" = light ] || sa=dark
+  sr=$(cat "$cfg/radius" 2>/dev/null)
+  case $sr in ''|*[!0-9]*) sr= ;; esac
+  sd=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9:_-')
+  if [ "${2:-}" = --json ]; then
+    printf '{"layout":"%s","appearance":"%s","radius":%s,"desktop":"%s"}\n' "$sl" "$sa" "${sr:-null}" "$sd"
+  else
+    printf 'layout %s\nappearance %s\nradius %s\ndesktop %s\n' "$sl" "$sa" "${sr:-default}" "${sd:-none}"
+  fi
+  exit 0
+fi
 want=${1:-}
 if [ -z "$want" ]; then cat "$cfg/layout" 2>/dev/null || echo macos; exit 0; fi
 MODE=$(cat "$cfg/appearance" 2>/dev/null)
@@ -39,13 +55,40 @@ light() { [ "$MODE" = light ]; }
 
 palette() { [ -f "$1/palette-$MODE" ] && sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/' "$1/palette-$MODE"; true; }
 
+symbolic() { [ -f "$1/palette-dark" ] && sed -n 's/^@\([A-Z_]*\)@ .*$/\1/p' "$1/palette-dark" | while read -r n; do printf 's|@%s@|@kwick_%s|g\n' "$n" "$(printf '%s' "$n" | tr 'A-Z' 'a-z')"; done; true; }
+
+gtk3theme() {
+  if [ -f "/usr/share/kwick/gtk/$want/gtk-3.0.css" ] && [ -f "/usr/share/kwick/gtk/$want/palette-$MODE" ]; then
+    echo "KwickOS-$want-$MODE"
+  else
+    echo "Adwaita$(light || echo -dark)"
+  fi
+}
+
+gtk3themes() {
+  gd=/usr/share/kwick/gtk/$want
+  [ -f "$gd/gtk-3.0.css" ] || return 0
+  for gm in dark light; do
+    [ -f "$gd/palette-$gm" ] || continue
+    gt=${XDG_DATA_HOME:-$HOME/.local/share}/themes/KwickOS-$want-$gm/gtk-3.0
+    mkdir -p "$gt"
+    {
+      printf '@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained%s.css");\n' "$([ $gm = dark ] && echo -dark)"
+      sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' "$gd/palette-$gm" | while read -r gn gv; do
+        printf '@define-color kwick_%s %s;\n' "$(printf '%s' "$gn" | tr 'A-Z' 'a-z')" "$gv"
+      done
+    } > "$gt/gtk.css.new" && mv "$gt/gtk.css.new" "$gt/gtk.css"
+    printf '[Desktop Entry]\nType=X-GNOME-Metatheme\nName=KwickOS %s %s\n\n[X-GNOME-Metatheme]\nGtkTheme=KwickOS-%s-%s\n' "$want" "$gm" "$want" "$gm" > "${gt%/gtk-3.0}/index.theme"
+  done
+}
+
 colorscheme() {
   if light; then
     gsettings set org.gnome.desktop.interface color-scheme prefer-light 2>/dev/null || gsettings set org.gnome.desktop.interface color-scheme default 2>/dev/null
   else
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null
   fi
-  [ "${1:-}" = scheme ] || gsettings set org.gnome.desktop.interface gtk-theme "$(light && echo Adwaita || echo Adwaita-dark)" 2>/dev/null || true
+  [ "${1:-}" = scheme ] || gsettings set org.gnome.desktop.interface gtk-theme "$(gtk3theme)" 2>/dev/null || true
 }
 
 gtkprefer() {
@@ -62,7 +105,7 @@ gtkprefer() {
 }
 
 kdegtk() {
-  t=Adwaita$(light || echo -dark)
+  t=$(gtk3theme)
   [ "$want" = linux ] && [ -d /usr/share/themes/Breeze/gtk-3.0 ] && t=Breeze
   for v in gtk-3.0 gtk-4.0; do
     f=${XDG_CONFIG_HOME:-$HOME/.config}/$v
@@ -146,7 +189,10 @@ gtkstyle() {
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$GC/$v"
     t=/usr/share/kwick/gtk/$want/$v.css
-    if [ -f "$t" ]; then
+    if [ -f "$t" ] && [ "$v" = gtk-3.0 ] && [ -f "${t%/*}/palette-$MODE" ]; then
+      gtk3themes
+      sed -e "s/@RADIUS@/$rad/g" -e "$(symbolic "${t%/*}")" "$t" > "$GC/$v/gtk.css"
+    elif [ -f "$t" ]; then
       sed -e "s/@RADIUS@/$rad/g" -e "$(palette "${t%/*}")" "$t" > "$GC/$v/gtk.css"
     elif [ -n "$(curradius)" ]; then
       : > "$GC/$v/gtk.css"
@@ -214,6 +260,14 @@ CONF
   gsettings set org.gnome.desktop.interface cursor-size 24 2>/dev/null || true
 }
 
+kdecapture() {
+  command -v kwick-capture >/dev/null 2>&1 || return 0
+  cur=$(kreadconfig6 --file kglobalshortcutsrc --group services --group kwick-capture.desktop --key _launch 2>/dev/null)
+  case $cur in ""|none) ;; *) return 0 ;; esac
+  kwriteconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key _launch "Print"
+  kwriteconfig6 --file kglobalshortcutsrc --group services --group kwick-capture.desktop --key _launch "Meta+Shift+S"
+}
+
 kde() {
   fontconf kde
   case $want in
@@ -227,7 +281,8 @@ kde() {
   kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals Icons Theme "$ICO"
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
-  kw kdeglobals KDE widgetStyle "$(if ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then case $want in macos) echo KwickMac ;; windows) echo KwickFluent ;; *) echo Breeze ;; esac; else echo Breeze; fi)"
+  kwriteconfig6 --notify --file kdeglobals --group KDE --key widgetStyle "$(if ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then case $want in macos) echo KwickMac ;; windows) echo KwickFluent ;; *) echo Breeze ;; esac; else echo Breeze; fi)"
+  dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.notifyChange int32:2 int32:0 >/dev/null 2>&1 || true
   kw kdeglobals KDE DefaultDarkLookAndFeel "org.kwickos.$want"
   kw kdeglobals KDE DefaultLightLookAndFeel "org.kwickos.$( [ "$want" = macos ] && echo windows || echo macos )"
   kw kdeglobals General font "$UI,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
@@ -249,12 +304,14 @@ kde() {
   fi
   kw kwinrc Effect-kwick_liquidglass MenuBar "$( [ "$want" = macos ] && echo false || echo true )"
   kw kwinrc Effect-kwick_liquidglass Appearance "$MODE"
+  kw kwinrc Effect-kwick_liquidglass Acrylic "$( [ "$want" = windows ] && echo true || echo false )"
   corners
   files
   gtkstyle
   colorscheme scheme
   gsettings set org.gnome.desktop.interface icon-theme "$ICO" 2>/dev/null || true
   kdegtk
+  kdecapture
   gtkbuttons
   refresh_icons
   dbus-send --session --type=signal /KDEPlatformTheme org.kde.KDEPlatformTheme.refreshFonts >/dev/null 2>&1 || true
@@ -334,12 +391,50 @@ files() {
   S=${XDG_STATE_HOME:-$HOME/.local/state}; mkdir -p "$S"
   cp "$F/$want/dolphinstaterc" "$S/dolphinstaterc"
   sed "s|@HOME@|$HOME|g" "$F/common/user-places.xbel" > "$D/user-places.xbel"
-  cp "$F/$want/kio6.mo" "$D/locale/en_KW/LC_MESSAGES/kio6.mo" 2>/dev/null || rm -f "$D/locale/en_KW/LC_MESSAGES/kio6.mo"
+  mo=$D/locale/en_KW/LC_MESSAGES/kio6.mo
+  before=$(cksum "$mo" 2>/dev/null)
+  cp "$F/$want/kio6.mo" "$mo" 2>/dev/null || rm -f "$mo"
+  after=$(cksum "$mo" 2>/dev/null)
   mkdir -p "$D/dolphin/view_properties/global"
   cp "$F/$want/view" "$D/dolphin/view_properties/global/.directory"
   kw kdeglobals General TerminalApplication kwick-terminal
   kw kdeglobals General TerminalService kwick-terminal.desktop
   gsettings set org.gnome.desktop.default-applications.terminal exec kwick-terminal 2>/dev/null || true
+  [ "$before" = "$after" ] || (dolphin_reload) >/dev/null 2>&1 &
+}
+
+dolphin_reload() {
+  command -v qdbus6 >/dev/null 2>&1 || return 0
+  svcs=$(qdbus6 2>/dev/null | tr -d ' ' | grep '^org.kde.dolphin-')
+  [ -n "$svcs" ] || return 0
+  cands=$(
+    printf '%s\n' "$HOME" /
+    for d in DESKTOP DOCUMENTS DOWNLOAD MUSIC PICTURES VIDEOS; do xdg-user-dir "$d" 2>/dev/null; done
+    sed -n 's|.*<bookmark href="file://\([^"]*\)".*|\1|p' "${XDG_DATA_HOME:-$HOME/.local/share}/user-places.xbel" 2>/dev/null
+  )
+  cands=$(printf '%s\n' "$cands" | grep -v '^$' | sort -u)
+  sets=
+  for svc in $svcs; do
+    for path in $(qdbus6 "$svc" 2>/dev/null | grep '^/dolphin/Dolphin_[0-9]*$'); do
+      open=$(printf '%s\n' "$cands" | while IFS= read -r u; do
+        [ "$(qdbus6 "$svc" "$path" org.kde.dolphin.MainWindow.isUrlOpen "file://$u" 2>/dev/null)" = true ] && printf '%s\t' "$u"
+      done)
+      sets="$sets${open:-$HOME	}
+"
+    done
+    qdbus6 "$svc" /MainApplication org.qtproject.Qt.QCoreApplication.quit >/dev/null 2>&1 \
+      || for path in $(qdbus6 "$svc" 2>/dev/null | grep '^/dolphin/Dolphin_[0-9]*$'); do qdbus6 "$svc" "$path" org.kde.dolphin.MainWindow.quit; done
+  done
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    qdbus6 2>/dev/null | grep -q 'org.kde.dolphin-' || break
+    sleep 0.3
+  done
+  printf '%s' "$sets" | while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    old=$IFS; IFS='	'; set -- $line; IFS=$old
+    setsid dolphin --new-window "$@" >/dev/null 2>&1 &
+    sleep 0.6
+  done
 }
 
 gsetonce() {
@@ -355,14 +450,15 @@ gsetonce() {
 gnomeexts() {
   v=$1
   [ -n "$v" ] || v=$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null) || return 0
-  ext=kwick-spotlight@kwickos.org
-  if command -v kwick-spotlight >/dev/null 2>&1 && [ -d "/usr/share/gnome-shell/extensions/$ext" ]; then
-    case $v in
-      *"'$ext'"*) ;;
-      *'[]'*) v="['$ext']" ;;
-      *) v=$(printf '%s' "$v" | sed "s|]\$|, '$ext']|") ;;
-    esac
-  fi
+  for ext in kwick-spotlight@kwickos.org kwick-clipboard@kwickos.org; do
+    if command -v kwick-spotlight >/dev/null 2>&1 && [ -d "/usr/share/gnome-shell/extensions/$ext" ]; then
+      case $v in
+        *"'$ext'"*) ;;
+        *'[]'*) v="['$ext']" ;;
+        *) v=$(printf '%s' "$v" | sed "s|]\$|, '$ext']|") ;;
+      esac
+    fi
+  done
   gsetonce org.gnome.shell enabled-extensions "$v"
 }
 
@@ -389,6 +485,14 @@ gnomespotlight() {
   gsettings set $mk.custom-keybinding:$p name 'Spotlight Search'
   gsettings set $mk.custom-keybinding:$p command 'kwick-search'
   gsettings set $mk.custom-keybinding:$p binding '<Super>space'
+}
+
+gnomenative() {
+  [ -d /usr/share/gnome-shell/extensions/kwick-clipboard@kwickos.org ] || return 0
+  case $(gsettings get org.gnome.shell.keybindings toggle-message-tray 2>/dev/null) in
+    *"'<Super>v'"*) gsettings set org.gnome.shell.keybindings toggle-message-tray "['<Super>m']" ;;
+  esac
+  true
 }
 
 gnome() {
@@ -422,6 +526,7 @@ gnome() {
   gsettings set org.gnome.desktop.wm.preferences titlebar-font "$(printf '%s' "$UI" | sed 's/,.*//') $( [ "$want" = windows ] && echo 9 || echo Bold 10)"
   gnometerm
   gnomespotlight
+  gnomenative
   true
 }
 
@@ -436,7 +541,7 @@ tiling() {
     mkdir -p "$C/$v"
     sed -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" -e "s|^gtk-font-name=.*|gtk-font-name=$ui $pt|" \
       -e "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=0|" \
-      -e "s|^gtk-theme-name=.*|gtk-theme-name=Adwaita$(light || echo -dark)|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
+      -e "s|^gtk-theme-name=.*|gtk-theme-name=$([ "$v" = gtk-3.0 ] && gtk3theme || echo Adwaita$(light || echo -dark))|" "/etc/$v/settings.ini" > "$C/$v/settings.ini"
     echo "gtk-decoration-layout=$(gtklayout)" >> "$C/$v/settings.ini"
   done
   gtkstyle

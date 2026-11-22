@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "dev@kwickos.org",
+                "Name": "KwickOS"
+            }
+        ],
+        "Category": "Windows and Tasks",
+        "Description": "The bold name of the active app next to the KwickOS menu, as in the macOS menu bar, with Hide and Quit",
+        "Icon": "preferences-system-windows",
+        "Id": "org.kwickos.appname",
+        "License": "GPL-2.0-or-later",
+        "Name": "Active App Name",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

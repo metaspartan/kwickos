@@ -1,0 +1,8 @@
+#!/bin/sh
+if [ -n "${1:-}" ]; then
+	p=$(readlink -f -- "$1" 2>/dev/null)
+	[ -n "$p" ] || p=$1
+	d=${XDG_RUNTIME_DIR:-/tmp}
+	printf '%s\n' "$p" >"$d/kwick-snapshots.request"
+fi
+exec kwick-settings snapshots

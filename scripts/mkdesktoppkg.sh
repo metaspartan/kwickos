@@ -32,7 +32,9 @@ kwin_plugin flip mkflippkg.sh
 kwin_plugin liquidglass mkglasspkg.sh
 kwin_plugin macstyle mkmacstylepkg.sh
 kwin_plugin spotlight mkspotlightpkg.sh
+kwin_plugin native mknativepkg.sh
 kwin_plugin keyboard mkkeyboardpkg.sh
+kwin_plugin settings mksettingspkg.sh
 chmod 755 "$P/usr/lib/kwick/fetch-effects"
 "$P/usr/lib/kwick/fetch-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
@@ -53,6 +55,8 @@ if [ -f /etc/network/interfaces ] && grep -E '^[[:space:]]*iface[[:space:]]' /et
   printf 'auto lo\niface lo inet loopback\n\nsource-directory /etc/network/interfaces.d\n' > /etc/network/interfaces
 fi
 /usr/lib/kwick/desktop-units enable >/dev/null
+install -d -m 1733 /var/lib/kwick/cores
+[ -w /proc/sys/kernel/core_pattern ] && sed -n 's/^kernel.core_pattern = //p' /usr/lib/sysctl.d/60-kwick-cores.conf > /proc/sys/kernel/core_pattern 2>/dev/null || true
 touch -r /usr /etc/.updated /var/.updated
 command -v kwick-shell >/dev/null && kwick-shell --default zsh >/dev/null 2>&1 || true
 if ! id kwick >/dev/null 2>&1; then

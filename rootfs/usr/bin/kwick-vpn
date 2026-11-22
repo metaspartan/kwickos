@@ -20,11 +20,11 @@ usage() {
 usage: kwick-vpn <command> [args]
 
   import <file.conf|file.ovpn>   check and import a WireGuard or OpenVPN profile
-  list                           list VPN profiles (name, type, state, address)
+  list [--json]                  list VPN profiles (name, type, state, address)
   up <name>                      connect
   down <name>                    disconnect
   toggle <name>                  connect or disconnect
-  status                         show active VPN connections
+  status [--json]                show active VPN connections
   menu                           pick a profile to toggle from a fuzzel menu
   providers                      list optional providers and their state
   install [--progress] <what>    install base, plugins, tailscale, mullvad,
@@ -356,6 +356,24 @@ json_str() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/ /g' | awk 'BEGIN{ORS=""} {print (NR > 1 ? "\\n" : "") $0}'
 }
 
+rows_json() {
+  printf '%s\n' "$1" | awk -F'\t' -v only="$2" '
+    function e(s,  o, i, c) { o = ""; for (i = 1; i <= length(s); i++) { c = substr(s, i, 1); if (c == "\\" || c == "\"") o = o "\\"; o = o c }; return o }
+    NF >= 3 && (only == "" || $3 == only) {
+      printf "%s{\"name\":\"%s\",\"type\":\"%s\",\"state\":\"%s\",\"address\":\"%s\"}", (n++ ? "," : ""), e($1), e($2), e($3), e($4)
+    }'
+}
+
+cmd_list_json() {
+  printf '{"profiles":[%s]}\n' "$(rows_json "$(profiles)" "")"
+}
+
+cmd_status_json() {
+  rows=$(profiles)
+  others=$(extra_tunnels "$rows" | awk 'NF { printf "%s\"%s\"", (n++ ? "," : ""), $1 }')
+  printf '{"connected":[%s],"other_tunnels":[%s]}\n' "$(rows_json "$rows" connected)" "$others"
+}
+
 cmd_waybar() {
   rows=$(profiles)
   conn=$(connected_lines "$rows")
@@ -544,11 +562,11 @@ cmd=${1:-}
 [ $# -gt 0 ] && shift
 case $cmd in
   import) cmd_import "$@" ;;
-  list|ls) cmd_list ;;
+  list|ls) if [ "${1:-}" = --json ]; then cmd_list_json; else cmd_list; fi ;;
   up) cmd_up "$@" ;;
   down) cmd_down "$@" ;;
   toggle) cmd_toggle "$@" ;;
-  status) cmd_status ;;
+  status) if [ "${1:-}" = --json ]; then cmd_status_json; else cmd_status; fi ;;
   menu) cmd_menu ;;
   providers) cmd_providers ;;
   install) cmd_install "$@" ;;

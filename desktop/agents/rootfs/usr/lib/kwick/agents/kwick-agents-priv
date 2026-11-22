@@ -1,0 +1,44 @@
+#!/bin/sh
+set -u
+LOG=/var/log/kwick-agents-priv.log
+agent=unknown
+if [ "${1:-}" = --agent ] && [ $# -ge 2 ]; then agent=$2; shift 2; fi
+case $agent in ''|*[!a-z0-9._-]*) agent=unknown ;; esac
+[ "$(id -u)" -eq 0 ] || { echo "kwick-agents-priv: must run as root" >&2; exit 1; }
+op=${1:-}
+[ $# -gt 0 ] && shift
+log() {
+  printf '%s agent=%s uid=%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$agent" "${PKEXEC_UID:-${SUDO_UID:-0}}" "$*" >> "$LOG"
+  chmod 640 "$LOG" 2>/dev/null
+}
+case $op in
+  install)
+    if [ $# -lt 1 ] || [ $# -gt 20 ]; then echo "usage: install PKG..." >&2; exit 2; fi
+    for p; do
+      case $p in -*|*[!a-z0-9+.:=~-]*) echo "kwick-agents-priv: invalid package name: $p" >&2; exit 2 ;; esac
+    done
+    log "install $*"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+    rc=$?
+    log "install exit=$rc"
+    exit $rc ;;
+  upgrade)
+    s=${1:-all}
+    case $s in all|system|apps|security) ;; *) echo "kwick-agents-priv: invalid scope: $s" >&2; exit 2 ;; esac
+    log "upgrade $s"
+    kwick-update upgrade "$s"
+    rc=$?
+    log "upgrade exit=$rc"
+    exit $rc ;;
+  snapshot)
+    command -v kwick-snapshot >/dev/null 2>&1 || { echo "kwick-snapshot is not installed" >&2; exit 1; }
+    d=$(printf '%s' "${1:-snapshot by an AI agent}" | tr -cd '[:print:]' | cut -c1-200)
+    log "snapshot $d"
+    kwick-snapshot create "$d"
+    rc=$?
+    log "snapshot exit=$rc"
+    exit $rc ;;
+  *)
+    echo "usage: kwick-agents-priv [--agent NAME] install PKG... | upgrade [all|system|apps|security] | snapshot DESCRIPTION" >&2
+    exit 2 ;;
+esac

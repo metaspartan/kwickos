@@ -20,6 +20,18 @@ cmd=${1:-list}; de=${2:-}
 case "$cmd" in
   list) cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null || true)
         [ -n "$cur" ] || cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/20-autologin.conf 2>/dev/null || true)
+        if [ "$de" = --json ]; then
+          printf '{"desktops":['
+          sep=""
+          for d in kde gnome hyprland sway xfce cinnamon mate lxqt; do
+            if have $d; then i=true; else i=false; fi
+            if [ "$cur" = "$(session $d)" ]; then df=true; else df=false; fi
+            printf '%s{"name":"%s","session":"%s","installed":%s,"default":%s}' "$sep" $d "$(session $d)" $i $df
+            sep=,
+          done
+          printf ']}\n'
+          exit 0
+        fi
         for d in kde gnome hyprland sway xfce cinnamon mate lxqt; do
           if have $d; then s=installed; else s=available; fi
           [ "$cur" = "$(session $d)" ] && s="$s, default"
@@ -33,5 +45,5 @@ case "$cmd" in
           printf '[Autologin]\nSession=%s\n' "$(session "$de")" > /etc/sddm.conf.d/30-kwick-session.conf
           for f in /etc/sddm.conf.d/20-autologin.conf; do [ -f $f ] && sed -i "s/^Session=.*/Session=$(session "$de")/" $f; done
           echo "Default session is now $de. Log out to apply." ;;
-  *) echo "usage: kwick-desktop list | install <desktop> | switch <desktop>"; echo "desktops: kde gnome hyprland sway xfce cinnamon mate lxqt"; exit 1 ;;
+  *) echo "usage: kwick-desktop list [--json] | install <desktop> | switch <desktop>";echo "desktops: kde gnome hyprland sway xfce cinnamon mate lxqt"; exit 1 ;;
 esac

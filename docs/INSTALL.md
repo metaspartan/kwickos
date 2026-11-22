@@ -109,6 +109,7 @@ kwick-install run --yes --disk /dev/vda --fs btrfs --encrypt --passphrase-file /
 
 * Limine is not packaged in Debian 13 and is not offered.
 * btrfs, xfs and LUKS roots get a small generated initramfs. ext4 does not need one.
+* btrfs is the default file system when the running kernel can mount it: a flat subvolume layout (`@`, `@home`, `@var_log`, ...) with snapshots before and after every update, an hourly timeline and rollback from the boot menu or the live ISO ([SNAPSHOTS](SNAPSHOTS.md)). ext4 and XFS stay available and have no snapshots. On BIOS a btrfs install gets an ext4 `/boot`.
 * GRUB and systemd-boot installs pin `root=UUID=`.
 * `make headless-iso ARCH=amd64` builds `kwickos-amd64-headless.iso` (UEFI and BIOS). `make headless-iso-grub` adds a GRUB menu
   with live, safe graphics (`nomodeset`) and install entries. The default boot path stays the EFI stub.

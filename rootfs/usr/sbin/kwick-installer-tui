@@ -37,7 +37,7 @@ S_MODE=erase
 S_ROOT_PART=""
 S_EFI_PART=""
 S_BOOT_PART=""
-S_FS=ext4
+S_FS=btrfs
 S_SWAP=zram
 S_ENC=0
 S_BL=""
@@ -388,12 +388,20 @@ EOF
 }
 
 s_storage() {
-	cat >"$WORK/fs" <<EOF
-ext4|ext4 (recommended, simple and fast)
-btrfs|btrfs (snapshots and compression)
-xfs|xfs (large files and volumes)
+	if grep -qw btrfs /proc/filesystems 2>/dev/null || [ -n "$(find "/usr/lib/modules/$(uname -r)" -name 'btrfs.ko*' 2>/dev/null | head -n 1)" ]; then
+		cat >"$WORK/fs" <<EOF
+btrfs|Btrfs with snapshots (recommended): undo updates, restore files
+ext4|ext4: simple and fast, no snapshots
+xfs|XFS: large files and volumes, no snapshots
 EOF
-	menu_pick "Filesystem" "Choose the filesystem for the system partition." "$WORK/fs" "$S_FS" || return $?
+	else
+		cat >"$WORK/fs" <<EOF
+ext4|ext4 (this kernel has no Btrfs, so no snapshots)
+xfs|XFS: large files and volumes, no snapshots
+EOF
+		[ "$S_FS" = btrfs ] && S_FS=ext4
+	fi
+	menu_pick "Filesystem" "Btrfs takes a snapshot before every update and every hour, so the system can be rolled back and files restored. Snapshots need Btrfs." "$WORK/fs" "$S_FS" || return $?
 	S_FS=$REPLY
 	cat >"$WORK/swap" <<EOF
 zram|Compressed memory swap (zram, recommended)
@@ -546,7 +554,8 @@ s_summary() {
 	enc="no"
 	[ "$S_ENC" = 1 ] && enc="LUKS2"
 	row "System" "KwickOS $VER ($EDITION)"
-	row "Filesystem" "$S_FS, encryption: $enc, swap: $S_SWAP"
+	if [ "$S_FS" = btrfs ]; then fsd="btrfs with snapshots"; else fsd="$S_FS, no snapshots"; fi
+	row "Filesystem" "$fsd, encryption: $enc, swap: $S_SWAP"
 	row "Bootloader" "$S_BL"
 	row "Computer" "$S_HOST"
 	row "User" "$S_USER ($S_FULL)"

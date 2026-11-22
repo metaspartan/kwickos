@@ -6,6 +6,7 @@ usage: kwick-dock position [bottom|left|right]
        kwick-dock size [PIXELS]
        kwick-dock autohide [on|off]
        kwick-dock magnify [on|off]
+       kwick-dock floating [on|off]
        kwick-dock pin DESKTOP-ID
        kwick-dock unpin DESKTOP-ID
        kwick-dock sync ID,ID,...
@@ -70,6 +71,10 @@ case "$cmd" in
     if [ $# -lt 2 ]; then val magnify on; echo; exit 0; fi
     case "$2" in on|off) ;; *) echo "usage: kwick-dock magnify on|off" >&2; exit 1;; esac
     set_key magnify "$2"; apply ;;
+  floating)
+    if [ $# -lt 2 ]; then val floating on; echo; exit 0; fi
+    case "$2" in on|off) ;; *) echo "usage: kwick-dock floating on|off" >&2; exit 1;; esac
+    set_key floating "$2"; apply ;;
   sync)
     [ $# -ge 2 ] || { echo "usage: kwick-dock sync ID,ID,..." >&2; exit 1; }
     set_key pinned "$2" ;;

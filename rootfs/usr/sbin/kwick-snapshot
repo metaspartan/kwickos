@@ -1,0 +1,1424 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LC_ALL=C
+export PATH LC_ALL
+
+CONF=${KWICK_SNAPSHOT_CONF:-/etc/kwick/snapshot.conf}
+ICONF=${KWICK_ICONF:-/etc/kwick/install.conf}
+SNAPS=${KWICK_SNAPSHOTS:-/.snapshots}
+CRONTAB=${KWICK_CRONTAB:-/var/spool/cron/crontabs/root}
+ESP=${KWICK_ESP:-/boot/efi}
+RUNDIR=/run/kwick-snapshot
+BOOTFLAG=/run/kwick-snapshot-boot
+MARKDIR=/var/lib/kwick/snapshot
+SELF=/usr/sbin/kwick-snapshot
+SNAPSV=@snapshots
+
+TIMELINE=1
+TIMELINE_HOME=1
+APT=1
+HOURLY=10
+DAILY=7
+WEEKLY=4
+MONTHLY=3
+NUMBER=10
+IMPORTANT=10
+FREE=20
+BOOT_ENTRIES=10
+[ -f "$CONF" ] && . "$CONF"
+
+JSON=0
+QUIET=0
+YES=0
+REBOOT=0
+KEEPBOTH=0
+CFG=""
+DEVICE=""
+DESC=""
+TYPE=single
+PRE=""
+CLEANUP=""
+IMPORTANT_FLAG=0
+TO=""
+TOP=""
+LOCKED=0
+
+usage() {
+	cat <<'EOF'
+usage: kwick-snapshot <command> [options]
+
+  status [--json]                    what this system supports and the current settings
+  list [-c root|home|all] [--json]   snapshots, newest last
+  create [-c root|home] [-d TEXT] [--important]
+                                     take a snapshot now and print its number
+  delete [-c CFG] N [N-M ...]        delete snapshots
+  diff [-c CFG] A [B]                files changed from A to B (B defaults to the running system)
+  packages A [B]                     packages installed, removed or changed from A to B
+  restore [-c CFG] N PATH... [--to DIR] [--keep-both]
+                                     copy files or folders back from snapshot N
+  rollback N [--yes] [--reboot]      make snapshot N the running system at the next start
+  boot-once N                        start snapshot N read-only at the next restart only
+  cleanup                            apply the retention policy now
+  config [--json]                    show the settings
+  config set KEY VALUE ...           timeline|home|apt on|off, hourly|daily|weekly|monthly|number|free|boot-entries N
+  quota on|off                       btrfs quotas for per-snapshot sizes (off by default, they slow btrfs down)
+  setup                              set up snapshots on a Btrfs system installed without them
+  boot-sync                          rewrite the snapshot entries of the boot menu
+
+options
+  -c, --config root|home|all         system (default) or home folders
+  --device DEV                       work on the Btrfs volume DEV instead of the running system
+                                     (from the live ISO or a rescue shell; "auto" finds kwick-root)
+  --json --quiet --yes
+EOF
+}
+
+say() { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
+warn() { printf 'kwick-snapshot: %s\n' "$*" >&2; }
+
+die() {
+	release_lock
+	unmount_top
+	if [ "$JSON" = 1 ]; then printf '{"ok":false,"error":"%s"}\n' "$(jstr "$*")"; else warn "$*"; fi
+	exit 1
+}
+
+jstr() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
+jbool() { if [ "$1" = 1 ]; then echo true; else echo false; fi; }
+have() { command -v "$1" >/dev/null 2>&1; }
+need_root() { [ "$(id -u)" = 0 ] || die "$1 needs root (try sudo)"; }
+now() { date +%s; }
+iconf() { sed -n "s/^$1=//p" "$ICONF" 2>/dev/null | head -n 1; }
+num() { case $1 in '' | *[!0-9]*) return 1 ;; esac; }
+
+mounted_at() { awk -v m="$1" '$2 == m { d = $1; t = $3; o = $4 } END { if (t != "") print d " " t " " o }' /proc/mounts; }
+opt_of() { printf '%s\n' "$2" | tr ',' '\n' | sed -n "s/^$1=//p" | head -n 1; }
+
+acquire_lock() {
+	mkdir -p "$RUNDIR"
+	i=0
+	while ! mkdir "$RUNDIR/lock" 2>/dev/null; do
+		p=$(cat "$RUNDIR/lock/pid" 2>/dev/null)
+		if [ -n "$p" ] && ! kill -0 "$p" 2>/dev/null; then
+			rm -rf "$RUNDIR/lock"
+			continue
+		fi
+		i=$((i + 1))
+		[ $i -gt 120 ] && die "another kwick-snapshot is running"
+		sleep 0.5 2>/dev/null || sleep 1
+	done
+	echo $$ >"$RUNDIR/lock/pid"
+	LOCKED=1
+}
+
+release_lock() {
+	[ "$LOCKED" = 1 ] || return 0
+	rm -rf "$RUNDIR/lock"
+	LOCKED=0
+}
+
+detect() {
+	SUPPORTED=0
+	ROLLBACK=0
+	SETUP=0
+	REASON=""
+	BOOTED=""
+	FST=""
+	ROOTSV=""
+	DEV=""
+	HOMEOK=0
+	LAYOUT=none
+	if [ -n "$DEVICE" ]; then
+		detect_device
+		return
+	fi
+	set -- $(mounted_at /)
+	FST=${2:-}
+	ropts=${3:-}
+	if [ -s "$BOOTFLAG" ]; then
+		BOOTED=$(head -n 1 "$BOOTFLAG")
+		FST=btrfs
+		ROOTSV=$(iconf ROOT_SUBVOL)
+		[ -n "$ROOTSV" ] || ROOTSV=@
+	elif [ "$FST" = btrfs ]; then
+		ROOTSV=$(opt_of subvol "$ropts")
+		ROOTSV=${ROOTSV#/}
+	fi
+	if [ "$FST" != btrfs ]; then
+		case $FST in
+		'') REASON="The system disk could not be identified." ;;
+		overlay) REASON="This is a live system. To work on an installed disk: kwick-snapshot --device auto list" ;;
+		zfs) REASON="This system runs on ZFS. Use kwick-storage pool snapshot for ZFS snapshots; KwickOS system snapshots need Btrfs." ;;
+		*) REASON="Snapshots need a Btrfs system disk. This system was installed on $FST, which cannot take snapshots. Nothing was changed. Choose Btrfs, the default since KwickOS 0.7, when you next install." ;;
+		esac
+		return
+	fi
+	if ! have btrfs; then
+		REASON="btrfs-progs is not installed. Install it with: apt install btrfs-progs"
+		return
+	fi
+	set -- $(mounted_at "$SNAPS")
+	if [ "${2:-}" != btrfs ]; then
+		REASON="Snapshots are not set up on this Btrfs system yet. Run: kwick-snapshot setup"
+		SETUP=1
+		return
+	fi
+	DEV=$1
+	SDIR=$SNAPS
+	SUPPORTED=1
+	if [ -n "$ROOTSV" ]; then
+		LAYOUT=subvolumes
+		ROLLBACK=1
+	else
+		LAYOUT=flat
+	fi
+	set -- $(mounted_at /home)
+	if [ "${2:-}" = btrfs ] && [ "${1:-}" = "$DEV" ] && [ -n "$(opt_of subvol "${3:-}" | sed 's|^/||')" ]; then HOMEOK=1; fi
+}
+
+find_device() {
+	for d in $(blkid 2>/dev/null | grep 'TYPE="btrfs"' | grep -E 'LABEL="kwick-root"|PARTLABEL="kwick-root"' | sed 's/:.*//'); do
+		echo "$d"
+		return 0
+	done
+	for d in $(blkid 2>/dev/null | grep 'TYPE="btrfs"' | sed 's/:.*//'); do
+		echo "$d"
+		return 0
+	done
+	return 1
+}
+
+detect_device() {
+	FST=btrfs
+	if [ "$DEVICE" = auto ]; then
+		DEVICE=$(find_device) || die "no Btrfs volume found; unlock an encrypted disk first (cryptsetup open DEV kwick-root) and pass --device /dev/mapper/kwick-root"
+	fi
+	[ -b "$DEVICE" ] || die "$DEVICE is not a block device"
+	if blkid "$DEVICE" 2>/dev/null | grep -q 'TYPE="crypto_LUKS"'; then
+		die "$DEVICE is encrypted; unlock it first (cryptsetup open $DEVICE kwick-root) and use --device /dev/mapper/kwick-root"
+	fi
+	if ! have btrfs && have apt-get && [ "$(id -u)" = 0 ]; then
+		say "fetching btrfs-progs"
+		apt-get install -y --no-install-recommends btrfs-progs >/dev/null 2>&1 || { apt-get update >/dev/null 2>&1 && apt-get install -y --no-install-recommends btrfs-progs >/dev/null 2>&1; }
+	fi
+	have btrfs || die "btrfs-progs is needed (apt install btrfs-progs)"
+	DEV=$DEVICE
+	mount_top
+	SDIR=$TOP/$SNAPSV
+	[ -d "$SDIR" ] || die "$DEVICE has no $SNAPSV subvolume, it was not installed with snapshots"
+	ROOTSV=@
+	[ -d "$TOP/@" ] || ROOTSV=""
+	SUPPORTED=1
+	if [ -n "$ROOTSV" ]; then ROLLBACK=1; LAYOUT=subvolumes; else LAYOUT=flat; fi
+	HOMEOK=0
+}
+
+mount_top() {
+	[ -n "$TOP" ] && return 0
+	mkdir -p "$RUNDIR"
+	TOP=$RUNDIR/top.$$
+	mkdir -p "$TOP"
+	modprobe -q btrfs >/dev/null 2>&1
+	mount -t btrfs -o subvolid=5,noatime "$DEV" "$TOP" 2>/dev/null || { rmdir "$TOP" 2>/dev/null; TOP=""; die "cannot mount the top of $DEV"; }
+}
+
+unmount_top() {
+	[ -n "$TOP" ] || return 0
+	cd / 2>/dev/null
+	umount "$TOP" 2>/dev/null || umount -l "$TOP" 2>/dev/null
+	rmdir "$TOP" 2>/dev/null
+	TOP=""
+}
+
+need_supported() {
+	[ "$SUPPORTED" = 1 ] || die "$REASON"
+}
+
+need_live() {
+	[ -z "$BOOTED" ] || die "KwickOS is running from snapshot $BOOTED, which is read-only; restore it first (kwick-snapshot rollback $BOOTED) or restart normally"
+}
+
+pick_cfg() {
+	[ -n "$CFG" ] || CFG=root
+	case $CFG in root | home) ;; all) [ "$1" = all ] || die "choose -c root or -c home" ;; *) die "unknown config: $CFG (root or home)" ;; esac
+	if [ "$CFG" = home ] && [ "$HOMEOK" != 1 ] && [ -z "$DEVICE" ] && [ "${2:-}" = write ]; then
+		die "/home is not a Btrfs subvolume on the system disk, so it cannot be snapshotted"
+	fi
+}
+
+ids_of() {
+	[ -d "$SDIR/$1" ] || return 0
+	for d in "$SDIR/$1"/*/; do
+		d=${d%/}
+		n=${d##*/}
+		num "$n" || continue
+		[ -f "$d/info" ] || continue
+		echo "$n"
+	done | sort -n
+}
+
+iget() { sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -n 1; }
+
+clean_text() { printf '%s' "$1" | tr -d '\000-\037"$`\\' | cut -c1-120; }
+
+next_id() {
+	last=$(ls -1 "$SDIR/$1" 2>/dev/null | grep -E '^[0-9]+$' | sort -n | tail -n 1)
+	echo $((${last:-0} + 1))
+}
+
+src_of() {
+	case $1 in
+	root) echo / ;;
+	home) echo /home ;;
+	esac
+}
+
+kernel_id() {
+	d=$(cat /var/lib/kwick/kernel-state/default 2>/dev/null | head -n 1)
+	[ -n "$d" ] && { echo "$d"; return; }
+	r=$(uname -r)
+	case $r in
+	*-kwick-virt*) echo "virt-${r%%-*}" ;;
+	*-kwick) echo "generic-${r%%-*}" ;;
+	*) echo "" ;;
+	esac
+}
+
+prep_dirs() {
+	mkdir -p "$SDIR/$1"
+	chmod 755 "$SDIR" "$SDIR/$1" 2>/dev/null
+}
+
+do_create() {
+	cfg=$1
+	src=$(src_of "$cfg")
+	prep_dirs "$cfg"
+	nid=$(next_id "$cfg")
+	nd=$SDIR/$cfg/$nid
+	mkdir "$nd" || return 1
+	if ! out=$(btrfs subvolume snapshot -r "$src" "$nd/snapshot" 2>&1); then
+		rmdir "$nd" 2>/dev/null
+		warn "snapshot of $src failed: $out"
+		return 1
+	fi
+	{
+		printf 'ID=%s\n' "$nid"
+		printf 'CONFIG=%s\n' "$cfg"
+		printf 'TYPE=%s\n' "$TYPE"
+		printf 'PRE=%s\n' "$PRE"
+		printf 'DATE=%s\n' "$(now)"
+		printf 'DESC=%s\n' "$(clean_text "$DESC")"
+		printf 'CLEANUP=%s\n' "$CLEANUP"
+		printf 'IMPORTANT=%s\n' "$IMPORTANT_FLAG"
+		if [ "$cfg" = root ]; then
+			printf 'KERNEL=%s\n' "$(uname -r)"
+			printf 'KID=%s\n' "$(kernel_id)"
+		fi
+	} >"$nd/info.new"
+	chmod 644 "$nd/info.new"
+	mv "$nd/info.new" "$nd/info"
+	chmod 755 "$nd"
+	if [ "$TYPE" = post ] && [ -n "$PRE" ] && [ -f "$SDIR/$cfg/$PRE/info" ]; then
+		printf 'POST=%s\n' "$nid" >>"$SDIR/$cfg/$PRE/info"
+		changes_bg "$cfg" "$PRE" "$nid"
+	fi
+	CREATED=$nid
+	return 0
+}
+
+cmd_create() {
+	[ -z "$DESC" ] && [ $# -gt 0 ] && DESC="$*"
+	need_root create
+	need_supported
+	need_live
+	pick_cfg "" write
+	case $TYPE in single | pre | post) ;; *) die "--type takes single, pre or post" ;; esac
+	[ "$TYPE" = post ] && { num "$PRE" || die "a post snapshot needs --pre N"; }
+	[ -n "$DESC" ] || DESC="Manual snapshot"
+	acquire_lock
+	do_create "$CFG" || die "the snapshot could not be taken"
+	release_lock
+	[ "$CFG" = root ] && boot_sync >/dev/null 2>&1
+	if [ "$JSON" = 1 ]; then printf '{"ok":true,"id":%s,"config":"%s"}\n' "$CREATED" "$CFG"; else echo "$CREATED"; fi
+}
+
+dump_changes() {
+	btrfs send --no-data -q -p "$1" "$2" 2>/dev/null | btrfs receive --dump 2>/dev/null | awk '
+		function strip(p) { sub(/^\.\/[^\/]*/, "", p); return p == "" ? "/" : p }
+		function istemp(p,   b) { b = p; sub(/^.*\//, "", b); return b ~ /^o[0-9]+-[0-9]+-[0-9]+$/ }
+		function resolve(p,   q, i, n, best, k) {
+			for (k = 0; k < 8; k++) {
+				best = ""
+				for (q in map) if ((p == q || index(p, q "/") == 1) && length(q) > length(best)) best = q
+				if (best == "") return p
+				p = map[best] substr(p, length(best) + 1)
+			}
+			return p
+		}
+		{
+			line = $0
+			gsub(/\\ /, "\001", line)
+			n = split(line, f, /[ \t]+/)
+			cmd = f[1]
+			p = f[2]; gsub("\001", " ", p); p = strip(p)
+			dest = ""
+			for (i = 3; i <= n; i++) if (f[i] ~ /^dest=/) { dest = substr(f[i], 6); gsub("\001", " ", dest); dest = strip(dest) }
+			ev[++ne] = cmd "\t" p "\t" dest
+			if (cmd == "rename" && istemp(p)) map[p] = dest
+			else if (cmd == "rename" && istemp(dest)) map[dest] = p
+		}
+		END {
+			for (i = 1; i <= ne; i++) {
+				split(ev[i], e, "\t")
+				cmd = e[1]; p = e[2]; dest = e[3]
+				if (cmd == "snapshot" || cmd == "utimes") continue
+				if (cmd == "rename") {
+					if (istemp(p)) { d = resolve(dest); cr[d] = 1; seen[d] = 1 }
+					else if (istemp(dest)) { s = resolve(p); rm[s] = 1; seen[s] = 1 }
+					else { s = resolve(p); d = resolve(dest); rm[s] = 1; cr[d] = 1; seen[s] = 1; seen[d] = 1 }
+					continue
+				}
+				if (cmd == "link") { d = resolve(p); cr[d] = 1; seen[d] = 1; continue }
+				if (cmd ~ /^mk/ || cmd == "symlink") { d = resolve(p); if (!istemp(d)) { cr[d] = 1; seen[d] = 1 } continue }
+				if (cmd == "unlink" || cmd == "rmdir") { d = resolve(p); rm[d] = 1; seen[d] = 1; continue }
+				d = resolve(p)
+				if (istemp(d)) continue
+				ch[d] = 1; seen[d] = 1
+			}
+			for (d in seen) {
+				if (d == "/" || d ~ /(^|\/)o[0-9]+-[0-9]+-[0-9]+(\/|$)/) continue
+				if (cr[d] && rm[d]) s = "c"
+				else if (cr[d]) s = "+"
+				else if (rm[d]) s = "-"
+				else s = "c"
+				print s " " d
+			}
+		}' | sort -k2
+}
+
+changes_bg() {
+	cfg=$1
+	a=$SDIR/$cfg/$2/snapshot
+	b=$SDIR/$cfg/$3/snapshot
+	out=$SDIR/$cfg/$3/changes
+	(
+		trap '' HUP
+		dump_changes "$a" "$b" >"$out.tmp" 2>/dev/null && chmod 644 "$out.tmp" && mv "$out.tmp" "$out"
+		rm -f "$out.tmp"
+	) </dev/null >/dev/null 2>&1 &
+}
+
+snap_path() {
+	[ -d "$SDIR/$1/$2/snapshot" ] || die "snapshot $2 ($1) does not exist"
+	echo "$SDIR/$1/$2/snapshot"
+}
+
+changes_json() {
+	awk 'BEGIN { printf "[" }
+		{ s = substr($0, 1, 1); p = substr($0, 3); gsub(/\\/, "\\\\", p); gsub(/"/, "\\\"", p); printf "%s{\"s\":\"%s\",\"path\":\"%s\"}", (NR > 1 ? "," : ""), s, p }
+		END { print "]" }'
+}
+
+cmd_diff() {
+	need_supported
+	pick_cfg
+	a=${1:-}
+	b=${2:-current}
+	num "$a" || die "usage: kwick-snapshot diff A [B]"
+	pa=$(snap_path "$CFG" "$a")
+	cached=""
+	if num "$b"; then
+		pb=$(snap_path "$CFG" "$b")
+		if [ "$(iget "$SDIR/$CFG/$b" PRE)" = "$a" ] && [ -f "$SDIR/$CFG/$b/changes" ]; then cached=$SDIR/$CFG/$b/changes; fi
+	fi
+	if [ -n "$cached" ]; then
+		if [ "$JSON" = 1 ]; then changes_json <"$cached"; else cat "$cached"; fi
+		return 0
+	fi
+	need_root "comparing snapshots"
+	tmp=""
+	if ! num "$b"; then
+		need_live
+		[ -z "$DEVICE" ] || die "compare with another snapshot when using --device"
+		tmp=$SDIR/$CFG/.diff.$$
+		mkdir -p "$SDIR/$CFG"
+		btrfs subvolume snapshot -r "$(src_of "$CFG")" "$tmp" >/dev/null 2>&1 || die "cannot take a temporary snapshot to compare with"
+		pb=$tmp
+	fi
+	res=$(dump_changes "$pa" "$pb")
+	[ -n "$tmp" ] && btrfs subvolume delete "$tmp" >/dev/null 2>&1
+	if [ "$JSON" = 1 ]; then printf '%s\n' "$res" | sed '/^$/d' | changes_json; else printf '%s\n' "$res" | sed '/^$/d'; fi
+}
+
+pkgs_of() {
+	awk '
+		/^Package: / { p = $2 }
+		/^Architecture: / { a = $2 }
+		/^Version: / { v = $2 }
+		/^Status: / { s = ($0 ~ / installed$/) }
+		/^$/ { if (p != "" && s) print p ":" a "\t" v; p = ""; a = ""; v = ""; s = 0 }
+		END { if (p != "" && s) print p ":" a "\t" v }' "$1" 2>/dev/null | sort
+}
+
+cmd_packages() {
+	need_supported
+	CFG=root
+	a=${1:-}
+	b=${2:-current}
+	num "$a" || die "usage: kwick-snapshot packages A [B]"
+	fa=$(snap_path root "$a")/var/lib/dpkg/status
+	if num "$b"; then fb=$(snap_path root "$b")/var/lib/dpkg/status; elif [ -n "$DEVICE" ]; then fb=$TOP/$ROOTSV/var/lib/dpkg/status; else fb=/var/lib/dpkg/status; fi
+	na=$(dpkg --print-architecture 2>/dev/null)
+	[ -n "$na" ] || na=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+	tmpd=$(mktemp -d 2>/dev/null) || die "cannot create a temporary directory"
+	pkgs_of "$fa" >"$tmpd/a"
+	pkgs_of "$fb" >"$tmpd/b"
+	res=$(awk -F'\t' -v na="$na" '
+		function nm(k) { sub(":" na "$", "", k); sub(":all$", "", k); return k }
+		NR == FNR { a[$1] = $2; next }
+		{ b[$1] = $2 }
+		END {
+			for (k in b) if (!(k in a)) print "+\t" nm(k) "\t\t" b[k]
+			for (k in a) if (!(k in b)) print "-\t" nm(k) "\t" a[k] "\t"
+			for (k in a) if ((k in b) && a[k] != b[k]) print "u\t" nm(k) "\t" a[k] "\t" b[k]
+		}' "$tmpd/a" "$tmpd/b" | sort -t'	' -k2)
+	rm -f "$tmpd/a" "$tmpd/b"
+	rmdir "$tmpd"
+	if [ "$JSON" = 1 ]; then
+		printf '%s\n' "$res" | sed '/^$/d' | awk -F'\t' 'BEGIN { printf "[" } { printf "%s{\"s\":\"%s\",\"name\":\"%s\",\"from\":\"%s\",\"to\":\"%s\"}", (NR > 1 ? "," : ""), $1, $2, $3, $4 } END { print "]" }'
+	else
+		printf '%s\n' "$res" | sed '/^$/d' | awk -F'\t' '{ if ($1 == "u") print "  " $2 " " $3 " -> " $4; else if ($1 == "+") print "+ " $2 " " $4; else print "- " $2 " " $3 }'
+	fi
+}
+
+list_cfg() {
+	cfg=$1
+	qg=""
+	[ "$QUOTA_SIZES" = 1 ] && qg=$(btrfs qgroup show --raw -e "$SDIR" 2>/dev/null)
+	for id in $(ids_of "$cfg"); do
+		d=$SDIR/$cfg/$id
+		ex=0
+		if [ -n "$qg" ]; then
+			sid=$(btrfs inspect-internal rootid "$d/snapshot" 2>/dev/null)
+			ex=$(printf '%s\n' "$qg" | awk -v q="0/$sid" '$1 == q { print $3; exit }')
+			[ -n "$ex" ] || ex=0
+		fi
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$cfg" "$id" "$(iget "$d" TYPE)" "$(iget "$d" PRE)" "$(iget "$d" POST)" \
+			"$(iget "$d" DATE)" "$(iget "$d" DESC)" "$(iget "$d" CLEANUP)" "$(iget "$d" IMPORTANT)" "$(iget "$d" KERNEL)" \
+			"$([ -f "$d/changes" ] && echo 1 || echo 0)" "$ex" "$([ -d "$d/snapshot/usr" ] || [ "$cfg" = home ] && echo 1 || echo 0)"
+	done
+}
+
+cmd_list() {
+	need_supported
+	[ -n "$CFG" ] || CFG=all
+	pick_cfg all
+	QUOTA_SIZES=0
+	[ "$(id -u)" = 0 ] && btrfs qgroup show "$SDIR" >/dev/null 2>&1 && QUOTA_SIZES=1
+	if [ "$CFG" = all ]; then rows=$(list_cfg root; [ -d "$SDIR/home" ] && list_cfg home); else rows=$(list_cfg "$CFG"); fi
+	if [ "$JSON" = 1 ]; then
+		printf '%s\n' "$rows" | sed '/^$/d' | awk -F'\t' -v booted="$BOOTED" '
+			function js(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return s }
+			function n(s) { return s == "" ? 0 : s + 0 }
+			BEGIN { printf "[" }
+			{
+				printf "%s{\"config\":\"%s\",\"id\":%d,\"type\":\"%s\",\"pre\":%d,\"post\":%d,\"date\":%d,\"desc\":\"%s\",\"cleanup\":\"%s\",\"important\":%s,\"kernel\":\"%s\",\"changes\":%s,\"size\":%s,\"booted\":%s}",
+					(NR > 1 ? "," : ""), $1, $2, js($3), n($4), n($5), n($6), js($7), js($8), ($9 == "1" ? "true" : "false"), js($10), ($11 == "1" ? "true" : "false"), n($12), (($1 == "root" && $2 == booted) ? "true" : "false")
+			}
+			END { print "]" }'
+		return 0
+	fi
+	if [ -z "$rows" ]; then say "no snapshots yet"; return 0; fi
+	printf '%s\n' "$rows" | awk -F'\t' -v booted="$BOOTED" 'BEGIN { printf "%-5s %5s  %-6s %-16s  %-9s %s\n", "conf", "#", "type", "date", "cleanup", "description" }
+		{
+			cmd = "date -d @" $6 " \"+%Y-%m-%d %H:%M\""; cmd | getline dt; close(cmd)
+			t = $3; if (t == "post") t = "post<" $4
+			m = ($1 == "root" && $2 == booted) ? "  (running now)" : ""
+			printf "%-5s %5s  %-6s %-16s  %-9s %s%s%s\n", $1, $2, t, dt, ($8 == "" ? "-" : $8), $7, ($9 == "1" ? "  [important]" : ""), m
+		}'
+}
+
+delete_one() {
+	cfg=$1
+	id=$2
+	d=$SDIR/$cfg/$id
+	[ -d "$d" ] || return 0
+	if [ "$cfg" = root ] && [ "$id" = "$BOOTED" ]; then
+		warn "snapshot $id is running now and was kept"
+		return 1
+	fi
+	if [ -d "$d/snapshot" ]; then
+		btrfs subvolume delete "$d/snapshot" >/dev/null 2>&1 || { warn "could not delete snapshot $id"; return 1; }
+	fi
+	rm -rf "$d"
+	return 0
+}
+
+cmd_delete() {
+	need_root delete
+	need_supported
+	pick_cfg
+	[ $# -gt 0 ] || die "usage: kwick-snapshot delete N [N-M ...]"
+	acquire_lock
+	n=0
+	for a in "$@"; do
+		case $a in
+		*-*)
+			lo=${a%-*}
+			hi=${a#*-}
+			num "$lo" && num "$hi" || die "bad range: $a"
+			for id in $(ids_of "$CFG"); do
+				[ "$id" -ge "$lo" ] && [ "$id" -le "$hi" ] && delete_one "$CFG" "$id" && n=$((n + 1))
+			done
+			;;
+		*)
+			num "$a" || die "not a snapshot number: $a"
+			[ -d "$SDIR/$CFG/$a" ] || die "snapshot $a ($CFG) does not exist"
+			delete_one "$CFG" "$a" && n=$((n + 1))
+			;;
+		esac
+	done
+	release_lock
+	[ "$CFG" = root ] && boot_sync >/dev/null 2>&1
+	if [ "$JSON" = 1 ]; then printf '{"ok":true,"deleted":%s}\n' "$n"; else say "deleted $n snapshot(s)"; fi
+}
+
+free_pct() {
+	df -kP "$1" 2>/dev/null | awk 'NR == 2 && $2 > 0 { printf "%d\n", $4 * 100 / $2 }'
+}
+
+cleanup_cfg() {
+	cfg=$1
+	keep=""
+	rows=$(for id in $(ids_of "$cfg"); do d=$SDIR/$cfg/$id; printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$(iget "$d" DATE)" "$(iget "$d" CLEANUP)" "$(iget "$d" IMPORTANT)" "$(iget "$d" TYPE)" "$(iget "$d" PRE)"; done)
+	[ -n "$rows" ] || return 0
+	doomed=$(printf '%s\n' "$rows" | awk -F'\t' -v H="$HOURLY" -v D="$DAILY" -v W="$WEEKLY" -v M="$MONTHLY" -v N="$NUMBER" -v I="$IMPORTANT" -v booted="$BOOTED" -v cfg="$cfg" '
+		{ id[NR] = $1; dt[NR] = $2; cl[NR] = $3; imp[NR] = $4; ty[NR] = $5; pre[NR] = $6; byid[$1] = NR; n = NR }
+		END {
+			for (i = n; i >= 1; i--) {
+				if (cl[i] != "timeline") continue
+				t = dt[i]
+				h = int(t / 3600); d = int(t / 86400); w = int((t / 86400 + 3) / 7)
+				cmd = "date -d @" t " +%Y%m"; cmd | getline mo; close(cmd)
+				k = 0
+				if (!(h in sh) && ch < H) { sh[h] = 1; ch++; k = 1 }
+				if (!(d in sd) && cd < D) { sd[d] = 1; cd++; k = 1 }
+				if (!(w in sw) && cw < W) { sw[w] = 1; cw++; k = 1 }
+				if (!(mo in sm) && cm < M) { sm[mo] = 1; cm++; k = 1 }
+				if (!k) del[i] = 1
+			}
+			cn = 0; ci = 0
+			for (i = n; i >= 1; i--) {
+				if (cl[i] != "number") continue
+				if (ty[i] == "post" && pre[i] in byid) continue
+				if (imp[i] == "1") { ci++; if (ci > I) del[i] = 1 }
+				else { cn++; if (cn > N) del[i] = 1 }
+			}
+			for (i = 1; i <= n; i++) {
+				if (ty[i] == "post" && pre[i] in byid && del[byid[pre[i]]]) del[i] = 1
+				if (ty[i] == "pre" && del[i]) for (j = 1; j <= n; j++) if (ty[j] == "post" && pre[j] == id[i]) del[j] = 1
+			}
+			for (i = 1; i <= n; i++) if (del[i] && !(cfg == "root" && id[i] == booted)) print id[i]
+		}')
+	for id in $doomed; do delete_one "$cfg" "$id" >/dev/null 2>&1 && DELETED=$((DELETED + 1)); done
+}
+
+space_cleanup() {
+	num "$FREE" || return 0
+	[ "$FREE" -gt 0 ] || return 0
+	i=0
+	while [ "$(free_pct "$SDIR")" -lt "$FREE" ] 2>/dev/null; do
+		victim=$(for cfg in home root; do for id in $(ids_of "$cfg"); do d=$SDIR/$cfg/$id; c=$(iget "$d" CLEANUP); [ "$c" = timeline ] || [ "$c" = number ] || continue; [ "$(iget "$d" IMPORTANT)" = 1 ] && continue; [ "$cfg" = root ] && [ "$id" = "$BOOTED" ] && continue; printf '%s %s %s\n' "$(iget "$d" DATE)" "$cfg" "$id"; done; done | sort -n | head -n 1)
+		[ -n "$victim" ] || break
+		set -- $victim
+		delete_one "$2" "$3" >/dev/null 2>&1 || break
+		DELETED=$((DELETED + 1))
+		btrfs filesystem sync "$SDIR" >/dev/null 2>&1
+		i=$((i + 1))
+		[ $i -ge 50 ] && break
+	done
+}
+
+do_cleanup() {
+	DELETED=0
+	cleanup_cfg root
+	[ -d "$SDIR/home" ] && cleanup_cfg home
+	space_cleanup
+}
+
+cmd_cleanup() {
+	need_root cleanup
+	need_supported
+	acquire_lock
+	do_cleanup
+	release_lock
+	[ "$DELETED" -gt 0 ] && boot_sync >/dev/null 2>&1
+	if [ "$JSON" = 1 ]; then printf '{"ok":true,"deleted":%s}\n' "$DELETED"; else say "cleanup deleted $DELETED snapshot(s)"; fi
+}
+
+cmd_timeline() {
+	[ "$(id -u)" = 0 ] || exit 0
+	detect
+	[ "$SUPPORTED" = 1 ] && [ -z "$BOOTED" ] || exit 0
+	acquire_lock
+	t=$(now)
+	TYPE=single
+	CLEANUP=timeline
+	DESC=Hourly
+	if [ "$TIMELINE" = 1 ]; then
+		last=$(for id in $(ids_of root); do [ "$(iget "$SDIR/root/$id" CLEANUP)" = timeline ] && iget "$SDIR/root/$id" DATE; done | sort -n | tail -n 1)
+		[ -n "$last" ] && [ $((t - last)) -lt 3000 ] || do_create root
+	fi
+	if [ "$TIMELINE_HOME" = 1 ] && [ "$HOMEOK" = 1 ]; then
+		DESC=Hourly
+		last=$(for id in $(ids_of home); do [ "$(iget "$SDIR/home/$id" CLEANUP)" = timeline ] && iget "$SDIR/home/$id" DATE; done | sort -n | tail -n 1)
+		[ -n "$last" ] && [ $((t - last)) -lt 3000 ] || do_create home
+	fi
+	do_cleanup
+	release_lock
+	boot_sync >/dev/null 2>&1
+	exit 0
+}
+
+apt_parent() {
+	p=$PPID
+	i=0
+	while [ "$p" -gt 1 ] 2>/dev/null && [ $i -lt 6 ]; do
+		c=$(tr '\000' ' ' <"/proc/$p/cmdline" 2>/dev/null)
+		case $c in
+		*kwick-snapshot*) ;;
+		*apt* | *kpkg* | *dpkg* | *synaptic* | *packagekit* | *discover*)
+			echo "$p $c"
+			return 0
+			;;
+		esac
+		p=$(awk '{ print $4 }' "/proc/$p/stat" 2>/dev/null)
+		i=$((i + 1))
+	done
+	echo "$PPID"
+}
+
+apt_hook_ok() {
+	[ "$(id -u)" = 0 ] || return 1
+	[ "${KWICK_SNAPSHOT_SKIP:-0}" = 1 ] && return 1
+	[ "$APT" = 1 ] || return 1
+	detect
+	[ "$SUPPORTED" = 1 ] && [ -z "$BOOTED" ]
+}
+
+cmd_apt_pre() {
+	apt_hook_ok || exit 0
+	set -f
+	set -- $(apt_parent)
+	set +f
+	ap=${1:-0}
+	shift
+	c=$(printf '%s' "$*" | sed -e 's|^[^ ]*/||' -e 's/ -[a-zA-Z-]*//g' -e 's/  */ /g' | cut -c1-90)
+	[ -n "$c" ] || c="package changes"
+	TYPE=pre
+	CLEANUP=number
+	DESC=$c
+	acquire_lock
+	if do_create root; then
+		printf '%s %s\n' "$ap" "$CREATED" >"$RUNDIR/apt-pre"
+	fi
+	release_lock
+	exit 0
+}
+
+cmd_apt_post() {
+	apt_hook_ok || exit 0
+	[ -f "$RUNDIR/apt-pre" ] || exit 0
+	set -- $(cat "$RUNDIR/apt-pre")
+	rm -f "$RUNDIR/apt-pre"
+	pid=${1:-}
+	pre=${2:-}
+	num "$pre" || exit 0
+	[ -d "$SDIR/root/$pre" ] || exit 0
+	TYPE=post
+	PRE=$pre
+	CLEANUP=number
+	DESC=$(iget "$SDIR/root/$pre" DESC)
+	acquire_lock
+	do_create root
+	do_cleanup
+	release_lock
+	boot_sync >/dev/null 2>&1
+	exit 0
+}
+
+copy_back() {
+	src=$1
+	dst=$2
+	parent=$(dirname "$dst")
+	[ -d "$parent" ] || mkdir -p "$parent" || return 1
+	if [ "$KEEPBOTH" = 1 ] && { [ -e "$dst" ] || [ -L "$dst" ]; }; then
+		stamp=$(date '+%Y-%m-%d %H.%M.%S')
+		base=${dst##*/}
+		case $base in
+		?*.*) dst="$parent/${base%.*} (restored $stamp).${base##*.}" ;;
+		*) dst="$parent/$base (restored $stamp)" ;;
+		esac
+	fi
+	tmp="$parent/.kwick-restore.$$"
+	rm -rf "$tmp"
+	cp -a "$src" "$tmp" || { rm -rf "$tmp"; return 1; }
+	if [ -d "$dst" ] && [ ! -L "$dst" ]; then rm -rf "$dst" || return 1; fi
+	mv -f "$tmp" "$dst" || { rm -rf "$tmp"; return 1; }
+	RESTORED="$RESTORED$dst
+"
+	return 0
+}
+
+cmd_restore() {
+	need_root restore
+	need_supported
+	pick_cfg
+	id=${1:-}
+	num "$id" || die "usage: kwick-snapshot restore N PATH... [--to DIR] [--keep-both]"
+	shift
+	[ $# -gt 0 ] || die "name at least one path to restore"
+	sp=$(snap_path "$CFG" "$id")
+	if [ -z "$DEVICE" ] && [ -z "$TO" ]; then
+		need_live
+		acquire_lock
+		TYPE=single
+		CLEANUP=number
+		DESC="Before restoring files from snapshot $id"
+		do_create "$CFG" >/dev/null 2>&1
+		release_lock
+	fi
+	RESTORED=""
+	fails=0
+	for p in "$@"; do
+		case $p in /*) ;; *) p=$(pwd)/$p ;; esac
+		rel=$p
+		if [ "$CFG" = home ]; then
+			case $p in /home | /home/*) rel=${p#/home} ;; *) die "$p is not under /home" ;; esac
+		fi
+		src=$sp$rel
+		[ -e "$src" ] || [ -L "$src" ] || { warn "$p does not exist in snapshot $id"; fails=$((fails + 1)); continue; }
+		if [ -n "$TO" ]; then
+			dst=$TO/${p##*/}
+		elif [ -n "$DEVICE" ]; then
+			[ "$CFG" = root ] || die "restoring home files with --device needs --to DIR"
+			dst=$TOP/$ROOTSV$p
+		else
+			dst=$p
+		fi
+		copy_back "$src" "$dst" || { warn "could not restore $p"; fails=$((fails + 1)); }
+	done
+	if [ "$JSON" = 1 ]; then
+		printf '{"ok":%s,"restored":[%s]}\n' "$([ $fails = 0 ] && echo true || echo false)" "$(printf '%s' "$RESTORED" | sed '/^$/d' | while IFS= read -r l; do printf '"%s",' "$(jstr "$l")"; done | sed 's/,$//')"
+	else
+		printf '%s' "$RESTORED" | sed '/^$/d;s/^/restored /'
+	fi
+	[ $fails = 0 ]
+}
+
+carry_kernels() {
+	old=$1
+	new=$2
+	for base in usr/lib/modules usr/lib/kwick/kernels; do
+		[ -d "$old/$base" ] || continue
+		mkdir -p "$new/$base"
+		for d in "$old/$base"/*/; do
+			d=${d%/}
+			[ -d "$d" ] || continue
+			r=${d##*/}
+			[ -e "$new/$base/$r" ] && continue
+			cp -a "$d" "$new/$base/$r.tmp" && mv "$new/$base/$r.tmp" "$new/$base/$r" && : >"$new/$base/$r/.kwick-retained"
+			say "kept kernel files $base/$r for the boot loader's kernels"
+		done
+	done
+	if [ -d "$old/var/lib/kwick/kernels" ]; then
+		mkdir -p "$new/var/lib/kwick/kernels"
+		for d in "$old/var/lib/kwick/kernels"/*/; do
+			d=${d%/}
+			[ -d "$d" ] || continue
+			[ -e "$new/var/lib/kwick/kernels/${d##*/}" ] || cp -a "$d" "$new/var/lib/kwick/kernels/${d##*/}"
+		done
+	fi
+	if [ -d "$old/var/lib/kwick/kernel-state" ]; then
+		rm -rf "$new/var/lib/kwick/kernel-state"
+		mkdir -p "$new/var/lib/kwick"
+		cp -a "$old/var/lib/kwick/kernel-state" "$new/var/lib/kwick/kernel-state"
+	fi
+}
+
+cmd_rollback() {
+	need_root rollback
+	need_supported
+	CFG=root
+	[ "$ROLLBACK" = 1 ] || die "this system keeps its root at the top of the Btrfs volume (installed before KwickOS 0.7), so it cannot roll back; snapshots and file restore still work"
+	id=${1:-}
+	num "$id" || die "usage: kwick-snapshot rollback N [--yes]"
+	[ -d "$SDIR/root/$id/snapshot/usr" ] || die "snapshot $id does not exist or is not a system snapshot"
+	when=$(date -d "@$(iget "$SDIR/root/$id" DATE)" '+%Y-%m-%d %H:%M' 2>/dev/null)
+	if [ "$YES" != 1 ]; then
+		[ -t 0 ] || die "rollback needs --yes when not run interactively"
+		printf 'Roll the system back to snapshot %s (%s, %s)?\nPrograms and settings return to that point; /home, /root, logs and caches are kept.\nType yes to continue: ' "$id" "$when" "$(iget "$SDIR/root/$id" DESC)"
+		read -r ans
+		[ "$ans" = yes ] || die "cancelled"
+	fi
+	acquire_lock
+	mount_top
+	sdir=$TOP/$SNAPSV/root
+	[ -d "$TOP/$ROOTSV" ] || die "the system subvolume $ROOTSV was not found on $DEV"
+	TYPE=single
+	CLEANUP=number
+	IMPORTANT_FLAG=1
+	DESC="Before rollback to $id"
+	sid=$(next_id root)
+	mkdir -p "$sdir/$sid"
+	if btrfs subvolume snapshot -r "$TOP/$ROOTSV" "$sdir/$sid/snapshot" >/dev/null 2>&1; then
+		kr=""
+		ki=""
+		[ -z "$DEVICE" ] && { kr=$(uname -r); ki=$(kernel_id); }
+		printf 'ID=%s\nCONFIG=root\nTYPE=single\nPRE=\nDATE=%s\nDESC=%s\nCLEANUP=number\nIMPORTANT=1\nKERNEL=%s\nKID=%s\n' "$sid" "$(now)" "$DESC" "$kr" "$ki" >"$sdir/$sid/info"
+		chmod 644 "$sdir/$sid/info"
+		chmod 755 "$sdir/$sid"
+		say "the current system was saved as snapshot $sid"
+	else
+		rmdir "$sdir/$sid" 2>/dev/null
+		die "could not save the current system before the rollback"
+	fi
+	stamp=$(date +%Y%m%d-%H%M%S)
+	old=$ROOTSV.rollback-$stamp
+	oldid=$(btrfs inspect-internal rootid "$TOP/$ROOTSV" 2>/dev/null)
+	mv "$TOP/$ROOTSV" "$TOP/$old" || die "could not move the current system aside"
+	if ! btrfs subvolume snapshot "$sdir/$id/snapshot" "$TOP/$ROOTSV" >/dev/null 2>&1; then
+		mv "$TOP/$old" "$TOP/$ROOTSV"
+		die "could not create the restored system; nothing was changed"
+	fi
+	defid=$(btrfs subvolume get-default "$TOP" 2>/dev/null | awk '{ print $2 }')
+	if [ -n "$oldid" ] && [ "$defid" = "$oldid" ]; then
+		newid=$(btrfs inspect-internal rootid "$TOP/$ROOTSV" 2>/dev/null)
+		[ -n "$newid" ] && btrfs subvolume set-default "$newid" "$TOP" >/dev/null 2>&1
+	fi
+	carry_kernels "$TOP/$old" "$TOP/$ROOTSV"
+	mkdir -p "$TOP/$ROOTSV$MARKDIR"
+	printf 'ID=%s\nDATE=%s\nSNAPDATE=%s\nSAVED=%s\nOLD=%s\n' "$id" "$(now)" "$(iget "$sdir/$id" DATE)" "$sid" "$old" >"$TOP/$ROOTSV$MARKDIR/rollback"
+	chmod 644 "$TOP/$ROOTSV$MARKDIR/rollback"
+	sync
+	unmount_top
+	release_lock
+	boot_sync >/dev/null 2>&1
+	if [ "$JSON" = 1 ]; then
+		printf '{"ok":true,"id":%s,"saved":%s,"restart":true}\n' "$id" "$sid"
+	else
+		say "rolled back to snapshot $id ($when). Restart to start the restored system."
+		say "the system as it was is snapshot $sid; to undo: kwick-snapshot rollback $sid"
+	fi
+	if [ "$REBOOT" = 1 ] && [ -z "$DEVICE" ]; then
+		sync
+		reboot
+	fi
+	return 0
+}
+
+boot_cleanup() {
+	[ "$ROLLBACK" = 1 ] || return 0
+	for o in $(ls -1 "$TOP" 2>/dev/null | grep -E "^$ROOTSV\\.rollback-[0-9]+-[0-9]+\$"); do
+		for nested in $(btrfs subvolume list -o "$TOP/$o" 2>/dev/null | awk '{ print $NF }' | sort -r); do
+			btrfs subvolume delete "$TOP/$nested" >/dev/null 2>&1
+		done
+		btrfs subvolume delete "$TOP/$o" >/dev/null 2>&1 && say "removed the replaced system $o"
+	done
+}
+
+cmd_boot() {
+	[ "$(id -u)" = 0 ] || exit 0
+	detect
+	[ "$SUPPORTED" = 1 ] || exit 0
+	[ -n "$BOOTED" ] && exit 0
+	acquire_lock
+	mount_top
+	boot_cleanup
+	unmount_top
+	release_lock
+	boot_sync >/dev/null 2>&1
+	exit 0
+}
+
+grub_paths() {
+	FW=$(iconf FIRMWARE)
+	[ -n "$FW" ] || { [ -d /sys/firmware/efi ] && FW=uefi || FW=bios; }
+	if [ "$FW" = uefi ]; then
+		awk '$2 == "/boot/efi"' /proc/mounts | grep -q . || mount /boot/efi >/dev/null 2>&1
+		GCFG=$ESP/EFI/kwick/grub/grub.cfg
+	else
+		[ -n "$(iconf BOOT_UUID)" ] && { awk '$2 == "/boot"' /proc/mounts | grep -q . || mount /boot >/dev/null 2>&1; }
+		GCFG=/boot/grub/grub.cfg
+	fi
+	GENV=$(dirname "$GCFG")/grubenv
+	SCFG=$(dirname "$GCFG")/kwick-snapshots.cfg
+}
+
+grub_entries() {
+	awk '
+		/^[ \t]*menuentry / {
+			inm = 1; id = ""; lin = ""; ini = ""
+			if (match($0, /--id [^ {]+/)) id = substr($0, RSTART + 5, RLENGTH - 5)
+			next
+		}
+		inm && /^[ \t]*linux[ \t]/ { l = $0; sub(/^[ \t]*linux[ \t]+/, "", l); lin = l; next }
+		inm && /^[ \t]*initrd[ \t]/ { l = $0; sub(/^[ \t]*initrd[ \t]+/, "", l); ini = l; next }
+		inm && /^[ \t]*}/ { inm = 0; n++; if (lin !~ /nomodeset/) print n "\t" id "\t" lin "\t" ini }' "$1"
+}
+
+snap_opts() {
+	printf '%s\n' "$1" | tr ' ' '\n' | grep -v -E '^(rootflags=|kwick\.snapshot=|ro$|rw$|nomodeset$)' | grep -v '^$' | tr '\n' ' ' | sed 's/ $//'
+}
+
+initrd_ok() {
+	[ -f "$1" ] || return 1
+	gzip -dc "$1" 2>/dev/null | cpio -t 2>/dev/null | grep -qE '^(./)?kwick-snapshot$'
+}
+
+snap_title() {
+	d=$SDIR/root/$1
+	when=$(date -d "@$(iget "$d" DATE)" '+%Y-%m-%d %H:%M' 2>/dev/null)
+	ds=$(iget "$d" DESC | tr -d '"$`\\' | cut -c1-48)
+	case $(iget "$d" TYPE) in
+	pre) ds="Before $ds" ;;
+	post) ds="After $ds" ;;
+	esac
+	printf '%s  %s  (#%s)' "$when" "$ds" "$1"
+}
+
+bootable_ids() {
+	for bid in $(ids_of root); do
+		[ -d "$SDIR/root/$bid/snapshot/usr" ] && echo "$bid"
+	done | sort -rn | head -n "$BOOT_ENTRIES"
+}
+
+boot_sync() {
+	[ "$(id -u)" = 0 ] || return 0
+	[ "$SUPPORTED" = 1 ] && [ "$ROLLBACK" = 1 ] || return 0
+	[ -z "$DEVICE" ] || return 0
+	[ -f "$ICONF" ] || return 0
+	case $(iconf BOOTLOADER) in
+	grub) grub_sync ;;
+	systemd-boot) sd_sync ;;
+	*) return 0 ;;
+	esac
+}
+
+grub_sync() {
+	grub_paths
+	[ -f "$GCFG" ] || return 0
+	ents=$(grub_entries "$GCFG")
+	[ -n "$ents" ] || return 0
+	saved=$(sed -n 's/^saved_entry=//p' "$GENV" 2>/dev/null | head -n 1)
+	def=$(printf '%s\n' "$ents" | awk -F'\t' -v s="$saved" 's != "" && $2 == s { print; exit }')
+	[ -n "$def" ] || def=$(printf '%s\n' "$ents" | head -n 1)
+	prefix=$(dirname "$GCFG")
+	{
+		printf 'submenu "KwickOS snapshots" --id kwick-snapshots {\n'
+		for bid in $(bootable_ids); do
+			kid=$(iget "$SDIR/root/$bid" KID)
+			e=""
+			[ -n "$kid" ] && e=$(printf '%s\n' "$ents" | awk -F'\t' -v k="kwick-$kid" '$2 == k { print; exit }')
+			[ -n "$e" ] || e=$def
+			lin=$(printf '%s\n' "$e" | cut -f3)
+			ini=$(printf '%s\n' "$e" | cut -f4)
+			img=${lin%% *}
+			opts=$(snap_opts "${lin#* }")
+			printf '\tmenuentry "%s" --id kwick-snap-%s {\n' "$(snap_title "$bid")" "$bid"
+			printf '\t\tlinux %s %s rootflags=subvol=%s/root/%s/snapshot kwick.snapshot=%s\n' "$img" "$opts" "$SNAPSV" "$bid" "$bid"
+			[ -n "$ini" ] && printf '\t\tinitrd %s\n' "$ini"
+			printf '\t}\n'
+		done
+		printf '}\n'
+	} >"$SCFG.new"
+	if [ -z "$(bootable_ids)" ]; then
+		rm -f "$SCFG.new" "$SCFG"
+	else
+		mv "$SCFG.new" "$SCFG"
+	fi
+	grep -q 'kwick-snapshots.cfg' "$GCFG" || printf 'if [ -f "${prefix}/kwick-snapshots.cfg" ]; then source "${prefix}/kwick-snapshots.cfg"; fi\n' >>"$GCFG"
+	sync
+}
+
+sd_entry_field() { sed -n "s/^$2[ \t]\{1,\}//p" "$1" 2>/dev/null | head -n 1; }
+
+sd_sync() {
+	awk '$2 == "/boot/efi"' /proc/mounts | grep -q . || mount /boot/efi >/dev/null 2>&1
+	L=$ESP/loader
+	[ -f "$L/loader.conf" ] || return 0
+	dflt=$(sed -n 's/^default[ \t]\{1,\}//p' "$L/loader.conf" | head -n 1)
+	[ -f "$L/entries/$dflt" ] || dflt=$(ls -1 "$L/entries" 2>/dev/null | grep -E '^(kwick|kwickos)' | grep -v safe | head -n 1)
+	[ -n "$dflt" ] && [ -f "$L/entries/$dflt" ] || return 0
+	keep=""
+	for bid in $(bootable_ids); do
+		kid=$(iget "$SDIR/root/$bid" KID)
+		src=$L/entries/$dflt
+		[ -n "$kid" ] && [ -f "$L/entries/kwick-$kid.conf" ] && src=$L/entries/kwick-$kid.conf
+		fn=$(printf 'ksnap-%06d.conf' "$bid")
+		keep="$keep $fn"
+		{
+			printf 'title KwickOS snapshot %s\n' "$(snap_title "$bid")"
+			printf 'linux %s\n' "$(sd_entry_field "$src" linux)"
+			ini=$(sd_entry_field "$src" initrd)
+			[ -n "$ini" ] && printf 'initrd %s\n' "$ini"
+			printf 'options %s rootflags=subvol=%s/root/%s/snapshot kwick.snapshot=%s\n' "$(snap_opts "$(sd_entry_field "$src" options)")" "$SNAPSV" "$bid" "$bid"
+		} >"$L/entries/$fn.new"
+		mv "$L/entries/$fn.new" "$L/entries/$fn"
+	done
+	for f in "$L"/entries/ksnap-*.conf; do
+		[ -f "$f" ] || continue
+		case " $keep " in *" ${f##*/} "*) ;; *) rm -f "$f" ;; esac
+	done
+	sync
+}
+
+cmd_boot_sync() {
+	need_root boot-sync
+	need_supported
+	[ "$ROLLBACK" = 1 ] || die "this layout cannot boot snapshots"
+	BL=$(iconf BOOTLOADER)
+	case $BL in
+	grub | systemd-boot) ;;
+	*) die "the $BL boot path has no boot menu; roll back from the running system or the live ISO (kwick-snapshot rollback N)" ;;
+	esac
+	stale=0
+	if [ "$BL" = grub ]; then
+		grub_paths
+		ini=$(grub_entries "$GCFG" | head -n 1 | cut -f4)
+		base=""
+		if [ "$(iconf FIRMWARE)" = uefi ]; then base=$ESP; elif [ -n "$(iconf BOOT_UUID)" ]; then base=/boot; else ini=""; fi
+		if [ -n "$ini" ] && ! initrd_ok "$base$ini"; then stale=1; fi
+	else
+		awk '$2 == "/boot/efi"' /proc/mounts | grep -q . || mount /boot/efi >/dev/null 2>&1
+		dflt=$(sed -n 's/^default[ \t]\{1,\}//p' "$ESP/loader/loader.conf" 2>/dev/null | head -n 1)
+		ini=$(sd_entry_field "$ESP/loader/entries/$dflt" initrd)
+		if [ -n "$ini" ] && ! initrd_ok "$ESP$ini"; then stale=1; fi
+	fi
+	if [ "$stale" = 1 ] && [ -x /usr/sbin/kwick-kernel ] && [ -z "${KWICK_SNAPSHOT_FROM_KERNEL:-}" ]; then
+		say "rebuilding the initramfs so it can start snapshots"
+		/usr/sbin/kwick-kernel sync >/dev/null 2>&1
+	fi
+	boot_sync
+	say "boot menu: $(bootable_ids | wc -l) snapshot entries ($BL)"
+}
+
+cmd_boot_once() {
+	need_root boot-once
+	need_supported
+	need_live
+	id=${1:-}
+	num "$id" || die "usage: kwick-snapshot boot-once N"
+	[ -d "$SDIR/root/$id/snapshot/usr" ] || die "snapshot $id is not a system snapshot"
+	boot_sync
+	case $(iconf BOOTLOADER) in
+	grub)
+		grub_paths
+		if ! grep -q 'next_entry' "$GCFG" 2>/dev/null; then
+			[ -x /usr/sbin/kwick-kernel ] && /usr/sbin/kwick-kernel sync >/dev/null 2>&1
+			boot_sync
+			grep -q 'next_entry' "$GCFG" 2>/dev/null || die "this grub.cfg cannot start an entry once; run kwick-kernel sync"
+		fi
+		grep -q "kwick-snap-$id" "$SCFG" 2>/dev/null || die "snapshot $id is not in the boot menu (only the newest $BOOT_ENTRIES are)"
+		fs=$(df -T "$(dirname "$GENV")" 2>/dev/null | awk 'NR == 2 { print $2 }')
+		[ -n "$fs" ] || fs=$(awk -v p="$(dirname "$GENV")/" '{ m = $2 == "/" ? "/" : $2 "/" } index(p, m) == 1 && length(m) >= l { l = length(m); t = $3 } END { print t }' /proc/mounts)
+		case $fs in vfat | msdos | ext2 | ext3 | ext4) ;; *) die "GRUB cannot clear a one-shot entry on $fs; choose the snapshot from the boot menu instead (press Esc while KwickOS starts)" ;; esac
+		f=$GENV
+		{
+			printf '# GRUB Environment Block\n'
+			[ -f "$f" ] && grep -E '^[A-Za-z0-9_]+=' "$f" | grep -v '^next_entry='
+			printf 'next_entry=kwick-snapshots>kwick-snap-%s\n' "$id"
+		} >"$f.new"
+		n=$(wc -c <"$f.new")
+		[ "$n" -le 1024 ] || { rm -f "$f.new"; die "grubenv overflow"; }
+		head -c $((1024 - n)) /dev/zero | tr '\0' '#' >>"$f.new"
+		mv "$f.new" "$f"
+		;;
+	systemd-boot)
+		fn=$(printf 'ksnap-%06d.conf' "$id")
+		[ -f "$ESP/loader/entries/$fn" ] || die "snapshot $id is not in the boot menu"
+		if have bootctl && bootctl --esp-path="$ESP" set-oneshot "$fn" >/dev/null 2>&1; then :; else
+			[ -d /sys/firmware/efi ] || die "not booted through UEFI"
+			grep -q ' efivarfs ' /proc/mounts || mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
+			v=/sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+			[ -e "$v" ] && chattr -i "$v" 2>/dev/null && rm -f "$v"
+			hex=$(printf '%s' "$fn" | awk 'BEGIN { for (i = 1; i < 256; i++) ord[sprintf("%c", i)] = i } { for (i = 1; i <= length($0); i++) printf "\\%03o\\000", ord[substr($0, i, 1)]; printf "\\000\\000" }')
+			printf "\\007\\000\\000\\000$hex" >"$v" || die "could not set LoaderEntryOneShot"
+		fi
+		;;
+	*) die "this boot path has no boot menu" ;;
+	esac
+	sync
+	say "snapshot $id starts once at the next restart (read-only; changes are discarded)"
+}
+
+cron_apply() {
+	mkdir -p "$(dirname "$CRONTAB")"
+	touch "$CRONTAB"
+	grep -v 'KWICK_JOB=snapshot ' "$CRONTAB" >"$CRONTAB.new"
+	on=0
+	{ [ "$TIMELINE" = 1 ] || [ "$TIMELINE_HOME" = 1 ]; } && on=1
+	if [ "$on" = 1 ]; then
+		m=$(awk -v s="$(cat /proc/sys/kernel/random/uuid 2>/dev/null)" 'BEGIN { srand(); print int(rand() * 60) }')
+		printf '%s * * * * KWICK_JOB=snapshot %s timeline >/dev/null 2>&1\n' "$m" "$SELF" >>"$CRONTAB.new"
+	fi
+	mv "$CRONTAB.new" "$CRONTAB"
+	chmod 600 "$CRONTAB"
+	echo root >>"$(dirname "$CRONTAB")/cron.update"
+	have systemctl || return 0
+	if [ "$on" = 1 ]; then
+		systemctl enable crond >/dev/null 2>&1
+		systemctl is-active -q crond 2>/dev/null || systemctl start crond >/dev/null 2>&1
+	elif ! ls "$(dirname "$CRONTAB")" | grep -vx cron.update | sed "s|^|$(dirname "$CRONTAB")/|" | xargs -r grep -qsv '^[[:space:]]*\(#\|$\)'; then
+		systemctl disable crond >/dev/null 2>&1
+		systemctl stop crond >/dev/null 2>&1
+	fi
+	return 0
+}
+
+write_conf() {
+	mkdir -p "$(dirname "$CONF")"
+	printf 'TIMELINE=%s\nTIMELINE_HOME=%s\nAPT=%s\nHOURLY=%s\nDAILY=%s\nWEEKLY=%s\nMONTHLY=%s\nNUMBER=%s\nIMPORTANT=%s\nFREE=%s\nBOOT_ENTRIES=%s\n' \
+		"$TIMELINE" "$TIMELINE_HOME" "$APT" "$HOURLY" "$DAILY" "$WEEKLY" "$MONTHLY" "$NUMBER" "$IMPORTANT" "$FREE" "$BOOT_ENTRIES" >"$CONF.new"
+	chmod 644 "$CONF.new"
+	mv "$CONF.new" "$CONF"
+}
+
+conf_json() {
+	printf '{"timeline":%s,"home":%s,"apt":%s,"hourly":%s,"daily":%s,"weekly":%s,"monthly":%s,"number":%s,"important":%s,"free":%s,"boot_entries":%s}' \
+		"$(jbool "$TIMELINE")" "$(jbool "$TIMELINE_HOME")" "$(jbool "$APT")" "$HOURLY" "$DAILY" "$WEEKLY" "$MONTHLY" "$NUMBER" "$IMPORTANT" "$FREE" "$BOOT_ENTRIES"
+}
+
+onoff() {
+	case $1 in
+	on | yes | true | 1) echo 1 ;;
+	off | no | false | 0) echo 0 ;;
+	*) die "expected on or off, got: $1" ;;
+	esac
+}
+
+cmd_config() {
+	if [ "${1:-}" != set ]; then
+		if [ "$JSON" = 1 ]; then conf_json; echo; else
+			printf 'timeline      %s (hourly system snapshots)\n' "$([ "$TIMELINE" = 1 ] && echo on || echo off)"
+			printf 'home          %s (hourly snapshots of /home)\n' "$([ "$TIMELINE_HOME" = 1 ] && echo on || echo off)"
+			printf 'apt           %s (before and after every package change)\n' "$([ "$APT" = 1 ] && echo on || echo off)"
+			printf 'keep          %s hourly, %s daily, %s weekly, %s monthly\n' "$HOURLY" "$DAILY" "$WEEKLY" "$MONTHLY"
+			printf 'number        %s update snapshots (%s important)\n' "$NUMBER" "$IMPORTANT"
+			printf 'free          keep at least %s%% of the disk free\n' "$FREE"
+			printf 'boot-entries  %s newest system snapshots in the boot menu\n' "$BOOT_ENTRIES"
+		fi
+		return 0
+	fi
+	need_root "config set"
+	shift
+	[ $# -ge 2 ] || die "usage: kwick-snapshot config set KEY VALUE ..."
+	while [ $# -ge 2 ]; do
+		k=$1
+		v=$2
+		shift 2
+		case $k in
+		timeline) TIMELINE=$(onoff "$v") ;;
+		home) TIMELINE_HOME=$(onoff "$v") ;;
+		apt) APT=$(onoff "$v") ;;
+		hourly | daily | weekly | monthly | number | important | free | boot-entries)
+			num "$v" || die "$k takes a number"
+			case $k in
+			hourly) HOURLY=$v ;;
+			daily) DAILY=$v ;;
+			weekly) WEEKLY=$v ;;
+			monthly) MONTHLY=$v ;;
+			number) NUMBER=$v ;;
+			important) IMPORTANT=$v ;;
+			free) [ "$v" -le 90 ] || die "free takes 0 to 90"; FREE=$v ;;
+			boot-entries) BOOT_ENTRIES=$v ;;
+			esac
+			;;
+		*) die "unknown setting: $k" ;;
+		esac
+	done
+	[ $# -eq 0 ] || die "missing value for $1"
+	write_conf
+	detect
+	[ "$SUPPORTED" = 1 ] && cron_apply
+	[ "$SUPPORTED" = 1 ] && [ -z "$BOOTED" ] && { acquire_lock; do_cleanup; release_lock; boot_sync >/dev/null 2>&1; }
+	if [ "$JSON" = 1 ]; then conf_json; echo; else say "settings saved"; fi
+}
+
+cmd_quota() {
+	need_root quota
+	need_supported
+	case ${1:-} in
+	on)
+		btrfs quota enable "$SDIR" || die "could not enable quotas"
+		say "quotas on: snapshot sizes are shown, at some cost to write speed with many snapshots"
+		;;
+	off)
+		btrfs quota disable "$SDIR" || die "could not disable quotas"
+		say "quotas off"
+		;;
+	*) die "usage: kwick-snapshot quota on|off" ;;
+	esac
+}
+
+cmd_setup() {
+	need_root setup
+	detect
+	[ "$SUPPORTED" = 1 ] && { say "snapshots are already set up"; cron_apply; boot_sync >/dev/null 2>&1; return 0; }
+	[ "$SETUP" = 1 ] || die "$REASON"
+	set -- $(mounted_at /)
+	DEV=$1
+	mount_top
+	if [ ! -d "$TOP/$SNAPSV" ]; then
+		btrfs subvolume create "$TOP/$SNAPSV" >/dev/null || die "could not create the $SNAPSV subvolume"
+	fi
+	unmount_top
+	mkdir -p "$SNAPS"
+	uuid=$(blkid "$DEV" 2>/dev/null | sed -n 's/.* UUID="\([^"]*\)".*/\1/p' | head -n 1)
+	[ -n "$uuid" ] || die "cannot read the UUID of $DEV"
+	if ! awk -v m="$SNAPS" '$1 !~ /^#/ && $2 == m { f = 1 } END { exit !f }' /etc/fstab 2>/dev/null; then
+		printf 'UUID=%s %s btrfs defaults,noatime,nosuid,nodev,subvol=/%s 0 0\n' "$uuid" "$SNAPS" "$SNAPSV" >>/etc/fstab
+	fi
+	mount "$SNAPS" || die "could not mount $SNAPS"
+	chmod 755 "$SNAPS"
+	mkdir -p /etc/systemd/system/multi-user.target.wants
+	ln -sf /usr/lib/systemd/system/kwick-snapshot-boot.service /etc/systemd/system/multi-user.target.wants/kwick-snapshot-boot.service
+	detect
+	[ "$SUPPORTED" = 1 ] || die "$REASON"
+	[ -f "$CONF" ] || write_conf
+	cron_apply
+	TYPE=single
+	CLEANUP=""
+	DESC="Snapshots turned on"
+	do_create root && say "first snapshot: $CREATED"
+	if [ "$ROLLBACK" = 1 ]; then
+		case $(iconf BOOTLOADER) in grub | systemd-boot) cmd_boot_sync ;; esac
+	else
+		say "this system keeps its root at the top of the Btrfs volume, so snapshots work but rollback does not"
+	fi
+}
+
+human_kb() { awk -v k="$1" 'BEGIN { if (k >= 1048576) printf "%.1f GB", k / 1048576; else if (k >= 1024) printf "%.0f MB", k / 1024; else printf "%d KB", k }'; }
+
+cmd_status() {
+	cr=0
+	ch=0
+	lr=0
+	lh=0
+	sz=0
+	fr=0
+	if [ "$SUPPORTED" = 1 ]; then
+		cr=$(ids_of root | wc -l)
+		ch=$(ids_of home | wc -l)
+		lr=$(for x in $(ids_of root); do iget "$SDIR/root/$x" DATE; done | sort -n | tail -n 1)
+		lh=$(for x in $(ids_of home); do iget "$SDIR/home/$x" DATE; done | sort -n | tail -n 1)
+		set -- $(df -kP "$SDIR" 2>/dev/null | awk 'NR == 2 { print $2, $4 }')
+		sz=${1:-0}
+		fr=${2:-0}
+	fi
+	bl=$(iconf BOOTLOADER)
+	menu=0
+	case $bl in grub | systemd-boot) [ "$ROLLBACK" = 1 ] && menu=1 ;; esac
+	rb=""
+	[ -f "$MARKDIR/rollback" ] && rb=$(sed -n 's/^ID=//p' "$MARKDIR/rollback")
+	rbd=$(sed -n 's/^DATE=//p' "$MARKDIR/rollback" 2>/dev/null)
+	rbs=$(sed -n 's/^SNAPDATE=//p' "$MARKDIR/rollback" 2>/dev/null)
+	bdate=0
+	[ -n "$BOOTED" ] && bdate=$(iget "$SDIR/root/$BOOTED" DATE)
+	cronon=0
+	if [ "$SUPPORTED" != 1 ]; then cronon=0; elif [ -r "$CRONTAB" ]; then grep -q "KWICK_JOB=snapshot " "$CRONTAB" 2>/dev/null && cronon=1; elif [ "$TIMELINE" = 1 ] || [ "$TIMELINE_HOME" = 1 ]; then cronon=1; fi
+	if [ "$JSON" = 1 ]; then
+		printf '{"supported":%s,"reason":"%s","setup":%s,"fs":"%s","layout":"%s","root_subvol":"%s","rollback":%s,"home":%s,"booted":%s,"booted_date":%s,' \
+			"$(jbool "$SUPPORTED")" "$(jstr "$REASON")" "$(jbool "$SETUP")" "$FST" "$LAYOUT" "$ROOTSV" "$(jbool "$ROLLBACK")" "$(jbool "$HOMEOK")" "${BOOTED:-0}" "${bdate:-0}"
+		printf '"bootloader":"%s","boot_menu":%s,"device":"%s","size_kb":%s,"free_kb":%s,"count":{"root":%s,"home":%s},"last":{"root":%s,"home":%s},' \
+			"$bl" "$(jbool "$menu")" "$DEV" "$sz" "$fr" "$cr" "$ch" "${lr:-0}" "${lh:-0}"
+		printf '"rolled_back":{"id":%s,"date":%s,"snapshot_date":%s},"scheduled":%s,"config":%s}\n' "${rb:-0}" "${rbd:-0}" "${rbs:-0}" "$(jbool "$cronon")" "$(conf_json)"
+		return 0
+	fi
+	if [ "$SUPPORTED" != 1 ]; then
+		say "snapshots: not available"
+		say "$REASON"
+		return 0
+	fi
+	say "snapshots:    on ($LAYOUT layout on $DEV)"
+	[ -n "$BOOTED" ] && say "running from: snapshot $BOOTED (read-only, changes are discarded at restart)"
+	say "system:       $cr snapshots$([ "$lr" != 0 ] && printf ', latest %s' "$(date -d "@$lr" '+%Y-%m-%d %H:%M')")"
+	say "home:         $([ "$HOMEOK" = 1 ] && echo "$ch snapshots" || echo "not a subvolume")"
+	say "rollback:     $([ "$ROLLBACK" = 1 ] && echo available || echo "not available (flat layout)")"
+	say "boot menu:    $([ "$menu" = 1 ] && echo "snapshot entries in $bl" || echo "none ($bl), roll back from the running system or the live ISO")"
+	say "disk:         $(human_kb "$fr") free of $(human_kb "$sz")"
+	say "schedule:     $([ "$cronon" = 1 ] && echo hourly || echo off), keep $HOURLY hourly, $DAILY daily, $WEEKLY weekly, $MONTHLY monthly, $NUMBER update snapshots"
+	[ -n "$rb" ] && say "last rollback: to snapshot $rb on $(date -d "@$rbd" '+%Y-%m-%d %H:%M')"
+	return 0
+}
+
+trap 'release_lock; unmount_top' EXIT
+trap 'exit 130' INT TERM
+
+CMD=""
+n=$#
+i=0
+while [ $i -lt $n ]; do
+	a=$1
+	shift
+	i=$((i + 1))
+	case $a in
+	--json) JSON=1 ;;
+	--quiet | -q) QUIET=1 ;;
+	--yes | -y) YES=1 ;;
+	--reboot) REBOOT=1 ;;
+	--keep-both) KEEPBOTH=1 ;;
+	--important) IMPORTANT_FLAG=1 ;;
+	--config=*) CFG=${a#*=} ;;
+	-c | --config | -d | --description | --type | --pre | --cleanup | --device | --to)
+		[ $i -lt $n ] || { warn "option $a needs a value"; exit 1; }
+		v=$1
+		shift
+		i=$((i + 1))
+		case $a in
+		-c | --config) CFG=$v ;;
+		-d | --description) DESC=$v ;;
+		--type) TYPE=$v ;;
+		--pre) PRE=$v ;;
+		--cleanup) CLEANUP=$v ;;
+		--device) DEVICE=$v ;;
+		--to) TO=$v ;;
+		esac
+		;;
+	-h | --help) usage; exit 0 ;;
+	-*) warn "unknown option: $a"; exit 1 ;;
+	*) if [ -z "$CMD" ]; then CMD=$a; else set -- "$@" "$a"; fi ;;
+	esac
+done
+[ -n "$CMD" ] || CMD=status
+
+case $CMD in
+apt-pre) cmd_apt_pre ;;
+apt-post) cmd_apt_post ;;
+timeline) cmd_timeline ;;
+boot) cmd_boot ;;
+help | -h | --help) usage ;;
+setup) cmd_setup ;;
+*)
+	detect
+	case $CMD in
+	status) cmd_status ;;
+	list | ls) cmd_list "$@" ;;
+	create) cmd_create "$@" ;;
+	delete | rm) cmd_delete "$@" ;;
+	diff) cmd_diff "$@" ;;
+	packages | pkgs) cmd_packages "$@" ;;
+	restore) cmd_restore "$@" ;;
+	rollback) cmd_rollback "$@" ;;
+	boot-once) cmd_boot_once "$@" ;;
+	cleanup) cmd_cleanup ;;
+	config) cmd_config "$@" ;;
+	quota) cmd_quota "$@" ;;
+	boot-sync) cmd_boot_sync ;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
+	;;
+esac

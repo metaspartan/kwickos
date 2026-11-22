@@ -28,7 +28,7 @@ Rectangle {
                     id: label
                     anchors.centerIn: parent
                     text: item.modelData.label
-                    color: item.on ? Theme.onControl : Theme.text
+                    color: item.on ? Theme.controlText : Theme.text
                     font.family: Theme.sans
                     font.pixelSize: 12
                     font.weight: item.on ? Font.Medium : Font.Normal

@@ -786,7 +786,7 @@ ColumnLayout {
                         }
                     }
                     Btn {
-                        visible: !kr.modelData.default && page.canTry && !kr.modelData.trial
+                        visible: !kr.modelData.default && page.canTry && !kr.modelData.trial && !kr.modelData.running
                         enabled: !page.busy && !page.authWait
                         text: "Try Once…"
                         onClicked: page.ask({

@@ -1,0 +1,19 @@
+#!/bin/sh
+set -u
+dir=${KWICK_STORE_DIR:-/usr/share/kwick/store}
+qml=$(command -v qml6 || command -v qml) || { echo "kwick-store needs qml6 (apt install qml-qt6)" >&2; exit 1; }
+case ${1:-} in
+  -h|--help)
+    cat <<'EOF'
+usage: kwick-store [updates | installed | search TEXT | app SOURCE:ID]
+  opens the App Store; SOURCE is flathub, apt, arch, aur or agent
+EOF
+    exit 0 ;;
+esac
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QML_XHR_ALLOW_FILE_READ=1
+export KWICK_STORE_ARGS="$*"
+if [ -x /usr/lib/kwick/kwick-settings-app ]; then
+  KWICK_APP_ID=kwick-store KWICK_APP_ICON=kwick-software KWICK_APP_NAME="App Store" KWICK_APP_QML="$dir/Main.qml" exec /usr/lib/kwick/kwick-settings-app
+fi
+exec "$qml" -a widget "$dir/Main.qml"

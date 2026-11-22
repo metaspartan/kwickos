@@ -17,7 +17,7 @@ usage() {
   cat <<EOF
 usage: $PROG <command>
   list                          modules and what they provide
-  status [--machine]            installed state of every module
+  status [--machine|--json]     installed state of every module
   install <module...>           install modules
   remove <module...>            remove modules
   all                           install every module this machine supports
@@ -60,6 +60,14 @@ cmd_list() {
 }
 
 cmd_status() {
+  if [ "${1:-}" = --json ]; then
+    cmd_status --machine | awk -F'|' '
+      function e(s,  o, i, c) { o = ""; for (i = 1; i <= length(s); i++) { c = substr(s, i, 1); if (c == "\\" || c == "\"") o = o "\\"; o = o c }; return o }
+      BEGIN { printf "{\"modules\":[" }
+      NF >= 3 { printf "%s{\"name\":\"%s\",\"state\":\"%s\",\"description\":\"%s\",\"note\":\"%s\"}", (n++ ? "," : ""), e($1), e($2), e($3), e($4) }
+      END { print "]}" }'
+    return 0
+  fi
   machine=""
   [ "${1:-}" = --machine ] && machine=1
   for m in $MODULES; do

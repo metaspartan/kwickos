@@ -208,6 +208,50 @@ that understands both formats: 5.4 s there and about 1 s on a current image.
 Not verified: real BPI-F3 hardware for the new trial fallback (sandbox only, `bootm` stubbed, no watchdog), a watchdog for
 hanging trial kernels on PCs (none exists), the full Settings flow for app (Flatpak) updates, arm64 and riscv64 images.
 
+## System snapshots, end to end
+
+Run on 2026-11-21 in KVM VMs (QEMU, OVMF) in the lab container `snap-lab` (volume `snap-vm`). Installs came from the desktop
+live ISO (`desktop-vm.iso`, KwickOS 0.4.0, generic kernel 7.3.4) running this tree's `kwick-install`, `kwick-snapshot`,
+`kwick-kernel`, `kwick-update` and a kpkg built from this tree (`go vet` and `go test` pass, including the new hook tests). The
+installed systems got the same files copied in, because the installer copies the ISO's own (older) root. The ISO lacks
+`btrfs-progs`, GRUB and systemd-boot; the installer fetched them with apt, as designed.
+
+| Check | Result |
+|---|---|
+| `kwick-install bootloaders --json` on the live ISO | `"fs":"btrfs","default":"grub"`, EFI stub listed as needing ext4 |
+| Fresh install, UEFI GRUB, `--swap file:2G`, default file system | subvolumes `@ @home @root @srv @var_log @var_cache @var_tmp @snapshots @swap`; fstab with `compress=zstd:1`, `/.snapshots` `nosuid,nodev`; snapshot 1 "Fresh install"; crontab line and `kwick-snapshot-boot.service` enabled; `btrfs-progs` installed into the target |
+| First boot | `/` mounted `subvol=/@` with `noatime,compress=zstd:1` (after `ROOT_FLAGS`); `kwick-snapshot status`: subvolumes layout, rollback available, snapshot entries in GRUB |
+| `apt-get install sl` (kpkg `DPkg::Pre-Invoke`/`Post-Invoke`) | pre 2 and post 3, described "apt-get install sl"; `changes` lists `/usr/games/sl`, the docs and the dpkg files; `packages 2 3` shows `+ sl` |
+| `kwick-update upgrade` (4 Debian security updates) | exactly one pair, 4/5 "Software Update (4 updates)", no extra apt pair; `packages 4 5` lists the four version changes |
+| BusyBox `crond` | with the clock set before the job's minute, `crond` ran `kwick-snapshot timeline` (syslog line), which took root 6 and home 1 |
+| `boot-once 7` (GRUB `next_entry`) | first attempt exposed that the installer's `grub.cfg` had no one-shot logic; fixed, and `boot-once` now runs `kwick-kernel sync` when `grub.cfg` lacks it. Then: booted `rootflags=subvol=@snapshots/root/7/snapshot kwick.snapshot=7`, `/` an overlay, a file changed after the snapshot shows its old content, `next_entry` cleared, `create` refused, apt worked without snapshots; the next boot was the normal system with nothing changed |
+| Broken system (GRUB) | `/usr/sbin/kinit` replaced by garbage and `libc.so.6` deleted: every boot ends in "Kernel panic ... Attempted to kill init", "Rebooting in 10 seconds", in a loop |
+| Recovery through the GRUB menu | F4 during the hidden one-second timeout shows the menu with **KwickOS snapshots** (`snapshots-grub.png`); snapshot 7 started read-only; `kwick-snapshot rollback 7 --yes` saved the broken system as snapshot 9; the next boot ran the restored system: kinit and libc back, the file as it was in 7, `@.rollback-*` deleted by `kwick-snapshot-boot.service`, `/var/lib/kwick/snapshot/rollback` written |
+| Rescue from the live ISO | `kwick-snapshot --device auto list` (fetched `btrfs-progs` itself), `packages 2 3`, `restore 7 /etc/snaptest --to /tmp`, `rollback 8 --yes`; booting the disk gave snapshot 8's state, old root removed |
+| Fresh install, systemd-boot, `--swap zram` | no `@swap`; entries `ksnap-NNNNNN.conf` written after every snapshot; `boot-once 4` through `LoaderEntryOneShot` booted snapshot 4 read-only and the variable was consumed |
+| Broken system (systemd-boot) | same breakage, panic loop; Space shows the menu with the snapshots after the kernels, newest first (`snapshots-systemd-boot.png`); snapshot 4 started, `rollback 4` saved snapshot 5, the next boot was healthy |
+| `kwick-kernel sync` on a Btrfs install | rewrote `grub.cfg` with per-kernel entries carrying `rootflags=subvol=@,noatime,compress=zstd:1`, the snapshot include line and initramfs images with the snapshot marker; `kwick-snapshot boot-sync` then pointed the snapshot entries at `/EFI/kwick/k/generic-7.3.4/` |
+| ext4 install (`--fs ext4`, EFI stub) | `status` explains that snapshots need Btrfs (exit 0); `list --json` returns `{"ok":false,...}` (exit 1); `create`, `rollback`, `setup` refuse with the same message; `timeline` exits 0 silently; `apt-get install sl` works with no snapshot; no `/.snapshots`, no crontab line; nothing changed on disk |
+| Settings, Snapshots page (KDE, virgl) | dark and light, macOS, Windows and Linux layouts; timeline grouped by day with the date ruler; a pair opens on **Changes** with the package versions and 66 changed files; **Files** browses `/` and home snapshots with "Changed since"; a home file restored with **Replace** got its old content back and the current one went to the Trash; **Options…** sheet; the rollback confirmation; the "Running from a snapshot" banner during a snapshot boot |
+
+Screenshots: `D:\KwickOS-lab\snap\shots\` (`settings-dark-*.png`, `settings-light-*.png`, `settings-windows-dark.png`,
+`settings-linux-light.png`, `settings-booted-snapshot.png`, `set-dark-docs.png`, `set-dark-restore-sheet.png`,
+`grub-s-grub-menu2.png`, `grub-s-grub-submenu.png`, `sdboot-menu.png`, `icons-sheet.png`), a selection in `docs/img/snapshots-*.png`.
+
+Problems found and fixed during the run: the installer's `grub.cfg` could not start an entry once; `kwick-snapshot` lost the
+snapshot number when it refreshed the boot menu (shell variable reuse); options before the subcommand (`--device auto list`)
+were not accepted; orphan renames in `btrfs send` streams showed up as `o123-4-0` paths in the change list; the root was mounted
+without the subvolume's `compress` and `noatime`; `short` is a reserved word in QML's JavaScript; titles in the timeline were
+elided too early; a Popup function named `enter` shadowed the transition property; the Snapshots launcher entry claimed the
+Settings window class, so the dock showed every Settings window with the Snapshots icon.
+
+Not verified: BIOS GRUB installs (the ext4 `/boot` for Btrfs on BIOS is new and was not booted), encrypted Btrfs installs, manual
+partitioning onto Btrfs, a rollback across a kernel change (the module carry-over in `carry_kernels` ran but every snapshot had
+the same kernel), `kwick-snapshot setup` on a Btrfs install from an older image, quotas, the space-based cleanup with a full disk,
+the Dolphin "Restore Previous Versions…" action, GNOME, Hyprland and sway (the page is the same QML), the GUI and text
+installers' new file system screens (code only), real apt instead of kpkg, arm64 and riscv64, U-Boot boards. The kwick-update
+run on the ext4 VM failed in Debian's `sudo` postinst on that old image, unrelated to snapshots.
+
 ## Touch and tablet
 
 VM: overlay on the installed desktop disk (`vpn-1.qcow2`), KVM, virgl, 1600x900 at scale 1.0, `EXTRA='-device virtio-multitouch-pci'`
@@ -241,6 +285,75 @@ Not verified: real rotation (the VM has no accelerometer; `iio-sensor-proxy` sta
 sensors), a hardware tablet-mode switch, pen input, GNOME (settings are plain gsettings keys, not run), sway, the lock screen
 (same Breeze component and KWin input method as SDDM), a rebuilt `kwick-desktop` package and the desktop ISO, arm64 and riscv64 builds
 of `plasma-keyboard`.
+
+## Arch repositories and AUR (kwick-arch)
+
+Run on 2026-11-21. The packages `kwick-arch` and `kwick-update` were built from this tree with `scripts/mkarchpkg.sh` and
+`scripts/mkupdatepkg.sh` in the lab container `arch-lab` and installed with `apt install ./*.deb` into a KVM VM (`arch-1`, a qcow2
+overlay on the 0.4.0 KDE desktop disk `d10.qcow2`, virgl GPU, 8 GB). Development runs used a privileged `debian:trixie`
+container (`arch-dev`). Arch bootstrap: `archlinux-bootstrap-2026.11.01-x86_64.tar.zst`.
+
+| Check | Result |
+| --- | --- |
+| `vercmp` against pacman's `vercmp` | 3,441 version pairs from the tracker data plus edge cases, 0 mismatches |
+| `tests/kwick-arch-gates.py` (gate thresholds, upgrade rule, risk analyzer, git tree hash vs `git write-tree`) | 0 failures |
+| `enable` in the VM | apt pulled `archlinux-keyring`, `gpgv`, `zstd`; bootstrap verified (`signed by 3E80CA1A...9A5C`), keyring populated, `-Su`, `mesa`; 1 min 46 s, 877 MiB |
+| bootstrap with one flipped byte | refused: `gpgv: BAD signature from "Pierre Schmitz"` |
+| genuine bootstrap, signer not in `RELEASE_KEYS` | refused: `untrusted-signer` |
+| `SigLevel = Never` in the environment's `pacman.conf` | refused before pacman runs (`insecure-pacman-conf`) |
+| `install gnome-calculator qalculate-qt` (GTK4/libadwaita and Qt 6) | installed; warnings for `libtiff`, `giflib`, `xdg-utils` (Medium/Unknown, dependencies); both menu entries exported, the host's own `org.gnome.Calculator.desktop` kept and the Arch one exported as "Calculator (Arch)" |
+| launching through the exported desktop files and from KRunner | both run on KDE Wayland as the user: `libQt6WaylandClient` and `libwayland-client` mapped, GTK on `libgallium`/`renderD128` (virgl); `docs/img/arch-qt-gtk-apps.png`, `arch-gtk4-calculator.png`, `arch-krunner.png` |
+| `PATH` export | `su - kwick -c 'echo 6*7 \| gcalccmd'` prints 42 through `/usr/local/lib/kwick-arch/bin` |
+| `install wget` (AVG-1892, Medium, open) | refused, exit 4, message names AVG-1892 and CVE-2021-31879 |
+| `install neofetch --aur` without a terminal and without `--yes` | exit 3 with the review in the JSON |
+| `info neofetch --aur --json`, then `install neofetch --aur --yes --commit <sha>` | snapshot tree matched the commit tree, upstream tag PGP-verified, built as uid 64990 with "Building neofetch without network access", installed, pinned commit in `list --json`, `neofetch` on PATH |
+| build sandbox | inside the build step: no network (`curl: (6) Could not resolve host`), `/usr` and `/etc` read-only, `CapEff 0`, `NoNewPrivs 1`; the download step has network |
+| upgrade | `gnome-calculator` downgraded to 51.0-1 from the Arch archive (signed); `upgrade --check` listed 51.0-1 -> 51.1-1; `kwick-update check` showed it as an `arch` row and in `"arch"`; `kwick-update upgrade arch` upgraded it, the row disappeared |
+| Store calls as the unprivileged user | `status`, `search`, `search --aur`, `info`, `info --aur`, `list`, `upgrade --check` (all `--json`) succeeded; `install` asked polkit for authentication |
+| `remove qalculate-qt` | its menu entry and command wrapper removed, others kept |
+| `disable`, `enable`, `disable --purge` | exports and the PATH directory removed; `search` then exits 6; re-enable restored the exports; purge removed the root |
+| host CVE check (`/usr/lib/kwick/debsec`) | on `debian:trixie` the CVE set equals `debsecan --suite trixie` (186 of 186, BusyBox `awk`, about 1 s); in the VM 19 CVEs fixable by pending updates, with the trixie-security fix versions apt also offers (`gpgme1.0 1.24.2-3+deb13u1`, `libgd2 2.3.3-14~deb13u3`) |
+| arm64 | simulated (`platform.machine()` = aarch64): `status` reports `supported: false` with the reason, `enable`/`search` exit 7 |
+
+Analyzer on real AUR packages: `yay`, `zoom`, `ttf-ms-fonts`, `downgrade`, `pamac-aur` low; `paru` low; `google-chrome` and
+`brave-bin` medium; `spotify` high (plain-HTTP index files with `SKIP`).
+
+Not verified for kwick-arch: GNOME and Hyprland sessions (only KDE Wayland), PipeWire audio from an Arch app, NVIDIA, a real arm64
+machine, an upgrade that the gate refuses with live tracker data (covered only by the unit test), AUR packages with AUR
+dependencies, the Store GUI and the Software Update page (owned elsewhere; only their CLI/JSON was exercised), and the VM's own
+older kpkg lacks `${source:Version}`, so `debsec` fell back to binary versions there (current kpkg provides it).
+
+## AI agents (kwick-agents, kwick-mcp)
+
+Own lab container `agents-lab` (image `kwick-vmlab`), VM overlays in the `agents-vm` volume: `agents-h1` (headless, on
+`base-fresh2.qcow2`, KwickOS 0.4.0, user `tester`) and `agents-d1` (KDE Plasma desktop, on `d10.qcow2`, user `kwick`, virgl). The
+`kwick-agents_0.6.5_amd64.deb` from `scripts/mkagentspkg.sh` was installed with `apt-get install ./...deb` (pulled `bubblewrap` 0.12.0,
+`ca-certificates`); later iterations replaced only `/usr/bin/kwick-agents` and the catalog.
+
+| Area | Result |
+|---|---|
+| Installs as a normal user, sha256 checked | codex, llama-cpp, gemini-cli (+ node), opencode, goose, omp, claude-code, cybara, aider (+ uv, Python 3.12), hermes (git tag + commit check, `uv sync --frozen`, Python 3.14), openclaw (`npm ci` from the shipped lock, postinstall run sandboxed without network), ollama (1.5 GB `.tar.zst`). Each `--version` ran through its `~/.local/bin` launcher inside the sandbox (rc 0). |
+| System install | `install --system opencode` as root, run by a second user, `remove --system` |
+| Legacy | 0.6.5-style `/var/lib/kwick-agents/cybara` marker shows as installed in `status --machine` |
+| Lifecycle | `update` (nothing to do, `--json`), `remove goose` (launcher and MCP entry removed, data kept), reinstall |
+| Sandbox (`kwick-agents shell codex`) | sees only its private home, `~/.codex`, the project folder; `/usr` read-only (`touch` fails), own pid namespace, `/run/kwick-mcp.sock`; `--offline` has no network; keys injected (own and `shared`, not other agents' keys) |
+| Ollama | `ollama serve` in the sandbox, API on 127.0.0.1:11434 reachable from the host, `ollama list` works |
+| MCP, real agents | `claude mcp list`: kwickos Connected; `opencode mcp list`: connected; `gemini mcp list`: Connected (after trusting the folder; Gemini disables MCP in untrusted folders); `codex`, `hermes`, `openclaw mcp list` show the entry; goose config written |
+| MCP, clients | MCP Inspector CLI 2.16 inside the gemini-cli sandbox (relay through the broker, identity `gemini-cli`); Python MCP SDK client: tools, resource `kwickos://docs/agents`, system_info, files inside/outside the project (outside and `secrets.json` denied), deny grant, invalid package name rejected |
+| Consent, headless | `files_write` and `packages_install` waited in `kwick-agents consent`, answered from a second process; privileged call then reported the `sudo apt install` command (no polkit) |
+| Consent, desktop | kdialog prompts for `files_write` (Allow once), `settings_set` (Always allow, appearance switched to light, grant stored), `screenshot` and `packages_install` from inside the gemini-cli sandbox; polkit prompt with the `org.kwickos.agents.policy` message appeared and was cancelled (no password entered) |
+| Keys | headless: `secrets.json` mode 600 in a mode 700 folder; desktop: Settings > Agents > Add Key > kdialog password dialog stored a test value. The KDE image has no Secret Service provider, so the file backend was chosen (correctly detected); the Secret Service path was not exercised |
+| Settings > Agents | dark and light, expanded agent with switches, permission levels, folders, keys, activity |
+| JSON | every `kwick-agents ... --json` output parsed; `kwick-layout status --json`, `kwick-desktop list --json`, `kwick-gpu status --json`, `kwick-vpn list/status --json`, `kwick-bluetooth status --json` on the desktop VM |
+| arm64, riscv64 | packages built; binaries run under qemu-user (`list`, `mcp serve`): arm64 offers every agent, riscv64 only gemini-cli, node, uv |
+
+Problems seen: `screenshot` fails on this KDE image because KWin refuses spectacle itself ("The process is not authorized to take a
+screenshot", also when spectacle is run by hand in Konsole); kwick-mcp reports the error to the agent. `kwick-update status --json` and
+`kwick-kernel status --json` did not return JSON on the 0.4.0 headless image (older tools there).
+
+Not verified: real API calls (no keys entered), the Secret Service backend, a successful privileged install through polkit, Codex's own
+nested sandbox inside bubblewrap, GNOME and Hyprland consent dialogs (zenity, notify-send), arm64/riscv64 hardware, `kwick-snapshot`
+(not present), the rebuilt `kwick-desktop` package (Settings files were copied into the VM).
 
 ## Not verified
 

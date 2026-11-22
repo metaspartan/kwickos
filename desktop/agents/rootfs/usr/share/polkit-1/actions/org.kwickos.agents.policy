@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>KwickOS</vendor>
+  <vendor_url>https://kwickos.org</vendor_url>
+  <action id="org.kwickos.agents.privileged">
+    <description>Let an AI agent change the system</description>
+    <message>An AI agent asks to install software, install updates or create a snapshot. You already allowed the request; enter an administrator password to carry it out.</message>
+    <icon_name>dialog-password</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/kwick/agents/kwick-agents-priv</annotate>
+  </action>
+</policyconfig>

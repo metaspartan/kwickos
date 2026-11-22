@@ -17,12 +17,14 @@
 #include <QDBusPendingReply>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QKeyEvent>
 #include <QLocalSocket>
 #include <QPainterPath>
+#include <QProcess>
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickView>
@@ -219,6 +221,33 @@ Spotlight::Spotlight(QObject *parent)
             toggle();
         });
         applyShortcuts();
+        auto *clip = new QAction(this);
+        clip->setObjectName(QStringLiteral("clipboard"));
+        clip->setText(QStringLiteral("Clipboard History"));
+        connect(clip, &QAction::triggered, this, [this]() {
+            if (m_shown && m_mode == QLatin1String("clipboard")) {
+                hide();
+                return;
+            }
+            setMode(QStringLiteral("clipboard"));
+            setQuery(QString());
+            show();
+            Q_EMIT queryReplaced(QString(), 0);
+        });
+        const QKeySequence clipKey(Qt::META | Qt::Key_V);
+        KConfigGroup clipGroup(KSharedConfig::openConfig(QStringLiteral("kwickspotlightrc")), QStringLiteral("Shortcuts"));
+        if (!clipGroup.readEntry("Clipboard", false)) {
+            if (!KGlobalAccel::isGlobalShortcutAvailable(clipKey, QCoreApplication::applicationName())) {
+                KGlobalAccel::stealShortcutSystemwide(clipKey);
+            }
+            KGlobalAccel::self()->setDefaultShortcut(clip, {clipKey}, KGlobalAccel::NoAutoloading);
+            KGlobalAccel::self()->setShortcut(clip, {clipKey}, KGlobalAccel::NoAutoloading);
+            clipGroup.writeEntry("Clipboard", true);
+            clipGroup.sync();
+        } else {
+            KGlobalAccel::self()->setDefaultShortcut(clip, {clipKey}, KGlobalAccel::NoAutoloading);
+            KGlobalAccel::self()->setShortcut(clip, {clipKey}, KGlobalAccel::Autoloading);
+        }
     }
 
     trace("started", clock.elapsed());
@@ -691,7 +720,8 @@ void Spotlight::refreshEnvironment()
     connect(klipper, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
         call->deleteLater();
         const QDBusPendingReply<bool> reply = *call;
-        const bool available = reply.isValid() && reply.value();
+        const QString store = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kwick/clipboard/");
+        const bool available = (reply.isValid() && reply.value()) || QFileInfo::exists(store + QStringLiteral("history")) || QFileInfo::exists(store + QStringLiteral("pinned"));
         if (available != m_clipboard) {
             m_clipboard = available;
             Q_EMIT clipboardChanged();
@@ -805,6 +835,27 @@ void Spotlight::run(int row, bool alternate)
     if (m_manager->run(match, action)) {
         hide();
     }
+}
+
+bool Spotlight::preview(int row)
+{
+    const KRunner::QueryMatch match = m_results.match(row);
+    if (!match.isValid()) {
+        return false;
+    }
+    QString path;
+    const QVariantList data = match.data().toList();
+    if (data.value(0).toString() == QLatin1String("file")) {
+        path = data.value(1).toString();
+    } else if (!match.urls().isEmpty() && match.urls().constFirst().isLocalFile()) {
+        path = match.urls().constFirst().toLocalFile();
+    }
+    if (path.isEmpty() || QStandardPaths::findExecutable(QStringLiteral("kwick-quicklook")).isEmpty()) {
+        return false;
+    }
+    hide();
+    QProcess::startDetached(QStringLiteral("kwick-quicklook"), {QStringLiteral("--toggle"), path});
+    return true;
 }
 
 void Spotlight::setPanel(qreal x, qreal y, qreal width, qreal height, qreal radius)

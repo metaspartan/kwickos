@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=App Store
+GenericName=Software Store
+Comment=Find, install and update apps from Flathub, Debian, Arch Linux and KwickOS
+Icon=kwick-software
+Exec=kwick-store %U
+Categories=System;PackageManager;Qt;
+Keywords=store;app store;microsoft store;software;apps;applications;install;uninstall;remove;update;flatpak;flathub;debian;apt;arch;aur;pacman;agents;ai;discover;
+StartupWMClass=kwick-store
+StartupNotify=true
+Terminal=false
+Actions=Updates;Installed;
+
+[Desktop Action Updates]
+Name=Updates
+Exec=kwick-store updates
+
+[Desktop Action Installed]
+Name=Installed Apps
+Exec=kwick-store installed

@@ -1,0 +1,27 @@
+{
+  "featured": [
+    { "id": "org.blender.Blender", "eyebrow": "CREATE IN 3D", "title": "Blender", "tagline": "Model, sculpt, animate and render in one free studio.", "tint": ["#ea7600", "#2b2b2b"] },
+    { "id": "com.obsproject.Studio", "eyebrow": "GO LIVE", "title": "OBS Studio", "tagline": "Record and stream with scenes, sources and filters.", "tint": ["#302e31", "#6b51c8"] },
+    { "id": "org.kde.krita", "eyebrow": "PAINT FREELY", "title": "Krita", "tagline": "Brushes, layers and animation made by artists for artists.", "tint": ["#3b6fd1", "#c04a8b"] },
+    { "id": "com.valvesoftware.Steam", "eyebrow": "PLAY", "title": "Steam", "tagline": "Thousands of games, with Proton for Windows titles.", "tint": ["#1b2838", "#2a5f8f"] },
+    { "id": "org.libreoffice.LibreOffice", "eyebrow": "GET WORK DONE", "title": "LibreOffice", "tagline": "Documents, spreadsheets and slides that open Office files.", "tint": ["#18a303", "#0d5c3b"] }
+  ],
+  "sections": [
+    { "id": "essentials", "title": "Essential Apps", "subtitle": "Great first downloads for a new computer", "items": ["org.mozilla.firefox", "org.libreoffice.LibreOffice", "org.videolan.VLC", "org.mozilla.Thunderbird", "com.bitwarden.desktop", "org.gimp.GIMP", "com.github.tchx84.Flatseal", "io.missioncenter.MissionCenter", "org.gnome.Boxes", "org.kde.okular", "de.haeckerfelix.Fragments", "org.localsend.localsend_app"] },
+    { "id": "create", "title": "Create Something", "subtitle": "Photos, drawings, video and music", "items": ["org.gimp.GIMP", "org.inkscape.Inkscape", "org.kde.krita", "org.blender.Blender", "org.kde.kdenlive", "org.shotcut.Shotcut", "org.audacityteam.Audacity", "org.darktable.Darktable", "com.obsproject.Studio", "org.freecad.FreeCAD", "net.scribus.Scribus", "io.github.nate_xyz.Conjure"] },
+    { "id": "work", "title": "Work Smarter", "subtitle": "Office suites, notes and communication", "items": ["org.libreoffice.LibreOffice", "org.onlyoffice.desktopeditors", "md.obsidian.Obsidian", "com.slack.Slack", "us.zoom.Zoom", "org.signal.Signal", "org.telegram.desktop", "com.discordapp.Discord", "org.mozilla.Thunderbird", "com.github.johnfactotum.Foliate", "org.gnome.Evolution", "com.logseq.Logseq"] },
+    { "id": "play", "title": "Play", "subtitle": "Launchers and games that run great on KwickOS", "items": ["com.valvesoftware.Steam", "net.lutris.Lutris", "com.heroicgameslauncher.hgl", "org.prismlauncher.PrismLauncher", "com.usebottles.bottles", "net.davidotek.pupgui2", "net.supertuxkart.SuperTuxKart", "org.libretro.RetroArch", "net.veloren.airshipper", "io.openrct2.OpenRCT2", "org.openttd.OpenTTD", "com.mojang.Minecraft"] },
+    { "id": "develop", "title": "Develop", "subtitle": "Editors, containers and tools for builders", "items": ["com.visualstudio.code", "com.vscodium.codium", "dev.zed.Zed", "io.podman_desktop.PodmanDesktop", "io.github.shiftey.Desktop", "com.jetbrains.IntelliJ-IDEA-Community", "org.gnome.Builder", "io.dbeaver.DBeaverCommunity", "com.getpostman.Postman", "org.kde.kate", "re.sonny.Workbench", "com.google.AndroidStudio"] }
+  ],
+  "popular": ["org.mozilla.firefox", "com.valvesoftware.Steam", "com.spotify.Client", "com.discordapp.Discord", "org.videolan.VLC", "com.obsproject.Studio", "org.gimp.GIMP", "org.libreoffice.LibreOffice", "com.google.Chrome", "com.brave.Browser", "com.visualstudio.code", "org.kde.krita", "org.blender.Blender", "org.telegram.desktop", "org.signal.Signal", "md.obsidian.Obsidian", "com.bitwarden.desktop", "net.lutris.Lutris", "com.heroicgameslauncher.hgl", "org.inkscape.Inkscape", "org.kde.kdenlive", "org.audacityteam.Audacity", "com.github.tchx84.Flatseal", "io.missioncenter.MissionCenter", "org.prismlauncher.PrismLauncher", "com.usebottles.bottles", "org.onlyoffice.desktopeditors", "us.zoom.Zoom", "com.slack.Slack", "org.mozilla.Thunderbird"],
+  "categories": [
+    { "id": "create", "name": "Create", "glyph": "create", "tint": "#ff6b3d", "match": ["Graphics", "2DGraphics", "3DGraphics", "RasterGraphics", "VectorGraphics", "Photography", "AudioVideoEditing", "Publishing"] },
+    { "id": "work", "name": "Productivity", "glyph": "work", "tint": "#0a84ff", "match": ["Office", "WordProcessor", "Spreadsheet", "Presentation", "ProjectManagement", "Finance", "Calendar", "ContactManagement"] },
+    { "id": "play", "name": "Games", "glyph": "play", "tint": "#30d158", "match": ["Game"] },
+    { "id": "develop", "name": "Developer Tools", "glyph": "develop", "tint": "#5e5ce6", "match": ["Development", "IDE", "Debugger", "RevisionControl"] },
+    { "id": "social", "name": "Social & Internet", "glyph": "social", "tint": "#ff375f", "match": ["Network", "Chat", "InstantMessaging", "WebBrowser", "Email", "IRCClient", "VideoConference"] },
+    { "id": "media", "name": "Music & Video", "glyph": "media", "tint": "#bf5af2", "match": ["AudioVideo", "Audio", "Video", "Player", "Music", "TV"] },
+    { "id": "education", "name": "Education & Science", "glyph": "education", "tint": "#ff9f0a", "match": ["Education", "Science", "Math", "Astronomy", "Chemistry", "Geography"] },
+    { "id": "utilities", "name": "Utilities", "glyph": "utilities", "tint": "#8e8e93", "match": ["Utility", "System", "FileTools", "Accessibility", "Archiving", "Security", "TextEditor"] }
+  ]
+}

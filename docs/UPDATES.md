@@ -59,6 +59,10 @@ old default stays and the new kernel waits for `kwick-kernel try`. An upgrade of
 default (for example `virt` next to `generic`) only installs it. Installing a kernel from the Settings page
 (`kwick-update kernel install VERSION:FLAVOR`) follows the same rule, except that it may switch the flavor.
 
+## Snapshots around updates
+
+On a Btrfs install `kwick-update upgrade` takes a `pre` snapshot before it starts and a `post` snapshot when it ends ("Software Update (N updates)"), so the whole update can be undone from the Snapshots page or the boot menu. apt and kpkg transactions outside Software Update get their own pairs through the `DPkg::Pre-Invoke`/`Post-Invoke` hooks; during Software Update those hooks stay quiet. On ext4 nothing changes. See [SNAPSHOTS](SNAPSHOTS.md).
+
 ## Automatic updates
 
 KwickOS's PID 1 (kinit) runs systemd services but has no timers, so automatic updates use BusyBox `crond`, which is already in

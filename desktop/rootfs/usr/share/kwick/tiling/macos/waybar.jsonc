@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": ["custom/logo", "@WM@/window", "@WM@/workspaces"],
   "modules-center": [],
-  "modules-right": ["tray", "bluetooth", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
+  "modules-right": ["privacy", "tray", "bluetooth", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/logo": {
     "format": " ",
     "tooltip": false,
@@ -16,7 +16,16 @@
     "format": "{@APPID@}",
     "max-length": 40,
     "separate-outputs": true,
-    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.kwickos.settings.qml": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "steam": "Steam" }
+    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.kwickos.settings.qml": "KwickOS Settings", "kwick-settings": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "org.kwickos.store.qml": "App Store", "kwick-store": "App Store", "org.kwickos.softwareupdate.qml": "Software Update", "kwick-software-update": "Software Update", "steam": "Steam", "kwick-quicklook": "Quick Look", "kwick-capture": "Capture" }
+  },
+  "privacy": {
+    "icon-spacing": 6,
+    "icon-size": 13,
+    "transition-duration": 200,
+    "modules": [
+      { "type": "screenshare", "tooltip": true, "tooltip-icon-size": 18 },
+      { "type": "audio-in", "tooltip": true, "tooltip-icon-size": 18 }
+    ]
   },
   "@WM@/workspaces": {
     "format": "{name}",

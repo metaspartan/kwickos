@@ -10,7 +10,7 @@ panels().forEach(function (p) { p.remove(); });
 var launchers = [
     "applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop",
     "applications:org.kde.konsole.desktop", "applications:org.kde.kate.desktop",
-    "applications:org.kde.discover.desktop", "applications:steam.desktop",
+    "applications:kwick-store.desktop", "applications:steam.desktop",
     "applications:kwick-settings.desktop"
 ].join(",");
 var fluent = knownWidgetTypes.indexOf("org.kwickos.start") >= 0;

@@ -14,7 +14,7 @@ QtObject {
     readonly property color control: light ? "#ffffff" : "#3fffffff"
     readonly property color controlHover: light ? "#f7f7f7" : "#4cffffff"
     readonly property color controlPressed: light ? "#ebebeb" : "#59ffffff"
-    readonly property color onControl: light ? "#d8000000" : "#ffffff"
+    readonly property color controlText: light ? "#d8000000" : "#ffffff"
     readonly property color track: light ? "#d9d9d9" : "#464646"
     readonly property color hover: light ? "#0f000000" : "#19ffffff"
     readonly property color line: light ? "#19000000" : "#19ffffff"

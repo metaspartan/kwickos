@@ -16,11 +16,13 @@ ZROOT=$ZPOOL/ROOT/kwick
 BPO_SUITE=trixie-backports
 ESP_MIB=512
 BOOT_MIB=1024
+ROOT_SV=@
+BTRFS_OPTS=noatime,compress=zstd:1
 
 CMD=""
 DISK=""
 MODE=erase
-FS=ext4
+FS=""
 ENCRYPT=0
 PASSPHRASE_FILE=""
 BL=""
@@ -44,7 +46,11 @@ HOME_PART=""
 BOOT_PART=""
 KEEP_HOME=0
 SHELL_CHOICE=""
+ROOT_SUBVOL=""
+ROOT_FLAGS=""
 BGPID=""
+KWICK_SNAPSHOT_SKIP=1
+export KWICK_SNAPSHOT_SKIP
 
 jstr() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
 jbool() { if [ "$1" = 1 ]; then echo true; else echo false; fi; }
@@ -325,6 +331,15 @@ bl_installed() {
 	esac
 }
 
+btrfs_ok() {
+	grep -qw btrfs /proc/filesystems 2>/dev/null && return 0
+	[ -n "$(find "/usr/lib/modules/$(uname -r)" -name 'btrfs.ko*' 2>/dev/null | head -n 1)" ]
+}
+
+default_fs() {
+	if btrfs_ok; then echo btrfs; else echo ext4; fi
+}
+
 bl_default() {
 	if [ "$1" = uefi ]; then
 		if bl_unavailable efistub "$1" "$2" "$3" >/dev/null; then echo grub; else echo efistub; fi
@@ -334,6 +349,7 @@ bl_default() {
 }
 
 cmd_bootloaders() {
+	[ -n "$FS" ] || FS=$(default_fs)
 	FW=$(fwmode)
 	ARCHN=$(archname)
 	def=$(bl_default "$FW" "$FS" "$ENCRYPT")
@@ -356,7 +372,7 @@ cmd_bootloaders() {
 		[ -n "$avail" ] && avail="$avail,"
 		avail="$avail{\"id\":\"$id\",\"name\":\"$(jstr "$(bl_name "$id")")\",\"description\":\"$(jstr "$(bl_desc "$id")")\",\"installed\":$(jbool $inst),\"packages\":[$pk]}"
 	done
-	printf '{"firmware":"%s","arch":"%s","default":"%s","bootloaders":[%s],"unavailable":[%s]}\n' "$FW" "$ARCHN" "$def" "$avail" "$unav"
+	printf '{"firmware":"%s","arch":"%s","default":"%s","fs":"%s","default_fs":"%s","bootloaders":[%s],"unavailable":[%s]}\n' "$FW" "$ARCHN" "$def" "$FS" "$(default_fs)" "$avail" "$unav"
 }
 
 builtin_timezones() {
@@ -561,7 +577,7 @@ options
   --disk /dev/X                target disk (erase mode)
   --mode erase|alongside|manual
   --root-part P --efi-part P [--boot-part P] [--home-part P] [--keep-home]   (manual mode)
-  --fs ext4|btrfs|xfs|zfs
+  --fs btrfs|ext4|xfs|zfs        btrfs (with snapshots) is the default when the running kernel has it
   --encrypt --passphrase-file F
   --bootloader grub|systemd-boot|efistub|limine
   --hostname H --user U --fullname N
@@ -643,7 +659,12 @@ validate_common() {
 		;;
 	*) bad "unknown mode: $MODE" ;;
 	esac
+	[ -n "$FS" ] || FS=$(default_fs)
 	case $FS in ext4 | btrfs | xfs | zfs) ;; *) bad "unsupported filesystem: $FS" ;; esac
+	if [ "$FS" = btrfs ] && ! btrfs_ok; then
+		modprobe -q btrfs >/dev/null 2>&1
+		btrfs_ok || bad "the running kernel cannot mount btrfs, which the installed system would need; start the installer with the generic kernel or choose --fs ext4"
+	fi
 	if [ "$FS" = zfs ]; then
 		[ -e /proc/modules ] || bad "a ZFS root needs a kernel with module support (the generic kernel)"
 		[ -n "$HOME_PART" ] && bad "a ZFS root keeps /home as a dataset in the pool, drop --home-part"
@@ -710,7 +731,7 @@ layout_erase() {
 		P_ESP=$(part_dev "$DISK" $n); S_ESP=$ESP_MIB; n=$((n + 1)); used=$((used + S_ESP))
 	else
 		P_BIOS=$(part_dev "$DISK" $n); S_BIOS=1; n=$((n + 1)); used=$((used + 1))
-		if [ "$ENCRYPT" = 1 ] || [ "$FS" = zfs ]; then
+		if [ "$ENCRYPT" = 1 ] || [ "$FS" = zfs ] || [ "$FS" = btrfs ]; then
 			P_BOOT=$(part_dev "$DISK" $n); S_BOOT=$BOOT_MIB; n=$((n + 1)); used=$((used + S_BOOT))
 		fi
 	fi
@@ -1076,6 +1097,26 @@ make_pool() {
 	ROOT_UUID=$(zpool get -H -o value guid "$ZPOOL")
 }
 
+subvols() {
+	printf '%s /\n' "$ROOT_SV"
+	[ -n "$P_HOME" ] || printf '@home /home\n'
+	printf '@root /root\n@srv /srv\n@var_log /var/log\n@var_cache /var/cache\n@var_tmp /var/tmp\n@snapshots /.snapshots\n'
+	case $SWAP in file:*) printf '@swap /swap\n' ;; esac
+}
+
+make_subvols() {
+	mkdir -p "$W/top"
+	need mount -t btrfs -o noatime "$ROOTDEV" "$W/top"
+	subvols | while read -r sv mp; do
+		xrun btrfs subvolume create "$W/top/$sv" || { printf 'ERROR cannot create the btrfs subvolume %s\n' "$sv"; umount "$W/top"; exit 1; }
+	done || exit 1
+	chmod 700 "$W/top/@root"
+	chmod 1777 "$W/top/@var_tmp"
+	chmod 755 "$W/top/@snapshots"
+	need umount "$W/top"
+	log "btrfs subvolumes: $(subvols | awk '{ printf "%s%s", (NR > 1 ? " " : ""), $1 }')"
+}
+
 do_format() {
 	if [ -n "$P_ESP" ]; then
 		if [ "$MODE" = erase ] || ! blkid "$P_ESP" 2>/dev/null | grep -q 'TYPE="vfat"'; then
@@ -1102,6 +1143,7 @@ do_format() {
 	else
 		mkfs_on "$FS" "$ROOTDEV" kwick-root
 		ROOT_UUID=$(blkid_uuid "$ROOTDEV") || { printf 'ERROR cannot read the root UUID\n'; exit 1; }
+		[ "$FS" = btrfs ] && make_subvols
 	fi
 	if [ -n "$P_HOME" ] && [ "${HOME_FMT:-true}" = true ]; then
 		zero_start "$P_HOME"
@@ -1119,6 +1161,15 @@ do_mount() {
 		need mount -t zfs "$ZROOT" "$T"
 		mkdir -p "$T/home"
 		need mount -t zfs "$ZPOOL/home" "$T/home"
+	elif [ "$FS" = btrfs ]; then
+		need mount -t btrfs -o "$BTRFS_OPTS,subvol=/$ROOT_SV" "$ROOTDEV" "$T"
+		subvols | while read -r sv mp; do
+			[ "$mp" = / ] && continue
+			mkdir -p "$T$mp"
+			o=$BTRFS_OPTS
+			[ "$mp" = /.snapshots ] && o=noatime,nosuid,nodev
+			mount -t btrfs -o "$o,subvol=/$sv" "$ROOTDEV" "$T$mp" || { printf 'ERROR cannot mount the btrfs subvolume %s\n' "$sv"; exit 1; }
+		done || exit 1
 	else
 		need mount -t "$FS" -o noatime "$ROOTDEV" "$T"
 	fi
@@ -1161,6 +1212,9 @@ do_copy() {
 		echo './media/*'
 		echo './var/tmp/*'
 		echo './boot/efi/*'
+		echo './.snapshots/*'
+		echo './swap/*'
+		echo './var/lib/kwick/snapshot'
 		echo './var/lib/kwick/kernel-state'
 		echo './var/lib/apt/lists/*'
 		echo './var/cache/apt/archives/*.deb'
@@ -1278,13 +1332,21 @@ cfg_fstab() {
 		if [ "$FS" = zfs ]; then
 			printf '%s / zfs defaults 0 0\n' "$ZROOT"
 			printf '%s/home /home zfs defaults 0 0\n' "$ZPOOL"
+		elif [ "$FS" = btrfs ]; then
+			subvols | while read -r sv mp; do
+				o=$BTRFS_OPTS
+				[ "$mp" = /.snapshots ] && o=noatime,nosuid,nodev
+				printf 'UUID=%s %s btrfs defaults,%s,subvol=/%s 0 0\n' "$ROOT_UUID" "$mp" "$o" "$sv"
+			done
 		else
 			printf 'UUID=%s / %s %s 0 1\n' "$ROOT_UUID" "$FS" "$ro"
 		fi
 		[ -n "$P_BOOT" ] && printf 'UUID=%s /boot ext4 defaults,noatime 0 2\n' "$BOOT_UUID"
 		[ -n "$P_ESP" ] && printf 'UUID=%s /boot/efi vfat umask=0077 0 2\n' "$ESP_UUID"
 		[ -n "$P_HOME" ] && printf 'UUID=%s /home %s %s 0 2\n' "$HOME_UUID" "$FS" "$ro"
-		case $SWAP in file:*) printf '/swapfile none swap sw 0 0\n' ;; esac
+		case $SWAP in
+		file:*) if [ "$FS" = btrfs ]; then printf '/swap/swapfile none swap sw 0 0\n'; else printf '/swapfile none swap sw 0 0\n'; fi ;;
+		esac
 	} >"$T/etc/fstab"
 	if [ "$ENCRYPT" = 1 ]; then
 		printf '%s UUID=%s none luks\n' "$CRYPT_NAME" "$LUKS_UUID" >"$T/etc/crypttab"
@@ -1489,6 +1551,7 @@ cfg_swap() {
 		unit=${sz#"$num"}
 		case $unit in G* | g*) mib=$((num * 1024)) ;; *) mib=$num ;; esac
 		sf=$T/swapfile
+		[ "$FS" = btrfs ] && sf=$T/swap/swapfile
 		if [ "$FS" = btrfs ]; then
 			: >"$sf"
 			xrun chattr +C "$sf" || log "could not set nodatacow on the swap file"
@@ -1511,12 +1574,54 @@ cfg_conf() {
 		printf 'ENCRYPT=%s\n' "$ENCRYPT"
 		printf 'ROOT_UUID=%s\n' "$ROOT_UUID"
 		[ "$FS" = zfs ] && printf 'ZPOOL=%s\n' "$ZPOOL"
+		[ "$FS" = btrfs ] && printf 'ROOT_SUBVOL=%s\nROOT_FLAGS=%s\n' "$ROOT_SV" "$BTRFS_OPTS"
 		printf 'LUKS_UUID=%s\n' "${LUKS_UUID:-}"
 		printf 'ESP_UUID=%s\n' "${ESP_UUID:-}"
 		printf 'BOOT_UUID=%s\n' "${BOOT_UUID:-}"
 		printf 'DISK=%s\n' "$DISK"
 		printf 'EDITION=%s\n' "$EDITION"
 	} >"$T/etc/kwick/install.conf"
+}
+
+cfg_snapshots() {
+	[ "$FS" = btrfs ] || return 0
+	chmod 755 "$T/.snapshots"
+	if [ ! -x "$T/usr/bin/btrfs" ] && [ ! -x "$T/bin/btrfs" ]; then
+		chroot_mounts
+		if xrun chroot "$T" apt-get install -y --no-install-recommends btrfs-progs || { xrun chroot "$T" apt-get update && xrun chroot "$T" apt-get install -y --no-install-recommends btrfs-progs; }; then
+			log "btrfs-progs installed for snapshots"
+		else
+			log "btrfs-progs could not be installed (no network?); snapshots start once it is: apt install btrfs-progs"
+		fi
+		chroot_umounts
+		rm -f "$T"/var/cache/apt/archives/*.deb
+	fi
+	mkdir -p "$T/etc/systemd/system/multi-user.target.wants" "$T/var/spool/cron/crontabs" "$T/etc/kwick"
+	ln -sf /usr/lib/systemd/system/kwick-snapshot-boot.service "$T/etc/systemd/system/multi-user.target.wants/kwick-snapshot-boot.service"
+	ln -sf /usr/lib/systemd/system/crond.service "$T/etc/systemd/system/multi-user.target.wants/crond.service"
+	ct=$T/var/spool/cron/crontabs/root
+	touch "$ct"
+	grep -v 'KWICK_JOB=snapshot ' "$ct" >"$ct.new"
+	m=$(awk -v s="$(cat /proc/sys/kernel/random/uuid 2>/dev/null)" 'BEGIN { srand(); print int(rand() * 60) }')
+	printf '%s * * * * KWICK_JOB=snapshot /usr/sbin/kwick-snapshot timeline >/dev/null 2>&1\n' "$m" >>"$ct.new"
+	mv "$ct.new" "$ct"
+	chmod 600 "$ct"
+}
+
+first_snapshot() {
+	[ "$FS" = btrfs ] || return 0
+	have btrfs || return 0
+	d=$T/.snapshots/root/1
+	mkdir -p "$d"
+	chmod 755 "$T/.snapshots/root" "$d"
+	if xrun btrfs subvolume snapshot -r "$T" "$d/snapshot"; then
+		printf 'ID=1\nCONFIG=root\nTYPE=single\nPRE=\nDATE=%s\nDESC=Fresh install\nCLEANUP=\nIMPORTANT=1\nKERNEL=%s\nKID=\n' "$(date +%s)" "$REL" >"$d/info"
+		chmod 644 "$d/info"
+		log "snapshot 1 holds the freshly installed system"
+	else
+		rmdir "$d" 2>/dev/null
+		log "the first snapshot could not be taken"
+	fi
 }
 
 do_configure() {
@@ -1531,6 +1636,7 @@ do_configure() {
 	[ "$EDITION" = desktop ] && cfg_session
 	cfg_autologin
 	cfg_swap
+	cfg_snapshots
 	cfg_conf
 	if [ -d "$T/home/$USERN" ]; then
 		chown -R "$USER_UID:$USER_GID" "$T/home/$USERN"
@@ -1615,9 +1721,10 @@ make_initrd() {
 	bb=$(command -v busybox)
 	[ -n "$bb" ] || { printf 'ERROR busybox is needed to build the initramfs\n'; exit 1; }
 	cp "$bb" "$d/bin/busybox"
-	for a in sh mount umount mkdir sleep cat echo findfs insmod switch_root mknod ls kill stty printf read ps cttyhack setsid dd tr head ln rm; do
+	for a in sh mount umount mkdir sleep cat echo findfs insmod switch_root mknod ls kill stty printf read ps cttyhack setsid dd tr head ln rm awk; do
 		ln -sf busybox "$d/bin/$a"
 	done
+	: >"$d/kwick-snapshot"
 	mods=""
 	[ "$FS" = btrfs ] && mods="$mods btrfs"
 	[ "$FS" = xfs ] && mods="$mods xfs"
@@ -1667,13 +1774,14 @@ mount -t devtmpfs devtmpfs /dev
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t tmpfs tmpfs /run
-ROOT=""; FST=""; LUKS=""; FLAGS=""
+ROOT=""; FST=""; LUKS=""; FLAGS=""; SNAP=""
 for a in $(cat /proc/cmdline); do
 	case $a in
 	root=*) ROOT=${a#root=} ;;
 	rootfstype=*) FST=${a#rootfstype=} ;;
 	rootflags=*) FLAGS=${a#rootflags=} ;;
 	kwick.luks=*) LUKS=${a#kwick.luks=} ;;
+	kwick.snapshot=*) SNAP=${a#kwick.snapshot=} ;;
 	esac
 done
 for m in $(cat /lib/modules/load.list); do
@@ -1758,6 +1866,18 @@ if [ "$FST" = zfs ]; then
 		sleep 1
 	done
 	mount -t zfs "$DS" /newroot || exec sh
+elif [ -n "$SNAP" ]; then
+	S=/run/kwick-snapshot
+	mkdir -p $S/lower $S/rw
+	mount -t "${FST:-btrfs}" -o "ro${FLAGS:+,$FLAGS}" "$RDEV" $S/lower || { echo "cannot mount snapshot $SNAP"; exec sh; }
+	mount -t tmpfs -o mode=0755 tmpfs $S/rw
+	mkdir -p $S/rw/upper $S/rw/work
+	mount -t overlay overlay -o "lowerdir=$S/lower,upperdir=$S/rw/upper,workdir=$S/rw/work" /newroot || { echo "cannot set up the overlay for snapshot $SNAP"; exec sh; }
+	if [ -f /newroot/etc/fstab ]; then
+		awk '$1 ~ /^#/ || $2 != "/"' /newroot/etc/fstab >$S/fstab && cat $S/fstab >/newroot/etc/fstab
+	fi
+	echo "$SNAP" >/run/kwick-snapshot-boot
+	echo "KwickOS: starting snapshot $SNAP read-only, changes are kept in memory until the next restart"
 elif [ -n "$FST" ]; then
 	mount -t "$FST" -o "$OPTS" "$RDEV" /newroot || exec sh
 else
@@ -1776,12 +1896,14 @@ INITEOF
 }
 
 boot_cmdline() {
+	sv=""
+	[ -n "${ROOT_SUBVOL:-}" ] && sv=" rootflags=subvol=$ROOT_SUBVOL${ROOT_FLAGS:+,$ROOT_FLAGS}"
 	if [ "$FS" = zfs ]; then
 		if [ "$ENCRYPT" = 1 ]; then echo "root=ZFS=$ZROOT rootfstype=zfs kwick.luks=$LUKS_UUID"; else echo "root=ZFS=$ZROOT rootfstype=zfs"; fi
 	elif [ "$ENCRYPT" = 1 ]; then
-		echo "root=UUID=$ROOT_UUID rootfstype=$FS kwick.luks=$LUKS_UUID"
+		echo "root=UUID=$ROOT_UUID rootfstype=$FS kwick.luks=$LUKS_UUID$sv"
 	elif [ "$FS" != ext4 ]; then
-		echo "root=UUID=$ROOT_UUID rootfstype=$FS"
+		echo "root=UUID=$ROOT_UUID rootfstype=$FS$sv"
 	else
 		echo "root=UUID=$ROOT_UUID"
 	fi
@@ -1798,7 +1920,7 @@ setup_boot_paths() {
 		ESPDIR=$T/boot/efi
 	else
 		BOOTDIR=$T/boot
-		if [ -n "$BOOT_UUID" ]; then BREL=""; else BREL=/boot; fi
+		if [ -n "$BOOT_UUID" ]; then BREL=""; else BREL=${ROOT_SUBVOL:+/$ROOT_SUBVOL}/boot; fi
 		ESPDIR=""
 	fi
 }
@@ -1835,11 +1957,15 @@ write_grub_cfg() {
 	ini=""
 	[ "$(need_initrd)" = 1 ] && ini="	initrd $BREL/initrd.img"
 	{
-		printf 'set default=0\nset timeout_style=hidden\nset timeout=0\nif keystatus --shift; then set timeout_style=menu; set timeout=-1; fi\n'
+		to=0
+		[ "$FS" = btrfs ] && to=1
+		printf 'set default=0\nset timeout_style=hidden\nset timeout=%s\nif keystatus --shift; then set timeout_style=menu; set timeout=-1; fi\n' "$to"
+		printf 'load_env\nif [ "${next_entry}" ] ; then\n\tset default="${next_entry}"\n\tset next_entry=\n\tsave_env next_entry\nfi\n'
 		printf 'insmod part_gpt\ninsmod part_msdos\ninsmod fat\ninsmod ext2\ninsmod btrfs\ninsmod xfs\ninsmod gzio\n'
 		printf 'search --no-floppy --fs-uuid --set=root %s\n' "$fsu"
 		printf 'menuentry "KwickOS" {\n\tlinux %s/vmlinuz %s\n%s\n}\n' "$BREL" "$cl" "$ini"
 		printf 'menuentry "KwickOS (safe graphics)" {\n\tlinux %s/vmlinuz %s nomodeset\n%s\n}\n' "$BREL" "$cl" "$ini"
+		[ "$FS" = btrfs ] && printf 'if [ -f "${prefix}/kwick-snapshots.cfg" ]; then source "${prefix}/kwick-snapshots.cfg"; fi\n'
 	} >"$cfgfile"
 }
 
@@ -1917,6 +2043,7 @@ EOF
 cmd_run() {
 	[ "$YES" = 1 ] || bad "refusing to run without --yes"
 	compute_layout
+	[ "$FS" = btrfs ] && { ROOT_SUBVOL=$ROOT_SV; ROOT_FLAGS=$BTRFS_OPTS; }
 	[ -n "$USERN" ] || bad "--user is required"
 	[ -n "$PASSWORD_FILE" ] || bad "--password-file is required"
 	[ -f "$PASSWORD_FILE" ] || bad "password file not found: $PASSWORD_FILE"
@@ -1983,6 +2110,7 @@ cmd_run() {
 	do_kernel
 	step bootloader "Installing the bootloader ($BL)"
 	do_bootloader
+	first_snapshot
 	step finish "Finishing up"
 	progress 97 "Unmounting"
 	sync

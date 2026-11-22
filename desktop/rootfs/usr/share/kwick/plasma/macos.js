@@ -3,7 +3,7 @@ var dockCfg = {
     iconSize: 48,
     autohide: "off",
     floating: "on",
-    pinned: "org.kde.dolphin.desktop,firefox-esr.desktop,org.kde.konsole.desktop,org.kde.kate.desktop,org.kde.discover.desktop,kwick-settings.desktop"
+    pinned: "org.kde.dolphin.desktop,firefox-esr.desktop,org.kde.konsole.desktop,org.kde.kate.desktop,kwick-store.desktop,kwick-settings.desktop"
 };
 if (typeof KWICK_DOCK !== "undefined") {
     for (var key in KWICK_DOCK) { dockCfg[key] = KWICK_DOCK[key]; }
@@ -48,6 +48,9 @@ var gapL = top.addWidget("org.kde.plasma.marginsseparator");
 gapL.currentConfigGroup = ["General"];
 gapL.writeConfig("margin", "6");
 
+if (knownWidgetTypes.indexOf("org.kwickos.appname") >= 0) {
+    top.addWidget("org.kwickos.appname");
+}
 top.addWidget("org.kde.plasma.appmenu");
 top.addWidget("org.kde.plasma.panelspacer");
 
@@ -101,18 +104,21 @@ var sep2 = top.addWidget("org.kde.plasma.marginsseparator");
 sep2.currentConfigGroup = ["General"];
 sep2.writeConfig("margin", "12");
 
+var hasKwickDock = knownWidgetTypes.indexOf("org.kwickos.dock") >= 0;
+var dockGap = hasKwickDock && dockCfg.floating !== "off" ? 8 : 0;
 var dock = new Panel;
 dock.location = dockCfg.position;
-dock.height = parseInt(dockCfg.iconSize, 10) + 24;
+dock.height = parseInt(dockCfg.iconSize, 10) + 24 + dockGap;
 dock.alignment = "center";
 dock.lengthMode = "fit";
-dock.floating = dockCfg.floating !== "off";
+dock.floating = !hasKwickDock && dockCfg.floating !== "off";
 dock.hiding = dockCfg.autohide === "on" ? "autohide" : "none";
 dock.opacity = "translucent";
 
-if (knownWidgetTypes.indexOf("org.kwickos.dock") >= 0) {
+if (hasKwickDock) {
     var kd = dock.addWidget("org.kwickos.dock");
     kd.currentConfigGroup = ["General"];
+    kd.writeConfig("floatGap", String(dockGap));
     kd.writeConfig("launchers", launchers);
     kd.writeConfig("magnify", dockCfg.magnify === "off" ? "false" : "true");
 } else {

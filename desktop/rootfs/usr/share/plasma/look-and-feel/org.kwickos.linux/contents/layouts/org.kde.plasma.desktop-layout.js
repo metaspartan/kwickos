@@ -10,7 +10,7 @@ panels().forEach(function (p) { p.remove(); });
 var launchers = [
     "applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop",
     "applications:org.kde.konsole.desktop", "applications:org.kde.kate.desktop",
-    "applications:org.kde.discover.desktop", "applications:steam.desktop",
+    "applications:kwick-store.desktop", "applications:steam.desktop",
     "applications:kwick-settings.desktop"
 ].join(",");
 
@@ -58,10 +58,10 @@ edgeR.writeConfig("margin", "12");
 var dock = new Panel;
 dock.location = "left";
 dock.height = 60;
-dock.alignment = "center";
-dock.lengthMode = "fit";
-dock.floating = true;
-dock.hiding = "dodgewindows";
+dock.alignment = "left";
+dock.lengthMode = "fill";
+dock.floating = false;
+dock.hiding = "none";
 dock.opacity = "translucent";
 var dv = dock.addWidget("org.kde.plasma.marginsseparator");
 dv.currentConfigGroup = ["General"];

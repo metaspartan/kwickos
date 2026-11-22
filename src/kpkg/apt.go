@@ -333,6 +333,7 @@ func runPlan(pl *Plan, extra bool) error {
 	if !confirm(extra) {
 		return errors.New("Abort.")
 	}
+	pl.Hooks = true
 	return pl.Execute(cfg.Purge)
 }
 

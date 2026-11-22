@@ -5,12 +5,21 @@
   "spacing": 0,
   "modules-left": ["custom/logo", "@WM@/workspaces"],
   "modules-center": ["clock"],
-  "modules-right": ["tray", "cpu", "memory", "bluetooth", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery"],
+  "modules-right": ["privacy", "tray", "cpu", "memory", "bluetooth", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery"],
   "custom/logo": {
     "format": "\u00a0",
     "tooltip": false,
     "on-click": "fuzzel",
     "on-click-right": "kwick-keys"
+  },
+  "privacy": {
+    "icon-spacing": 6,
+    "icon-size": 13,
+    "transition-duration": 200,
+    "modules": [
+      { "type": "screenshare", "tooltip": true, "tooltip-icon-size": 18 },
+      { "type": "audio-in", "tooltip": true, "tooltip-icon-size": 18 }
+    ]
   },
   "@WM@/workspaces": {
     "disable-scroll": false,

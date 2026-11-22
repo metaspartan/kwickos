@@ -1,0 +1,40 @@
+[Desktop Entry]
+Type=Application
+Name=Capture
+GenericName=Screenshot and Screen Recording
+Comment=Take screenshots, record the screen, copy text from the screen, pick colors and mark up images
+Keywords=screenshot;screen recording;ocr;text;color picker;markup;annotate;screen capture;snip;
+Exec=/usr/bin/kwick-capture
+X-KDE-Shortcuts=Meta+Shift+S
+Icon=kwick-capture
+Terminal=false
+StartupNotify=false
+NoDisplay=true
+Categories=Utility;Graphics;
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
+X-GNOME-UsesNotifications=false
+Actions=Selection;Window;Screen;CopyText;PickColor;Record;
+
+[Desktop Action Selection]
+Name=Capture Selection
+Exec=/usr/bin/kwick-capture --area
+
+[Desktop Action Window]
+Name=Capture Window
+Exec=/usr/bin/kwick-capture --window
+
+[Desktop Action Screen]
+Name=Capture Entire Screen
+Exec=/usr/bin/kwick-capture --screen
+
+[Desktop Action CopyText]
+Name=Copy Text from Screen
+Exec=/usr/bin/kwick-capture --text
+
+[Desktop Action PickColor]
+Name=Pick Color
+Exec=/usr/bin/kwick-capture --color
+
+[Desktop Action Record]
+Name=Record Screen
+Exec=/usr/bin/kwick-capture --record area

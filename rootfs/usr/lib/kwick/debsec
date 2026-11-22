@@ -1,0 +1,169 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LC_ALL=C
+export PATH LC_ALL
+OUT=${1:-/var/lib/kwick/update}
+SUITE=${KWICK_DEBSEC_SUITE:-$(sed -n 's/^VERSION_CODENAME=//p' /etc/os-release 2>/dev/null | head -n 1)}
+SUITE=${SUITE:-trixie}
+URL=${KWICK_DEBSEC_URL:-https://security-tracker.debian.org/tracker/debsecan/release/1/$SUITE}
+TMP=$OUT/debsec.$$
+mkdir -p "$OUT"
+
+fail() {
+	rm -f "$TMP".*
+	printf '{"ok":false,"checked":%s,"suite":"%s","error":"%s"}\n' "$(date +%s)" "$SUITE" "$1" >"$OUT/cve.json"
+	chmod 644 "$OUT/cve.json"
+	echo "debsec: $1" >&2
+	exit 1
+}
+
+command -v curl >/dev/null 2>&1 || fail "curl is needed to fetch the Debian security tracker over verified TLS (apt install curl)"
+curl -fsSL --proto '=https' --tlsv1.2 --max-time 300 -o "$TMP.z" "$URL" 2>"$TMP.err" || fail "could not download $URL: $(tail -n 1 "$TMP.err")"
+{
+	printf '\037\213\010\000\000\000\000\000\000\003'
+	tail -c +3 "$TMP.z"
+} | gzip -dc >"$TMP.txt" 2>/dev/null
+[ "$(head -n 1 "$TMP.txt")" = "VERSION 1" ] || fail "unexpected data from the Debian security tracker"
+dpkg-query -W -f '${db:Status-Abbrev}\t${Package}\t${Version}\t${source:Package}\t${source:Version}\n' 2>/dev/null |
+	awk -F'\t' '$1 ~ /^[ih]i/ { s = $4; v = $5; if (s !~ /^[a-z0-9][a-z0-9+.-]*$/) s = $2; if (v !~ /^[0-9]/) v = $3; print $2 "\t" $3 "\t" s "\t" v }' >"$TMP.inst"
+[ -s "$TMP.inst" ] || fail "no installed packages found"
+
+awk -v suite="$SUITE" -v now="$(date +%s)" -v tsv="$OUT/cve.tsv.new" '
+function ordc(c) {
+	if (c == "") return 0
+	if (c ~ /[0-9]/) return 0
+	if (c ~ /[A-Za-z]/) return ORD[c]
+	if (c == "~") return -1
+	return ORD[c] + 256
+}
+function verrev(a, b,    ac, bc, fd) {
+	while (a != "" || b != "") {
+		fd = 0
+		while ((a != "" && a !~ /^[0-9]/) || (b != "" && b !~ /^[0-9]/)) {
+			ac = ordc(substr(a, 1, 1))
+			bc = ordc(substr(b, 1, 1))
+			if (ac != bc) return ac - bc
+			a = substr(a, 2)
+			b = substr(b, 2)
+		}
+		while (substr(a, 1, 1) == "0") a = substr(a, 2)
+		while (substr(b, 1, 1) == "0") b = substr(b, 2)
+		while (a ~ /^[0-9]/ && b ~ /^[0-9]/) {
+			if (!fd) fd = (substr(a, 1, 1) + 0) - (substr(b, 1, 1) + 0)
+			a = substr(a, 2)
+			b = substr(b, 2)
+		}
+		if (a ~ /^[0-9]/) return 1
+		if (b ~ /^[0-9]/) return -1
+		if (fd) return fd
+	}
+	return 0
+}
+function parts(v, p,    i) {
+	p["e"] = 0
+	i = index(v, ":")
+	if (i > 0 && substr(v, 1, i - 1) ~ /^[0-9]+$/) { p["e"] = substr(v, 1, i - 1) + 0; v = substr(v, i + 1) }
+	p["r"] = ""
+	if (match(v, /-[^-]*$/)) { p["r"] = substr(v, RSTART + 1); v = substr(v, 1, RSTART - 1) }
+	p["u"] = v
+}
+function cmp(a, b,    pa, pb, r) {
+	if (a == b) return 0
+	parts(a, pa)
+	parts(b, pb)
+	if (pa["e"] != pb["e"]) return pa["e"] - pb["e"]
+	r = verrev(pa["u"], pb["u"])
+	if (r) return r
+	return verrev(pa["r"], pb["r"])
+}
+function upstream(v,    p) { parts(v, p); return p["e"] ":" p["u"] }
+function backported(ver, others,    n, o, i) {
+	n = split(others, o, " ")
+	for (i = 1; i <= n; i++) {
+		if (o[i] == "") continue
+		if (o[i] == ver) return 1
+		if (upstream(o[i]) == upstream(ver) && cmp(ver, o[i]) >= 0) return 1
+	}
+	return 0
+}
+function bpfix(ver, others, fix,    n, o, i, best) {
+	best = ""
+	n = split(others, o, " ")
+	for (i = 1; i <= n; i++) {
+		if (o[i] == "" || upstream(o[i]) != upstream(ver) || cmp(o[i], ver) <= 0) continue
+		if (best == "" || cmp(o[i], best) < 0) best = o[i]
+	}
+	return best != "" ? best : fix
+}
+function js(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); gsub(/\t/, " ", s); return s }
+BEGIN {
+	for (i = 1; i < 256; i++) ORD[sprintf("%c", i)] = i
+	U[" "] = "unknown"; U["L"] = "low"; U["M"] = "medium"; U["H"] = "high"
+	R["unknown"] = 0; R["low"] = 1; R["medium"] = 2; R["high"] = 3
+}
+FILENAME ~ /\.inst$/ {
+	BV[$1] = $2
+	if (!($3 in SV)) SV[$3] = $4
+	next
+}
+FNR == 1 { sec = 1; nv = 0; next }
+$0 == "" { sec++; if (sec > 2) exit; next }
+sec == 1 {
+	c = index($0, ",")
+	NAME[nv++] = substr($0, 1, c - 1)
+	next
+}
+sec == 2 {
+	n = split($0, f, ",")
+	pkg = f[1]; flags = f[3]; fix = f[4]; oth = f[5]
+	if (substr(flags, 1, 1) == "B") {
+		if (!(pkg in BV)) next
+		ver = BV[pkg]
+		vul = (fix == "") ? 1 : (cmp(ver, fix) < 0)
+	} else {
+		if (!(pkg in SV)) next
+		ver = SV[pkg]
+		if (fix != "") vul = (cmp(ver, fix) < 0) && !backported(ver, oth)
+		else vul = !backported(ver, oth)
+	}
+	if (!vul) next
+	urg = U[substr(flags, 2, 1)]
+	if (urg == "") urg = "unknown"
+	avail = (substr(flags, 4, 1) == "F") ? 1 : 0
+	cve = NAME[f[2] + 0]
+	fix = bpfix(ver, oth, fix)
+	printf "%s\t%s\t%s\t%s\t%s\t%d\n", pkg, ver, cve, urg, fix, avail > tsv
+	key = pkg
+	if (!(key in PV)) { PV[key] = ver; order[++np] = key }
+	if (avail) {
+		nfix++
+		FX[key] = FX[key] (FX[key] == "" ? "" : ",") "\"" js(cve) "\""
+		if (fix != "" && (FV[key] == "" || cmp(fix, FV[key]) > 0)) FV[key] = fix
+		if (R[urg] > R[FU[key]]) FU[key] = urg
+		if (FU[key] == "") FU[key] = urg
+	} else {
+		OPN[urg]++
+		if (urg == "high" || urg == "medium") {
+			OP[key] = OP[key] (OP[key] == "" ? "" : ",") "\"" js(cve) "\""
+			if (R[urg] > R[OU[key]] || OU[key] == "") OU[key] = urg
+		}
+	}
+}
+END {
+	printf "{\"ok\":true,\"checked\":%s,\"suite\":\"%s\",\"source\":\"https://security-tracker.debian.org\",", now, suite
+	printf "\"fixable\":%d,\"open\":{\"high\":%d,\"medium\":%d,\"low\":%d,\"unknown\":%d},\"packages\":[", nfix, OPN["high"], OPN["medium"], OPN["low"], OPN["unknown"]
+	first = 1
+	for (i = 1; i <= np; i++) {
+		k = order[i]
+		if (FX[k] == "" && OP[k] == "") continue
+		if (!first) printf ","
+		first = 0
+		printf "{\"source\":\"%s\",\"version\":\"%s\",\"fixable\":[%s],\"fixed_in\":\"%s\",\"fixable_urgency\":\"%s\",\"open\":[%s],\"open_urgency\":\"%s\"}", js(k), js(PV[k]), FX[k], js(FV[k]), FU[k], OP[k], OU[k]
+	}
+	printf "]}\n"
+}' "$TMP.inst" "$TMP.txt" >"$TMP.json" || fail "could not evaluate the tracker data"
+mv "$TMP.json" "$OUT/cve.json"
+[ -f "$OUT/cve.tsv.new" ] && mv "$OUT/cve.tsv.new" "$OUT/cve.tsv" || : >"$OUT/cve.tsv"
+chmod 644 "$OUT/cve.json" "$OUT/cve.tsv"
+rm -f "$TMP".*
+exit 0

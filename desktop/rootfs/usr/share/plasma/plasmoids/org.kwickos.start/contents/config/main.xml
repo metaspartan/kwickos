@@ -8,7 +8,7 @@
       <default>kwick-start-fluent</default>
     </entry>
     <entry name="pinned" type="StringList">
-      <default>applications:firefox-esr.desktop,applications:org.kde.dolphin.desktop,applications:kwick-settings.desktop,applications:org.kde.konsole.desktop,applications:kwick-editor.desktop,applications:kwick-calculator.desktop,applications:kwick-image-viewer.desktop,applications:kwick-document-viewer.desktop,applications:org.kde.discover.desktop,applications:steam.desktop,applications:kwick-system-monitor.desktop,applications:kwick-screenshot.desktop,applications:kwick-archive-manager.desktop,applications:kwick-effects.desktop,applications:kwick-gaming.desktop</default>
+      <default>applications:firefox-esr.desktop,applications:org.kde.dolphin.desktop,applications:kwick-settings.desktop,applications:org.kde.konsole.desktop,applications:kwick-editor.desktop,applications:kwick-calculator.desktop,applications:kwick-image-viewer.desktop,applications:kwick-document-viewer.desktop,applications:kwick-store.desktop,applications:steam.desktop,applications:kwick-system-monitor.desktop,applications:kwick-screenshot.desktop,applications:kwick-archive-manager.desktop,applications:kwick-effects.desktop,applications:kwick-gaming.desktop</default>
     </entry>
     <entry name="allView" type="String">
       <default>category</default>

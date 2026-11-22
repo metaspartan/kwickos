@@ -1,0 +1,37 @@
+#!/bin/sh
+set -u
+D=${XDG_DATA_HOME:-$HOME/.local/share}/kwick/clipboard
+stamp() {
+  f=$(cut -d' ' -f1 /proc/uptime | cut -d. -f2)
+  printf '%s%s0' "$(date +%s)" "$f"
+}
+case ${1:-show} in
+  store)
+    [ "${CLIPBOARD_STATE:-data}" = data ] || { cat >/dev/null; exit 0; }
+    mkdir -p "$D/history"
+    t=$(mktemp "$D/.new.XXXXXX") || exit 0
+    head -c 1048576 > "$t"
+    if ! grep -q '[^[:space:]]' "$t" 2>/dev/null; then rm -f "$t"; exit 0; fi
+    for f in "$D"/history/*.txt; do
+      [ -f "$f" ] && cmp -s "$f" "$t" && rm -f "$f"
+    done
+    mv "$t" "$D/history/$(stamp).txt"
+    ls -1 "$D/history" | sort -r | tail -n +201 | while read -r f; do rm -f "$D/history/$f"; done
+    ;;
+  watch)
+    command -v wl-paste >/dev/null 2>&1 || { echo "kwick-clipboard: wl-paste (wl-clipboard) is missing" >&2; exit 1; }
+    mkdir -p "$D/history"
+    exec wl-paste --type text --watch "$0" store
+    ;;
+  clear)
+    rm -rf "$D/history"
+    mkdir -p "$D/history"
+    ;;
+  show)
+    exec kwick-search --mode clipboard
+    ;;
+  *)
+    echo "usage: kwick-clipboard [show|watch|store|clear]" >&2
+    exit 2
+    ;;
+esac

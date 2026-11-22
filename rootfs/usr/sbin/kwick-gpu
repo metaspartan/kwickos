@@ -4,7 +4,7 @@ PROG=kwick-gpu
 usage() {
   cat <<EOF
 usage: $PROG [command] [options]
-  status                 show detected GPUs, kernel drivers and what is installed (default)
+  status [--json]        show detected GPUs, kernel drivers and what is installed (default)
   detect                 print one detected vendor per line: amd intel nvidia apple rpi vm
   install [options]      install drivers and firmware for the detected hardware
       --list             only print the packages that would be installed
@@ -138,8 +138,11 @@ prepare_steam_host() {
 
 cmd=${1:-status}
 [ $# -gt 0 ] && shift
+json=""
+[ "$cmd" = --json ] && { cmd=status; json=1; }
 for a in "$@"; do
   case $a in
+    --json) json=1 ;;
     --i386) want_i386=yes ;;
     --no-i386) want_i386=no ;;
     --rocm) want_rocm=1 ;;
@@ -191,6 +194,25 @@ case $cmd in
     [ -x /usr/games/steam ] && echo "native" || echo "flatpak" ;;
   status|"")
     vendors=$(detect_vendors | tr '\n' ' ')
+    if [ -n "$json" ]; then
+      build_pkgs
+      i386=null
+      [ "$arch" = amd64 ] && { dpkg --print-foreign-architectures 2>/dev/null | grep -qx i386 && i386=true || i386=false; }
+      [ -c /dev/uinput ] && uinput=true || uinput=false
+      printf '{"vendors":['
+      sep=""
+      for v in $vendors; do printf '%s"%s"' "$sep" "$v"; sep=,; done
+      printf '],"cards":['
+      sep=""
+      for c in /sys/class/drm/card[0-9]*; do
+        [ -e "$c/device/vendor" ] || continue
+        drv=$(basename "$(readlink "$c/device/driver" 2>/dev/null)" 2>/dev/null)
+        printf '%s{"card":"%s","vendor":"%s","driver":"%s"}' "$sep" "$(basename "$c")" "$(cat "$c/device/vendor")" "$drv"
+        sep=,
+      done
+      printf '],"arch":"%s","packages":"%s","i386":%s,"uinput":%s}\n' "$arch" "$(echo $pkgs)" "$i386" "$uinput"
+      exit 0
+    fi
     echo "Detected: ${vendors:-none (headless VM or no GPU)}"
     for c in /sys/class/drm/card[0-9]*; do
       [ -e "$c/device/vendor" ] || continue

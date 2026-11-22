@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/all;
+Actions=restorePrevious;
+
+[Desktop Action restorePrevious]
+Name=Restore Previous Versions…
+Icon=kwick-snapshots
+Exec=kwick-snapshots %f

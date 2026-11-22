@@ -84,7 +84,7 @@ Other desktops install with `kwick-desktop install xfce|cinnamon|mate|lxqt` and 
 ## KwickOS Settings
 
 `kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, GPU,
-Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Software Update (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). The window sets its Wayland app id to `org.kwickos.settings.qml` (`Qt.application.domain` before it maps), which `kwick-settings.desktop` names in `StartupWMClass`, so the dock and taskbar show the Settings icon and other `qml6` apps do not pick it up. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
+Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Software Update (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). It runs in `/usr/lib/kwick/kwick-settings-app` (built from `src/kwick-settings`), which sets the Wayland app id to `kwick-settings`, so KWin (Alt+Tab, Overview, window icons), the dock and the taskbar match `kwick-settings.desktop`; without that binary it falls back to `qml6` with the app id `org.kwickos.settings.qml`, which `kwick-settings.desktop` names in `StartupWMClass`. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
 the same KwickOS object icons.
 
 ## Spotlight Search
@@ -141,6 +141,55 @@ krunner_services, krunner_systemsettings, calculator, windows, locations, krunne
 locations, krunner_shell`, with apps matched by `krunner_kwick` so no KDE activity service is started);
 `kwick-spotlight --list-runners` lists the installed ones, `--query TEXT` and `--mode apps|files|actions|clipboard` open it with
 text or a browse mode, and `KWICK_SPOTLIGHT_TRACE=1` logs open and keystroke timings.
+
+## Quick Look
+
+Press Space on a file in Files and a preview window opens at once; Space or Esc closes it, the arrow keys move to the next file,
+Return opens it in its default app ("Open with …" in the toolbar), F goes full screen, Ctrl+C copies the file. Cmd+Y (Ctrl+Y)
+previews the selected file in Spotlight, and the Files context menu has "Quick Look" too.
+
+It previews images (animated GIF and WebP play, Ctrl+scroll or double-click zooms), PDF (every page, rendered with Poppler),
+video and audio (Qt Multimedia with FFmpeg, with a scrubber), text and source code with syntax highlighting (KSyntaxHighlighting,
+the same themes as Kate), Markdown rendered as a document, archives (zip, tar, 7z, rar, deb, iso and more, listed with libarchive
+without unpacking), folders, fonts (a type specimen) and, when LibreOffice is installed, office documents (converted to PDF once
+and cached in `~/.cache/kwick/quicklook`). Anything else gets a large icon with kind, size and dates. The window follows the
+appearance, accent color and corner radius, and sizes itself to the content.
+
+`kwick-quicklook` (`src/kwick-quicklook`) is one Qt Quick binary that stays running for three minutes after the last preview so
+the next Space is instant. It owns `org.kwickos.QuickLook` and also implements GNOME's `org.gnome.NautilusPreviewer2`, so
+Nautilus's own Space key opens it, and arrow keys move Nautilus's selection. In Dolphin a small plugin
+(`kf6/overlayicon/kwick_quicklook_dolphin.so`, loaded by Dolphin itself) catches Space only in the file view, never while you
+rename or type in a field or type-ahead, reads the selection, and lets the arrow keys move Dolphin's own selection while the
+preview follows. `KWICK_QUICKLOOK_NO_SPACE=1` turns the Dolphin key off; `KWICK_QUICKLOOK_TRACE=1` logs it.
+
+## Capture
+
+Cmd+Shift+S on Plasma, Super+Shift+S on GNOME, Hyprland and sway (and Print / Shift+Print on Hyprland and sway) open the Capture
+bar: Entire Screen, Window, Selection, Record Screen, Record Selection, Copy Text and Pick Color, with Options for the save folder
+(Desktop, Pictures or only the clipboard), a 5 or 10 second timer, the microphone and the pointer. Every capture is copied to the
+clipboard and saved as "Screenshot 2026-11-21 at 14.03.22.png"; a thumbnail in the corner opens Markup (pen, highlighter,
+line, arrow, rectangle, oval, text, redact, crop, undo) or can be dragged into another app. Copy Text recognizes the text in a
+selection with Tesseract on the device (installed the first time you use it, about 10 MB) and puts it on the clipboard; Pick
+Color shows HEX, RGB and HSL with copy buttons and keeps recent colors. The Screenshot app and Spotlight's Capture actions open
+the same tool. Backends: KWin's ScreenShot2 or Spectacle on Plasma, the screenshot and screencast portals with GStreamer on
+GNOME, grim, slurp and wf-recorder on Hyprland and sway.
+
+## Clipboard history
+
+Super+V opens Spotlight's clipboard view on every desktop: search everything you copied, Return copies it back, Cmd+Return pins
+or unpins it (pinned items stay on top). On Plasma the history is Klipper's; on GNOME the `kwick-clipboard` Shell extension keeps
+it and on Hyprland and sway `kwick-clipboard watch` (wl-paste) does, in `~/.local/share/kwick/clipboard` (200 text items,
+1 MB each, nothing marked as a password by a password manager). Pins live there on every desktop. `kwick-clipboard clear` empties
+the history.
+
+## Privacy & Security
+
+The Privacy & Security page in Settings shows which apps use the camera, microphone or screen right now (from PipeWire and
+open `/dev/video*` devices, refreshed every 2.5 seconds), lists what sandboxed apps were allowed through the desktop portal
+(camera, location, screenshots, background activity, notifications) with a switch and Reset for each, and the Secure Boot,
+disk encryption and Host Security ID state. Firmware updates for UEFI, SSDs, docks and other devices come from the LVFS through
+fwupd, installed from the page on first use. Waybar shows screen-sharing and microphone indicators on Hyprland and sway; Plasma
+and GNOME show their own.
 
 ## Icons
 

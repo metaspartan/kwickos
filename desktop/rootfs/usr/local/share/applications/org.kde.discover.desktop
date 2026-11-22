@@ -9,3 +9,4 @@ Keywords=discover;software;store;app store;apps;applications;install;uninstall;u
 StartupNotify=true
 Terminal=false
 OnlyShowIn=KDE;
+NoDisplay=true

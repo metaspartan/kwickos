@@ -10,7 +10,7 @@ usage() {
   cat <<'EOF'
 usage: kwick-bluetooth <command> [args]
 
-  status                  print "available yes|no" and "powered yes|no"
+  status [--json]         print "available yes|no" and "powered yes|no" (--json: same as json)
   list                    paired devices: address, name, connected, battery, icon (tab separated)
   json                    adapter state and paired devices as JSON
   power on|off|toggle     switch the adapter
@@ -160,7 +160,7 @@ cmd_menu() {
 cmd=${1:-}
 [ $# -gt 0 ] && shift
 case $cmd in
-  status) cmd_status ;;
+  status) if [ "${1:-}" = --json ]; then cmd_json; else cmd_status; fi ;;
   list|ls) cmd_list ;;
   json) cmd_json ;;
   power) cmd_power "$@" ;;

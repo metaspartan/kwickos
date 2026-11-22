@@ -1,0 +1,10 @@
+polkit.addRule(function (action, subject) {
+    if (action.id !== "org.kwickos.snapshot" || !subject.local || !subject.active)
+        return polkit.Result.NOT_HANDLED;
+    if (!subject.isInGroup("sudo") && !subject.isInGroup("wheel"))
+        return polkit.Result.NOT_HANDLED;
+    var cmd = action.lookup("command_line") || "";
+    if (/^\/usr\/sbin\/kwick-snapshot (create -c (root|home) -d Manual snapshot|diff -c (root|home) [0-9]+( [0-9]+)?|boot-sync)( --json)?$/.test(cmd))
+        return polkit.Result.YES;
+    return polkit.Result.NOT_HANDLED;
+});

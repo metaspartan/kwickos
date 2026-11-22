@@ -1,8 +1,16 @@
 #!/bin/sh
 set -u
 dir=${KWICK_SETTINGS_DIR:-/usr/share/kwick/settings}
-qml=$(command -v qml6 || command -v qml) || { echo "kwick-settings needs qml6 (apt install qml-qt6)" >&2; exit 1; }
+case ${1:-} in
+  software|software-update|software_update|update|updates|kernel|kernels)
+    [ -x /usr/bin/kwick-software-update ] && exec /usr/bin/kwick-software-update ;;
+esac
 export QT_QUICK_CONTROLS_STYLE=Basic
 export QML_XHR_ALLOW_FILE_READ=1
 export KWICK_SETTINGS_PAGE=${1:-}
+export KWICK_SETTINGS_DIR=$dir
+if [ -x /usr/lib/kwick/kwick-settings-app ]; then
+  exec /usr/lib/kwick/kwick-settings-app
+fi
+qml=$(command -v qml6 || command -v qml) || { echo "kwick-settings needs qml6 (apt install qml-qt6)" >&2; exit 1; }
 exec "$qml" -a widget "$dir/Main.qml"

@@ -1,0 +1,7 @@
+{
+  "uuid": "kwick-clipboard@kwickos.org",
+  "name": "KwickOS Clipboard History",
+  "description": "Keeps the text you copy so Super+V can bring it back (skipping passwords marked as secret) and opens Capture with Super+Shift+S",
+  "shell-version": ["46", "47", "48", "49"],
+  "version": 1
+}

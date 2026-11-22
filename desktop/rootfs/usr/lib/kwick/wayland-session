@@ -1,5 +1,6 @@
 #!/bin/sh
 run=/usr/share/sddm/scripts/wayland-session
+ulimit -S -c 0 2>/dev/null
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ ! -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ] && command -v dbus-run-session >/dev/null 2>&1; then
   exec dbus-run-session "$run" "$@"
 fi

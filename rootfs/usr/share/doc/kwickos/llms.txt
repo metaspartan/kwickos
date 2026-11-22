@@ -1,0 +1,10 @@
+# KwickOS
+
+> Small Debian 13 compatible Linux (kinit as PID 1, BusyBox, kpkg as apt and dpkg). Headless and desktop (KDE, GNOME, Hyprland) editions.
+
+## For AI agents
+
+- [Operating KwickOS](/usr/share/doc/kwickos/AGENTS.md): rules, sandbox, MCP tools, JSON commands, paths
+- MCP server: `kwick-mcp` (stdio); resource `kwickos://docs/agents`
+- Agent catalog: `kwick-agents list --json`; health: `kwick-agents doctor --json`
+- Updates: `kwick-update status --json`; kernels: `kwick-kernel status --json`

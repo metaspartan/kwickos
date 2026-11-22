@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Software Update
+GenericName=System and kernel updates
+Comment=Install KwickOS updates, switch, try and roll back kernels, and set automatic updates
+Icon=kwick-software-update
+Exec=kwick-software-update
+Categories=System;Settings;PackageManager;Qt;
+Keywords=update;updates;upgrade;software update;windows update;kernel;kernels;linux;rollback;roll back;security;patch;apt;flatpak;
+StartupWMClass=kwick-software-update
+StartupNotify=true
+Terminal=false

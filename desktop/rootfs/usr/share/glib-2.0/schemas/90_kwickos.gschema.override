@@ -18,7 +18,7 @@ titlebar-font='Inter Bold 10'
 
 [org.gnome.shell]
 enabled-extensions=['dash-to-dock@micxgx.gmail.com','blur-my-shell@aunetx','ubuntu-appindicators@ubuntu.com','kwick-menubar@kwickos.org']
-favorite-apps=['org.gnome.Nautilus.desktop','firefox-esr.desktop','kwick-terminal.desktop','org.gnome.TextEditor.desktop','kwick-software.desktop','kwick-settings.desktop']
+favorite-apps=['org.gnome.Nautilus.desktop','firefox-esr.desktop','kwick-terminal.desktop','org.gnome.TextEditor.desktop','kwick-store.desktop','kwick-settings.desktop']
 
 [org.gnome.shell.extensions.dash-to-dock]
 disable-overview-on-startup=true

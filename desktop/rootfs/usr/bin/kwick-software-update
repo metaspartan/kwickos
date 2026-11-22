@@ -1,0 +1,10 @@
+#!/bin/sh
+set -u
+dir=${KWICK_SETTINGS_DIR:-/usr/share/kwick/settings}
+qml=$(command -v qml6 || command -v qml) || { echo "kwick-software-update needs qml6 (apt install qml-qt6)" >&2; exit 1; }
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QML_XHR_ALLOW_FILE_READ=1
+if [ -x /usr/lib/kwick/kwick-settings-app ]; then
+  KWICK_APP_ID=kwick-software-update KWICK_APP_NAME="Software Update" KWICK_APP_QML="$dir/UpdateApp.qml" exec /usr/lib/kwick/kwick-settings-app
+fi
+exec "$qml" -a widget "$dir/UpdateApp.qml"

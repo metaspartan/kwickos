@@ -63,6 +63,7 @@ public:
     Q_INVOKABLE void show();
     Q_INVOKABLE void hide();
     Q_INVOKABLE void run(int row, bool alternate);
+    Q_INVOKABLE bool preview(int row);
     Q_INVOKABLE void setPanel(qreal x, qreal y, qreal width, qreal height, qreal radius);
 
 protected:

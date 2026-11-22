@@ -126,3 +126,22 @@ tooltip {
 #custom-osk {
   padding: 0 10px;
 }
+
+#privacy {
+  padding: 0 4px;
+}
+
+#privacy-item {
+  padding: 0 8px;
+  margin: 6px 2px;
+  border-radius: 9px;
+  color: #ffffff;
+}
+
+#privacy-item.screenshare {
+  background-color: #bf5af2;
+}
+
+#privacy-item.audio-in {
+  background-color: #ff9f0a;
+}

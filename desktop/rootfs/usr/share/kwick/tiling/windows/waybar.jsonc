@@ -5,7 +5,7 @@
   "spacing": 0,
   "modules-left": [],
   "modules-center": ["custom/start", "custom/search", "custom/files", "custom/web", "custom/term", "custom/editor", "custom/store", "custom/steam", "custom/settings", "wlr/taskbar"],
-  "modules-right": ["tray", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
+  "modules-right": ["privacy", "tray", "custom/osk", "custom/vpn", "network", "pulseaudio", "battery", "custom/clock"],
   "custom/start": { "format": " ", "tooltip-format": "Start", "on-click": "fuzzel" },
   "custom/search": { "format": " ", "tooltip-format": "Search", "on-click": "kwick-search" },
   "custom/files": {
@@ -29,9 +29,9 @@
     "on-click": "/usr/lib/kwick/dock-state open 'org.kde.kate|org.gnome.TextEditor|mousepad' kwick-app editor"
   },
   "custom/store": {
-    "exec": "/usr/lib/kwick/dock-state 'org.kde.discover|org.gnome.Software'",
-    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Software",
-    "on-click": "/usr/lib/kwick/dock-state open 'org.kde.discover|org.gnome.Software' kwick-app software"
+    "exec": "/usr/lib/kwick/dock-state 'org.kwickos.store.qml|org.kde.discover|org.gnome.Software'",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "App Store",
+    "on-click": "/usr/lib/kwick/dock-state open 'org.kwickos.store.qml|org.kde.discover|org.gnome.Software' kwick-app software"
   },
   "custom/steam": {
     "exec": "/usr/lib/kwick/dock-state 'steam'",
@@ -50,7 +50,16 @@
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
-    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kde.discover", "org.gnome.Software", "steam", "org.kwickos.settings.qml", "kwick-settings"]
+    "ignore-list": ["org.gnome.Nautilus", "org.kde.dolphin", "thunar", "pcmanfm", "firefox-esr", "firefox", "foot", "kitty", "Alacritty", "org.kde.konsole", "org.kde.kate", "org.gnome.TextEditor", "mousepad", "org.kwickos.store.qml", "org.kde.discover", "org.gnome.Software", "steam", "org.kwickos.settings.qml", "kwick-settings"]
+  },
+  "privacy": {
+    "icon-spacing": 6,
+    "icon-size": 13,
+    "transition-duration": 200,
+    "modules": [
+      { "type": "screenshare", "tooltip": true, "tooltip-icon-size": 18 },
+      { "type": "audio-in", "tooltip": true, "tooltip-icon-size": 18 }
+    ]
   },
   "custom/clock": {
     "exec": "/usr/lib/kwick/bar-clock",

@@ -1,0 +1,10 @@
+[Unit]
+Description=Tidy up after a system rollback and refresh the snapshot boot entries
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/kwick-snapshot boot
+
+[Install]
+WantedBy=multi-user.target

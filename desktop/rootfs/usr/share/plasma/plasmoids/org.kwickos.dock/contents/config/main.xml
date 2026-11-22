@@ -10,6 +10,9 @@
     <entry name="magnify" type="Bool">
       <default>true</default>
     </entry>
+    <entry name="floatGap" type="Int">
+      <default>0</default>
+    </entry>
     <entry name="showTrash" type="Bool">
       <default>true</default>
     </entry>

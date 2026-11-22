@@ -154,7 +154,7 @@ PlasmoidItem {
                         icon: "network-wired-symbolic"
                         title: "Network"
                         on: !!root.net && root.net.wiredName !== ""
-                        subtitle: !root.net ? "" : root.net.wiredName || "Not Connected"
+                        subtitle: !root.net ? "" : root.net.wiredName !== "" ? "Connected" : "Not Connected"
                         onClicked: root.settings("kcm_networkmanagement")
                     }
                 }

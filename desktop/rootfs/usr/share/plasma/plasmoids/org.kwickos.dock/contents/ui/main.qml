@@ -9,6 +9,7 @@ import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
+import org.kde.ksvg as KSvg
 import org.kde.taskmanager as TaskManager
 
 PlasmoidItem {
@@ -19,7 +20,10 @@ PlasmoidItem {
     readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
     readonly property int edge: Plasmoid.location
     readonly property bool farEdge: edge === PlasmaCore.Types.BottomEdge || edge === PlasmaCore.Types.RightEdge
-    readonly property real thickness: vertical ? width : height
+    readonly property real outer: vertical ? width : height
+    readonly property real floatGap: Plasmoid.formFactor === PlasmaCore.Types.Horizontal || vertical ? Math.max(0, Plasmoid.configuration.floatGap) : 0
+    readonly property real nearOffset: farEdge ? 0 : floatGap
+    readonly property real thickness: Math.max(1, outer - floatGap)
     readonly property real gap: Math.max(3, Math.round(thickness * 0.147))
     readonly property real iconSize: Math.max(16, Math.round(thickness - 2 * gap))
     readonly property real cell: Math.round(iconSize + 10)
@@ -119,6 +123,56 @@ PlasmoidItem {
         taskMenu.openRelative();
     }
 
+    property Item panelRoot: null
+    property int panelTries: 0
+
+    function findPanelRoot() {
+        let p = root.parent;
+        while (p) {
+            if (p.touchingWindowDirect !== undefined && p.floatingnessTarget !== undefined) {
+                return p;
+            }
+            p = p.parent;
+        }
+        return null;
+    }
+
+    Timer {
+        interval: 400
+        repeat: true
+        running: root.panelRoot === null && root.panelTries < 30
+        triggeredOnStart: true
+        onTriggered: {
+            root.panelTries++;
+            root.panelRoot = root.findPanelRoot();
+        }
+    }
+
+    function insetBackground() {
+        if (!panelRoot) {
+            return;
+        }
+        const g = floatGap;
+        const kids = panelRoot.children;
+        for (let i = 0; i < kids.length; ++i) {
+            const c = kids[i];
+            if (c.imagePath === undefined || !c.anchors || !c.anchors.fill || String(c.imagePath).indexOf("panel-background") < 0) {
+                continue;
+            }
+            c.anchors.topMargin = edge === PlasmaCore.Types.TopEdge ? g : 0;
+            c.anchors.bottomMargin = edge === PlasmaCore.Types.BottomEdge ? g : 0;
+            c.anchors.leftMargin = edge === PlasmaCore.Types.LeftEdge ? g : 0;
+            c.anchors.rightMargin = edge === PlasmaCore.Types.RightEdge ? g : 0;
+            if (g > 0) {
+                c.enabledBorders = KSvg.FrameSvg.AllBorders;
+            }
+        }
+    }
+
+    onPanelRootChanged: insetBackground()
+    onFloatGapChanged: insetBackground()
+    onEdgeChanged: insetBackground()
+
     TaskManager.VirtualDesktopInfo {
         id: desktopInfo
     }
@@ -147,8 +201,43 @@ PlasmoidItem {
                 Plasmoid.configuration.launchers = launcherList;
                 root.syncPins();
             }
+            pinOrder.restart();
         }
+        onCountChanged: pinOrder.restart()
+        onRowsInserted: pinOrder.restart()
         Component.onCompleted: root.ready = true
+    }
+
+    function pinPosition(row) {
+        const url = tasksModel.data(tasksModel.makeModelIndex(row), TaskManager.AbstractTasksModel.LauncherUrlWithoutIcon);
+        return url ? tasksModel.launcherPosition(url) : -1;
+    }
+
+    function keepPinOrder() {
+        const n = tasksModel.count;
+        for (let t = 0; t < n; ++t) {
+            let best = -1;
+            let bestPos = -1;
+            for (let r = t; r < n; ++r) {
+                const p = pinPosition(r);
+                if (p >= 0 && (bestPos < 0 || p < bestPos)) {
+                    bestPos = p;
+                    best = r;
+                }
+            }
+            if (best < 0) {
+                return;
+            }
+            if (best !== t) {
+                tasksModel.move(best, t);
+            }
+        }
+    }
+
+    Timer {
+        id: pinOrder
+        interval: 250
+        onTriggered: root.keepPinOrder()
     }
 
     Connections {
@@ -254,11 +343,13 @@ PlasmoidItem {
         id: dock
 
         Layout.minimumWidth: root.vertical ? -1 : root.dockLength
-        Layout.preferredWidth: root.vertical ? root.thickness : root.dockLength
+        Layout.preferredWidth: root.vertical ? root.outer : root.dockLength
         Layout.maximumWidth: root.vertical ? -1 : root.dockLength
         Layout.minimumHeight: root.vertical ? root.dockLength : -1
-        Layout.preferredHeight: root.vertical ? root.dockLength : root.thickness
+        Layout.preferredHeight: root.vertical ? root.dockLength : root.outer
         Layout.maximumHeight: root.vertical ? root.dockLength : -1
+        Layout.fillWidth: root.vertical
+        Layout.fillHeight: !root.vertical
 
         HoverHandler {
             id: hover
@@ -318,14 +409,15 @@ PlasmoidItem {
                 readonly property int kids: model.ChildCount || 0
                 onKidsChanged: publishTimer.restart()
 
-                x: root.vertical ? 0 : along
-                y: root.vertical ? along : 0
+                x: root.vertical ? root.nearOffset : along
+                y: root.vertical ? along : root.nearOffset
                 width: root.vertical ? root.thickness : root.cell
                 height: root.vertical ? root.cell : root.thickness
                 z: zoom
 
                 Kirigami.Icon {
                     id: icon
+                    roundToIconSize: false
                     source: task.model.decoration
                     width: root.iconSize
                     height: root.iconSize
@@ -411,8 +503,8 @@ PlasmoidItem {
             readonly property real span: root.iconSize * 0.74
             width: root.vertical ? span : 1
             height: root.vertical ? 1 : span
-            x: root.vertical ? root.crossPos(span, root.gap + (root.iconSize - span) / 2) : along
-            y: root.vertical ? along : root.crossPos(span, root.gap + (root.iconSize - span) / 2)
+            x: root.vertical ? root.nearOffset + root.crossPos(span, root.gap + (root.iconSize - span) / 2) : along
+            y: root.vertical ? along : root.nearOffset + root.crossPos(span, root.gap + (root.iconSize - span) / 2)
             color: Kirigami.Theme.textColor
             opacity: 0.28
         }
@@ -422,14 +514,15 @@ PlasmoidItem {
             visible: root.showTrash
             readonly property real along: root.pad + tasksModel.count * root.cell + root.sepSlot
             readonly property real zoom: root.scaleAt(along + root.cell / 2)
-            x: root.vertical ? 0 : along
-            y: root.vertical ? along : 0
+            x: root.vertical ? root.nearOffset : along
+            y: root.vertical ? along : root.nearOffset
             width: root.vertical ? root.thickness : root.cell
             height: root.vertical ? root.cell : root.thickness
             z: zoom
 
             Kirigami.Icon {
                 id: trashIcon
+                roundToIconSize: false
                 source: trashFiles.count > 0 ? "user-trash-full" : "user-trash"
                 width: root.iconSize
                 height: root.iconSize
