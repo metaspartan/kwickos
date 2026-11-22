@@ -224,6 +224,9 @@ wire_zsh() {
 	[ -f /etc/zsh/zshrc ] || : >/etc/zsh/zshrc
 	grep -q 'kwick/zsh/kwick.zsh' /etc/zsh/zshrc 2>/dev/null ||
 		printf '[ -r /usr/share/kwick/zsh/kwick.zsh ] && . /usr/share/kwick/zsh/kwick.zsh\n' >>/etc/zsh/zshrc
+	[ -f /etc/zsh/zprofile ] || : >/etc/zsh/zprofile
+	grep -q 'KWICK_ENV' /etc/zsh/zprofile 2>/dev/null ||
+		printf '%s\n' "[[ -z \${KWICK_ENV:-} && -r /etc/profile ]] && emulate sh -c '. /etc/profile'" >>/etc/zsh/zprofile
 }
 
 compile_zsh() {

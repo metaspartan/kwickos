@@ -569,7 +569,7 @@ void KwickRunner::matchClipboard(KRunner::RunnerContext &context, const QString 
         if (title.size() > 120) {
             title = title.left(119) + QStringLiteral("…");
         }
-        const int lines = text.count(QLatin1Char('\n')) + 1;
+        const int lines = text.trimmed().count(QLatin1Char('\n')) + 1;
         QueryMatch m(this);
         m.setId(QStringLiteral("clip:%1:%2").arg(isPinned ? QStringLiteral("p") : QStringLiteral("h")).arg(i));
         m.setText(title);

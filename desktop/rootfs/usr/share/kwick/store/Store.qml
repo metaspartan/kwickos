@@ -31,6 +31,7 @@ QtObject {
 
     readonly property bool archOn: !!(sources.arch && sources.arch.installed && sources.arch.enabled)
     readonly property bool archInstalled: !!(sources.arch && sources.arch.installed)
+    readonly property bool archAvailable: !!(sources.arch && !sources.arch.installed && sources.arch.available)
     readonly property bool agentsOn: !!(sources.agents && sources.agents.installed)
     readonly property int updateCount: (updates.apps || []).length + (updates.arch || []).length + ((updates.system || []).length > (updates.apps || []).filter(function (a) { return a.src === "apt" }).length ? 1 : 0)
     readonly property bool busy: active !== "" || queue.length > 0
@@ -229,6 +230,7 @@ QtObject {
                 else if (done.kind === "remove") { s.mark(key, false); s.say(done.app.name + " was removed.") }
                 else s.say((done.kind === "updateall" || done.kind === "updatesys") ? "Updates are installed." : (done.app.name + " is up to date."))
             }
+            if (done.after) done.after(code === 0)
             s.revision++
             s.changed(key)
             s.installedLoaded = false
@@ -265,6 +267,16 @@ QtObject {
         s.run(s.bin + " userjob arch enable", function (out, code) {
             s.loadSources(cb)
         })
+    }
+
+    function archGet(cb) {
+        s.install({ key: "apt:kwick-arch", src: "apt", id: "kwick-arch", pkg: "kwick-arch", name: "Arch Linux support" }, { after: function (ok) {
+            if (!ok) { if (cb) cb(); return }
+            s.loadSources(function () {
+                if (s.archInstalled) s.archEnable(cb)
+                else if (cb) cb()
+            })
+        } })
     }
 
 }

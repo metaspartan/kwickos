@@ -5,4 +5,5 @@ if [ -n "${1:-}" ]; then
 	d=${XDG_RUNTIME_DIR:-/tmp}
 	printf '%s\n' "$p" >"$d/kwick-snapshots.request"
 fi
+export KWICK_APP_ID=kwick-snapshots KWICK_APP_NAME=Snapshots
 exec kwick-settings snapshots

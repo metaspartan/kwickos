@@ -408,7 +408,7 @@ ColumnLayout {
     }
 
     Rectangle {
-        visible: Store.archInstalled && !page.only && !page.catsOnly && page.sections.length > 0
+        visible: (Store.archInstalled || Store.archAvailable) && !page.only && !page.catsOnly && page.sections.length > 0
         Layout.fillWidth: true
         implicitHeight: archRow.implicitHeight + 32
         radius: Look.radius
@@ -441,10 +441,16 @@ ColumnLayout {
                 }
             }
             Btn {
+                id: archBtn
                 visible: !Store.archOn
                 text: "Turn On"
                 primary: Look.win || Look.gnu
-                onClicked: { text = "Turning On…"; Store.archEnable() }
+                onClicked: {
+                    archBtn.text = "Turning On…"
+                    var reset = function () { if (!Store.archOn) archBtn.text = "Turn On" }
+                    if (Store.archInstalled) Store.archEnable(reset)
+                    else Store.archGet(reset)
+                }
             }
         }
     }

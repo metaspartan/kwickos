@@ -712,6 +712,14 @@ def pkg_info(name):
     return {"Package": p[0], "Version": p[1], "Section": p[2], "Installed-Size": p[3], "Size": p[4], "Homepage": p[5], "Origin": p[6], "Description": p[7]}
 
 
+def apt_available(name):
+    if os.path.isfile(PKG_TSV):
+        return bool(pkg_info(name))
+    rc, so, _ = run(["apt-cache", "policy", name], timeout=30)
+    m = re.search(r"^\s*Candidate:\s*(\S+)", so, re.M)
+    return rc == 0 and bool(m) and m.group(1) != "(none)"
+
+
 def input_state():
     st = {}
     fps = flatpak_sources()
@@ -1177,7 +1185,7 @@ def sources_obj(ctx=None):
     return {
         "apt": {"available": which("apt-get") is not None, "appstream": bool(files), "kind": kind},
         "flathub": {"available": which("flatpak") is not None, "catalog": bool(fps), "remotes": [r for _, r, _ in fps]},
-        "arch": ar or {"installed": False},
+        "arch": ar or {"installed": False, "available": deb_arch() == "amd64" and apt_available("kwick-arch")},
         "agents": {"installed": ag},
     }
 

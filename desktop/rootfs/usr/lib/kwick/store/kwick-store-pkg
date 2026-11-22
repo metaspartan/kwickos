@@ -88,8 +88,8 @@ feed() {
 		kind == "apt" && /^Unpacking / { unp++; emit(total ? 45 + 30 * unp / total : last + 1, "Installing " $2 "…"); next }
 		kind == "apt" && /^Setting up / { cfg++; emit(total ? 75 + 22 * cfg / total : last + 1, "Configuring " $3 "…"); next }
 		kind == "apt" && /^Removing / { emit(last + 4, "Removing " $2 "…"); next }
-		kind == "flatpak" && /[0-9]+\/[0-9]+/ {
-			if (match($0, /[0-9]+\/[0-9]+/)) { split(substr($0, RSTART, RLENGTH), op, "/"); cur = op[1]; ops = op[2] }
+		kind == "flatpak" && /(^|[ \t])[0-9]+\/[0-9]+([^0-9.\/]|$)/ {
+			if (match($0, /(^|[ \t])[0-9]+\/[0-9]+([^0-9.\/]|$)/)) { cnt = substr($0, RSTART, RLENGTH); gsub(/[^0-9\/]/, "", cnt); split(cnt, op, "/"); cur = op[1]; ops = op[2] }
 			pct = 0
 			if (match($0, /[0-9]+%/)) pct = substr($0, RSTART, RLENGTH - 1) + 0
 			if (ops > 0) emit(3 + 95 * ((cur - 1) + pct / 100) / ops, (/[Uu]ninstall/ ? "Removing" : /[Uu]pdat/ ? "Updating" : "Installing") " " cur " of " ops "…")

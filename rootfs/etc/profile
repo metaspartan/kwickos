@@ -23,7 +23,7 @@ if [ -z "${BASH_VERSION:-}${ZSH_VERSION:-}" ]; then
 	export ENV
 fi
 case $- in
-*i*) [ -r /etc/ashrc ] && . /etc/ashrc ;;
+*i*) [ -z "${ZSH_VERSION:-}" ] && [ -r /etc/ashrc ] && . /etc/ashrc ;;
 esac
 
 for f in /etc/profile.d/*.sh; do [ -r "$f" ] && . "$f"; done

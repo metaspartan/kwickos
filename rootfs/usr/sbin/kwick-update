@@ -235,7 +235,10 @@ collect_arch() {
 check_cve() {
 	if [ -x "$DEBSEC" ]; then
 		progress 75 "Checking installed packages for known vulnerabilities…"
-		"$DEBSEC" "$VAR" >>"$VAR/log" 2>&1 || log "the Debian security tracker check did not finish (see kwick-update cve)"
+		if ! e=$("$DEBSEC" "$VAR" 2>&1); then
+			printf '%s\n' "$e" >>"$VAR/log"
+			log "the Debian security tracker check did not finish: $(printf '%s\n' "$e" | sed -n 's/^debsec: //p' | tail -n 1)"
+		fi
 	fi
 	if arch_on; then
 		progress 80 "Checking the Arch environment…"

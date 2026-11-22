@@ -5,6 +5,7 @@ GenericName=System snapshots
 Comment=Browse earlier versions of the system and your files, restore files and undo updates
 Icon=kwick-snapshots
 Exec=kwick-snapshots
+StartupWMClass=kwick-snapshots
 Categories=System;Settings;Qt;
 Keywords=time machine;backup;restore;rollback;undo;snapshot;btrfs;history;versions;
 Terminal=false

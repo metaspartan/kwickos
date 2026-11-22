@@ -29,20 +29,32 @@ var connPool = struct {
 	m map[string][]*hconn
 }{m: map[string][]*hconn{}}
 
-func getConn(addr string) (*hconn, error) {
-	connPool.Lock()
-	if l := connPool.m[addr]; len(l) > 0 {
-		c := l[len(l)-1]
-		connPool.m[addr] = l[:len(l)-1]
+func getConn(addr string, fresh bool) (*hconn, bool, error) {
+	if !fresh {
+		connPool.Lock()
+		if l := connPool.m[addr]; len(l) > 0 {
+			c := l[len(l)-1]
+			connPool.m[addr] = l[:len(l)-1]
+			connPool.Unlock()
+			return c, true, nil
+		}
 		connPool.Unlock()
-		return c, nil
 	}
-	connPool.Unlock()
 	c, err := net.DialTimeout("tcp", addr, 20*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return &hconn{c: c, br: bufio.NewReaderSize(c, 64<<10)}, nil
+	return &hconn{c: c, br: bufio.NewReaderSize(c, 64<<10)}, false, nil
+}
+
+func dropConns(addr string) {
+	connPool.Lock()
+	l := connPool.m[addr]
+	delete(connPool.m, addr)
+	connPool.Unlock()
+	for _, c := range l {
+		c.c.Close()
+	}
 }
 
 func putConn(addr string, c *hconn) {
@@ -211,22 +223,28 @@ func httpOnce(u string) (*httpResp, string, error) {
 			reqTarget = u
 		}
 	}
+	fresh := false
 	for try := 0; try < 2; try++ {
-		hc, err := getConn(addr)
+		hc, reused, err := getConn(addr, fresh)
 		if err != nil {
 			return nil, "", err
 		}
 		hc.c.SetWriteDeadline(time.Now().Add(30 * time.Second))
 		_, err = fmt.Fprintf(hc.c, "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: kpkg/%s (KwickOS)\r\nAccept-Encoding: identity\r\nConnection: keep-alive\r\n\r\n",
 			reqTarget, host, kpkgVersion)
-		if err != nil {
-			hc.c.Close()
-			continue
+		var status string
+		if err == nil {
+			hc.c.SetReadDeadline(time.Now().Add(60 * time.Second))
+			status, err = hc.br.ReadString('\n')
 		}
-		hc.c.SetReadDeadline(time.Now().Add(60 * time.Second))
-		status, err := hc.br.ReadString('\n')
 		if err != nil {
 			hc.c.Close()
+			if reused {
+				dropConns(addr)
+				fresh = true
+				try--
+				continue
+			}
 			if try == 0 {
 				continue
 			}

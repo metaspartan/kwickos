@@ -76,7 +76,7 @@ ColumnLayout {
 
     Timer {
         interval: 4000
-        running: page.visible && page.available
+        running: page.visible
         repeat: true
         onTriggered: page.load()
     }
@@ -87,7 +87,7 @@ ColumnLayout {
             last: true
             title: "AI agent support is not installed"
             subtitle: "kwick-agents installs coding agents and local models in sandboxes, keeps their API keys in your keystore and lets them use KwickOS through the MCP server, with your permission."
-            Btn { text: "Install"; primary: true; onClicked: { Sys.terminal(Sys.elevated("apt-get install -y kwick-agents")) } }
+            Btn { text: "Install"; primary: true; onClicked: { Sys.terminal(Sys.elevated("apt-get install -y kwick-agents"), function () { page.load() }) } }
         }
     }
 
