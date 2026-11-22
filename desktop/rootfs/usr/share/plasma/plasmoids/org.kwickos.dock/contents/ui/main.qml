@@ -14,6 +14,8 @@ import org.kde.taskmanager as TaskManager
 
 PlasmoidItem {
     id: root
+    Kirigami.Theme.colorSet: Kirigami.Theme.Window
+    Kirigami.Theme.inherit: false
 
     preferredRepresentation: fullRepresentation
 
