@@ -124,7 +124,7 @@ ColumnLayout {
         if (!page.autoChecked && s.access !== undefined) {
             page.autoChecked = true
             var stale = Date.now() / 1000 - (page.st.checked || 0) > 6 * 3600
-            if (page.available && stale && !page.busy && page.access !== "none") page.check()
+            if (page.available && stale && !page.busy && page.access !== "none") page.priv("check --quiet", null, true)
         }
     }
 
@@ -132,13 +132,13 @@ ColumnLayout {
         Sys.run("sh " + Sys.dir + "helpers/update.sh" + (all ? "" : " status"), page.parse)
     }
 
-    function priv(args, cb) {
+    function priv(args, cb, quiet) {
         page.note = ""
         page.authWait = true
         Sys.run(Sys.elevated(page.tool + " " + args), function (out, code) {
             page.authWait = false
-            if (code === 126 || code === 127) page.note = "Authorization was cancelled."
-            else if (code !== 0 && !page.busy) page.note = page.lastLine(out)
+            if (code === 126 || code === 127) page.note = quiet ? "" : "Authorization was cancelled."
+            else if (code !== 0 && !page.busy && !quiet) page.note = page.lastLine(out)
             page.load(true)
             if (cb) cb(code)
         })

@@ -159,6 +159,7 @@ jobs:
             echo "Raspberry Pi 4, 400, 5 and 500: \`kwickos-arm64-rpi.img.zst\` (write it to an SD card or USB drive)"
             echo "Container: \`docker run -it ghcr.io/metaspartan/kwickos:$VERSION\`"
             echo "Kernel updates: \`apt update && apt upgrade\` (signed repo at https://metaspartan.github.io/kwickos)."
+            [ -f "docs/notes/$VERSION.md" ] && { echo; cat "docs/notes/$VERSION.md"; }
             echo; echo '```'; (cd release && cat SHA256SUMS); echo '```'
           } > notes.md
 

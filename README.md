@@ -247,6 +247,8 @@ Cross builds, the source tree, releases and CI: [docs/BUILDING.md](docs/BUILDING
 | [KERNELS](docs/KERNELS.md) | `kwick-kernel`: install, switch, try once and roll back kernels |
 | [UPDATES](docs/UPDATES.md) | `kwick-update` and the Software Update page: checks, updates, automatic updates, notifications |
 | [SNAPSHOTS](docs/SNAPSHOTS.md) | `kwick-snapshot` and the Snapshots page: Btrfs snapshots around every update and every hour, file restore, rollback, starting a snapshot from the boot menu |
+| [NEARBY](docs/NEARBY.md) | Nearby Share: sending files to phones and computers nearby, LocalSend compatible |
+| [SHELLS](docs/SHELLS.md) | `kwick-shell` and `kwick-desktop shell`: terminal shells, prompt presets and desktop shells |
 | [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md), [ARCH](docs/ARCH.md) | optional packages |
 | [BUILDING](docs/BUILDING.md) and [VERIFICATION](docs/VERIFICATION.md) | building from source, CI, and what was tested |
 
