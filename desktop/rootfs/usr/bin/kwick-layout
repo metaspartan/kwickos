@@ -276,9 +276,9 @@ kde() {
     linux)   SCHEME=Kwick$(light && echo Light || echo Dark); ACC=$(light && echo 46,125,233 || echo 94,129,244); LIB=org.kde.breeze; DECO=Breeze; L=M; R=IAX ;;
   esac
   ICO=$(icontheme)
+  kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals General ColorScheme none
   plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
-  kw kdeglobals General AccentColor "$ACC"
   kw kdeglobals Icons Theme "$ICO"
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
   kwriteconfig6 --notify --file kdeglobals --group KDE --key widgetStyle "$(if ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then case $want in macos) echo KwickMac ;; windows) echo KwickFluent ;; *) echo Breeze ;; esac; else echo Breeze; fi)"

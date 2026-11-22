@@ -1042,6 +1042,7 @@ load_header() {
 	TRIALID=$(trial_id)
 	TRIALMODE=$(trial_mode)
 	LASTRESULT=$(st_get result)
+	if [ -z "$DEFID" ] && [ -z "$PREVID" ] && [ -z "$TRIALID" ] && [ -n "$RUNID" ]; then DEFID=$RUNID; fi
 }
 
 installed_version_of_flavor() {

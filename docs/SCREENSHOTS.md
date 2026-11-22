@@ -55,9 +55,29 @@ Text installer:
 |---|---|---|
 | <img src="img/settings.png" width="280" alt="Settings appearance"> | <img src="img/settings-dock.png" width="280" alt="Settings dock"> | <img src="img/settings-effects.png" width="280" alt="Settings effects"> |
 
+| Agents | Shells | Privacy & Security |
+|---|---|---|
+| <img src="img/settings-agents.png" width="280" alt="Settings agents"> | <img src="img/settings-shells.png" width="280" alt="Settings shells"> | <img src="img/settings-privacy.png" width="280" alt="Settings privacy and security"> |
+
 KDE System Settings with the KwickOS object icons:
 
 <img src="img/settings-kde.png" width="860" alt="KDE System Settings">
+
+## Built-in apps
+
+| App Store | App Store, light | Software Update |
+|---|---|---|
+| <img src="img/app-store.png" width="280" alt="App Store"> | <img src="img/app-store-light.png" width="280" alt="App Store, light"> | <img src="img/software-update.png" width="280" alt="Software Update"> |
+
+| Quick Look | Capture | Nearby Share |
+|---|---|---|
+| <img src="img/quick-look.png" width="280" alt="Quick Look"> | <img src="img/capture.png" width="280" alt="Capture"> | <img src="img/nearby-share.png" width="280" alt="Nearby Share"> |
+
+| Clipboard history (Meta+V) | Control Center | Control Center, light |
+|---|---|---|
+| <img src="img/clipboard.png" width="280" alt="Clipboard history"> | <img src="img/control-center.png" width="280" alt="Control Center"> | <img src="img/control-center-light.png" width="280" alt="Control Center, light"> |
+
+Snapshots: [SNAPSHOTS.md](SNAPSHOTS.md).
 
 ## Icons and fonts
 

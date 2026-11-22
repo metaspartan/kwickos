@@ -83,6 +83,11 @@ RUN rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/p
 RUN (for t in KwickOS KwickOS-Fluent KwickOS-Linux hicolor; do gtk-update-icon-cache -f -t /usr/share/icons/$t || true; done) \
  && rm -rf /usr/share/plasma/look-and-feel/org.kde.breeze.desktop /usr/share/plasma/look-and-feel/org.kde.breezedark.desktop /usr/share/plasma/look-and-feel/org.kde.breezetwilight.desktop /usr/share/plasma/look-and-feel/org.debian.desktop \
  && for l in macos windows linux; do cp /usr/share/kwick/plasma/$l.js /usr/share/plasma/look-and-feel/org.kwickos.$l/contents/layouts/org.kde.plasma.desktop-layout.js; done \
+ && T=/usr/share/kwick/tiling K=/etc/skel/.config \
+ && mkdir -p $K/hypr $K/sway \
+ && cp $T/common/hyprland.conf $K/hypr/hyprland.conf && cp $T/macos/hyprland.conf $K/hypr/kwick-layout.conf \
+ && : > $K/hypr/kwick-effects.conf && : > $K/hypr/kwick-bars.conf && : > $K/hypr/kwick-touch.conf \
+ && cp $T/common/sway.conf $K/sway/config && sed 's/@UI@/Inter/g' $T/macos/sway.conf > $K/sway/kwick-layout.conf \
  && touch -r /usr /etc/.updated /var/.updated \
  && su -s /bin/sh kwick -c 'cd && XDG_CURRENT_DESKTOP=KDE dbus-run-session /usr/lib/kwick/session-init kde' \
  && test -e /home/kwick/.config/kwick/kde.applied

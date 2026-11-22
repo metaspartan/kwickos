@@ -23,7 +23,7 @@
 * [What is KwickOS](#what-is-kwickos)
 * [Quick start](#quick-start)
 * [Size and speed](#size-and-speed)
-* [The desktop](#the-desktop) and [Kwick Effects](#kwick-effects)
+* [The desktop](#the-desktop), [Built-in apps](#built-in-apps) and [Kwick Effects](#kwick-effects)
 * [Optional packages](#optional-packages)
 * [Installing](#installing)
 * [kfetch](#kfetch)
@@ -116,6 +116,36 @@ Files sidebar.
 
 `kwick-gpu` installs the right GPU drivers, and `steam` installs native Steam. More: [docs/DESKTOP.md](docs/DESKTOP.md) and the
 [screenshot gallery](docs/SCREENSHOTS.md).
+
+## Built-in apps
+
+The everyday tools are part of the desktop. They follow the layout, the accent color and the light or dark appearance.
+
+| App Store | Software Update |
+|---|---|
+| <img src="docs/img/app-store.png" width="420" alt="App Store"> | <img src="docs/img/software-update.png" width="420" alt="Software Update with the installed kernels"> |
+| **Snapshots** | **Quick Look** |
+| <img src="docs/img/snapshots-settings-dark.png" width="420" alt="Snapshots"> | <img src="docs/img/quick-look.png" width="420" alt="Quick Look previewing a photo"> |
+| **Nearby Share** | **Capture** |
+| <img src="docs/img/nearby-share.png" width="420" alt="Nearby Share sheet"> | <img src="docs/img/capture.png" width="420" alt="Capture toolbar"> |
+| **Settings: Agents** | **Settings: Shells** |
+| <img src="docs/img/settings-agents.png" width="420" alt="Agents page in Settings"> | <img src="docs/img/settings-shells.png" width="420" alt="Shells page in Settings"> |
+| **Settings: Privacy & Security** | **Clipboard history and Control Center** |
+| <img src="docs/img/settings-privacy.png" width="420" alt="Privacy and Security page in Settings"> | <img src="docs/img/clipboard.png" width="205" alt="Clipboard history"> <img src="docs/img/control-center.png" width="205" alt="Control Center"> |
+
+* **App Store** (`kwick-store`) finds and installs apps from Flathub and Debian, AI agents, and Arch and the AUR once they are
+  turned on, with Updates and Installed views.
+* **Software Update** checks KwickOS, apps and kernels, and lists the installed kernels with try-once and roll back.
+* **Snapshots** keeps Btrfs snapshots before and after every software change and every hour. Browse one, bring back a file, or
+  start the computer from it. [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md)
+* **Quick Look** previews the selected file in Files with Space. **Capture** (Meta+Shift+S) takes screenshots and recordings and
+  copies text from the screen.
+* **Nearby Share** sends files to phones and computers nearby and works with LocalSend on Android, iPhone, Windows, macOS and
+  Linux. It is in Files, Quick Look, Capture, Settings and the Control Center.
+* **Clipboard history** opens with Meta+V. The **Control Center** in the menu bar has Bluetooth, Nearby Share, network, Focus,
+  Night Light, display, sound and media.
+* **Settings** has new pages for Agents (sandboxed coding agents, a keystore and the kwick-mcp server), Shells (the desktop shell,
+  the terminal shell and its prompt) and Privacy & Security (what uses the camera, microphone and screen, and app permissions).
 
 ## Kwick Effects
 

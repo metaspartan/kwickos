@@ -46,6 +46,15 @@ case "$cmd" in
           mkdir -p /etc/sddm.conf.d
           printf '[Autologin]\nSession=%s\n' "$(session "$de")" > /etc/sddm.conf.d/30-kwick-session.conf
           for f in /etc/sddm.conf.d/20-autologin.conf; do [ -f $f ] && sed -i "s/^Session=.*/Session=$(session "$de")/" $f; done
+          u=${SUDO_USER:-}
+          case $de in hyprland|sway)
+            if [ -n "$u" ] && [ "$u" != root ]; then
+              h=$(getent passwd "$u" | cut -d: -f6)
+              if [ ! -f "$h/.config/hypr/kwick-layout.conf" ] || [ ! -f "$h/.config/sway/kwick-layout.conf" ]; then
+                su "$u" -s /bin/sh -c 'XDG_CURRENT_DESKTOP=Hyprland kwick-layout "$(kwick-layout)"' >/dev/null 2>&1 || true
+              fi
+            fi ;;
+          esac
           echo "Default session is now $de. Log out to apply." ;;
   *) echo "usage: kwick-desktop list [--json] | install <desktop> | switch <desktop> | shell [list|NAME] [--json]";echo "desktops: kde gnome hyprland sway xfce cinnamon mate lxqt"; echo "desktop shells: plasma gnome hyprland sway dms noctalia (kwick-desktop shell --help)"; exit 1 ;;
 esac

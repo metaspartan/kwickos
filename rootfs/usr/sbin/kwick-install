@@ -1518,7 +1518,7 @@ cfg_session() {
 
 cfg_autologin() {
 	rm -f "$T/etc/kinit/autologin"
-	if [ "$AUTOLOGIN" = yes ]; then
+	if [ "$AUTOLOGIN" = yes ] && [ ! -d "$T/etc/sddm.conf.d" ]; then
 		mkdir -p "$T/etc/kinit"
 		echo "$USERN" >"$T/etc/kinit/autologin"
 	fi

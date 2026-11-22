@@ -17,7 +17,7 @@ USAGE
 cfgdir=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
 conf=$cfgdir/dock.conf
 mkdir -p "$cfgdir"
-default_pinned="org.kde.dolphin.desktop,firefox-esr.desktop,org.kde.konsole.desktop,org.kde.kate.desktop,org.kde.discover.desktop,kwick-settings.desktop"
+default_pinned="org.kde.dolphin.desktop,firefox-esr.desktop,org.kde.konsole.desktop,org.kde.kate.desktop,kwick-store.desktop,kwick-settings.desktop"
 
 get() { [ -f "$conf" ] && sed -n "s/^$1=//p" "$conf" | tail -n 1; }
 val() { v=$(get "$1"); [ -n "$v" ] && printf '%s' "$v" || printf '%s' "$2"; }
@@ -31,7 +31,12 @@ set_key() {
 }
 
 ensure() {
-  [ -f "$conf" ] && return 0
+  if [ -f "$conf" ]; then
+    if [ -f /usr/share/applications/kwick-store.desktop ] && grep -q '^pinned=.*org\.kde\.discover\.desktop' "$conf"; then
+      sed -i '/^pinned=/s/org\.kde\.discover\.desktop/kwick-store.desktop/' "$conf"
+    fi
+    return 0
+  fi
   printf 'position=bottom\niconSize=48\nautohide=off\nfloating=on\nmagnify=on\npinned=%s\n' "$default_pinned" > "$conf"
 }
 
