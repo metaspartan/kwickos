@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>KwickOS</vendor>
+  <vendor_url>https://github.com/metaspartan/kwickos</vendor_url>
+  <action id="org.kwickos.shell">
+    <description>Change the login shell or install a shell</description>
+    <message>Authentication is required to install a terminal shell or to change a login shell.</message>
+    <icon_name>utilities-terminal</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/kwick/shell-helper</annotate>
+  </action>
+</policyconfig>

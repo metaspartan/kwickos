@@ -355,6 +355,48 @@ Not verified: real API calls (no keys entered), the Secret Service backend, a su
 nested sandbox inside bubblewrap, GNOME and Hyprland consent dialogs (zenity, notify-send), arm64/riscv64 hardware, `kwick-snapshot`
 (not present), the rebuilt `kwick-desktop` package (Settings files were copied into the VM).
 
+## Shells (terminal shells, prompt presets, desktop shells)
+
+Own lab container `shells-lab` (image `kwick-vmlab`, `--cpus 6`), VM overlay `shells-1` in the `shells-vm` volume on `d10.qcow2`
+(KDE Plasma desktop on the 0.4.0 base, user `kwick` in group `sudo`, virgl, `SMP=2`). The changed files from the tree were copied into
+the VM (`kwick-shell`, the shell configs, `shell-helper`, `shell-env`, `kwick-desktop`, `desktop-shells`, `hypr-shell`, the polkit
+files, the Settings folder, `kwick-layout`); `add-shell`/`remove-shell` from the current base had to be copied too, because the old
+image lacks them and Debian's `fish` and `xonsh` postinst call them. `kwick-quickshell_0.6.5_amd64.deb` came from
+`scripts/mkquickshellpkg.sh` (Debian 13 container, Quickshell 0.3.2 source SHA-256 checked, wayland-protocols 1.47 SHA-256 checked).
+Before the VM, every shell and preset ran in a `debian:trixie` container under `script(1)` and the raw prompt bytes were checked.
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Install from Debian | `kwick-shell install zsh|fish|elvish|xonsh|starship` as root: installed, added to `/etc/shells` | VM serial log |
+| Install from upstream | Nushell 0.117.0 and PowerShell 7.7.0: downloaded, `verified sha256 2b80…9924` and `c89d…a0cb`, links in `/usr/local/bin`, `libicu76` pulled for PowerShell | container and VM logs |
+| `list --json`, `prompt list --json`, `desktop shell list --json` | valid JSON, versions read with `dpkg-query --showformat` | Settings parses them |
+| Helper refusals | `PKEXEC_UID=1000 shell-helper set root fish` refused ("you can only change your own login shell", rc 2) | VM serial log |
+| Settings, terminal shell | in the Plasma session, Use on fish: no terminal, no password dialog, `/etc/passwd` has `/usr/bin/fish` | `shells-settings-terminal-switching.png`, `shells-settings-terminal-fish.png` |
+| CLI as the user | `kwick-shell nushell` in a terminal of the active session: switched without a password (polkit rule) | `shells-cli-switch.png` |
+| Not in the active session | Settings started from a serial root shell: polkit had no agent and Settings showed the error inline | screenshot kept in the lab |
+| Prompt presets | KwickOS, Minimal, Powerline, Starship in bash, BusyBox ash, zsh, fish, Nushell, Elvish, xonsh, PowerShell: colours, layout blue, red character or arrow after a failed command, git branch from `.git/HEAD`; Starship with the KwickOS theme | container log `ctest*.log`, `shells-prompt-powerline-fish.png`, `shells-prompt-powerline-nu-elvish-xonsh-pwsh.png`, `shells-prompt-kwick-all.png` |
+| Same prompt everywhere | KwickOS preset, one terminal: zsh, Nushell, Elvish, xonsh and PowerShell all print `kwick@kwick proj` with the folder in the layout blue; bash in this old VM kept the prompt of the user's own `~/.bashrc` from before `prompt.sh` existed (new users get `/etc/skel/.bashrc`, checked in the container) | `shells-prompt-kwick-all.png` |
+| Settings, prompt preview | Powerline preview with drawn arrows and the branch glyph; clicking a preset writes `~/.config/kwick/prompt` | `shells-settings-prompt-powerline.png` |
+| Settings, desktop shells | cards for Plasma, GNOME Shell, Hyprland + Waybar, Sway + Waybar, Dux Shell, Noctalia; dark and light; 1, 2 or 3 columns by width | `shells-settings-desktop.png`, `shells-settings-desktop-light.png` |
+| Dux Shell install from Settings | Install and use: Dux Shell 2.1.2 downloaded as the user, SHA-256 checked, Hyprland made the default session through `shell-helper session` without a password, card "At next login" | `shells-settings-dux-installed.png` |
+| Dux Shell on Hyprland | after a reboot SDDM started Hyprland and `hypr-shell` started Dux Shell (Quickshell 0.3.2) with the KwickOS wallpaper; welcome window, then the bar | `shells-dux-welcome.png`, `shells-dux-desktop.png` |
+| Appearance | `kwick-layout appearance light` turned the Dux Shell bar light (`dms ipc call theme getMode` prints `light`), and back | `shells-dux-light.png` |
+| Live switch | `kwick-desktop shell hyprland` inside Hyprland stopped Dux Shell and started the KwickOS Waybar bar and dock; Switch now on the Dux card in Settings went back (the bar takes about 30 s to appear in this VM) | `shells-live-waybar.png`, `shells-live-dux-from-settings.png` |
+| Noctalia | `kwick-noctalia_0.6.5_amd64.deb` from `scripts/mknoctaliapkg.sh` (Noctalia 5.6.0 release SHA-256 checked, 860 build steps on Debian 13's GCC 14), installed; `kwick-desktop shell noctalia` inside Hyprland stopped Waybar and started Noctalia with the KwickOS wallpaper (`noctalia msg wallpaper-get`); `kwick-layout appearance light` made it light (`theme-mode-get` prints `light`); Settings marks it In use | `shells-noctalia-desktop.png`, `shells-noctalia-light.png`, `shells-settings-noctalia-in-use.png` |
+
+Problems found and fixed while testing: QML `top` is a final property of `Item` (preview did not load); kpkg's `dpkg-query -f=FORMAT`
+keeps the `=` (versions showed as `=5.2.37`), so the scripts use `--showformat=`; Elvish has no system rc, so `kwick-shell` seeds
+`~/.config/elvish/rc.elv` (and `~/.zshrc`) for existing users; xonsh's readline mode maps dark greys to the wrong 256-colour entries,
+so it emits the SGR codes itself; bash showed a red prompt character on the first prompt because `~/.bashrc` ended with a failing
+test; Debian 13 has wayland-protocols 1.44, Quickshell 0.3.2 and Noctalia 5.6.0 need `ext-background-effect-v1`; Noctalia's
+`libqalculate-dev` needs the GnuTLS flavour of `libcurl4-*-dev`; Noctalia keeps the wallpaper in its state, not in `settings.toml`, so
+`hypr-shell` sets it once with `noctalia msg wallpaper-set`. Screenshots are in `D:\KwickOS-lab\shells\shots\final` on the test machine.
+
+Not verified for shells: the rebuilt `kwick-desktop` package and a fresh image (files were copied into an old VM); Sway, GNOME and
+Plasma reached through the Shells page (only the session switch to Hyprland and back on the CLI); arm64 and riscv64; a polkit
+password prompt for installing a shell in the Plasma session (the shells were installed from the serial console first); Dux Shell's
+own lock screen, launcher and settings beyond the bar; PowerShell's login-shell mode.
+
 ## Not verified
 
 * Steam client window or login screen (blocked by bug 4).

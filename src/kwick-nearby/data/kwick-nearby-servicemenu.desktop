@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/all;inode/directory;
+X-KDE-Priority=TopLevel
+Actions=nearby
+
+[Desktop Action nearby]
+Name=Share Nearby…
+Icon=kwick-nearby
+Exec=kwick-nearby --share %F

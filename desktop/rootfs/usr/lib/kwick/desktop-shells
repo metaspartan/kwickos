@@ -1,0 +1,270 @@
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
+SHELLS="plasma gnome hyprland sway dms noctalia"
+DMS_VER=2.1.2
+HS=/usr/lib/kwick/hypr-shell
+
+say() { printf 'kwick-desktop: %s\n' "$*"; }
+die() { printf 'kwick-desktop: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+arch() { dpkg --print-architecture 2>/dev/null || uname -m; }
+
+dms_asset() {
+	case $(arch) in
+	amd64) echo "dms-full-amd64 3e3eeb235b64158ebd14c78113a4178bc9947b1a628238d74449327d69ecea9a" ;;
+	arm64) echo "dms-full-arm64 1792e68fcf104c8bd5b9347dd8c544c8dfcd64b18890936497b2d1ecfa3fb167" ;;
+	*) return 1 ;;
+	esac
+}
+
+meta() {
+	case $1 in
+	plasma) M_TITLE="KDE Plasma" M_SESSION=kde M_DE=kde M_BAR= M_KIND=desktop M_TK="Qt 6, KWin" M_LIC=GPL-2.0-or-later M_SRC=debian M_PKG=plasma-workspace M_DESC="The default KwickOS desktop: KWin effects, the macOS, Windows and Linux layouts, Wayland and X11" ;;
+	gnome) M_TITLE="GNOME Shell" M_SESSION=gnome M_DE=gnome M_BAR= M_KIND=desktop M_TK="GTK 4, Mutter" M_LIC=GPL-2.0-or-later M_SRC=debian M_PKG=gnome-shell M_DESC="GNOME with the KwickOS dock, blur, wobbly windows and the 3D cube" ;;
+	hyprland) M_TITLE="Hyprland + Waybar" M_SESSION=hyprland M_DE=hyprland M_BAR=waybar M_KIND=tiling M_TK="Hyprland, Waybar" M_LIC=BSD-3-Clause M_SRC=kwickos M_PKG=kwick-hyprland M_DESC="Animated tiling with the KwickOS bar, dock and Spotlight for every layout" ;;
+	sway) M_TITLE="Sway + Waybar" M_SESSION=sway M_DE=sway M_BAR=waybar M_KIND=tiling M_TK="Sway, Waybar" M_LIC=MIT M_SRC=debian M_PKG=sway M_DESC="Lightweight i3-style tiling with the KwickOS bar and Spotlight" ;;
+	dms) M_TITLE="Dux Shell" M_SESSION=hyprland M_DE=hyprland M_BAR=dms M_KIND=quickshell M_TK="Quickshell (QML), Hyprland" M_LIC=MIT M_SRC=upstream M_PKG=kwick-quickshell M_DESC="Material 3 shell built on Quickshell (formerly DankMaterialShell): bar, dock, launcher, control center, notifications and lock screen" ;;
+	noctalia) M_TITLE="Noctalia" M_SESSION=hyprland M_DE=hyprland M_BAR=noctalia M_KIND=native M_TK="C++ and Wayland, Hyprland" M_LIC=MIT M_SRC=kwickos M_PKG=kwick-noctalia M_DESC="A sleek, customizable desktop shell crafted for Wayland, with bar, dock, launcher and lock screen" ;;
+	*) return 1 ;;
+	esac
+}
+
+session_file() {
+	for d in /usr/share/wayland-sessions /usr/share/xsessions; do
+		[ -e "$d/$1.desktop" ] && return 0
+	done
+	return 1
+}
+
+session_name() { case $1 in kde) echo plasma ;; *) echo "$1" ;; esac; }
+
+default_session() {
+	cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null)
+	[ -n "$cur" ] || cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/20-autologin.conf 2>/dev/null)
+	echo "${cur%.desktop}"
+}
+
+running_session() {
+	d=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
+	case $d in
+	*kde*) echo plasma ;;
+	*gnome*) echo gnome ;;
+	*hyprland*) echo hyprland ;;
+	*sway*) echo sway ;;
+	esac
+}
+
+bar_of_user() { if [ -x "$HS" ]; then "$HS" current; else echo waybar; fi; }
+
+dms_home() { echo "${XDG_DATA_HOME:-$HOME/.local/share}/kwick/shells/dms/$DMS_VER"; }
+
+pkg_ok() { dpkg-query -W --showformat='${Status}' "$1" 2>/dev/null | grep -q 'ok installed'; }
+
+available() {
+	meta "$1" || return 1
+	case $1 in
+	dms) dms_asset >/dev/null ;;
+	noctalia) [ "$(arch)" = amd64 ] || [ "$(arch)" = arm64 ] || pkg_ok kwick-noctalia || apt-cache show kwick-noctalia >/dev/null 2>&1 ;;
+	*) return 0 ;;
+	esac
+}
+
+sys_ready() {
+	meta "$1"
+	case $1 in
+	hyprland) session_file hyprland && have Hyprland ;;
+	dms) session_file hyprland && have Hyprland && pkg_ok kwick-quickshell ;;
+	noctalia) session_file hyprland && have Hyprland && pkg_ok kwick-noctalia ;;
+	*) session_file "$(session_name "$M_SESSION")" ;;
+	esac
+}
+
+user_ready() {
+	case $1 in
+	dms) [ -x "$(dms_home)/bin/dms" ] ;;
+	*) return 0 ;;
+	esac
+}
+
+installed() { sys_ready "$1" && user_ready "$1"; }
+
+version_of() {
+	meta "$1"
+	case $1 in
+	dms) user_ready dms && echo "$DMS_VER" ;;
+	noctalia) dpkg-query -W --showformat='${Provides}' kwick-noctalia 2>/dev/null | sed -n 's/.*noctalia (= \([^)]*\)).*/\1/p' ;;
+	hyprland) dpkg-query -W --showformat='${Description}' kwick-hyprland 2>/dev/null | sed -n '1s/^Hyprland v\{0,1\}\([0-9.]*\).*/\1/p' ;;
+	*) dpkg-query -W --showformat='${Version}' "$M_PKG" 2>/dev/null | sed 's/^[0-9]*://; s/[-+].*//' ;;
+	esac
+}
+
+current_shell() {
+	s=$(default_session)
+	[ -n "$s" ] || s=$(running_session)
+	case $s in
+	plasma | kde) echo plasma ;;
+	gnome*) echo gnome ;;
+	sway) echo sway ;;
+	hyprland)
+		b=$(bar_of_user)
+		case $b in dms | noctalia) echo "$b" ;; *) echo hyprland ;; esac
+		;;
+	*) echo "$s" ;;
+	esac
+}
+
+running_shell() {
+	r=$(running_session)
+	case $r in
+	hyprland)
+		b=$(bar_of_user)
+		if [ "$b" != waybar ] && [ -x "$HS" ] && "$HS" ready "$b"; then echo "$b"; else echo hyprland; fi
+		;;
+	*) echo "$r" ;;
+	esac
+}
+
+json_str() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+
+list_json() {
+	cur=$(current_shell)
+	run=$(running_shell)
+	printf '{"current":"%s","running":"%s","session":"%s","arch":"%s","shells":[' "$cur" "$run" "$(running_session)" "$(arch)"
+	sep=
+	for s in $SHELLS; do
+		meta "$s"
+		installed "$s" && i=true || i=false
+		available "$s" && a=true || a=false
+		[ "$s" = "$cur" ] && c=true || c=false
+		[ "$s" = "$run" ] && r=true || r=false
+		live=false
+		case $s in hyprland | dms | noctalia) [ "$(running_session)" = hyprland ] && live=true ;; esac
+		printf '%s{"name":"%s","title":%s,"session":"%s","bar":"%s","kind":"%s","toolkit":%s,"license":"%s","source":"%s","version":%s,"installed":%s,"available":%s,"current":%s,"running":%s,"live":%s,"description":%s}' \
+			"$sep" "$s" "$(json_str "$M_TITLE")" "$(session_name "$M_SESSION")" "$M_BAR" "$M_KIND" "$(json_str "$M_TK")" "$M_LIC" "$M_SRC" "$(json_str "$(version_of "$s")")" "$i" "$a" "$c" "$r" "$live" "$(json_str "$M_DESC")"
+		sep=,
+	done
+	printf ']}\n'
+}
+
+list_text() {
+	cur=$(current_shell)
+	run=$(running_shell)
+	for s in $SHELLS; do
+		meta "$s"
+		if installed "$s"; then st="installed $(version_of "$s")"; elif available "$s"; then st="available"; else st="not available on $(arch)"; fi
+		[ "$s" = "$run" ] && st="$st, running"
+		m=" "
+		[ "$s" = "$cur" ] && m="*"
+		printf ' %s %-9s %-18s %s\n' "$m" "$s" "$M_TITLE" "$st"
+	done
+}
+
+root_run() {
+	if [ "$(id -u)" -eq 0 ]; then "$@"; return $?; fi
+	if have sudo && sudo -n true 2>/dev/null; then sudo -n "$@"; return $?; fi
+	if have pkexec && { [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] || [ -t 0 ]; }; then pkexec "$@"; return $?; fi
+	have sudo || die "this step needs root and neither sudo nor pkexec is available"
+	sudo "$@"
+}
+
+fetch() {
+	if have curl; then curl -fsSL --retry 3 -o "$2" "$1"; else wget -q -O "$2" "$1"; fi
+}
+
+install_system() {
+	meta "$1" || die "unknown desktop shell: $1"
+	[ "$(id -u)" -eq 0 ] || die "install-system needs root"
+	case $1 in
+	plasma) pk=$(kwick_desktop_pkgs kde) ;;
+	gnome) pk=$(kwick_desktop_pkgs gnome) ;;
+	sway) pk=$(kwick_desktop_pkgs sway) ;;
+	hyprland) pk=$(kwick_desktop_pkgs hyprland) ;;
+	dms) pk="$(kwick_desktop_pkgs hyprland) kwick-quickshell fonts-inter" ;;
+	noctalia) pk="$(kwick_desktop_pkgs hyprland) kwick-noctalia" ;;
+	esac
+	say "installing $pk"
+	if ! apt-get install -y -q $pk </dev/null; then
+		apt-get update -q </dev/null >/dev/null 2>&1
+		apt-get install -y -q $pk </dev/null || die "could not install $pk"
+	fi
+}
+
+kwick_desktop_pkgs() { /usr/bin/kwick-desktop pkgs "$1"; }
+
+install_user() {
+	case $1 in
+	dms)
+		user_ready dms && return 0
+		pin=$(dms_asset) || die "Dux Shell has no official build for $(arch)"
+		set -- $pin
+		url="https://github.com/duxlabs-dev/dux-shell/releases/download/v$DMS_VER/$1.tar.gz"
+		dest=$(dms_home)
+		tmp=$(mktemp -d "${TMPDIR:-/tmp}/kwick-dms.XXXXXX") || die "no temporary directory"
+		say "downloading Dux Shell $DMS_VER"
+		fetch "$url" "$tmp/a.tar.gz" || { rm -rf "$tmp"; die "could not download $url"; }
+		got=$(sha256sum "$tmp/a.tar.gz" | cut -d' ' -f1)
+		[ "$got" = "$2" ] || { rm -rf "$tmp"; die "checksum mismatch for $1.tar.gz (got $got, expected $2)"; }
+		say "verified sha256 $2"
+		rm -rf "$dest.new"
+		mkdir -p "$dest.new"
+		tar -xzf "$tmp/a.tar.gz" -C "$dest.new" || { rm -rf "$tmp" "$dest.new"; die "could not unpack $1"; }
+		rm -rf "$tmp"
+		printf '%s %s\n' "$url" "$2" >"$dest.new/.kwick-source"
+		rm -rf "$dest"
+		mv "$dest.new" "$dest"
+		for old in "${dest%/*}"/*; do [ "$old" = "$dest" ] || rm -rf "$old"; done
+		;;
+	esac
+	return 0
+}
+
+cmd_install() {
+	n=$1
+	available "$n" || die "$n is not available on $(arch)"
+	sys_ready "$n" || root_run /usr/bin/kwick-desktop shell install-system "$n" || die "could not install the packages for $n"
+	install_user "$n"
+	installed "$n" || die "$n is still not ready after the install"
+	say "$(meta "$n"; echo "$M_TITLE") is installed"
+}
+
+cmd_switch() {
+	n=$1
+	meta "$n" || die "unknown desktop shell: $n (use: $SHELLS)"
+	installed "$n" || cmd_install "$n"
+	meta "$n"
+	if [ -n "$M_BAR" ] && [ "$M_SESSION" = hyprland ] && [ -x "$HS" ]; then
+		"$HS" set "$M_BAR"
+	fi
+	if [ "$(default_session)" != "$(session_name "$M_SESSION")" ]; then
+		if [ "$(id -u)" -ne 0 ] && [ -x /usr/lib/kwick/shell-helper ] && have pkexec && [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+			pkexec /usr/lib/kwick/shell-helper session "$M_DE" >/dev/null || die "could not make $(session_name "$M_SESSION") the default session"
+		else
+			root_run /usr/bin/kwick-desktop switch "$M_DE" >/dev/null || die "could not make $(session_name "$M_SESSION") the default session"
+		fi
+	fi
+	if [ "$(running_session)" = hyprland ] && [ "$M_SESSION" = hyprland ]; then
+		say "$M_TITLE is running now"
+	else
+		say "$M_TITLE starts at your next login; log out to switch"
+	fi
+}
+
+json=
+for a in "$@"; do [ "$a" = --json ] && json=1; done
+case ${1:-list} in
+list | --json) if [ -n "$json" ]; then list_json; else list_text; fi ;;
+current) current_shell ;;
+install) [ -n "${2:-}" ] || die "install needs a name"; cmd_install "$2" ;;
+install-system) install_system "${2:-}" ;;
+-h | --help | help)
+	cat <<'EOF'
+usage: kwick-desktop shell [list] [--json]   desktop shells, * marks the one used at login
+       kwick-desktop shell NAME              switch to NAME (installs it first; live inside Hyprland)
+       kwick-desktop shell install NAME      install without switching
+       kwick-desktop shell current           print the desktop shell used at login
+shells: plasma gnome hyprland sway dms noctalia
+EOF
+	;;
+*) cmd_switch "$1" ;;
+esac

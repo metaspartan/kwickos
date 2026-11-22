@@ -146,7 +146,7 @@ Nothing below is in the base image. Each one is a small package or command that 
 | `kwick-storage`, `kwick-zfs` | NAS modules: prebuilt OpenZFS, RAID, SnapRAID arrays, SMB and NFS shares, Cockpit | `apt install kwick-storage`, then `kwick-storage install zfs` | [STORAGE](docs/STORAGE.md) |
 | `kwick-vpn` | import WireGuard and OpenVPN profiles, add Tailscale, Mullvad, Proton, ZeroTier or NetBird | in the base: `kwick-vpn install tailscale` | [VPN](docs/VPN.md) |
 | `kwick-brew` | Homebrew (Linuxbrew) with the official installer, amd64 and arm64 | in the base: `kwick-brew install` | [BASE](docs/BASE.md#homebrew) |
-| `kwick-shell` | switches the login shell between zsh, bash, ash and fish, zsh is the desktop default | in the base: `kwick-shell zsh` | [BASE](docs/BASE.md#shells) |
+| `kwick-shell` | switches the login shell (zsh, bash, fish, ash, Nushell, Elvish, xonsh, PowerShell) and the prompt preset in every shell; `kwick-desktop shell` switches the desktop shell (Plasma, GNOME, Hyprland, Sway, Dux Shell, Noctalia) | in the base: `kwick-shell fish`, Settings > Shells | [SHELLS](docs/SHELLS.md) |
 | `kwick-gpu` | detects GPUs and installs AMD, Intel or NVIDIA drivers and firmware | `apt install kwick-gpu` (included with the desktop) | [HARDWARE](docs/HARDWARE.md) |
 | `kwick-darling` | runs macOS command-line programs with Darling (amd64) | `apt install kwick-darling` | [DARLING](docs/DARLING.md) |
 | `kwick-arch` | Arch Linux repositories (core, extra, multilib) and the AUR in a managed Arch environment, CVE-gated and with AUR review (x86_64) | `apt install kwick-arch`, then `kwick-arch enable` | [ARCH](docs/ARCH.md) |

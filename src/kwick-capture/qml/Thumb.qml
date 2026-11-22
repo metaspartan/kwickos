@@ -153,6 +153,36 @@ Item {
                 onClicked: Capture.thumbDismiss()
             }
         }
+
+        Rectangle {
+            id: sharer
+            visible: area.containsMouse || closeArea.containsMouse || shareArea.containsMouse
+            x: card.width - width - 6
+            y: card.height - height - 6
+            width: 26
+            height: 26
+            radius: 13
+            color: shareArea.pressed ? Qt.darker(pal.accent, 1.15) : pal.accent
+            border.width: 1
+            border.color: Qt.rgba(1, 1, 1, 0.35)
+            Glyph {
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: -1
+                name: "share"
+                width: 14
+                height: 14
+                tint: "#ffffff"
+            }
+            MouseArea {
+                id: shareArea
+                anchors.fill: parent
+                anchors.margins: -3
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onContainsMouseChanged: Capture.thumbHold(containsMouse || area.containsMouse)
+                onClicked: Capture.thumbShare()
+            }
+        }
     }
 
     MouseArea {
@@ -168,7 +198,7 @@ Item {
         z: -1
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onContainsMouseChanged: Capture.thumbHold(containsMouse || closeArea.containsMouse)
+        onContainsMouseChanged: Capture.thumbHold(containsMouse || closeArea.containsMouse || shareArea.containsMouse)
         onPressed: mouse => {
             start = Qt.point(mouse.x, mouse.y)
             swiping = false

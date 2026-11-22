@@ -1,0 +1,4 @@
+#!/bin/sh
+unset KWICK_ENV
+. /etc/profile >/dev/null 2>&1
+env | awk '/^[A-Za-z_][A-Za-z0-9_]*=/ { n = substr($0, 1, index($0, "=") - 1); if (n !~ /^(PWD|OLDPWD|SHLVL|_|PS1|PS2|PS4|ENV|TERM|HOME|USER|LOGNAME|SHELL|MAIL|KWICK_BANNER_SHOWN|KWICK_INSTALLER_HINT|PROMPT_COMMAND)$/) print }'

@@ -1,0 +1,25 @@
+[Desktop Entry]
+Type=Application
+Name=Nearby Share
+GenericName=Share Files with Nearby Devices
+Comment=Send files and text to phones and computers nearby. Works with LocalSend on Android, iPhone, Windows, macOS and Linux.
+Keywords=airdrop;nearby;share;send;localsend;quick share;transfer;phone;file transfer;
+Exec=/usr/bin/kwick-nearby --share %F
+Icon=kwick-nearby
+Terminal=false
+StartupNotify=false
+Categories=Network;FileTransfer;Utility;
+X-GNOME-UsesNotifications=false
+Actions=Everyone;Off;Settings;
+
+[Desktop Action Everyone]
+Name=Receive from Everyone for 10 Minutes
+Exec=/usr/bin/kwick-nearby --set visibility everyone
+
+[Desktop Action Off]
+Name=Turn Receiving Off
+Exec=/usr/bin/kwick-nearby --set visibility off
+
+[Desktop Action Settings]
+Name=Nearby Share Settings
+Exec=sh -c "KWICK_SETTINGS_PAGE=nearby exec kwick-settings"

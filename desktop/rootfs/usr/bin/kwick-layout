@@ -591,6 +591,10 @@ tiling() {
     fi
   elif [ -n "${SWAYSOCK:-}" ] && command -v swaymsg >/dev/null 2>&1; then wm=sway; swaymsg reload >/dev/null 2>&1
   else echo "tiling session not running: layout applies at next login"; return 0; fi
+  if [ "$wm" = hyprland ] && [ -x /usr/lib/kwick/hypr-shell ] && [ "$(/usr/lib/kwick/hypr-shell current)" != waybar ] && /usr/lib/kwick/hypr-shell ready; then
+    /usr/lib/kwick/hypr-shell start
+    return 0
+  fi
   pkill -x waybar 2>/dev/null; pkill -x mako 2>/dev/null; pkill -x swaybg 2>/dev/null
   sleep 0.3
   (swaybg -m fill -i "$cfg/wallpaper" >/dev/null 2>&1 &)

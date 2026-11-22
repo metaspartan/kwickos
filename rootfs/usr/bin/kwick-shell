@@ -2,33 +2,91 @@
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
+SHELLS="zsh bash fish ash nushell elvish xonsh powershell"
+PRESETS="kwick minimal powerline starship"
+OPT=/opt/kwick-shells
+HELPER=/usr/lib/kwick/shell-helper
+
+NU_VER=0.117.0
+PWSH_VER=7.7.0
+
 say() { printf 'kwick-shell: %s\n' "$*"; }
 die() { printf 'kwick-shell: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 usage() {
 	cat <<'EOF'
-usage: kwick-shell                       show the current shell and the available ones
-       kwick-shell zsh|bash|ash|fish     use that login shell (installs it if missing)
-       kwick-shell --user NAME SHELL     change the login shell of NAME (root)
-       kwick-shell --default SHELL       shell for users created from now on (root)
-       kwick-shell --current             print the name of your login shell
+usage: kwick-shell                          show your shell, the default and what is available
+       kwick-shell list [--json]            terminal shells and their state
+       kwick-shell NAME                     use NAME as your login shell, installing it first
+       kwick-shell --user USER NAME         change the login shell of USER (root)
+       kwick-shell --default NAME           shell for users created from now on (root)
+       kwick-shell --current                print the name of your login shell
+       kwick-shell install NAME             install a shell or starship without switching (root)
+       kwick-shell prompt [list] [--json]   prompt presets, the current one marked
+       kwick-shell prompt NAME [--default]  use a prompt preset in every shell (--default: system wide, root)
+       kwick-shell desktop [list|NAME] [--json]
+                                            desktop shells (Plasma, GNOME Shell, Hyprland bars, Quickshell)
+shells:  zsh bash fish ash nushell elvish xonsh powershell
+prompts: kwick minimal powerline starship
 EOF
 }
 
-shell_path() {
+canon() {
 	case $1 in
-	ash) echo /bin/sh ;;
-	zsh | bash | fish) echo "/bin/$1" ;;
+	nu) echo nushell ;;
+	pwsh) echo powershell ;;
+	sh | busybox) echo ash ;;
+	*) echo "$1" ;;
+	esac
+}
+
+arch() {
+	a=$(dpkg --print-architecture 2>/dev/null)
+	[ -n "$a" ] || case $(uname -m) in x86_64) a=amd64 ;; aarch64) a=arm64 ;; riscv64) a=riscv64 ;; *) a=$(uname -m) ;; esac
+	echo "$a"
+}
+
+upstream() {
+	case $1:$(arch) in
+	nushell:amd64) echo "nu-$NU_VER-x86_64-unknown-linux-musl 2b808786d44af41170a29f8b9a15b5113bb6ea5dda9221098eca932f8a149924" ;;
+	nushell:arm64) echo "nu-$NU_VER-aarch64-unknown-linux-musl 19966b94ae19f52e2cf0402cb99844ddfa06e2361cf6c77b1b2e29abd17e9188" ;;
+	nushell:riscv64) echo "nu-$NU_VER-riscv64gc-unknown-linux-gnu 0fbf1053cc9d9e7563f46b2c871531280bc977214dc9164457fadc2de6cd0ba5" ;;
+	powershell:amd64) echo "powershell-$PWSH_VER-linux-x64 c89d9c682d2c403dfe726f3df948e359675235a5bd6fab535776de69729ca0cb" ;;
+	powershell:arm64) echo "powershell-$PWSH_VER-linux-arm64 e59c89776eaa59790d44b3edd14277435225ab08b6e7603763101b89de83d935" ;;
 	*) return 1 ;;
 	esac
 }
 
+meta() {
+	case $1 in
+	ash) S_PATH=/bin/sh S_SRC=builtin S_PKG= S_TITLE="BusyBox ash" S_LIC=GPL-2.0-only S_DESC="The tiny POSIX shell of the KwickOS base, always present" ;;
+	bash) S_PATH=/bin/bash S_SRC=debian S_PKG=bash S_TITLE="GNU Bash" S_LIC=GPL-3.0-or-later S_DESC="The common Linux shell, what most scripts and tutorials assume" ;;
+	zsh) S_PATH=/bin/zsh S_SRC=debian S_PKG="zsh zsh-autosuggestions zsh-syntax-highlighting" S_TITLE="Z shell" S_LIC=MIT-like S_DESC="The KwickOS default, like macOS: suggestions, highlighting and a completion menu" ;;
+	fish) S_PATH=/usr/bin/fish S_SRC=debian S_PKG=fish S_TITLE="fish" S_LIC=GPL-2.0-only S_DESC="Friendly interactive shell with suggestions out of the box, not POSIX" ;;
+	elvish) S_PATH=/usr/bin/elvish S_SRC=debian S_PKG=elvish S_TITLE="Elvish" S_LIC=BSD-2-Clause S_DESC="Expressive shell with structured pipelines and a built-in file manager" ;;
+	xonsh) S_PATH=/usr/bin/xonsh S_SRC=debian S_PKG=xonsh S_TITLE="xonsh" S_LIC=BSD-2-Clause S_DESC="Python-powered shell: Python and shell commands on the same line" ;;
+	nushell) S_PATH=/usr/local/bin/nu S_SRC=upstream S_PKG= S_TITLE="Nushell" S_LIC=MIT S_DESC="Modern shell where pipelines carry tables and records instead of text" ;;
+	powershell) S_PATH=/usr/local/bin/pwsh S_SRC=upstream S_PKG=libicu76 S_TITLE="PowerShell" S_LIC=MIT S_DESC="Microsoft's object-based shell, the same as on Windows" ;;
+	*) return 1 ;;
+	esac
+}
+
+known() { meta "$1" 2>/dev/null; }
+
 shell_name() {
 	case ${1##*/} in
 	sh | ash | busybox | dash) echo ash ;;
+	nu) echo nushell ;;
+	pwsh) echo powershell ;;
 	*) echo "${1##*/}" ;;
 	esac
+}
+
+available() {
+	meta "$1" || return 1
+	[ "$S_SRC" = upstream ] || return 0
+	upstream "$1" >/dev/null
 }
 
 is_installed() {
@@ -38,7 +96,24 @@ is_installed() {
 		[ -x /usr/bin/bash ] || return 1
 		! grep -q 'KwickOS on-demand bash' /usr/bin/bash 2>/dev/null
 		;;
+	nushell) [ -x /usr/local/bin/nu ] ;;
+	powershell) [ -x /usr/local/bin/pwsh ] ;;
+	starship) [ -x /usr/bin/starship ] ;;
 	*) [ -x "/usr/bin/$1" ] ;;
+	esac
+}
+
+version_of() {
+	is_installed "$1" || return 0
+	case $1 in
+	ash) busybox 2>/dev/null | sed -n '1s/^BusyBox v\([^ ]*\).*/\1/p' ;;
+	nushell) readlink /usr/local/bin/nu | sed -n 's|.*/nushell/\([^/]*\)/.*|\1|p' ;;
+	powershell) readlink /usr/local/bin/pwsh | sed -n 's|.*/powershell/\([^/]*\)/.*|\1|p' ;;
+	*)
+		meta "$1"
+		p=${S_PKG%% *}
+		dpkg-query -W --showformat='${Version}' "${p:-$1}" 2>/dev/null
+		;;
 	esac
 }
 
@@ -56,18 +131,70 @@ default_path() {
 	echo "${d:-/bin/sh}"
 }
 
+me() { id -un 2>/dev/null; }
+
+current_name() {
+	cur=$(pw_field "$(me)" 7)
+	shell_name "${cur:-/bin/sh}"
+}
+
+cfgdir() { echo "${XDG_CONFIG_HOME:-$HOME/.config}/kwick"; }
+
+prompt_current() {
+	p=${KWICK_PROMPT:-}
+	[ -z "$p" ] && [ -r "$(cfgdir)/prompt" ] && read -r p <"$(cfgdir)/prompt"
+	[ -z "$p" ] && [ -r /etc/kwick/prompt ] && read -r p </etc/kwick/prompt
+	case $p in kwick | minimal | powerline | starship) echo "$p" ;; *) echo kwick ;; esac
+}
+
+json_str() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+
+list_json() {
+	cur=$(current_name)
+	def=$(shell_name "$(default_path)")
+	printf '{"current":"%s","default":"%s","prompt":"%s","arch":"%s","shells":[' "$cur" "$def" "$(prompt_current)" "$(arch)"
+	sep=
+	for s in $SHELLS; do
+		meta "$s"
+		if is_installed "$s"; then i=true; else i=false; fi
+		if available "$s"; then av=true; else av=false; fi
+		[ "$s" = "$cur" ] && c=true || c=false
+		[ "$s" = "$def" ] && d=true || d=false
+		printf '%s{"name":"%s","title":%s,"path":"%s","source":"%s","license":"%s","version":%s,"installed":%s,"available":%s,"current":%s,"default":%s,"description":%s}' \
+			"$sep" "$s" "$(json_str "$S_TITLE")" "$S_PATH" "$S_SRC" "$S_LIC" "$(json_str "$(version_of "$s")")" "$i" "$av" "$c" "$d" "$(json_str "$S_DESC")"
+		sep=,
+	done
+	printf ']}\n'
+}
+
+list_text() {
+	cur=$(current_name)
+	def=$(shell_name "$(default_path)")
+	for s in $SHELLS; do
+		meta "$s"
+		if is_installed "$s"; then
+			st="installed $(version_of "$s")"
+		elif available "$s"; then
+			st="not installed ($S_SRC), kwick-shell $s installs it"
+		else
+			st="not available on $(arch)"
+		fi
+		m=" "
+		[ "$s" = "$cur" ] && m="*"
+		[ "$s" = "$def" ] && st="$st, default for new users"
+		printf ' %s %-11s %s\n' "$m" "$s" "$st"
+	done
+}
+
 show() {
-	me=$(id -un 2>/dev/null)
-	cur=$(pw_field "$me" 7)
+	cur=$(pw_field "$(me)" 7)
 	[ -n "$cur" ] || cur=/bin/sh
-	printf 'login shell for %s: %s (%s)\n' "$me" "$(shell_name "$cur")" "$cur"
+	printf 'login shell for %s: %s (%s)\n' "$(me)" "$(shell_name "$cur")" "$cur"
 	dp=$(default_path)
 	printf 'default for new users: %s (%s)\n' "$(shell_name "$dp")" "$dp"
+	printf 'prompt preset: %s\n' "$(prompt_current)"
 	printf 'available:\n'
-	for s in ash bash zsh fish; do
-		if is_installed "$s"; then st=installed; else st="not installed, kwick-shell $s installs it"; fi
-		printf '  %-5s %s\n' "$s" "$st"
-	done
+	list_text
 }
 
 ensure_root() {
@@ -78,9 +205,18 @@ ensure_root() {
 
 add_shells() {
 	touch /etc/shells
-	for sp in "/bin/$1" "/usr/bin/$1"; do
+	for sp in "$@"; do
 		grep -qx "$sp" /etc/shells 2>/dev/null || echo "$sp" >>/etc/shells
 	done
+}
+
+shell_paths() {
+	meta "$1"
+	case $1 in
+	ash) echo /bin/sh ;;
+	nushell | powershell) echo "$S_PATH" ;;
+	*) echo "/bin/${S_PATH##*/} /usr/bin/${S_PATH##*/}" ;;
+	esac
 }
 
 wire_zsh() {
@@ -98,27 +234,97 @@ compile_zsh() {
 	return 0
 }
 
-install_shell() {
-	is_installed "$1" && { add_shells "$1"; return 0; }
-	have apt-get || die "$1 is not installed and there is no package manager"
-	pk=$1
-	[ "$1" = zsh ] && pk="zsh zsh-autosuggestions zsh-syntax-highlighting"
-	say "installing $pk"
-	if ! apt-get install -y -q --no-install-recommends $pk </dev/null >/dev/null 2>&1; then
+apt_install() {
+	have apt-get || die "$* is not installed and there is no package manager"
+	say "installing $*"
+	if ! apt-get install -y -q --no-install-recommends "$@" </dev/null >/dev/null 2>&1; then
 		apt-get update -q </dev/null >/dev/null 2>&1
-		apt-get install -y -q --no-install-recommends $pk </dev/null >/dev/null 2>&1 ||
-			die "could not install $pk, check the network connection"
+		apt-get install -y -q --no-install-recommends "$@" </dev/null >/dev/null 2>&1 ||
+			die "could not install $*, check the network connection"
 	fi
+}
+
+fetch() {
+	if have curl; then
+		curl -fsSL --retry 3 -o "$2" "$1"
+	else
+		wget -q -O "$2" "$1"
+	fi
+}
+
+install_upstream() {
+	name=$1
+	pin=$(upstream "$name") || die "$name has no official build for $(arch)"
+	set -- $pin
+	asset=$1
+	sum=$2
+	case $name in
+	nushell)
+		ver=$NU_VER
+		url="https://github.com/nushell/nushell/releases/download/$ver/$asset.tar.gz"
+		bin=nu
+		;;
+	powershell)
+		ver=$PWSH_VER
+		url="https://github.com/PowerShell/PowerShell/releases/download/v$ver/$asset.tar.gz"
+		bin=pwsh
+		meta powershell
+		apt_install $S_PKG
+		;;
+	esac
+	dest=$OPT/$name/$ver
+	tmp=$(mktemp -d /var/tmp/kwick-shell.XXXXXX) || die "no temporary directory"
+	say "downloading $name $ver"
+	if ! fetch "$url" "$tmp/a.tar.gz"; then rm -rf "$tmp"; die "could not download $url"; fi
+	got=$(sha256sum "$tmp/a.tar.gz" | cut -d' ' -f1)
+	if [ "$got" != "$sum" ]; then rm -rf "$tmp"; die "checksum mismatch for $asset.tar.gz (got $got, expected $sum)"; fi
+	say "verified sha256 $sum"
+	rm -rf "$dest.new"
+	mkdir -p "$dest.new"
+	if [ "$name" = nushell ]; then
+		tar -xzf "$tmp/a.tar.gz" -C "$dest.new" --strip-components=1 || { rm -rf "$tmp" "$dest.new"; die "could not unpack $asset"; }
+	else
+		tar -xzf "$tmp/a.tar.gz" -C "$dest.new" || { rm -rf "$tmp" "$dest.new"; die "could not unpack $asset"; }
+		printf '. /usr/share/kwick/shell/kwick.ps1\n' >"$dest.new/profile.ps1"
+	fi
+	rm -rf "$tmp"
+	chmod 0755 "$dest.new/$bin"
+	printf '%s %s %s\n' "$url" "$sum" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$dest.new/.kwick-source"
+	rm -rf "$dest"
+	mv "$dest.new" "$dest"
+	mkdir -p /usr/local/bin
+	ln -sfn "$dest/$bin" "/usr/local/bin/$bin.new"
+	mv -f "/usr/local/bin/$bin.new" "/usr/local/bin/$bin"
+	for old in "$OPT/$name"/*; do
+		[ "$old" = "$dest" ] || rm -rf "$old"
+	done
+}
+
+install_shell() {
+	is_installed "$1" && { add_shells $(shell_paths "$1"); return 0; }
+	meta "$1"
+	case $S_SRC in
+	debian) apt_install $S_PKG ;;
+	upstream) install_upstream "$1" ;;
+	esac
 	is_installed "$1" || die "$1 is still missing after the install"
-	add_shells "$1"
+	add_shells $(shell_paths "$1")
 }
 
 prepare() {
+	if [ -n "${KWICK_SHELL_NO_INSTALL:-}" ] && ! is_installed "$1"; then
+		die "$1 is not installed yet; install it first: kwick-shell install $1"
+	fi
 	install_shell "$1"
 	if [ "$1" = zsh ]; then
 		wire_zsh
 		compile_zsh
 	fi
+	case $1 in
+	zsh | elvish)
+		awk -F: '$3 >= 1000 && $3 < 60000 { print $1 }' /etc/passwd | while read -r u; do seed "$u" "$1"; done
+		;;
+	esac
 	return 0
 }
 
@@ -137,11 +343,23 @@ set_passwd_shell() {
 	fi
 }
 
-seed_zshrc() {
+seed() {
 	home=$(pw_field "$1" 6)
-	[ -d "$home" ] && [ ! -e "$home/.zshrc" ] && [ -r /etc/skel/.zshrc ] || return 0
-	cp /etc/skel/.zshrc "$home/.zshrc"
-	chown "$(pw_field "$1" 3):$(pw_field "$1" 4)" "$home/.zshrc" 2>/dev/null
+	[ -d "$home" ] || return 0
+	case $2 in
+	zsh) src=/etc/skel/.zshrc dst=.zshrc ;;
+	elvish) src=/etc/skel/.config/elvish/rc.elv dst=.config/elvish/rc.elv ;;
+	*) return 0 ;;
+	esac
+	[ -r "$src" ] && [ ! -e "$home/$dst" ] || return 0
+	og="$(pw_field "$1" 3):$(pw_field "$1" 4)"
+	d=${dst%/*}
+	if [ "$d" != "$dst" ]; then
+		mkdir -p "$home/$d"
+		chown "$og" "$home/.config" "$home/$d" 2>/dev/null
+	fi
+	cp "$src" "$home/$dst"
+	chown "$og" "$home/$dst" 2>/dev/null
 	return 0
 }
 
@@ -157,27 +375,171 @@ set_key() {
 	fi
 }
 
+need_known() {
+	known "$1" || die "unknown shell: $1 (use: $SHELLS)"
+	available "$1" || die "$1 has no official build for $(arch)"
+}
+
 cmd_user() {
 	u=$1
 	name=$2
-	p=$(shell_path "$name") || die "unknown shell: $name (use zsh, bash, ash or fish)"
+	need_known "$name"
 	user_exists "$u" || die "no such user: $u"
 	prepare "$name"
-	set_passwd_shell "$u" "$p" || die "could not change the login shell of $u"
-	[ "$name" = zsh ] && seed_zshrc "$u"
-	say "login shell of $u is now $name ($p); log out and back in, or run: exec $name"
+	meta "$name"
+	set_passwd_shell "$u" "$S_PATH" || die "could not change the login shell of $u"
+	seed "$u" "$name"
+	say "login shell of $u is now $name ($S_PATH); log out and back in, or run: exec ${S_PATH##*/}"
 }
 
 cmd_default() {
 	name=$1
-	p=$(shell_path "$name") || die "unknown shell: $name (use zsh, bash, ash or fish)"
+	need_known "$name"
 	prepare "$name"
+	meta "$name"
 	mkdir -p /etc/default
-	have useradd && useradd -D -s "$p" >/dev/null 2>&1
-	set_key /etc/default/useradd SHELL "$p"
-	[ -f /etc/adduser.conf ] && set_key /etc/adduser.conf DSHELL "$p"
-	say "new users will get $name ($p)"
+	have useradd && useradd -D -s "$S_PATH" >/dev/null 2>&1
+	set_key /etc/default/useradd SHELL "$S_PATH"
+	[ -f /etc/adduser.conf ] && set_key /etc/adduser.conf DSHELL "$S_PATH"
+	say "new users will get $name ($S_PATH)"
 }
+
+cmd_install() {
+	name=$1
+	if [ "$name" = starship ]; then
+		is_installed starship || apt_install starship
+		say "starship $(dpkg-query -W --showformat='${Version}' starship 2>/dev/null) is installed"
+		return 0
+	fi
+	need_known "$name"
+	prepare "$name"
+	say "$name $(version_of "$name") is installed"
+}
+
+privileged() {
+	if [ "$(id -u)" -eq 0 ]; then
+		"$0" "$@"
+		return $?
+	fi
+	if [ -x "$HELPER" ] && have pkexec && [ -z "${KWICK_SHELL_NO_PKEXEC:-}" ]; then
+		rc=0
+		case $1 in
+		--user) pkexec "$HELPER" set "$2" "$3" || rc=$? ;;
+		install) pkexec "$HELPER" install "$2" || rc=$? ;;
+		esac
+		[ "$rc" -eq 0 ] && return 0
+		[ "$rc" -eq 126 ] || [ "$rc" -eq 127 ] || return "$rc"
+	fi
+	have sudo || die "this needs root and neither pkexec nor sudo can run it"
+	sudo "$0" "$@"
+}
+
+preset_desc() {
+	case $1 in
+	kwick) echo "user@host and the folder in the layout colour, like Terminal on macOS" ;;
+	minimal) echo "Just the folder and an arrow that turns red after an error" ;;
+	powerline) echo "Powerlevel-style segments for user, folder and git branch" ;;
+	starship) echo "The cross-shell Starship prompt with a KwickOS theme" ;;
+	esac
+}
+
+preset_title() {
+	case $1 in kwick) echo KwickOS ;; minimal) echo Minimal ;; powerline) echo Powerline ;; starship) echo Starship ;; esac
+}
+
+preset_sample() {
+	u=$(me)
+	h=$(cat /proc/sys/kernel/hostname 2>/dev/null || echo kwick)
+	case $1 in
+	kwick) printf '\033[38;5;245m%s@%s\033[0m \033[1;38;5;33m~\033[0m %% ' "$u" "$h" ;;
+	minimal) printf '\033[1;38;5;33m~\033[0m \033[38;5;33m\342\235\257\033[0m ' ;;
+	powerline) printf '\033[48;5;238;38;5;252m %s@%s \033[0;38;5;238;48;5;33m\356\202\260\033[1;97;48;5;33m ~ \033[0;38;5;33;48;5;236m\356\202\260\033[0;38;5;250;48;5;236m \356\202\240 main \033[0;38;5;236m\356\202\260\033[0m ' "$u" "$h" ;;
+	starship) printf '\033[38;5;245m%s@%s\033[0m \033[1;38;5;33m~\033[0m \033[38;5;250m\356\202\240 main\033[0m \033[38;5;33m\342\235\257\033[0m ' "$u" "$h" ;;
+	esac
+}
+
+cmd_prompt() {
+	sub=${1:-}
+	json=
+	sysw=
+	for a in "$@"; do
+		case $a in --json) json=1 ;; --default) sysw=1 ;; esac
+	done
+	case $sub in
+	'' | --json)
+		if [ -n "$json" ]; then
+			cmd_prompt list --json
+		else
+			prompt_current
+		fi
+		return 0
+		;;
+	list)
+		cur=$(prompt_current)
+		if [ -n "$json" ]; then
+			printf '{"current":"%s","presets":[' "$cur"
+			sep=
+			for p in $PRESETS; do
+				[ "$p" = "$cur" ] && c=true || c=false
+				if [ "$p" != starship ] || is_installed starship; then i=true; else i=false; fi
+				printf '%s{"name":"%s","title":"%s","installed":%s,"current":%s,"description":%s}' "$sep" "$p" "$(preset_title "$p")" "$i" "$c" "$(json_str "$(preset_desc "$p")")"
+				sep=,
+			done
+			printf ']}\n'
+		else
+			for p in $PRESETS; do
+				m=" "
+				[ "$p" = "$cur" ] && m="*"
+				printf ' %s %-10s ' "$m" "$p"
+				if [ -t 1 ]; then preset_sample "$p"; printf '\n'; else preset_desc "$p"; fi
+			done
+		fi
+		return 0
+		;;
+	esac
+	case $sub in kwick | minimal | powerline | starship) ;; *) die "unknown prompt preset: $sub (use: $PRESETS)" ;; esac
+	if [ "$sub" = starship ] && ! is_installed starship; then
+		privileged install starship || die "could not install starship"
+	fi
+	if [ -n "$sysw" ]; then
+		[ "$(id -u)" -eq 0 ] || exec sudo "$0" prompt "$sub" --default
+		mkdir -p /etc/kwick
+		echo "$sub" >/etc/kwick/prompt
+		say "default prompt for every user is now $sub"
+		return 0
+	fi
+	mkdir -p "$(cfgdir)"
+	echo "$sub" >"$(cfgdir)/prompt"
+	say "prompt is now $sub in zsh, bash, ash, fish, nushell, elvish, xonsh and PowerShell; open a new terminal to see it"
+}
+
+case ${1:-} in
+desktop)
+	shift
+	have kwick-desktop || die "desktop shells need the KwickOS desktop (kwick-desktop)"
+	exec kwick-desktop shell "$@"
+	;;
+prompt)
+	shift
+	cmd_prompt "$@"
+	exit $?
+	;;
+list)
+	if [ "${2:-}" = --json ]; then list_json; else list_text; fi
+	exit 0
+	;;
+--json)
+	list_json
+	exit 0
+	;;
+install)
+	[ -n "${2:-}" ] || die "install needs a shell name"
+	n=$(canon "$2")
+	[ "$(id -u)" -eq 0 ] || { privileged install "$n"; exit $?; }
+	cmd_install "$n"
+	exit $?
+	;;
+esac
 
 MODE=user
 TARGET=""
@@ -186,8 +548,7 @@ while [ $# -gt 0 ]; do
 	case $1 in
 	-h | --help) usage; exit 0 ;;
 	--current)
-		cur=$(pw_field "$(id -un)" 7)
-		shell_name "${cur:-/bin/sh}"
+		current_name
 		exit 0
 		;;
 	--user)
@@ -201,8 +562,8 @@ while [ $# -gt 0 ]; do
 		;;
 	-*) usage >&2; exit 1 ;;
 	*)
-		[ -z "$WANT" ] || die "one shell at a time"
-		WANT=$1
+		[ -z "$WANT" ] || die "unknown command: $WANT $1 (see kwick-shell --help)"
+		WANT=$(canon "$1")
 		shift
 		;;
 	esac
@@ -214,13 +575,17 @@ if [ -z "$WANT" ]; then
 	exit 0
 fi
 
-shell_path "$WANT" >/dev/null || die "unknown shell: $WANT (use zsh, bash, ash or fish)"
+need_known "$WANT"
 
 if [ "$MODE" = default ]; then
 	ensure_root --default "$WANT"
 	cmd_default "$WANT"
 else
-	[ -n "$TARGET" ] || TARGET=$(id -un)
-	ensure_root --user "$TARGET" "$WANT"
+	[ -n "$TARGET" ] || TARGET=$(me)
+	if [ "$(id -u)" -ne 0 ]; then
+		is_installed "$WANT" || privileged install "$WANT" || exit $?
+		privileged --user "$TARGET" "$WANT"
+		exit $?
+	fi
 	cmd_user "$TARGET" "$WANT"
 fi

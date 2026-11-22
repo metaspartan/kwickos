@@ -1,0 +1,32 @@
+#!/bin/sh
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+die() { printf 'kwick-shell-helper: %s\n' "$*" >&2; exit 2; }
+[ "$(id -u)" -eq 0 ] || die "must run as root through pkexec"
+caller=
+if [ -n "${PKEXEC_UID:-}" ]; then
+	caller=$(awk -F: -v id="$PKEXEC_UID" '$3 == id { print $1; exit }' /etc/passwd)
+	[ -n "$caller" ] || die "unknown calling user"
+fi
+case ${1:-} in
+set)
+	user=${2:-}
+	name=${3:-}
+	case $user in '' | -* | *[!A-Za-z0-9._-]*) die "bad user name" ;; esac
+	case $name in zsh | bash | fish | ash | nushell | elvish | xonsh | powershell) ;; *) die "unknown shell: $name" ;; esac
+	[ -z "$caller" ] || [ "$caller" = "$user" ] || die "you can only change your own login shell"
+	KWICK_SHELL_NO_INSTALL=1 exec /usr/bin/kwick-shell --user "$user" "$name"
+	;;
+install)
+	case ${2:-} in zsh | bash | fish | nushell | elvish | xonsh | powershell | starship) ;; *) die "unknown shell: ${2:-}" ;; esac
+	exec /usr/bin/kwick-shell install "$2"
+	;;
+session)
+	case ${2:-} in kde | gnome | hyprland | sway) ;; *) die "unknown session: ${2:-}" ;; esac
+	[ -x /usr/bin/kwick-desktop ] || die "kwick-desktop is not installed"
+	exec /usr/bin/kwick-desktop switch "$2"
+	;;
+*)
+	die "usage: shell-helper set USER SHELL | install SHELL | session kde|gnome|hyprland|sway"
+	;;
+esac

@@ -16,6 +16,8 @@ session() { case "$1" in
   mate) echo mate ;; lxqt) echo lxqt ;; esac; }
 have() { for _dir in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$_dir/$(session "$1").desktop" ] && return 0; done; return 1; }
 cmd=${1:-list}; de=${2:-}
+[ "$cmd" = shell ] && { shift; exec /usr/lib/kwick/desktop-shells "$@"; }
+[ "$cmd" = pkgs ] && { pkgs "$de"; exit $?; }
 [ "$cmd" = list ] || [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
 case "$cmd" in
   list) cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null || true)
@@ -45,5 +47,5 @@ case "$cmd" in
           printf '[Autologin]\nSession=%s\n' "$(session "$de")" > /etc/sddm.conf.d/30-kwick-session.conf
           for f in /etc/sddm.conf.d/20-autologin.conf; do [ -f $f ] && sed -i "s/^Session=.*/Session=$(session "$de")/" $f; done
           echo "Default session is now $de. Log out to apply." ;;
-  *) echo "usage: kwick-desktop list [--json] | install <desktop> | switch <desktop>";echo "desktops: kde gnome hyprland sway xfce cinnamon mate lxqt"; exit 1 ;;
+  *) echo "usage: kwick-desktop list [--json] | install <desktop> | switch <desktop> | shell [list|NAME] [--json]";echo "desktops: kde gnome hyprland sway xfce cinnamon mate lxqt"; echo "desktop shells: plasma gnome hyprland sway dms noctalia (kwick-desktop shell --help)"; exit 1 ;;
 esac

@@ -77,7 +77,7 @@ ColumnLayout {
         Cell {
             last: true
             title: "Terminal shell"
-            subtitle: "zsh is the default, like on macOS. A shell that is not installed yet is downloaded first. Applies to new terminals after you log out and back in."
+            subtitle: "zsh is the default, like on macOS. Shells and prompt presets for every shell, and desktop shells such as Quickshell on Hyprland, are under Shells."
             Seg {
                 options: [{ id: "zsh", label: "zsh" }, { id: "bash", label: "bash" }, { id: "fish", label: "fish" }]
                 current: Sys.loginShell

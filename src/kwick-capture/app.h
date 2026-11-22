@@ -105,6 +105,7 @@ public:
     Q_INVOKABLE QColor colorAt(int screen, qreal x, qreal y) const;
     Q_INVOKABLE void thumbOpen();
     Q_INVOKABLE void thumbDismiss();
+    Q_INVOKABLE void thumbShare();
     Q_INVOKABLE void thumbHold(bool hold);
     Q_INVOKABLE void toastAccept();
     Q_INVOKABLE void toastDismiss();

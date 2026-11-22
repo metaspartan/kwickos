@@ -986,6 +986,16 @@ void App::thumbDismiss()
     updateIdle();
 }
 
+void App::thumbShare()
+{
+    m_thumbTimer.stop();
+    dismiss(m_thumb);
+    if (!m_lastPath.isEmpty()) {
+        QProcess::startDetached(QStringLiteral("kwick-nearby"), {QStringLiteral("--share"), m_lastPath});
+    }
+    updateIdle();
+}
+
 void App::thumbOpen()
 {
     m_thumbTimer.stop();

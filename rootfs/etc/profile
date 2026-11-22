@@ -28,3 +28,5 @@ esac
 
 for f in /etc/profile.d/*.sh; do [ -r "$f" ] && . "$f"; done
 unset f
+KWICK_ENV=1
+export KWICK_ENV

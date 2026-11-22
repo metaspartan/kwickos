@@ -24,9 +24,11 @@ FROM debian:trixie AS settingsapp
 COPY --from=settingssrc . /sapp/src/kwick-settings
 COPY --from=kwickscripts mksettingspkg.sh kwin-plugin.sh /sapp/scripts/
 RUN bash /sapp/scripts/mksettingspkg.sh /sapp/out
+
 FROM debian:trixie AS native
 COPY --from=nativesrc kwick-quicklook /native/src/kwick-quicklook
 COPY --from=nativesrc kwick-capture /native/src/kwick-capture
+COPY --from=nativesrc kwick-nearby /native/src/kwick-nearby
 COPY --from=kwickscripts mknativepkg.sh /native/scripts/
 RUN bash /native/scripts/mknativepkg.sh /native/out
 

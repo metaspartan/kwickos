@@ -40,7 +40,7 @@ qt_add_qml_module(kwick-quicklook
         qml/InfoPreview.qml
     RESOURCES
         icons/open.svg icons/share.svg icons/reveal.svg icons/expand.svg icons/play.svg icons/pause.svg
-        icons/prev.svg icons/next.svg icons/close.svg
+        icons/prev.svg icons/next.svg icons/close.svg icons/nearby.svg
 )
 
 target_compile_definitions(kwick-quicklook PRIVATE QT_NO_KEYWORDS)

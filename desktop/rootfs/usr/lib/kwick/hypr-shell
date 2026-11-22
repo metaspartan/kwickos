@@ -1,0 +1,118 @@
+#!/bin/sh
+cfg=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
+data=${XDG_DATA_HOME:-$HOME/.local/share}/kwick/shells
+DMS_VER=2.1.2
+
+current() {
+	s=
+	[ -r "$cfg/hypr-shell" ] && read -r s <"$cfg/hypr-shell"
+	case $s in dms | noctalia) echo "$s" ;; *) echo waybar ;; esac
+}
+
+mode() { kwick-layout appearance 2>/dev/null || echo dark; }
+
+dms_bin() { echo "$data/dms/$DMS_VER/bin/dms"; }
+dms_dir() { echo "$data/dms/$DMS_VER/dms"; }
+
+ready() {
+	case $1 in
+	waybar) command -v waybar >/dev/null 2>&1 ;;
+	dms) [ -x "$(dms_bin)" ] && { command -v qs >/dev/null 2>&1 || command -v quickshell >/dev/null 2>&1; } ;;
+	noctalia) command -v noctalia >/dev/null 2>&1 ;;
+	*) return 1 ;;
+	esac
+}
+
+running() {
+	case $1 in
+	waybar) pgrep -x waybar >/dev/null 2>&1 ;;
+	dms) pgrep -f "$(dms_dir)" >/dev/null 2>&1 || pgrep -f 'dms run' >/dev/null 2>&1 ;;
+	noctalia) pgrep -x noctalia >/dev/null 2>&1 ;;
+	esac
+}
+
+theme() {
+	m=$1
+	case $(current) in
+	dms) DMS_SHELL_DIR=$(dms_dir) "$(dms_bin)" ipc call theme "$m" >/dev/null 2>&1 ;;
+	noctalia) noctalia msg theme-mode-set "$m" >/dev/null 2>&1 ;;
+	esac
+	return 0
+}
+
+stop_all() {
+	pkill -x waybar 2>/dev/null
+	pkill -f kwick-dock-watch 2>/dev/null
+	pkill -x mako 2>/dev/null
+	pkill -x swaybg 2>/dev/null
+	[ -x "$(dms_bin)" ] && DMS_SHELL_DIR=$(dms_dir) "$(dms_bin)" kill >/dev/null 2>&1
+	pkill -f "$(dms_dir)" 2>/dev/null
+	pkill -x noctalia 2>/dev/null
+	sleep 0.4
+}
+
+start_waybar() {
+	C=${XDG_CONFIG_HOME:-$HOME/.config}
+	(swaybg -m fill -i "$cfg/wallpaper" >/dev/null 2>&1 &)
+	(waybar -c "$C/waybar/hyprland.jsonc" -s "$C/waybar/style.css" >/dev/null 2>&1 &)
+	[ -f "$C/waybar/dock.jsonc" ] && (waybar -c "$C/waybar/dock.jsonc" -s "$C/waybar/dock.css" >/dev/null 2>&1 &)
+	(setsid /usr/lib/kwick/dock-watch >/dev/null 2>&1 &)
+	(mako >/dev/null 2>&1 &)
+}
+
+seed_dms() {
+	d=${XDG_STATE_HOME:-$HOME/.local/state}/dms
+	[ -e "$d/session.json" ] && return 0
+	mkdir -p "$d"
+	l=false
+	[ "$(mode)" = light ] && l=true
+	printf '{\n  "isLightMode": %s,\n  "wallpaperPath": "%s"\n}\n' "$l" "$(readlink -f "$cfg/wallpaper" 2>/dev/null)" >"$d/session.json"
+}
+
+seed_noctalia() {
+	d=${XDG_CONFIG_HOME:-$HOME/.config}/noctalia
+	[ -e "$d/settings.toml" ] && return 0
+	mkdir -p "$d"
+	printf '[theme]\nmode = "%s"\n' "$(mode)" >"$d/settings.toml"
+	NOC_FIRST=1
+}
+
+start() {
+	want=$(current)
+	ready "$want" || want=waybar
+	if running "$want" && [ "${1:-}" != --restart ]; then
+		theme "$(mode)"
+		return 0
+	fi
+	stop_all
+	case $want in
+	waybar) start_waybar ;;
+	dms)
+		seed_dms
+		(DMS_SHELL_DIR=$(dms_dir) setsid "$(dms_bin)" run >"${XDG_RUNTIME_DIR:-/tmp}/kwick-dms.log" 2>&1 &)
+		(sleep 4; theme "$(mode)") >/dev/null 2>&1 &
+		;;
+	noctalia)
+		NOC_FIRST=
+		seed_noctalia
+		(setsid noctalia --daemon >"${XDG_RUNTIME_DIR:-/tmp}/kwick-noctalia.log" 2>&1 &)
+		wp=$(readlink -f "$cfg/wallpaper" 2>/dev/null)
+		(sleep 3; theme "$(mode)"; [ -n "$NOC_FIRST" ] && [ -f "$wp" ] && noctalia msg wallpaper-set "$wp") >/dev/null 2>&1 &
+		;;
+	esac
+}
+
+case ${1:-current} in
+current) current ;;
+ready) ready "${2:-$(current)}" ;;
+start) start "${2:-}" ;;
+stop) stop_all ;;
+theme) theme "${2:-$(mode)}" ;;
+set)
+	case ${2:-} in waybar | dms | noctalia) ;; *) echo "usage: hypr-shell set waybar|dms|noctalia" >&2; exit 1 ;; esac
+	mkdir -p "$cfg"
+	echo "$2" >"$cfg/hypr-shell"
+	if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then start --restart; fi
+	;;
+*) echo "usage: hypr-shell current|ready|start [--restart]|stop|theme [dark|light]|set NAME" >&2; exit 1 ;;
+esac

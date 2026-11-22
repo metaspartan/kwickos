@@ -15,6 +15,7 @@ PlasmoidItem {
     readonly property var display: displaySource.item
     readonly property var sound: soundSource.item
     readonly property var media: playerSource.item
+    readonly property var nearby: nearbySource.item
     property double now: Date.now()
     property string page: ""
     readonly property bool focusOn: {
@@ -56,6 +57,8 @@ PlasmoidItem {
         now = Date.now()
         if (!root.expanded)
             page = ""
+        else if (root.nearby)
+            root.nearby.refresh()
     }
 
     P5Support.DataSource {
@@ -73,6 +76,7 @@ PlasmoidItem {
     Loader { id: displaySource; source: "DisplaySource.qml" }
     Loader { id: soundSource; source: "SoundSource.qml" }
     Loader { id: playerSource; source: "PlayerSource.qml" }
+    Loader { id: nearbySource; source: "NearbySource.qml" }
 
     Connections {
         target: root.display
@@ -87,7 +91,9 @@ PlasmoidItem {
         onClicked: root.expanded = !root.expanded
 
         Kirigami.Icon {
-            anchors.fill: parent
+            anchors.centerIn: parent
+            width: Kirigami.Units.iconSizes.smallMedium
+            height: width
             source: "kwick-controlcenter-symbolic"
             isMask: true
             color: Kirigami.Theme.textColor
@@ -98,7 +104,7 @@ PlasmoidItem {
         Layout.minimumWidth: Kirigami.Units.gridUnit * 17
         Layout.preferredWidth: Layout.minimumWidth
         Layout.maximumWidth: Layout.minimumWidth
-        Layout.minimumHeight: (root.page ? detail : panel).implicitHeight
+        Layout.minimumHeight: (root.page === "nearby" ? nearbyDetail : root.page ? detail : panel).implicitHeight
         Layout.preferredHeight: Layout.minimumHeight
         Layout.maximumHeight: Layout.minimumHeight
 
@@ -113,6 +119,24 @@ PlasmoidItem {
             onOpenSettings: {
                 root.expanded = false
                 root.run("kwick-bluetooth settings")
+            }
+        }
+
+        NearbyPage {
+            id: nearbyDetail
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            visible: root.page === "nearby"
+            nearby: root.nearby
+            onBack: root.page = ""
+            onShare: {
+                root.expanded = false
+                root.run("kwick-nearby --choose")
+            }
+            onOpenSettings: {
+                root.expanded = false
+                root.run("sh -c 'KWICK_SETTINGS_PAGE=nearby exec kwick-settings'")
             }
         }
 
@@ -149,6 +173,16 @@ PlasmoidItem {
                         subtitle: !root.bt ? "" : !root.bt.available ? "Not Available" : !root.bt.on ? "Off" : root.bt.connected > 0 ? root.bt.connected + " Connected" : "On"
                         onClicked: if (root.bt.available) root.bt.setOn(!root.bt.on)
                         onDetails: root.page = "bluetooth"
+                    }
+                    ToggleRow {
+                        visible: !!root.nearby && root.nearby.available
+                        icon: "kwick-nearby-symbolic"
+                        title: "Nearby Share"
+                        hasDetails: true
+                        on: !!root.nearby && root.nearby.on
+                        subtitle: root.nearby ? root.nearby.subtitle : ""
+                        onClicked: root.nearby.toggle()
+                        onDetails: root.page = "nearby"
                     }
                     ToggleRow {
                         icon: "network-wired-symbolic"

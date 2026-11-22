@@ -19,9 +19,6 @@ else
 	PS1='\u@\h:\w\$ '
 fi
 unset color
-case "$TERM" in
-	xterm*|foot*|alacritty|kitty*|wezterm) PS1='\[\e]0;\u@\h: \w\a\]'"$PS1" ;;
-esac
 if ! shopt -oq posix 2>/dev/null && [ -r /usr/share/bash-completion/bash_completion ]; then
 	. /usr/share/bash-completion/bash_completion
 fi
@@ -29,4 +26,4 @@ alias ls='ls --color=auto'
 alias ll='ls -alF'
 alias la='ls -A'
 alias grep='grep --color=auto'
-[ -f ~/.bash_aliases ] && . ~/.bash_aliases
+if [ -f ~/.bash_aliases ]; then . ~/.bash_aliases; fi

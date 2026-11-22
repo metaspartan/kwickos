@@ -57,26 +57,32 @@ The headless base keeps BusyBox `ash` as the login shell, so it carries no shell
 macOS, and either edition can switch with `kwick-shell`.
 
 ```
-kwick-shell                       current shell, the default for new users, and what is installed
-kwick-shell zsh|bash|ash|fish     change your login shell, installing the package first when it is missing
+kwick-shell                       current shell, the default for new users, the prompt preset and what is installed
+kwick-shell NAME                  change your login shell, installing it first when it is missing
 kwick-shell --user NAME zsh       change another user's shell (root)
 kwick-shell --default zsh         change the shell given to users created from now on (root)
+kwick-shell prompt NAME           kwick, minimal, powerline or starship prompt in every shell
 ```
 
-* `kwick-shell` is a 5 KB POSIX script. It installs with `apt`, adds the shell to `/etc/shells`, and changes the login shell with
-  `chsh` or `usermod`, or edits `/etc/passwd` itself when the base has neither. As a normal user it runs the change through `sudo`.
-  `--default` writes `SHELL=` to `/etc/default/useradd` (what `useradd` reads) and `DSHELL` in `/etc/adduser.conf` when that exists.
+Shells: `zsh`, `bash`, `fish`, `ash`, `nushell`, `elvish`, `xonsh`, `powershell`. [SHELLS](SHELLS.md) lists their sources and
+versions, the prompt presets and the desktop shells.
+
+* `kwick-shell` is a POSIX script. It installs with `apt` (Nushell and PowerShell from their official releases, checked against a
+  pinned SHA-256), adds the shell to `/etc/shells`, and changes the login shell with `chsh` or `usermod`, or edits `/etc/passwd` itself
+  when the base has neither. As a normal user it goes through `pkexec /usr/lib/kwick/shell-helper` (no password for your own shell in
+  the active session) or `sudo`. `--default` writes `SHELL=` to `/etc/default/useradd` (what `useradd` reads) and `DSHELL` in
+  `/etc/adduser.conf` when that exists.
 * A change applies at the next login. `exec zsh` switches the current terminal at once.
 * The desktop picks zsh for the live user, for `useradd` and `adduser` defaults and for the account `kwick-install` creates.
-  `kwick-install --shell zsh|bash|ash|fish` overrides that. The Settings app has the same choice under Desktop Session, Login shell.
+  `kwick-install --shell zsh|bash|ash|fish` overrides that. The Settings app has the same choice under Shells.
 * The zsh setup is one file, `/usr/share/kwick/zsh/kwick.zsh`, loaded from `/etc/zsh/zshrc` and from `~/.zshrc` in `/etc/skel`. It
   gives a Terminal-style `user@host dir %` prompt whose directory colour follows the layout (blue for macOS, Fluent blue for
   Windows, indigo for Linux), history shared between sessions, `compinit` with a cached dump and a selectable completion menu,
   Home, End, Delete, Ctrl and Alt arrow keys, `ls` colours, and Debian's `zsh-autosuggestions` and `zsh-syntax-highlighting`. There is
   no framework, and `zsh -i -c exit` takes about 30 ms.
 * `ash` reads `/etc/profile` as a login shell and `/etc/ashrc` (set as `ENV`) in nested shells, so the prompt and aliases (`ls`, `ll`,
-  `la`, `grep`, `..`, `df -h`) are the same either way. The prompt is `user@host:dir$`, red for root, and plain without a colour
-  terminal or with `NO_COLOR`.
+  `la`, `grep`, `..`, `df -h`) are the same either way. The prompt is the same `user@host dir $` as in the other shells
+  (`/usr/share/kwick/shell/prompt.sh`), red for root, and plain without a colour terminal or with `NO_COLOR`.
 
 ## kfetch
 

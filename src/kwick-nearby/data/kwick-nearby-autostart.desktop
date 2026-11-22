@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Nearby Share Receiver
+Exec=/usr/bin/kwick-nearby --autostart
+Icon=kwick-nearby
+NoDisplay=true
+Terminal=false
+X-KDE-autostart-phase=2
+X-GNOME-Autostart-Delay=4
+OnlyShowIn=KDE;GNOME;

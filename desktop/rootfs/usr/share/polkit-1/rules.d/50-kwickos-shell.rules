@@ -1,0 +1,11 @@
+polkit.addRule(function (action, subject) {
+    if (action.id !== "org.kwickos.shell" || !subject.local || !subject.active)
+        return polkit.Result.NOT_HANDLED;
+    var cmd = action.lookup("command_line") || "";
+    var m = /^\/usr\/lib\/kwick\/shell-helper set ([A-Za-z0-9._-]+) (zsh|bash|fish|ash|nushell|elvish|xonsh|powershell)$/.exec(cmd);
+    if (m && m[1] === subject.user)
+        return polkit.Result.YES;
+    if (/^\/usr\/lib\/kwick\/shell-helper session (kde|gnome|hyprland|sway)$/.test(cmd) && (subject.isInGroup("sudo") || subject.isInGroup("wheel")))
+        return polkit.Result.YES;
+    return polkit.Result.NOT_HANDLED;
+});

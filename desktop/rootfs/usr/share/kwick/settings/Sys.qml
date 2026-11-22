@@ -302,8 +302,14 @@ QtObject {
         return { id: id, name: id.replace(/\.desktop$/, ""), icon: "" }
     }
 
+    function shellInstall(name) {
+        return "if sudo -n true 2>/dev/null; then sudo -n kwick-shell install " + name + " 2>&1; else pkexec /usr/lib/kwick/shell-helper install " + name + "; fi"
+    }
+
     function setLoginShell(name) {
-        terminal("kwick-shell " + name, refresh)
+        var set = "pkexec /usr/lib/kwick/shell-helper set \"$(id -un)\" " + name
+        var inst = "{ [ \"$(kwick-shell list --json | grep -o '\"name\":\"" + name + "\"[^}]*\"installed\":true')\" ] || " + shellInstall(name) + "; }"
+        run("if command -v pkexec >/dev/null; then " + inst + " && " + set + "; else kwick-shell " + name + "; fi", refresh)
     }
 
     function setDefaultSession(d) {

@@ -1,0 +1,37 @@
+add_newline = false
+format = "$username$hostname$directory$git_branch$git_status$python$nodejs$rust$golang$cmd_duration$character"
+
+[username]
+show_always = true
+format = "[$user]($style)"
+style_user = "245"
+style_root = "red"
+
+[hostname]
+ssh_only = false
+format = "[@$hostname]($style) "
+style = "245"
+
+[directory]
+truncation_length = 1
+truncate_to_repo = false
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold 33"
+
+[git_branch]
+format = "[$symbol$branch]($style) "
+symbol = " "
+style = "250"
+
+[git_status]
+format = "([$all_status$ahead_behind]($style) )"
+style = "yellow"
+
+[cmd_duration]
+min_time = 2000
+format = "[$duration]($style) "
+style = "245"
+
+[character]
+success_symbol = "[❯](33)"
+error_symbol = "[❯](red)"

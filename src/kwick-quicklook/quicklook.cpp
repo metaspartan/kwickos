@@ -665,7 +665,10 @@ void QuickLook::reveal()
 
 void QuickLook::share()
 {
-    copyPath();
+    if (m_index < 0) {
+        return;
+    }
+    QProcess::startDetached(QStringLiteral("kwick-nearby"), {QStringLiteral("--share"), path()});
 }
 
 void QuickLook::copyPath()

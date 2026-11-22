@@ -92,8 +92,36 @@ jobs:
           name: kwick-hyprland-${{ matrix.arch }}
           path: hyprland-out/repo/pool/main/kwick-hyprland_*.deb
 
+  shells:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: c
+        uses: actions/cache@v4
+        with:
+          path: shells-out
+          key: kwick-shells-${{ matrix.arch }}-${{ hashFiles('scripts/mkquickshellpkg.sh', 'scripts/mknoctaliapkg.sh', 'VERSION') }}
+      - name: Build kwick-quickshell and kwick-noctalia from pinned, checksummed releases
+        if: steps.c.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p shells-out
+          docker run --rm -v "$PWD:/src:ro" -v "$PWD/shells-out:/out" debian:trixie bash /src/scripts/mkquickshellpkg.sh ${{ matrix.arch }}
+          docker run --rm -v "$PWD:/src:ro" -v "$PWD/shells-out:/out" debian:trixie bash /src/scripts/mknoctaliapkg.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kwick-shells-${{ matrix.arch }}
+          path: shells-out/repo/pool/main/kwick-*.deb
+
   publish:
-    needs: [plan, build, desktop, hyprland, rpi]
+    needs: [plan, build, desktop, hyprland, shells, rpi]
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
@@ -193,6 +221,7 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" out
           cp dl/kwickos-zfs-*/kwick-zfs*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no OpenZFS module packages in this release"
           cp dl/kwick-hyprland-*/kwick-hyprland_*.deb out/repo/pool/main/ 2>/dev/null || true
+          cp dl/kwick-shells-*/kwick-*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no kwick-quickshell or kwick-noctalia packages in this release"
           find dl/kwickos-arm64-rpi -name "*.deb" -exec cp {} out/repo/pool/main/ \; 2>/dev/null || true
           . config/darling.env; mkdir -p out/repo/pool/main
           GH_TOKEN=${{ secrets.GITHUB_TOKEN }} gh release download "darling-${DARLING_TAG#v}-${DARLING_PKG_REVISION}" -p 'kwick-darling_*.deb' -D out/repo/pool/main || true
