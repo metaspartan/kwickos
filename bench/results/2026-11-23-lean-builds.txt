@@ -1,0 +1,138 @@
+# Lean musl builds and a smaller kpkg: installed footprint against Alpine (amd64, 2026-11-23T10:30-12:40Z, docker 29.9.2, --cpus 6)
+# Lab scripts: D:\KwickOS-lab\musl-lean (apkpath.sh, measure.sh, functest.sh, t-coexist.sh, t-net.sh). Each lever was measured on its own.
+
+################################################################################
+## Lever 1: Alpine's apk on KwickOS today (ghcr.io/metaspartan/kwickos:latest, 0.7.0)
+# `apk add --no-cache PKG`, then /var/cache/apk and scripts.tar removed, `du -skx /` (KiB). The first apk use downloads
+# apk-tools-static (5348 KiB, kept in /usr/lib/kwick/apk.static) and every package pulls musl, libcrypto3/libssl3 and the
+# CA bundle, which Alpine's base image already has.
+
+curl kwickos[before rc pkgs after apk.static]: 7212 rc=0 14 24716 5348  | alpine[before rc pkgs after]: 8856 rc=0 9 14092
+python3 kwickos[before rc pkgs after apk.static]: 7212 rc=0 21 63172 5348  | alpine[before rc pkgs after]: 8856 rc=0 17 52732
+nginx kwickos[before rc pkgs after apk.static]: 7212 rc=0 6 21428 5348  | alpine[before rc pkgs after]: 8856 rc=0 2 10972
+openssh-server kwickos[before rc pkgs after apk.static]: 7212 rc=0 6 20700 5348  | alpine[before rc pkgs after]: 8856 rc=0 3 11092
+git kwickos[before rc pkgs after apk.static]: 7212 rc=0 17 32464 5348  | alpine[before rc pkgs after]: 8856 rc=0 12 21844
+# Result: apk on KwickOS loses by 10.4-10.7 MB per tool (apk-tools-static 5.2 MB + musl + OpenSSL + CA bundle). Not a lever.
+
+################################################################################
+## Lever 2: kpkg size (linux, CGO_ENABLED=0, -trimpath -buildvcs=false -ldflags="-s -w -buildid=", go1.27.4)
+# bytes            before      after       saved
+# amd64         5,222,524   4,411,516   -811,008
+# arm64         4,915,324   4,128,892   -786,432
+# riscv64       4,587,644   3,866,748   -720,896
+# Where the size was (amd64, before): code 2.55 MB, runtime function tables 1.94 MB. Biggest code: runtime 470 KB, kpkg 420 KB,
+# klauspost zstd with huff0/fse ~270 KB (encoder ~120 KB, index cache only), net + DNS ~170 KB, regexp + Unicode tables ~110 KB,
+# klauspost flate ~92 KB (half of it the gzip writer for dpkg-deb -b), math/big 65 KB, ed25519 ~45 KB, ulikunitz/xz + log ~51 KB,
+# encoding/asn1 20 KB, net/url + net/netip + unique ~20 KB. kpkg does not link net/http or crypto/tls (https goes to curl/wget).
+# Each change measured alone (amd64 bytes):
+#   small socket dialer + stub DNS resolver instead of package net (netdial.go)         -327,680  kept
+#   own xz/LZMA2 decoder, ulikunitz/xz dropped (xzdec.go; 1.4-1.7x faster decode)        ~-101,000 kept
+#   own fixed-Huffman gzip writer for dpkg-deb -b (gzipenc.go)                            ~-105,000 kept
+#   RSA PKCS#1 v1.5 verify with own Montgomery modexp instead of math/big                  -90,112  kept (differential test vs math/big)
+#   Alpine RSA public keys parsed by hand instead of encoding/asn1                         -86,016  kept
+#   small host parser instead of net/url (pins.go hostOf)                                  -81,920  kept
+#   own Valid-Until date parser instead of time.Parse                                      -32,768  kept
+#   plain-text index cache (no zstd encoder)                                              -241,664  rejected: lists grow 9.2 -> 47 MB on disk
+#   own ed25519 verifier instead of crypto/ed25519                                         ~-57,000  rejected: no hand-written signature code
+#   -tags netgo,osusergo,nethttpomithttp2                                                        0  no effect
+#   standard-library gzip reader instead of klauspost                                      -61,440  rejected: ~25% slower on Packages.gz
+#   no inlining in kpkg's own code (-gcflags=-l)                                          -147,456  rejected: 5-10% slower
+# Timing, median ms, kwickos:latest container, 6 CPUs (before / after, two rounds; measured with the plain-text cache variant,
+# the kept zstd cache reads at about the old speed for queries):
+#   apt update (cold) 2221/2500 -> 1883/2029; apt update (warm) 314/369 -> 271/284
+#   install curl+perl+git from cached debs 8663/8128/7993 -> 7670/7205/7272; download-only 2193/2032/1966 -> 1728/2003/1656
+# Peak memory: download 300 -> 128 MB, install about 500 -> 320-390 MB. go vet and go test ./... pass before and after.
+# Base image with the new kpkg (du -skx /): 7212 -> 6708 KiB.
+# Target was -2 MB; reached -0.81 MB. The rest is code kpkg uses (regex search, gzip/xz/zstd/bzip2 .deb members, RSA and
+# ed25519 signature checks, archive/tar, fmt, the runtime); UPX-style packing was not considered.
+
+################################################################################
+## Lever 3: lean musl builds (scripts/build-musl-lean.sh in alpine:3.22, gcc 14.2.0, musl 1.2.5-r13)
+# Installed-Size of the package (KiB), one change at a time:
+# curl 8.23.0 static
+#   mbedTLS 3.6.8, -O2                                    2012
+#   mbedTLS 4.1.2, -O2                                    1952   (3.6.8 predates CVE fixes listed for 4.1.1/4.1.2 in Alpine's secdb)
+#   mbedTLS 4.1.2, -Os (Alpine's default)                 1624   kept
+# nginx 1.30.7 static
+#   OpenSSL 3.5.9 (no-legacy etc.), -O2                   8736
+#   LibreSSL 4.4.1, -O2                                   4376
+#   LibreSSL 4.4.1, -Os                                   3724   kept
+#   + LTO                                                 3716   not kept (8 KiB)
+# OpenSSH 10.6p2 (sshd, sshd-session, sshd-auth, sftp-server, ssh-keygen)
+#   OpenSSL 3.5.9 libcrypto linked into each binary, -O2  20080  (4 copies of libcrypto)
+#   LibreSSL 4.4.1 libcrypto.so shared + kwick-musl, -O2   4348 + 668
+#   same, -Os                                             3660 + 668
+#   same, -Os + LTO                                       3480 + 668  kept
+#   moduli file (674 KiB) left out, like Alpine's apk add openssh-server
+# git 2.56.1 static (curl/mbedTLS, PCRE2, expat)
+#   one binary per helper, -O2                           18388  (git 5.3 MB, http-push 4.2, remote-http 3.1, http-fetch 3.0)
+#   + LTO, -O2                                           18932  rejected (larger)
+#   remote-http, http-fetch, http-push as one binary     12444
+#   same, -Os                                            10240   kept
+# CPython 3.14.10 (stdlib zip with source and bytecode, ssl/hashlib built in with OpenSSL 3.5.9 static)
+#   everything -O2                                       29428
+#   libraries -Os, interpreter -O2                       26656   kept (stdlib zip 7.6 MB with .py and .pyc, python3.14 binary
+#                                                                11.0 MB with OpenSSL inside, lib-dynload 6.6 MB, pip wheel 1.8 MB)
+# TLS library sizes measured for the choice (shared, stripped, bytes):
+#   OpenSSL 3.5.9  no-legacy etc.        libcrypto 5,963,688  libssl 1,052,504   (-O2)
+#   OpenSSL 3.5.9  trimmed for TLS        libcrypto 5,135,432  libssl   978,200   (-O2); 4,624,048 / 822,552 at -Os
+#   OpenSSL 3.5.9  trimmed for SSH only   libcrypto 4,577,384                     (-O2); 4,135,664 at -Os
+#   LibreSSL 4.4.1                        libcrypto 1,943,584  libssl   407,368   (-O2); 1,718,392 / 358,296 at -Os
+
+################################################################################
+## Final measurement (measure.sh), fresh container each
+# kwick-lean:new = ghcr.io/metaspartan/kwickos:latest (0.7.0) + kpkg from this tree + /etc/kpkg.conf and /etc/dpkg/dpkg.cfg.d/excludes
+#   from this tree + an apt source serving the packages built by scripts/build-musl-lean.sh (and mkleancurlpkg.sh's Debian-source curl)
+# alpine:3.24.4 alpine@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+# lean = `apt install -y PKG` (lean-builds = true); debian = `apt install -y --no-lean PKG`; alpine = `apk add --no-cache PKG`.
+# KiB = `du -skx /` after removing package lists and caches. Alpine's package count is everything in `apk info`.
+
+## base images (du -skx /, KiB)
+| image | KiB |
+|---|---:|
+| ghcr.io/metaspartan/kwickos:latest | 7212 |
+| kwick-lean:new | 6708 |
+| alpine:3.24.4 | 8856 |
+
+| package | system | rc | KiB | packages | ms |
+|---|---|---|---:|---|---:|
+| curl | lean | rc=0 | 8564 | kwick-ca-bundle kwick-curl  | 3647 |
+| curl | debian | rc=0 | 49816 | 21 packages | 6182 |
+| curl | alpine | rc=0 | 14092 | 25 packages | 3177 |
+| python3 | lean | rc=0 | 34256 | kwick-ca-bundle kwick-musl kwick-python3  | 4677 |
+| python3 | debian | rc=0 | 88116 | 34 packages | 8947 |
+| python3 | alpine | rc=0 | 52736 | 33 packages | 4381 |
+| nginx | lean | rc=0 | 10480 | kwick-nginx  | 3846 |
+| nginx | debian | rc=0 | 44716 | 14 packages | 4981 |
+| nginx | alpine | rc=0 | 10972 | 18 packages | 5757 |
+| openssh-server | lean | rc=0 | 10928 | kwick-musl kwick-openssh-server  | 3890 |
+| openssh-server | debian | rc=0 | 73656 | 58 packages | 8624 |
+| openssh-server | alpine | rc=0 | 11092 | 19 packages | 3297 |
+| git | lean | rc=0 | 17180 | kwick-ca-bundle kwick-git  | 3932 |
+| git | debian | rc=0 | 148092 | 42 packages | 8928 |
+| git | alpine | rc=0 | 21844 | 28 packages | 5618 |
+# python3 rows are from a second run after adding Alpine's -DTHREAD_STACK_SIZE=0x100000 (same installed size, 26656 KiB).
+# Margins (lean vs alpine): curl -5528 KiB (-39%), python3 -18480 (-35%), nginx -492 (-4.5%), openssh-server -164 (-1.5%),
+# git -4664 (-21%). nginx and openssh-server win only by the base image difference; the packages themselves are larger than
+# Alpine's because Alpine's base already carries musl, OpenSSL and the CA bundle.
+
+################################################################################
+## Functional checks (kwick-lean:new, functest.sh, t-net.sh, t-coexist.sh)
+# curl: https://deb.debian.org over HTTP/2, verify=0; self-signed, expired and wrong-host badssl.com certificates rejected;
+#   gzip decoding. curl -V: libcurl/8.23.0 mbedTLS/4.1.2 zlib/1.4 nghttp2/1.71.0; Features: alt-svc AsynchDNS HSTS HTTP2
+#   HTTPS-proxy IPv6 Largefile libz SSL threadsafe UnixSockets (Alpine adds brotli IDN PSL zstd; neither has NTLM).
+# git: clone https://github.com/madler/zlib.git, git grep -P, commit; git-http-fetch/-push dispatch to the shared helper.
+# python3: ssl (OpenSSL 3.5.9), sqlite3 3.54.1, hashlib.pbkdf2_hmac, lzma, bz2, curses, readline, ctypes, decimal;
+#   urllib https to pypi.org; tracebacks show source lines; python3 -m venv + pip install requests pyyaml (musllinux wheels,
+#   yaml.CLoader present) + requests.get https.
+# nginx: nginx -t; HTTP on :80; with a test certificate: HTTP/2 over TLS 1.3 (TLS_AES_256_GCM_SHA384, group X25519MLKEM768)
+#   and TLS 1.2 (ECDHE-ECDSA-AES256-GCM-SHA384) from Alpine's openssl s_client and curl.
+# openssh-server: host keys (rsa, ecdsa, ed25519, mldsa44_ed25519) generated by postinst; sshd -t; RSA-3072 key login from
+#   Alpine's ssh client: kex mlkem768x25519-sha256, host key ssh-ed25519, chacha20-poly1305.
+# Coexistence: kwick-curl + `apt install libcurl4t64` installs Debian's libcurl next to it; `apt install --no-lean curl`
+#   removes kwick-curl and installs Debian's curl; kwick-python3 + `apt install python3-yaml` replaces it with Debian's
+#   Python 3.13.5 and the module imports from /usr/lib/python3/dist-packages; `apt upgrade -s` keeps the lean builds.
+# kpkg: go vet ./... and go test ./... pass (golang:1.25, GOTOOLCHAIN=auto), including the new leanbuilds_test.go.
+# Security gate (scripts/cve-check.sh lean section): "none of the 18 pinned upstream versions in config/musl-lean/sources
+#   predates a security fix in Alpine's security database". With mbedTLS 3.6.8 it failed (fixes listed for 4.1.1 and 4.1.2),
+#   and without the five pinned OpenSSL patches it warned about Alpine's 3.5.9-r1.

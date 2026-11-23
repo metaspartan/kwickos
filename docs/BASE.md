@@ -23,13 +23,16 @@ vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by de
   file.
 * The KwickOS apt repository carries a lean rebuild of Debian's `curl` source (`curl`, `libcurl4t64`, `libcurl3t64-gnutls`
   and their `-dev` packages), versioned `<Debian version>+kwick1`. It is Debian's source and patches built without LDAP,
-  RTMP, GSSAPI/Kerberos and SCP/SFTP, so `apt install curl` (or `git`) does not pull in OpenLDAP, SASL, Berkeley DB, Kerberos,
+  RTMP, GSSAPI/Kerberos and SCP/SFTP, so Debian's `curl` (`apt install --no-lean curl`) and the Debian packages that use
+  libcurl, such as Debian's `git`, do not pull in OpenLDAP, SASL, Berkeley DB, Kerberos,
   librtmp, GnuTLS (for RTMP) and libssh2. Every other protocol and feature works as in Debian (HTTP/1.1, HTTP/2 and HTTP/3,
   FTP(S), SMTP(S), IMAP(S), POP3(S), SMB, MQTT, TFTP, DICT, telnet, gopher, WebSockets, brotli, zstd, IDN, PSL). Alpine's
   curl leaves out the same four. When Debian
   publishes a newer curl (a security update), its version sorts above the lean build and apt installs Debian's until the
   next KwickOS release rebuilds it. To keep Debian's full build, install it by version, for example
   `apt install curl=8.14.1-2+deb13u7 libcurl4t64=8.14.1-2+deb13u7`, and hold it with `apt-mark hold`.
+* On a headless system `apt install curl`, `python3`, `nginx`, `openssh-server` and `git` install the KwickOS lean musl
+  builds of these tools; see [Lean builds](#lean-builds) below.
 * The console logs in as root automatically on VM and live images. Run `rm /etc/kinit/autologin` and `passwd` for a password
   prompt. Install `openssh-server` for remote access.
 * `kwick-kernel-install --list | --rollback` manages kernels.
@@ -49,8 +52,8 @@ build-essential and similar) in one step.
 |---|---|---|
 | network | DHCP and static IPv4 (`/etc/network/interfaces`, `ip`, `ifconfig`, `route`), IPv6 SLAAC and `udhcpc6`, DNS (`nslookup`, `/etc/resolv.conf`), `ping`, `ping6`, `traceroute`, `nc`, `telnet`, `netstat`, `brctl`, `rfkill`, NTP client (`ntpd`, `systemctl enable --now ntpd`) | `dnsutils` (`dig`, 44 MB), `iproute2` (`ss`), `tcpdump` (54 MB) |
 | Wi-Fi | `cfg80211`, `mac80211` and `iwlwifi` modules in the generic kernel, `rfkill` | `wpasupplicant` or `iwd` (20 MB), plus the card's firmware package (Debian's `non-free-firmware` component, which is not enabled by default) |
-| HTTPS downloads | none: `wget` refuses `https://` until it can verify certificates (see below) | `curl` (60 MB with `ca-certificates`), or `ca-certificates` and `openssl` so `wget` verifies |
-| remote access | `nc`, `telnet`, `ssl_client` | `openssh-client` (61 MB), `openssh-server` (89 MB), `rsync` (28 MB) |
+| HTTPS downloads | none: `wget` refuses `https://` until it can verify certificates (see below) | `curl` (lean build, 1.8 MB with its CA bundle), or `ca-certificates` and `openssl` so `wget` verifies |
+| remote access | `nc`, `telnet`, `ssl_client` | `openssh-client` (61 MB), `openssh-server` (lean build, 4.1 MB), `rsync` (28 MB) |
 | time zones and keymaps | `TZ=` with POSIX rules (`TZ=CET-1CEST,M3.5.0,M10.5.0/3`), clock via `hwclock` | `tzdata` (31 MB), `kbd` (18 MB) for `loadkeys` |
 | editors, pager, shell | `vi`, `less`, `ash` (history, line editing, coloured `user@host:dir$` prompt), `watch`, `kwick-shell` | `nano` (21 MB), `bash` (fetched when something needs it) and `bash-completion`, `zsh` (about 19 MB installed, 5 MB download), `fish` |
 | users and privilege | `adduser`, `addgroup`, `passwd`, `su`, `chpasswd` | `sudo` (51 MB) |
@@ -68,6 +71,43 @@ hands the connection to `openssl s_client` with certificate and host name verifi
 for it. `apt` itself is unaffected: kpkg checks the repository signatures and hashes, so it fetches `https://` sources
 with `--no-check-certificate` when `curl` is missing. The base has no `sudo`: log in as root or install it. Enabling anything
 at boot is left to you, so the base starts only `networking` and `syslog`.
+
+## Lean builds
+
+On a headless system five common tools come from KwickOS's own musl builds rather than from Debian. `apt install curl` prints
+`Note, selecting 'kwick-curl' (KwickOS lean build) for 'curl'` and installs it; the same goes for `python3`, `nginx`,
+`openssh-server` and `git`. Each is built from the upstream release in `alpine:3.22` by `scripts/build-musl-lean.sh` and
+published, signed, in the KwickOS repository ([UPDATES](UPDATES.md#lean-musl-builds) has the security process).
+
+| package | what it is | installed (KiB) | left out, compared with Alpine's package |
+|---|---|---:|---|
+| `kwick-curl` | curl 8.23.0, static, mbedTLS 4.1.2 (TLS 1.2/1.3), nghttp2 (HTTP/2), zlib, threaded resolver | 1,624 | IDN, PSL, brotli and zstd decoding; no shared `libcurl` for other programs (Debian's `libcurl4t64` serves those). Neither build has NTLM |
+| `kwick-python3` | CPython 3.14.10, stdlib in `/usr/lib/python314.zip` (source and bytecode), `ssl`/`hashlib` built in with OpenSSL 3.5.9, sqlite3, ctypes, curses, readline, lzma, bz2, decimal, pip/venv/ensurepip | 26,656 | `dbm.gnu`/`dbm.ndbm` (gdbm), `tkinter`/IDLE (no Tk, as in Alpine's split); tests are the `kwick-python3-tests` extra |
+| `kwick-nginx` | nginx 1.30.7, static, LibreSSL 4.4.1 (TLS 1.3 with X25519MLKEM768, HTTP/2, HTTP/3), PCRE2 with JIT, zlib, Debian's `/etc/nginx` layout | 3,724 | dynamic modules (Alpine ships `stream`, `mail` and others as `nginx-mod-*`); `ssl_conf_command` and TLS 1.3 early data (LibreSSL) |
+| `kwick-openssh-server` | OpenSSH 10.6p2 `sshd`, `sftp-server`, `ssh-keygen` with LibreSSL 4.4.1 `libcrypto` kept in `/usr/lib/openssh` | 3,480 | PAM, Kerberos and the `moduli` file, like Alpine's `openssh-server`; DH group exchange uses OpenSSH's built-in groups |
+| `kwick-git` | git 2.56.1, static, HTTPS through libcurl/mbedTLS, PCRE2, expat; `git-remote-http`, `git-http-fetch` and `git-http-push` are one binary | 10,240 | like Alpine's `git`: no Perl, Tcl/Tk or Python parts; `git-daemon`, `http-backend`, `imap-send`, `scalar` and the Rust parts are left out |
+| `kwick-ca-bundle` | Mozilla CA bundle (curl.se `cacert-2026-11-05.pem`), linked as `/etc/ssl/certs/ca-certificates.crt` and `/etc/ssl/cert.pem` when those are missing | 212 | |
+| `kwick-musl` | musl libc at `/usr/lib/kwick/musl`, for Python and OpenSSH | 668 | |
+
+How they live next to Debian's packages:
+
+* The swap happens only when you name the package yourself. Dependencies always resolve to Debian, so Debian packages that need
+  `libcurl4t64`, `libssl3t64` or Python modules get Debian's libraries.
+* `kwick-curl`, `kwick-git`, `kwick-nginx` and `kwick-openssh-server` `Provide` the command package they replace, so a Debian
+  package that needs the `curl` or `git` command is satisfied by them.
+* `kwick-python3` provides nothing to Debian and conflicts with Debian's `python3`: installing a Debian module such as
+  `python3-yaml` replaces it with Debian's Python 3.13 in the same transaction. Packages installed with `pip` into the lean
+  Python's own directories go with it (use a virtual environment).
+* A Debian nginx module (`libnginx-mod-*`) depends on Debian's `nginx-abi-*`, so installing one switches to Debian's nginx.
+* Debian's build is one flag away: `apt install --no-lean curl` installs Debian's package and removes the lean one. To turn
+  the swap off for good, delete `lean-builds = true` from `/etc/kpkg.conf` (`-o KwickOS::Lean-Builds=false` for one command).
+  The desktop edition does not have the setting.
+* Python from PyPI: binary wheels are `musllinux` wheels, which work with the lean Python. A package that has only a source
+  distribution with C code needs a musl compiler, which KwickOS does not have; use Debian's Python for those.
+* The builds use Alpine's optimisation level (`-Os` from abuild's defaults; Python at `-O2` with a 1 MiB thread stack, as in
+  Alpine's APKBUILD), with
+  `-fstack-protector-strong`, `-fstack-clash-protection`, `_FORTIFY_SOURCE=2`, full RELRO and PIE (static-PIE for the
+  static ones).
 
 ## Shells
 

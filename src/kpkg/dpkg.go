@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/klauspost/compress/gzip"
 	"io"
 	"io/fs"
 	"os"
@@ -618,7 +617,7 @@ func buildDeb(src, out string) error {
 	}
 	mktar := func(root string, skip string) ([]byte, error) {
 		var buf bytes.Buffer
-		zw := gzip.NewWriter(&buf)
+		zw := newGzipWriter(&buf)
 		tw := tar.NewWriter(zw)
 		err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {

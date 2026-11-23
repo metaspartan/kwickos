@@ -63,6 +63,10 @@ func parseCommon(args []string) []string {
 			cfg.AllowUnauth = true
 		case a == "--force-overwrite":
 			cfg.ForceOverwrite = true
+		case a == "--no-lean":
+			leanFlag = -1
+		case a == "--lean":
+			leanFlag = 1
 		case a == "--root" && i+1 < len(args):
 			cfg.Root = args[i+1]
 			i++
@@ -79,6 +83,11 @@ func parseCommon(args []string) []string {
 				cfg.Yes = v == "true" || v == "1"
 			case "APT::Get::AllowUnauthenticated":
 				cfg.AllowUnauth = v == "true" || v == "1"
+			case "KwickOS::Lean-Builds":
+				leanFlag = -1
+				if v == "true" || v == "1" {
+					leanFlag = 1
+				}
 			case "Dpkg::Options::":
 				dpkgOption(v)
 			}
@@ -245,6 +254,11 @@ func resolveRequest(db *DB, req string) (*Pkg, error) {
 			foreign = qual
 		default:
 			return nil, fmt.Errorf("unable to locate package %s (architecture '%s' is not enabled; see dpkg --add-architecture)", name, qual)
+		}
+	}
+	if !hasVer && suite == "" && !qualified {
+		if c := leanFor(db, name); c != nil {
+			return c, nil
 		}
 	}
 	pools := [][]*Pkg{db.Avail[name]}

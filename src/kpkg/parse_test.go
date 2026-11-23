@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func parseAll(data string, keep map[string]bool) []*Paragraph {
@@ -67,5 +68,23 @@ func TestSplitParagraphChunks(t *testing.T) {
 	}
 	if n != 40000 {
 		t.Fatalf("got %d paragraphs", n)
+	}
+}
+
+func TestParseRFC1123(t *testing.T) {
+	for _, s := range []string{"Sat, 07 Dec 2024 08:15:02 UTC", "Mon, 02 Jan 2006 15:04:05 GMT", "Tue, 31 Dec 2030 23:59:59 UTC", "Fri, 29 Feb 2008 10:00:00 GMT"} {
+		want, err := time.Parse(time.RFC1123, strings.Replace(s, "UTC", "GMT", 1))
+		got, ok := parseRFC1123(s)
+		if err != nil || !ok || got.Unix() != want.Unix() {
+			t.Errorf("%q: got %v %v, want %v %v", s, got, ok, want, err)
+		}
+	}
+	if got, ok := parseRFC1123("Thu, 1 Feb 2029 00:00:00 UTC"); !ok || !got.Equal(time.Date(2029, 2, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("single-digit day: %v %v", got, ok)
+	}
+	for _, s := range []string{"", "Sat, 07 Dec 2024 08:15 UTC", "Sat 07 Dec 2024 08:15:02 UTC", "Sat, 07 Dex 2024 08:15:02 UTC", "Sat, 07 Dec 2024 25:15:02 UTC", "Sat, 07 Dec 2024 08:15:02 +0000", "Sat, 32 Dec 2024 08:15:02 UTC"} {
+		if _, ok := parseRFC1123(s); ok {
+			t.Errorf("%q accepted", s)
+		}
 	}
 }

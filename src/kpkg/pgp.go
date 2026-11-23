@@ -11,14 +11,30 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
+	"math/bits"
 	"os"
 	"strings"
 )
 
 type rsaKey struct {
-	N *big.Int
+	N []byte
 	E int
+}
+
+func newRSAKey(n, e []byte) *rsaKey {
+	e = trimZeros(e)
+	var x uint64
+	for _, c := range e[max(0, len(e)-8):] {
+		x = x<<8 | uint64(c)
+	}
+	return &rsaKey{N: trimZeros(n), E: int(x)}
+}
+
+func trimZeros(b []byte) []byte {
+	for len(b) > 0 && b[0] == 0 {
+		b = b[1:]
+	}
+	return b
 }
 
 type pgpKey struct {
@@ -36,16 +52,12 @@ var digestInfoPrefix = map[crypto.Hash][]byte{
 }
 
 func rsaVerifyPKCS1v15(k *rsaKey, h crypto.Hash, digest, sig []byte) bool {
-	size := (k.N.BitLen() + 7) / 8
+	size := len(k.N)
 	prefix, ok := digestInfoPrefix[h]
-	if !ok || len(sig) != size || k.E < 3 {
+	if !ok || size == 0 || k.N[size-1]&1 == 0 || len(sig) != size || k.E < 3 || bytes.Compare(sig, k.N) >= 0 {
 		return false
 	}
-	s := new(big.Int).SetBytes(sig)
-	if s.Cmp(k.N) >= 0 {
-		return false
-	}
-	em := new(big.Int).Exp(s, big.NewInt(int64(k.E)), k.N).FillBytes(make([]byte, size))
+	em := modExp(sig, uint64(k.E), k.N)
 	tLen := len(prefix) + len(digest)
 	if size < tLen+11 || em[0] != 0 || em[1] != 1 || em[size-tLen-1] != 0 {
 		return false
@@ -56,6 +68,103 @@ func rsaVerifyPKCS1v15(k *rsaKey, h crypto.Hash, digest, sig []byte) bool {
 		}
 	}
 	return bytes.Equal(em[size-tLen:size-len(digest)], prefix) && bytes.Equal(em[size-len(digest):], digest)
+}
+
+func modExp(base []byte, e uint64, mod []byte) []byte {
+	n := (len(mod) + 7) / 8
+	m, x := beWords(mod, n), beWords(base, n)
+	inv := m[0]
+	for i := 0; i < 5; i++ {
+		inv *= 2 - m[0]*inv
+	}
+	k := -inv
+	rr := make([]uint64, n)
+	rr[0] = 1
+	for i := 0; i < 128*n; i++ {
+		var c uint64
+		for j := range rr {
+			v := rr[j]
+			rr[j] = v<<1 | c
+			c = v >> 63
+		}
+		if c != 0 || !wordsLess(rr, m) {
+			wordsSub(rr, m)
+		}
+	}
+	xm := montMul(x, rr, m, k)
+	acc := xm
+	for i := bits.Len64(e) - 2; i >= 0; i-- {
+		acc = montMul(acc, acc, m, k)
+		if e>>i&1 == 1 {
+			acc = montMul(acc, xm, m, k)
+		}
+	}
+	one := make([]uint64, n)
+	one[0] = 1
+	acc = montMul(acc, one, m, k)
+	out := make([]byte, len(mod))
+	for i := range out {
+		out[len(out)-1-i] = byte(acc[i/8] >> (8 * (i % 8)))
+	}
+	return out
+}
+
+func beWords(b []byte, n int) []uint64 {
+	w := make([]uint64, n)
+	for i := 0; i < len(b) && i < 8*n; i++ {
+		w[i/8] |= uint64(b[len(b)-1-i]) << (8 * (i % 8))
+	}
+	return w
+}
+
+func mac(a, b, c, d uint64) (uint64, uint64) {
+	hi, lo := bits.Mul64(a, b)
+	var cc uint64
+	lo, cc = bits.Add64(lo, c, 0)
+	hi += cc
+	lo, cc = bits.Add64(lo, d, 0)
+	return hi + cc, lo
+}
+
+func montMul(x, y, m []uint64, k uint64) []uint64 {
+	n := len(m)
+	t := make([]uint64, n+2)
+	for i := 0; i < n; i++ {
+		var c, cc uint64
+		for j := 0; j < n; j++ {
+			c, t[j] = mac(x[j], y[i], t[j], c)
+		}
+		t[n], cc = bits.Add64(t[n], c, 0)
+		t[n+1] = cc
+		u := t[0] * k
+		c, _ = mac(u, m[0], t[0], 0)
+		for j := 1; j < n; j++ {
+			c, t[j-1] = mac(u, m[j], t[j], c)
+		}
+		t[n-1], cc = bits.Add64(t[n], c, 0)
+		t[n] = t[n+1] + cc
+	}
+	z := t[:n]
+	if t[n] != 0 || !wordsLess(z, m) {
+		wordsSub(z, m)
+	}
+	return z
+}
+
+func wordsLess(a, b []uint64) bool {
+	for i := len(a) - 1; i >= 0; i-- {
+		if a[i] != b[i] {
+			return a[i] < b[i]
+		}
+	}
+	return false
+}
+
+func wordsSub(a, b []uint64) {
+	var br uint64
+	for i := range a {
+		a[i], br = bits.Sub64(a[i], b[i], br)
+	}
 }
 
 type Keyring map[uint64]*pgpKey
@@ -139,7 +248,7 @@ func parseKey(body []byte) (k *pgpKey) {
 	case 1, 2, 3:
 		n, rest := readMPI(p)
 		e, _ := readMPI(rest)
-		k.rsa = &rsaKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
+		k.rsa = newRSAKey(n, e)
 	case 22:
 		ol := int(p[0])
 		if !bytes.Equal(p[1:1+ol], oidEd25519) {
@@ -292,7 +401,7 @@ func verifySig(body, signed []byte, kr Keyring) (ok bool, err error) {
 	switch {
 	case (pkAlgo == 1 || pkAlgo == 3) && key.rsa != nil:
 		s, _ := readMPI(sigData)
-		kl := (key.rsa.N.BitLen() + 7) / 8
+		kl := len(key.rsa.N)
 		if len(s) < kl {
 			s = append(make([]byte, kl-len(s)), s...)
 		}

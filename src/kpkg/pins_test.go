@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -512,5 +513,17 @@ func TestRankedOrder(t *testing.T) {
 	}
 	if strings.Join(vs, ",") != "2,1,3~bpo13+1" {
 		t.Errorf("ranked %v", vs)
+	}
+}
+
+func TestHostOf(t *testing.T) {
+	for _, u := range []string{"http://deb.debian.org/debian", "https://user:pw@mirror.example:8443/x?y#z", "http://[::1]:8080/debian", "http://[fe80::1]/", "http://10.0.0.1:3142/debian", "file:///srv/repo", "cdrom:[Debian]/", "http://host", "HTTP://Host.Example/p", "http://a.b?q=1"} {
+		want := ""
+		if p, err := url.Parse(u); err == nil && p.Host != "" {
+			want = p.Hostname()
+		}
+		if got := hostOf(u); got != want {
+			t.Errorf("hostOf(%q) = %q, want %q", u, got, want)
+		}
 	}
 }

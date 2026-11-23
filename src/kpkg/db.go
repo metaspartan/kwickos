@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"unsafe"
 
 	"github.com/klauspost/compress/gzip"
@@ -210,12 +211,15 @@ var zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
 const maxIndexSize = 1 << 30
 
 func readKidx(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := mapFile(path)
 	if err != nil {
 		return "", err
 	}
 	if bytes.HasPrefix(data, zstdMagic) {
 		return decodeZstdIndex(data)
+	}
+	if len(data) < 2 || data[0] != 0x1f || data[1] != 0x8b {
+		return unsafe.String(unsafe.SliceData(data), len(data)), nil
 	}
 	zr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -280,6 +284,22 @@ func writeKidx(path string, data []byte) error {
 	}
 	defer enc.Close()
 	return writeFileAtomic(path, enc.EncodeAll(data, make([]byte, 0, len(data)/4)), 0644, true)
+}
+
+func mapFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || st.Size() == 0 {
+		return nil, err
+	}
+	if st.Size() >= maxIndexSize {
+		return nil, fmt.Errorf("%s: index too large", path)
+	}
+	return syscall.Mmap(int(f.Fd()), 0, int(st.Size()), syscall.PROT_READ, syscall.MAP_PRIVATE)
 }
 
 func splitParagraphChunks(s string, n int) []string {

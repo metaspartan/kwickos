@@ -19,14 +19,13 @@ import (
 	"syscall"
 
 	"github.com/klauspost/compress/zstd"
-	"github.com/ulikunitz/xz"
 	"golang.org/x/sys/unix"
 )
 
 func decompressor(name string, r io.Reader) (io.Reader, error) {
 	switch {
 	case strings.HasSuffix(name, ".xz"):
-		return xz.NewReader(bufio.NewReaderSize(r, 1<<16))
+		return newXZReader(bufio.NewReaderSize(r, 1<<16))
 	case strings.HasSuffix(name, ".gz"):
 		return gzip.NewReader(r)
 	case strings.HasSuffix(name, ".zst"):

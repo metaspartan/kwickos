@@ -25,6 +25,7 @@ type Config struct {
 	AllowHeld, IndexXZ        bool
 	AllowUnauth               bool
 	ForceOverwrite            bool
+	Lean                      bool
 	PathFilters               []filterRule
 	Quiet                     int
 	TargetRelease             string
@@ -89,6 +90,8 @@ func setupPaths() {
 				cfg.KeepDebs = on
 			case "assume-yes":
 				cfg.Yes = on
+			case "lean-builds":
+				cfg.Lean = on
 			case "index-compression":
 				cfg.IndexXZ = v == "xz"
 			case "avoid":
@@ -99,6 +102,7 @@ func setupPaths() {
 			}
 		}
 	}
+	applyLeanFlag()
 }
 
 func die(err error) {

@@ -59,6 +59,32 @@ old default stays and the new kernel waits for `kwick-kernel try`. An upgrade of
 default (for example `virt` next to `generic`) only installs it. Installing a kernel from the Settings page
 (`kwick-update kernel install VERSION:FLAVOR`) follows the same rule, except that it may switch the flavor.
 
+## Lean musl builds
+
+On a headless system `apt install curl` (likewise `python3`, `nginx`, `openssh-server`, `git`) installs the KwickOS lean build
+`kwick-<name>` from the KwickOS repository instead of Debian's package ([BASE](BASE.md#lean-builds)). These packages are
+built by KwickOS, not Debian, so Debian's security archive does not cover them. They are kept current like this:
+
+* **Pinned sources.** `config/musl-lean/sources` names every upstream tarball (CPython, curl, mbedTLS, nghttp2, OpenSSL,
+  nginx, PCRE2, OpenSSH, git, expat, zlib, xz, bzip2, libffi, SQLite, ncurses, readline) with its URL and SHA-256, plus the
+  Mozilla CA bundle and any security patch taken ahead of an upstream release (for example the five OpenSSL 3.5.9 fixes
+  Alpine ships as `3.5.9-r1`, pinned to an aports commit). `scripts/build-musl-lean.sh` refuses a file whose checksum does not
+  match. The tarballs matching Alpine 3.24's versions were also checked against the SHA-512 sums in Alpine's APKBUILDs.
+* **Reproducible builds in CI.** The release workflow builds them in `alpine:3.22` for amd64, arm64 and riscv64 with fixed
+  `SOURCE_DATE_EPOCH`, `-ffile-prefix-map`, sorted file lists and normalised timestamps, and `mkrepo.sh` signs them into the
+  KwickOS repository with the same key as every other `kwick-*` package. musl comes from the builder image, so a musl fix
+  arrives with Alpine's next 3.22 package and the next build.
+* **Tracking upstream security releases.** `scripts/cve-check.sh` (the security gate run on every push and nightly) compares
+  each pin with Alpine's security database (`secdb.alpinelinux.org`, edge main and community). It fails when any pinned
+  version is older than a version Alpine lists as fixing a CVE, warns when Alpine patched the pinned version (the fix is not
+  in an upstream release yet, so it is taken as a pinned patch), and warns when the CA bundle is older than 120 days. A
+  security release is a one-line change of version and checksum in `config/musl-lean/sources`; the next release build
+  rebuilds every package that uses the library (an OpenSSL fix rebuilds Python, nginx and OpenSSH).
+* **Upgrades.** The lean packages upgrade with `apt upgrade` and `kwick-update` like any other `kwick-*` package. They never
+  depend on Debian libraries, and Debian packages never resolve to them except through `Provides` of a command (`curl`,
+  `git`, `nginx`, `openssh-server`), so a Debian security update keeps reaching Debian's own `libcurl4t64`, `libssl3t64` and
+  Python.
+
 ## Snapshots around updates
 
 On a Btrfs install `kwick-update upgrade` takes a `pre` snapshot before it starts and a `post` snapshot when it ends ("Software Update (N updates)"), so the whole update can be undone from the Snapshots page or the boot menu. apt and kpkg transactions outside Software Update get their own pairs through the `DPkg::Pre-Invoke`/`Post-Invoke` hooks; during Software Update those hooks stay quiet. On ext4 nothing changes. See [SNAPSHOTS](SNAPSHOTS.md).

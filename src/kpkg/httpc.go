@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -20,7 +19,7 @@ type httpResp struct {
 }
 
 type hconn struct {
-	c  net.Conn
+	c  *os.File
 	br *bufio.Reader
 }
 
@@ -40,7 +39,7 @@ func getConn(addr string, fresh bool) (*hconn, bool, error) {
 		}
 		connPool.Unlock()
 	}
-	c, err := net.DialTimeout("tcp", addr, 20*time.Second)
+	c, err := dialTCP(addr, 20*time.Second)
 	if err != nil {
 		return nil, false, err
 	}
@@ -64,7 +63,7 @@ func putConn(addr string, c *hconn) {
 }
 
 type deadlineReader struct {
-	c net.Conn
+	c *os.File
 	r io.Reader
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -65,10 +64,26 @@ func globMatch(pat, s string) bool {
 }
 
 func hostOf(uri string) string {
-	if u, err := url.Parse(uri); err == nil && u.Host != "" {
-		return u.Hostname()
+	_, h, ok := strings.Cut(uri, "://")
+	if !ok {
+		return ""
 	}
-	return ""
+	if i := strings.IndexAny(h, "/?#"); i >= 0 {
+		h = h[:i]
+	}
+	if i := strings.LastIndexByte(h, '@'); i >= 0 {
+		h = h[i+1:]
+	}
+	if strings.HasPrefix(h, "[") {
+		if i := strings.IndexByte(h, ']'); i > 0 {
+			return h[1:i]
+		}
+		return ""
+	}
+	if i := strings.IndexByte(h, ':'); i >= 0 {
+		h = h[:i]
+	}
+	return h
 }
 
 func readReleaseInfo(s *Source) (ReleaseInfo, bool) {

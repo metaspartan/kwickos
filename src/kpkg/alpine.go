@@ -7,14 +7,12 @@ import (
 	"crypto"
 	"crypto/sha1"
 	"crypto/sha256"
-	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/klauspost/compress/gzip"
 	"io"
-	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -181,16 +179,6 @@ func forEachTar(member []byte, fn func(name string, data []byte)) error {
 	}
 }
 
-type pkixPub struct {
-	Algo      asn1.RawValue
-	PublicKey asn1.BitString
-}
-
-type rsaPubASN struct {
-	N *big.Int
-	E int
-}
-
 func loadApkKey(name string) (*rsaKey, error) {
 	data, err := os.ReadFile(filepath.Join(cfg.Root, "etc/apk/keys", filepath.Base(name)))
 	if err != nil {
@@ -200,15 +188,61 @@ func loadApkKey(name string) (*rsaKey, error) {
 	if blk == nil {
 		return nil, errors.New("bad PEM key " + name)
 	}
-	var spki pkixPub
-	if _, err := asn1.Unmarshal(blk.Bytes, &spki); err != nil {
-		return nil, err
+	k := parseRSASPKI(blk.Bytes)
+	if k == nil {
+		return nil, errors.New("bad RSA public key " + name)
 	}
-	var pub rsaPubASN
-	if _, err := asn1.Unmarshal(spki.PublicKey.Bytes, &pub); err != nil {
-		return nil, err
+	return k, nil
+}
+
+func derNext(b []byte, tag byte) (val, rest []byte, ok bool) {
+	if len(b) < 2 || b[0] != tag {
+		return nil, nil, false
 	}
-	return &rsaKey{N: pub.N, E: pub.E}, nil
+	l, b := int(b[1]), b[2:]
+	if l >= 0x80 {
+		n := l & 0x7f
+		if n == 0 || n > 4 || len(b) < n {
+			return nil, nil, false
+		}
+		l = 0
+		for _, c := range b[:n] {
+			l = l<<8 | int(c)
+		}
+		b = b[n:]
+	}
+	if l > len(b) {
+		return nil, nil, false
+	}
+	return b[:l], b[l:], true
+}
+
+func parseRSASPKI(der []byte) *rsaKey {
+	spki, _, ok := derNext(der, 0x30)
+	if !ok {
+		return nil
+	}
+	_, spki, ok = derNext(spki, 0x30)
+	if !ok {
+		return nil
+	}
+	bs, _, ok := derNext(spki, 0x03)
+	if !ok || len(bs) < 1 || bs[0] != 0 {
+		return nil
+	}
+	seq, _, ok := derNext(bs[1:], 0x30)
+	if !ok {
+		return nil
+	}
+	n, seq, ok := derNext(seq, 0x02)
+	if !ok || len(n) == 0 || n[0]&0x80 != 0 {
+		return nil
+	}
+	e, _, ok := derNext(seq, 0x02)
+	if !ok || len(e) == 0 || len(e) > 8 || e[0]&0x80 != 0 {
+		return nil
+	}
+	return newRSAKey(n, e)
 }
 
 func verifyApk(pkg []byte, want string) ([]byte, error) {

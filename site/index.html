@@ -570,15 +570,15 @@
           <tr><th scope="row">MicroVM boot (<code>virt</code> kernel, whole OS in RAM)</th><td>no microVM image</td><td>0.27 s guest, 0.49 s wall</td></tr>
           <tr><th scope="row">Memory in use after boot (live ISO)</th><td>63-74 MiB</td><td><strong>47-51 MiB</strong></td></tr>
           <tr><th scope="row">Packages available (amd64)</th><td>28,661 (musl)</td><td><strong>68,946 (Debian 13, glibc)</strong></td></tr>
-          <tr><th scope="row">Installed size with curl</th><td><strong>14 MB</strong></td><td>50 MB (Debian slim: 97 MB)</td></tr>
-          <tr><th scope="row">Installed size with python3</th><td><strong>52 MB</strong></td><td>87 MB (Debian slim: 120 MB)</td></tr>
-          <tr><th scope="row">Installed size with nginx / openssh-server / git</th><td><strong>11 / 11 / 22 MB</strong></td><td>45 / 73 / 146 MB (Debian slim: 93 / 113 / 184 MB)</td></tr>
+          <tr><th scope="row">Installed size with curl</th><td>13.8 MB</td><td><strong>8.4 MB (Debian's: 48.6 MB; Debian slim: 97 MB)</strong></td></tr>
+          <tr><th scope="row">Installed size with python3</th><td>51.5 MB</td><td><strong>33.5 MB (Debian's: 86.1 MB; Debian slim: 120 MB)</strong></td></tr>
+          <tr><th scope="row">Installed size with nginx / openssh-server / git</th><td>10.7 / 10.8 / 21.3 MB</td><td><strong>10.2 / 10.7 / 16.8 MB (Debian's: 43.7 / 71.9 / 144.6 MB; Debian slim: 93 / 113 / 184 MB)</strong></td></tr>
           <tr><th scope="row">Live ISO download, amd64 / arm64 / riscv64</th><td>70.3 / 93.5 / 58.3 MB</td><td>69.0 / 125.9 / 85.6 MB</td></tr>
           <!-- /bench:table -->
         </tbody>
       </table>
     </div>
-    <p class="note reveal">KwickOS wins on the base: image size, boot time, memory, and the whole Debian archive with glibc. Alpine wins once software is installed, because its musl packages are built leaner than Debian&rsquo;s, and its base gets dedicated security maintenance. The KwickOS base ships no TLS library; Alpine&rsquo;s includes OpenSSL and CA certificates. KwickOS is VM- and container-first, with limited real-hardware testing so far. Method, raw output and the full results are in <a href="https://github.com/metaspartan/kwickos/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a>.</p>
+    <p class="note reveal">KwickOS wins on the base: image size, boot time, memory, and the whole Debian archive with glibc. With KwickOS&rsquo;s lean musl builds it also ends up smaller than Alpine after installing curl, python3 or git, and narrowly (0.2&ndash;0.5 MB) with nginx or openssh-server; with Debian&rsquo;s own packages Alpine stays several times smaller, and Alpine&rsquo;s base gets dedicated security maintenance. The KwickOS base ships no TLS library; Alpine&rsquo;s includes OpenSSL and CA certificates. KwickOS is VM- and container-first, with limited real-hardware testing so far. Method, raw output and the full results are in <a href="https://github.com/metaspartan/kwickos/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a>.</p>
   </div>
 </section>
 

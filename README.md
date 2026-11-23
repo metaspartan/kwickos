@@ -102,9 +102,9 @@ Measured on amd64 with QEMU/KVM and Docker on one machine; the conditions and th
 | microVM boot (`virt` kernel, whole OS in RAM) | no microVM image | 0.27 s guest, 0.49 s wall |
 | memory in use after boot (live ISO) | 63-74 MiB | **47-51 MiB** |
 | packages available (amd64) | 28,661 (musl) | **68,946 (Debian 13, glibc)** |
-| installed size with curl | **14 MB** | 50 MB (Debian slim: 97 MB) |
-| installed size with python3 | **52 MB** | 87 MB (Debian slim: 120 MB) |
-| installed size with nginx / openssh-server / git | **11 / 11 / 22 MB** | 45 / 73 / 146 MB (Debian slim: 93 / 113 / 184 MB) |
+| installed size with curl | 13.8 MB | **8.4 MB (Debian's: 48.6 MB; Debian slim: 97 MB)** |
+| installed size with python3 | 51.5 MB | **33.5 MB (Debian's: 86.1 MB; Debian slim: 120 MB)** |
+| installed size with nginx / openssh-server / git | 10.7 / 10.8 / 21.3 MB | **10.2 / 10.7 / 16.8 MB (Debian's: 43.7 / 71.9 / 144.6 MB; Debian slim: 93 / 113 / 184 MB)** |
 | live ISO download, amd64 / arm64 / riscv64 | 70.3 / 93.5 / 58.3 MB | 69.0 / 125.9 / 85.6 MB |
 
 The better result of each row is in bold. Measured 2026-11-23.
@@ -116,9 +116,12 @@ Debian archive with glibc, so vendor binaries, CUDA, Steam and Electron apps run
 
 Where Alpine is still ahead:
 
-* **Installed footprint.** The base is smaller, but Debian's packages are built with more features than Alpine's (Debian's
-  curl also links Kerberos, LDAP and RTMP libraries), so once software is installed Alpine is about 2 to 5 times smaller (the
-  "installed size" rows). With the same packages KwickOS still ends up 23 to 31% smaller than Debian slim.
+* **Installed footprint, narrowly, for some tools.** With KwickOS's lean musl builds (main, not yet released) a headless
+  system ends up smaller than Alpine after installing curl, python3, nginx, openssh-server or git, but the nginx and
+  openssh-server margins are only 0.5 and 0.2 MB: the packages themselves are larger than Alpine's, whose base already
+  carries musl and OpenSSL. They also leave a few things out (IDN, PSL, brotli and zstd in curl; dynamic modules in nginx;
+  see [BASE.md](docs/BASE.md#lean-builds)). With Debian's own packages (`apt install --no-lean`) Alpine is 1.7 to 6.8 times
+  smaller.
 * **ISO size off amd64.** The amd64 live ISOs are about the same size; on arm64 and riscv64 Alpine's are smaller.
 * **TLS in the base.** Alpine's image includes OpenSSL and a CA bundle, which is part of its size. The KwickOS base has no TLS
   library and no CA bundle: kpkg checks packages by their signatures, and BusyBox has only its small built-in TLS client.
