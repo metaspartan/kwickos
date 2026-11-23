@@ -2320,11 +2320,25 @@ static void unit_name(const char *in, char *out, size_t sz)
 	snprintf(out, sz, "%s%s", in, strchr(in, '.') ? "" : ".service");
 }
 
+static void unit_canon(char *name, size_t sz)
+{
+	char p[PATH_MAX], t[PATH_MAX];
+	snprintf(p, sizeof p, "/etc/systemd/system/%s", name);
+	ssize_t n = readlink(p, t, sizeof t - 1);
+	if (n <= 0) return;
+	t[n] = 0;
+	if (!strcmp(t, "/dev/null")) return;
+	const char *b = strrchr(t, '/');
+	b = b ? b + 1 : t;
+	const char *dn = strrchr(name, '.'), *db = strrchr(b, '.');
+	if (strcmp(b, name) && dn && db && !strcmp(dn, db)) snprintf(name, sz, "%s", b);
+}
+
 static int unit_enable(const char *name, int quiet)
 {
 	char path[PATH_MAX];
 	if (!find_unit_file(name, path, sizeof path)) { if (!quiet) fprintf(stderr, "Unit %s not found.\n", name); return 1; }
-	char targets[256] = "";
+	char targets[256] = "", aliases[256] = "";
 	FILE *f = fopen(path, "re");
 	char line[1024], sect[64] = "";
 	while (f && fgets(line, sizeof line, f)) {
@@ -2335,8 +2349,22 @@ static int unit_enable(const char *name, int quiet)
 			strncat(targets, " ", sizeof targets - strlen(targets) - 1);
 			strncat(targets, v, sizeof targets - strlen(targets) - 1);
 		}
+		if (!strcmp(sect, "[Install]") && !strncmp(l, "Alias=", 6)) {
+			strncat(aliases, " ", sizeof aliases - strlen(aliases) - 1);
+			strncat(aliases, l + 6, sizeof aliases - strlen(aliases) - 1);
+		}
 	}
 	if (f) fclose(f);
+	for (char *a = strtok(aliases, " "); a; a = strtok(NULL, " ")) {
+		char link[PATH_MAX + 128];
+		struct stat ls;
+		if (!strcmp(a, name) || strchr(a, '/')) continue;
+		snprintf(link, sizeof link, "/etc/systemd/system/%s", a);
+		if (lstat(link, &ls) == 0 && !S_ISLNK(ls.st_mode)) continue;
+		mkdir_p("/etc/systemd/system", 0755);
+		unlink(link);
+		if (symlink(path, link) == 0 && !quiet) printf("Created symlink %s -> %s.\n", link, path);
+	}
 	if (!targets[0]) {
 		return 0;
 	}
@@ -2361,8 +2389,19 @@ static int unit_disable(const char *name, int quiet)
 	struct dirent *de;
 	while ((de = readdir(d))) {
 		size_t l = strlen(de->d_name);
-		if (l < 7 || strcmp(de->d_name + l - 6, ".wants")) continue;
 		char p[PATH_MAX];
+		if (de->d_type == DT_LNK && strcmp(de->d_name, name)) {
+			char t[PATH_MAX];
+			snprintf(p, sizeof p, "/etc/systemd/system/%s", de->d_name);
+			ssize_t n = readlink(p, t, sizeof t - 1);
+			if (n > 0) {
+				t[n] = 0;
+				const char *b = strrchr(t, '/');
+				if (strcmp(t, "/dev/null") && !strcmp(b ? b + 1 : t, name) && unlink(p) == 0 && !quiet) printf("Removed \"%s\".\n", p);
+			}
+			continue;
+		}
+		if (l < 7 || strcmp(de->d_name + l - 6, ".wants")) continue;
 		snprintf(p, sizeof p, "/etc/systemd/system/%s/%s", de->d_name, name);
 		if (unlink(p) == 0 && !quiet) printf("Removed \"%s\".\n", p);
 	}
@@ -2426,6 +2465,7 @@ static int cmd_systemctl(int argc, char **argv)
 	for (int i = 0; i < nu; i++) {
 		char name[128];
 		unit_name(units[i], name, sizeof name);
+		if (strcmp(verb, "mask") && strcmp(verb, "unmask")) unit_canon(name, sizeof name);
 		if (!strcmp(verb, "enable")) { rc |= unit_enable(name, quiet); if (now && !ensure_daemon()) rc |= ctl_send("start", name, quiet); }
 		else if (!strcmp(verb, "disable")) { rc |= unit_disable(name, quiet); if (now) ctl_send("stop", name, 1); }
 		else if (!strcmp(verb, "is-enabled")) {
@@ -2480,7 +2520,7 @@ static int cmd_journalctl(int argc, char **argv)
 		else if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--follow")) follow = 1;
 		else if (!strcmp(argv[i], "-k") || !strcmp(argv[i], "--dmesg")) { execlp("dmesg", "dmesg", (char *)NULL); }
 	}
-	if (unit) { char n[128]; unit_name(unit, n, sizeof n); return tail_log(n, lines, follow); }
+	if (unit) { char n[128]; unit_name(unit, n, sizeof n); unit_canon(n, sizeof n); return tail_log(n, lines, follow); }
 	if (follow) execlp("logread", "logread", "-f", (char *)NULL);
 	execlp("logread", "logread", (char *)NULL);
 	execlp("dmesg", "dmesg", (char *)NULL);

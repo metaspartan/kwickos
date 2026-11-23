@@ -531,7 +531,7 @@ ColumnLayout {
                     color: keyName.text === modelData ? Theme.accent : Theme.control
                     border.width: Theme.light ? 1 : 0
                     border.color: Theme.lineStrong
-                    Text { id: chip; anchors.centerIn: parent; text: modelData; color: keyName.text === modelData ? "#ffffff" : Theme.onControl; font.family: Theme.mono; font.pixelSize: 11 }
+                    Text { id: chip; anchors.centerIn: parent; text: modelData; color: keyName.text === modelData ? "#ffffff" : Theme.controlText; font.family: Theme.mono; font.pixelSize: 11 }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: keyName.text = modelData }
                 }
             }

@@ -11,6 +11,7 @@ import time
 
 HOME = os.path.expanduser("~")
 DATA = os.environ.get("KWICK_KEYS_DATA", "/usr/share/kwick/keys")
+APP = os.environ.get("KWICK_SETTINGS_APP", "/usr/lib/kwick/kwick-settings-app")
 CONFIG = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
 STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "kwick")
 APPS = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local", "share"), "applications")
@@ -567,6 +568,27 @@ def kde_set(component, action, ints, friendly_c="", friendly_a="", register=Fals
     return code == 0
 
 
+def kde_owners(chord):
+    code, out = run(["gdbus", "call", "--session", "--dest", "org.kde.kglobalaccel", "--object-path", "/kglobalaccel",
+                     "--method", "org.kde.KGlobalAccel.getGlobalShortcutsByKey", str(chord.qt())], timeout=5)
+    if code != 0:
+        return []
+    q = r"'((?:[^'\\]|\\.)*)'"
+    return [(comp, act) for act, comp in re.findall(r"\(" + q + r", " + r"'(?:[^'\\]|\\.)*'" + r", " + q, out)]
+
+
+def kde_free(component, action, chords, state):
+    for c in chords:
+        for comp, act in kde_owners(c):
+            if (comp, act) == (component, action):
+                continue
+            cur = kde_get(comp, act)
+            if not cur or c.qt() not in cur:
+                continue
+            kde_set(comp, act, [n for n in cur if n != c.qt()])
+            state.setdefault("stolen", []).append({"session": "kde", "target": [comp, act], "chord": str(c)})
+
+
 def kde_invoke(component, action):
     return run(["dbus-send", "--session", "--type=method_call", "--dest=org.kde.kglobalaccel", "/component/" + dbus_path(component),
                 "org.kde.kglobalaccel.Component.invokeShortcut", "string:" + action])[0] == 0
@@ -899,6 +921,7 @@ def apply_kde(km, layout, state, quiet, steal=()):
                 got = kde_get(comp, act)
                 cur = qt_names(got) if got is not None else []
                 if sorted(cur) != sorted(desired_s):
+                    kde_free(comp, act, desired, state)
                     kde_set(comp, act, [c.qt() for c in desired], a.title, fa, register=bool(desired))
                     got = kde_get(comp, act)
                     if desired and got is not None and sorted(got) != sorted(c.qt() for c in desired):
@@ -921,10 +944,13 @@ def apply_kde(km, layout, state, quiet, steal=()):
                 continue
             if not should_write(state, tkey, desired_s, current_s, km.custom(a)):
                 continue
+            kde_free(comp, act, desired, state)
             ok = kde_set(comp, act, [c.qt() for c in desired], fc, fa, register=register)
             got = kde_get(comp, act) if ok else None
             if got is not None and sorted(got) != sorted(c.qt() for c in desired):
                 problems.append("%s: KDE kept %s for %s" % (a.title, ", ".join(sorted(set(str(c) for c in desired) - set(qt_names(got)))) or "a different shortcut", act))
+                state["written"][tkey] = qt_names(got)
+                continue
             state["written"][tkey] = desired_s
     ours = {str(c) for c, _, _ in km.expanded("kde", layout)}
     keep = []
@@ -1517,9 +1543,13 @@ def cmd_show(args):
         env = dict(os.environ)
         env["QT_QUICK_CONTROLS_STYLE"] = "Basic"
         env["QT_QPA_PLATFORM"] = "wayland"
+        cmd = [qml, view]
         if layer:
             env["QT_WAYLAND_SHELL_INTEGRATION"] = "layer-shell"
-        p = subprocess.Popen([qml, view, "--", json.dumps(data, ensure_ascii=False, separators=(",", ":"))], env=env,
+        elif os.access(APP, os.X_OK):
+            env.update(KWICK_APP_ID="kwick-keys", KWICK_APP_NAME="Keyboard Shortcuts", KWICK_APP_ICON="preferences-desktop-keyboard-shortcuts", KWICK_APP_QML=view)
+            cmd = [APP, view]
+        p = subprocess.Popen(cmd + ["--", json.dumps(data, ensure_ascii=False, separators=(",", ":"))], env=env,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         try:
             write_atomic(pidfile, "%d\n" % p.pid)

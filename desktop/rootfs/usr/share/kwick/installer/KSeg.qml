@@ -19,10 +19,10 @@ FocusScope {
 
     Rectangle {
         anchors.fill: bg
-        anchors.margins: -3.5
-        radius: bg.radius + 3.5
+        anchors.margins: -3
+        radius: bg.radius + 3
         color: "transparent"
-        border.width: 3
+        border.width: 3.5
         border.color: Theme.focusRing
         visible: seg.activeFocus
     }

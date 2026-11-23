@@ -18,10 +18,10 @@ FocusScope {
 
     Rectangle {
         anchors.fill: box
-        anchors.margins: -3.5
-        radius: box.radius + 3.5
+        anchors.margins: -3
+        radius: box.radius + 3
         color: "transparent"
-        border.width: 3
+        border.width: 3.5
         border.color: f.invalid ? Qt.rgba(Theme.bad.r, Theme.bad.g, Theme.bad.b, 0.5) : Theme.focusRing
         visible: input.activeFocus
     }

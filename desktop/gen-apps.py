@@ -34,7 +34,7 @@ APPS = [
      [("org.kde.ark", "ark %U"), ("org.gnome.FileRoller", "file-roller %U")]),
     ("screenshot", "Screenshot", "Capture the screen", "", "", "org.kde.spectacle",
      "Utility;", "screenshot;capture;screen;",
-     [("org.kde.spectacle", "spectacle"), ("org.gnome.Screenshot", "gnome-screenshot --interactive")]),
+     [("org.kde.spectacle", "/usr/bin/spectacle", "X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2\nX-KDE-Wayland-Interfaces=org_kde_plasma_window_management,zkde_screencast_unstable_v1\n"), ("org.gnome.Screenshot", "gnome-screenshot --interactive")]),
     ("calculator", "Calculator", "Perform calculations", "", "", "org.kde.kcalc",
      "Utility;Calculator;", "calculator;math;",
      [("org.kde.kcalc", "kcalc"), ("org.gnome.Calculator", "gnome-calculator")]),
@@ -51,10 +51,10 @@ for aid, name, comment, arg, mime, wmclass, cats, kw, vendors in APPS:
         lines.append(f"MimeType={mime}")
     lines += ["StartupNotify=true", f"StartupWMClass={wmclass}", "Terminal=false"]
     w(f"usr/share/applications/kwick-{aid}.desktop", "\n".join(lines) + "\n")
-    for vid, vex in vendors:
+    for vid, vex, *extra in vendors:
         w(f"usr/local/share/applications/{vid}.desktop",
           f"[Desktop Entry]\nType=Application\nName={name}\nComment={comment}\nIcon=kwick-{aid}\nExec={vex}\n"
-          f"Categories={cats}\nStartupNotify=true\nTerminal=false\nNoDisplay=true\n")
+          f"Categories={cats}\nStartupNotify=true\nTerminal=false\nNoDisplay=true\n" + "".join(extra))
 
 GRAD = ('<linearGradient id="g" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#19f0c8"/>'
         '<stop offset="0.55" stop-color="#6e8ff0"/><stop offset="1" stop-color="#a62cf5"/></linearGradient>')

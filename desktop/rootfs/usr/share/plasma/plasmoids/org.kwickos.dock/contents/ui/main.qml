@@ -327,11 +327,17 @@ PlasmoidItem {
         location: Plasmoid.location
         visualParent: root.hoveredItem
         visible: root.hoveredItem !== null && root.hoveredName.length > 0 && !root.menuOpen
-        mainItem: PlasmaComponents3.Label {
-            text: root.hoveredName
-            leftPadding: 4
-            rightPadding: 4
-            font.weight: Font.Medium
+        mainItem: Item {
+            width: tipText.implicitWidth
+            height: tipText.implicitHeight
+            PlasmaComponents3.Label {
+                id: tipText
+                anchors.fill: parent
+                text: root.hoveredName
+                leftPadding: 4
+                rightPadding: 4
+                font.weight: Font.Medium
+            }
         }
     }
 

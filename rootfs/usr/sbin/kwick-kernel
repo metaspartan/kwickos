@@ -1268,9 +1268,16 @@ cmd_register() {
 	fi
 	adopt_state
 	activate "$id"
+	cur=$(st_get default)
+	fl=$(entry_flavor "$id")
+	cf=$(entry_flavor "$cur")
 	if [ -f "$KEEPFLAG" ]; then
 		bp_add "$id"
 		say "kwick-kernel: $id installed; the default stays $(st_get default) (try it with: kwick-kernel try $id)"
+	elif [ -n "$cur" ] && [ "$cur" != "$id" ] && [ -n "$cf" ] && [ "$fl" != "$cf" ] &&
+		sorted | awk -F'|' -v f="$fl" -v i="$id" '$2 == f && $1 != i { found = 1 } END { exit !found }'; then
+		bp_add "$id"
+		say "kwick-kernel: $id updated; the default stays $cur, the $cf kernel this system boots (switch with: kwick-kernel default $id)"
 	elif ! native_here "$id"; then
 		bp_add "$id"
 		say "kwick-kernel: $id installed but not made the default: it is not built for this board's $BP boot path (the default stays $(st_get default))"

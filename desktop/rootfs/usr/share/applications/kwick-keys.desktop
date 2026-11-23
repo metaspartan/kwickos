@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Keyboard Shortcuts
+Comment=Every KwickOS keyboard shortcut, searchable
+Icon=preferences-desktop-keyboard-shortcuts
+Exec=kwick-keys show
+Categories=Settings;
+Keywords=shortcuts;keys;hotkeys;cheat sheet;keyboard;
+Terminal=false
+NoDisplay=true

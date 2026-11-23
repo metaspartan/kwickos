@@ -124,10 +124,10 @@ FocusScope {
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: -3.5
+            anchors.margins: -3
             radius: height / 2
             color: "transparent"
-            border.width: 3
+            border.width: 3.5
             border.color: Theme.focusRing
             visible: langBtn.activeFocus
         }

@@ -532,6 +532,13 @@ CONF
 
 kdecapture() {
   command -v kwick-capture >/dev/null 2>&1 || return 0
+  sp=$(kreadconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key _launch 2>/dev/null)
+  case $sp in
+    ""|*Meta+Shift+S*)
+      kwriteconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key _launch "Print"
+      dbus-send --session --type=method_call --dest=org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.setForeignShortcut \
+        "array:string:org.kde.spectacle.desktop,_launch,Spectacle,Launch Spectacle" "array:int32:16777225" >/dev/null 2>&1 || true ;;
+  esac
   command -v kwick-keys >/dev/null 2>&1 && return 0
   cur=$(kreadconfig6 --file kglobalshortcutsrc --group services --group kwick-capture.desktop --key _launch 2>/dev/null)
   case $cur in ""|none) ;; *) return 0 ;; esac

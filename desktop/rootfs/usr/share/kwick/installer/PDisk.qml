@@ -114,10 +114,10 @@ PageFrame {
                     }
                     Rectangle {
                         anchors.fill: parent
-                        anchors.margins: -4
-                        radius: 18
+                        anchors.margins: -3
+                        radius: 17
                         color: "transparent"
-                        border.width: 3
+                        border.width: 3.5
                         border.color: Theme.focusRing
                         visible: tile.on && tiles.activeFocus
                     }

@@ -509,6 +509,7 @@ def build():
     if os.path.isdir(OUT):
         for d in os.listdir(os.path.join(OUT, "scalable")) if os.path.isdir(os.path.join(OUT, "scalable")) else []:
             shutil.rmtree(os.path.join(OUT, "scalable", d))
+        shutil.rmtree(os.path.join(OUT, "small"), ignore_errors=True)
 
     pref("preferences-system kwick-settings preferences-other preferences-system-settings applications-system-settings", "gear", "gray")
     pref("org.kde.systemsettings systemsettings", "sliders", "slate")
@@ -834,6 +835,9 @@ def build():
         TRAY.write_theme(OUT)
     subprocess.run(["uv", "run", "--no-project", "--with", "picosvg", "python", "-I",
                     os.path.join(os.path.dirname(os.path.abspath(__file__)), "fill-symbolic.py"), OUT], check=True)
+    os.makedirs(os.path.join(OUT, "small", "places"), exist_ok=True)
+    for n in ("user-trash", "user-trash-full"):
+        shutil.copyfile(os.path.join(OUT, "scalable", "places", n + "-symbolic.svg"), os.path.join(OUT, "small", "places", n + ".svg"))
     names = {}
     for sub in ("apps", "preferences", "categories", "places", "devices", "actions", "status", "mimetypes"):
         d = os.path.join(OUT, "scalable", sub)
@@ -846,7 +850,8 @@ def build():
            "DesktopDefault=48", "DesktopSizes=16,22,32,48,64,128,256", "ToolbarDefault=22", "ToolbarSizes=16,22,24,32",
            "MainToolbarDefault=22", "MainToolbarSizes=16,22,24,32", "SmallDefault=16", "SmallSizes=16,22",
            "PanelDefault=48", "PanelSizes=16,22,32,48,64", "DialogDefault=32", "DialogSizes=32,48,64,128",
-           "Directories=" + ",".join(dirs), ""]
+           "Directories=" + ",".join(["small/places"] + dirs), "",
+           "[small/places]", "Size=16", "MinSize=8", "MaxSize=32", "Type=Scalable", "Context=Places", ""]
     for dpath in dirs:
         sub = dpath.split("/")[1]
         idx += [f"[{dpath}]", "Size=64", "MinSize=8", "MaxSize=1024", "Type=Scalable", f"Context={ctx[sub]}", ""]

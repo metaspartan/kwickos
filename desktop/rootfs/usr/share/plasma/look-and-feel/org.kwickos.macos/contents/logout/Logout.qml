@@ -207,6 +207,7 @@ Item {
                     onClicked: root.logoutRequested()
                 }
                 QQC2.Button {
+                    id: cancelButton
                     text: i18nd("plasma_lookandfeel_org.kde.lookandfeel", "Cancel")
                     onClicked: root.cancelRequested()
                 }
@@ -214,6 +215,22 @@ Item {
                     id: primaryButton
                     Accessible.defaultButton: true
                     focus: true
+                    implicitHeight: cancelButton.implicitHeight
+                    implicitWidth: Math.max(cancelButton.implicitWidth, primaryLabel.implicitWidth + 2 * Kirigami.Units.gridUnit)
+                    background: Rectangle {
+                        radius: 6
+                        color: primaryButton.down ? Qt.darker(Kirigami.Theme.highlightColor, 1.18) : primaryButton.hovered ? Qt.lighter(Kirigami.Theme.highlightColor, 1.06) : Kirigami.Theme.highlightColor
+                        border.width: primaryButton.visualFocus ? 3 : 0
+                        border.color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.5)
+                    }
+                    contentItem: QQC2.Label {
+                        id: primaryLabel
+                        text: primaryButton.text
+                        color: "#ffffff"
+                        font: primaryButton.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                     visible: root.rebooting || sdtype === ShutdownType.ShutdownTypeNone ? true : maysd
                     text: {
                         if (root.rebooting) {

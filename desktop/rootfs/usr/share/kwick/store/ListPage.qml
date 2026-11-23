@@ -90,7 +90,7 @@ ColumnLayout {
                 delegate: AppRow {
                     required property var modelData
                     required property int index
-                    app: modelData
+                    app: page.filter !== "all" && modelData.src !== page.filter && modelData.alt && modelData.alt[page.filter] ? Object.assign({}, modelData, modelData.alt[page.filter]) : modelData
                     last: index === page.shown.length - 1
                     detail: modelData.plain ? "Debian package  ·  " + (modelData.summary || "") : modelData.src === "aur" ? (modelData.summary || "") + (modelData.votes !== undefined ? "  ·  " + modelData.votes + " votes" : "") : ""
                 }

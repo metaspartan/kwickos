@@ -16,7 +16,14 @@ PanelDefault=48
 PanelSizes=16,22,32,48,64
 DialogDefault=32
 DialogSizes=32,48,64,128
-Directories=scalable/apps,scalable/preferences,scalable/categories,scalable/places,scalable/devices,scalable/actions,scalable/status,scalable/mimetypes
+Directories=small/places,scalable/apps,scalable/preferences,scalable/categories,scalable/places,scalable/devices,scalable/actions,scalable/status,scalable/mimetypes
+
+[small/places]
+Size=16
+MinSize=8
+MaxSize=32
+Type=Scalable
+Context=Places
 
 [scalable/apps]
 Size=64

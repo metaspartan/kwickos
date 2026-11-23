@@ -15,6 +15,21 @@ session() { case "$1" in
   kde) echo plasma ;; gnome) echo gnome ;; xfce) echo xfce ;; cinnamon) echo cinnamon ;; hyprland) echo hyprland ;; sway) echo sway ;;
   mate) echo mate ;; lxqt) echo lxqt ;; esac; }
 have() { for _dir in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$_dir/$(session "$1").desktop" ] && return 0; done; return 1; }
+sessfile() { for _dir in /usr/share/wayland-sessions /usr/share/xsessions; do [ -e "$_dir/$1.desktop" ] && { echo "$_dir/$1.desktop"; return 0; }; done; return 1; }
+SDDM_STATE=${KWICK_SDDM_STATE:-/var/lib/sddm/state.conf}
+remember() {
+  f=$(sessfile "$1") || return 0
+  [ -d "${SDDM_STATE%/*}" ] || return 0
+  if [ -f "$SDDM_STATE" ] && grep -q '^\[Last\]' "$SDDM_STATE"; then
+    awk -v f="$f" '/^\[/ { if (sec == "Last" && !done) { print "Session=" f; done = 1 } sec = substr($0, 2, length($0) - 2) }
+      sec == "Last" && /^Session=/ { if (!done) print "Session=" f; done = 1; next }
+      { print }
+      END { if (sec == "Last" && !done) print "Session=" f }' "$SDDM_STATE" > "$SDDM_STATE.new" && cat "$SDDM_STATE.new" > "$SDDM_STATE"
+    rm -f "$SDDM_STATE.new"
+  else
+    printf '[Last]\nSession=%s\n' "$f" >> "$SDDM_STATE"
+  fi
+}
 cmd=${1:-list}; de=${2:-}
 [ "$cmd" = shell ] && { shift; exec /usr/lib/kwick/desktop-shells "$@"; }
 [ "$cmd" = pkgs ] && { pkgs "$de"; exit $?; }
@@ -22,6 +37,9 @@ cmd=${1:-list}; de=${2:-}
 case "$cmd" in
   list) cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/30-kwick-session.conf 2>/dev/null || true)
         [ -n "$cur" ] || cur=$(sed -n 's/^Session=//p' /etc/sddm.conf.d/20-autologin.conf 2>/dev/null || true)
+        [ -n "$cur" ] || cur=$(awk '/^\[/ { sec = $0 } sec == "[Last]" && /^Session=/ { s = $0; sub(/^Session=/, "", s); sub(/.*\//, "", s); sub(/\.desktop$/, "", s); print s; exit }' "$SDDM_STATE" 2>/dev/null || true)
+        [ -n "$cur" ] || cur=plasma
+        cur=${cur%.desktop}
         if [ "$de" = --json ]; then
           printf '{"desktops":['
           sep=""
@@ -46,6 +64,7 @@ case "$cmd" in
           mkdir -p /etc/sddm.conf.d
           printf '[Autologin]\nSession=%s\n' "$(session "$de")" > /etc/sddm.conf.d/30-kwick-session.conf
           for f in /etc/sddm.conf.d/20-autologin.conf; do [ -f $f ] && sed -i "s/^Session=.*/Session=$(session "$de")/" $f; done
+          remember "$(session "$de")"
           u=${SUDO_USER:-}
           case $de in hyprland|sway)
             if [ -n "$u" ] && [ "$u" != root ]; then

@@ -1,0 +1,13 @@
+[General]
+count=1
+rules=kwick-polkit
+
+[kwick-polkit]
+Description=Password prompts come to the front
+above=true
+aboverule=2
+fsplevel=0
+fsplevelrule=2
+wmclass=polkit-kde-authentication-agent-1
+wmclasscomplete=false
+wmclassmatch=2

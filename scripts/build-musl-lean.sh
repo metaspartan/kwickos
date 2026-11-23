@@ -261,7 +261,7 @@ do_git() {
     unpack git
     local curllibs="-lcurl -lnghttp2 -lmbedtls -lmbedx509 -lmbedcrypto -lz"
     GITMAKE=(prefix=/usr gitexecdir=/usr/lib/git-core sysconfdir=/etc CC=gcc "CFLAGS=$CFLAGS $CPPFLAGS" "LDFLAGS=$STATIC_LD"
-      NO_PERL=1 NO_TCLTK=1 NO_GETTEXT=1 NO_PYTHON=1 NO_RUST=1 NO_REGEX=YesPlease NO_INSTALL_HARDLINKS=1 INSTALL_SYMLINKS=1
+      NO_PERL=1 NO_TCLTK=1 NO_GETTEXT=1 NO_PYTHON=1 NO_RUST=1 NO_OPENSSL=1 NO_REGEX=YesPlease NO_INSTALL_HARDLINKS=1 INSTALL_SYMLINKS=1
       USE_LIBPCRE2=1 "LIBPCRE2DIR=$P" "CURLDIR=$P" "CURL_LDFLAGS=$curllibs"
       "EXPATDIR=$P" "ZLIB_PATH=$P" NO_SVN_TESTS=1 V=1)
     log git make -j"$JOBS" "${GITMAKE[@]}" all

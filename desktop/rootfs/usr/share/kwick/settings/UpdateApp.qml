@@ -53,7 +53,7 @@ ApplicationWindow {
                     id: storeRow
                     anchors.centerIn: parent
                     spacing: 6
-                    Text { text: "App Store…"; color: Theme.onControl; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.Medium }
+                    Text { text: "App Store…"; color: Theme.controlText; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.Medium }
                 }
                 MouseArea { id: storeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Sys.run("setsid kwick-store updates >/dev/null 2>&1 &") }
             }

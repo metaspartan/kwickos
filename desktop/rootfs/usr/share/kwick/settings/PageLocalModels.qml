@@ -363,7 +363,7 @@ ColumnLayout {
         }
         Cell {
             title: "Recommended engine"
-            subtitle: (page.engine.name || "llama.cpp") + (page.engine.pinned_build ? " " + page.engine.pinned_build : "") + (page.bk.recommended ? " with the " + page.backendName(page.bk.recommended) + " backend" : "") + (page.bk.reason ? ". " + page.bk.reason : "")
+            subtitle: (page.engine.name || "llama.cpp") + (page.engine.pinned_build ? " " + page.engine.pinned_build : "") + (page.bk.recommended ? " with the " + page.backendName(page.bk.recommended) + " backend" : "") + (page.bk.reason ? ". " + page.bk.reason.charAt(0).toUpperCase() + page.bk.reason.slice(1) : "")
             Text { visible: page.bk.download_size > 0; text: page.bytes(page.bk.download_size); color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12 }
         }
         Cell {

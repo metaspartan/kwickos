@@ -1177,6 +1177,13 @@ class Ctx:
         b = self.best(grp) if merge else a
         o = compact(b, {"installed": self.installed(b)})
         o["srcs"] = sorted(set(x["src"] for x in grp), key=lambda s: ["flathub", "apt", "arch", "aur", "agent"].index(s) if s in ("flathub", "apt", "arch", "aur", "agent") else 9)
+        alt = {}
+        for x in grp:
+            if x["src"] != b["src"] and x["src"] not in alt:
+                alt[x["src"]] = {k: x[k] for k in ("key", "src", "id", "pkg", "remote") if x.get(k)}
+                alt[x["src"]]["installed"] = self.installed(x)
+        if alt:
+            o["alt"] = alt
         if not o.get("icon"):
             for x in grp:
                 if x.get("icon"):
