@@ -421,6 +421,20 @@ func indexEntry(s *Source, arch string, hashes map[string]relEntry) (string, rel
 	return "", relEntry{}
 }
 
+func indexExpandLimit(hashes map[string]relEntry, s *Source, arch string, compressed int64) int64 {
+	if e, ok := hashes[s.Comp+"/binary-"+arch+"/Packages"]; ok && e.size > 0 && e.size < maxIndexSize {
+		return e.size
+	}
+	limit := compressed * 32
+	if limit < 1<<20 {
+		limit = 1 << 20
+	}
+	if limit > maxIndexSize {
+		limit = maxIndexSize
+	}
+	return limit
+}
+
 func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash bool, pr *progress) (int64, error) {
 	if len(s.Arches) > 0 && !contains(s.Arches, arch) {
 		return 0, nil
@@ -450,21 +464,15 @@ func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash
 	if ent.size > 0 {
 		limit = ent.size
 	}
-	hr := &hashingReader{r: &capReader{r: resp.Body, left: limit, what: url}, h: sha256.New()}
-	dr, err := decompressor(name, hr)
+	os.MkdirAll(filepath.Dir(s.indexPath(arch)), 0755)
+	tmp, err := os.CreateTemp(filepath.Dir(s.indexPath(arch)), ".dl-")
 	if err != nil {
 		return 0, err
 	}
-	var buf bytes.Buffer
-	err = ParseParagraphs(&capReader{r: dr, left: maxIndexSize, what: url + " (uncompressed)"}, indexKeep, func(p *Paragraph) error {
-		p.Write822(&buf)
-		buf.WriteString("\n")
-		return nil
-	})
-	if err == nil {
-		_, err = io.Copy(io.Discard, hr)
-	}
-	if err != nil {
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	hr := &hashingReader{r: &capReader{r: resp.Body, left: limit, what: url}, h: sha256.New()}
+	if _, err := io.Copy(tmp, hr); err != nil {
 		return hr.n, fmt.Errorf("%s: %v", url, err)
 	}
 	if ent.size > 0 && hr.n != ent.size {
@@ -474,6 +482,22 @@ func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash
 		if got := hex.EncodeToString(hr.h.Sum(nil)); got != ent.hash {
 			return hr.n, fmt.Errorf("hash sum mismatch for %s", url)
 		}
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return hr.n, err
+	}
+	dr, err := decompressor(name, tmp)
+	if err != nil {
+		return hr.n, fmt.Errorf("%s: %v", url, err)
+	}
+	var buf bytes.Buffer
+	err = ParseParagraphs(&capReader{r: dr, left: indexExpandLimit(hashes, s, arch, hr.n), what: url + " (uncompressed)"}, indexKeep, func(p *Paragraph) error {
+		p.Write822(&buf)
+		buf.WriteString("\n")
+		return nil
+	})
+	if err != nil {
+		return hr.n, fmt.Errorf("%s: %v", url, err)
 	}
 	if err := writeKidx(s.indexPath(arch), buf.Bytes()); err != nil {
 		return hr.n, err

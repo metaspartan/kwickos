@@ -140,4 +140,3 @@ func TestUnpackTrimsTemplateTranslations(t *testing.T) {
 		t.Fatalf("installed templates:\n%s\nwant:\n%s", got, tzTrimmed)
 	}
 }
-

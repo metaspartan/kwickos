@@ -135,21 +135,35 @@ func (tx *Tx) checkApkConflicts(p *Pkg, deb string) error {
 	filt := tx.filters()
 	type hit struct{ path, owner string }
 	var hits []hit
+	if tx.owners == nil {
+		tx.loadOwners()
+	}
+	links := map[string]string{}
 	err := debDataEntries(deb, func(h *tar.Header) error {
 		if h.Typeflag == tar.TypeDir {
 			return nil
 		}
 		fp := path.Clean("/" + h.Name)
+		if h.Typeflag == tar.TypeSymlink {
+			links[fp] = h.Linkname
+		}
 		if fp == "/" || protectedPaths[fp] || filt.skip(fp, h.Typeflag) {
 			return nil
 		}
-		parent, err := resolveInRoot(cfg.Root, path.Dir(fp), true)
+		parent, err := resolveInRootLinks(cfg.Root, path.Dir(fp), true, links)
 		if err != nil {
 			return nil
 		}
-		if o := tx.apkOwners[filepath.Join(parent, path.Base(fp))]; o != "" && !kwickOwned(fp) {
-			hits = append(hits, hit{fp, o})
+		host := filepath.Join(parent, path.Base(fp))
+		o := tx.apkOwners[host]
+		if o == "" || kwickOwned(fp) {
+			return nil
 		}
+		logical := path.Join("/", filepath.ToSlash(strings.TrimPrefix(parent, cfg.Root)), path.Base(fp))
+		if len(tx.owners[fp]) > 0 || len(tx.owners[logical]) > 0 {
+			return nil
+		}
+		hits = append(hits, hit{fp, o})
 		return nil
 	})
 	if err != nil {

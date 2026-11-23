@@ -20,6 +20,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/ulikunitz/xz"
+	"golang.org/x/sys/unix"
 )
 
 func decompressor(name string, r io.Reader) (io.Reader, error) {
@@ -126,6 +127,10 @@ func ReadDebControl(debPath string) (*DebControl, error) {
 }
 
 func resolveInRoot(root, p string, followLast bool) (string, error) {
+	return resolveInRootLinks(root, p, followLast, nil)
+}
+
+func resolveInRootLinks(root, p string, followLast bool, links map[string]string) (string, error) {
 	parts := strings.Split(strings.Trim(path.Clean("/"+p), "/"), "/")
 	cur := "/"
 	hops := 0
@@ -143,16 +148,21 @@ func resolveInRoot(root, p string, followLast bool) (string, error) {
 			cur = next
 			break
 		}
-		host := filepath.Join(root, next)
-		fi, err := os.Lstat(host)
-		if err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		tgt, isLink := links[next]
+		if !isLink {
+			host := filepath.Join(root, next)
+			fi, err := os.Lstat(host)
+			if err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				if tgt, err = os.Readlink(host); err != nil {
+					return "", err
+				}
+				isLink = true
+			}
+		}
+		if isLink {
 			hops++
 			if hops > 40 {
 				return "", errors.New("too many symlinks")
-			}
-			tgt, err := os.Readlink(host)
-			if err != nil {
-				return "", err
 			}
 			var rest []string
 			if path.IsAbs(tgt) {
@@ -446,22 +456,57 @@ func (s *stagedFiles) add(host string, r io.Reader, mode os.FileMode, h *tar.Hea
 	return nil
 }
 
+func fsyncPath(p string) error {
+	f, err := os.Open(p)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
+}
+
 func (s *stagedFiles) sync() error {
 	if len(s.tmp) == 0 {
 		return nil
 	}
 	if len(s.tmp) > 16 {
-		syscall.Sync()
-		return nil
+		done := map[uint64]bool{}
+		ok := true
+		for _, t := range s.tmp {
+			f, err := os.Open(t)
+			if err != nil {
+				return err
+			}
+			var st syscall.Stat_t
+			if err := syscall.Fstat(int(f.Fd()), &st); err != nil {
+				f.Close()
+				return err
+			}
+			dev := uint64(st.Dev)
+			if done[dev] {
+				f.Close()
+				continue
+			}
+			err = unix.Syncfs(int(f.Fd()))
+			f.Close()
+			if err != nil {
+				if err == syscall.ENOSYS {
+					ok = false
+					break
+				}
+				return fmt.Errorf("sync %s: %v", t, err)
+			}
+			done[dev] = true
+		}
+		if ok {
+			return nil
+		}
 	}
 	for _, t := range s.tmp {
-		f, err := os.Open(t)
-		if err != nil {
-			return err
-		}
-		err = f.Sync()
-		f.Close()
-		if err != nil {
+		if err := fsyncPath(t); err != nil {
 			return fmt.Errorf("sync %s: %v", t, err)
 		}
 	}
@@ -472,15 +517,29 @@ func (s *stagedFiles) commit() error {
 	if err := s.sync(); err != nil {
 		return err
 	}
+	dirs := map[string]bool{}
 	for i, t := range s.tmp {
 		if err := os.Rename(t, s.dst[i]); err != nil {
 			s.tmp = s.tmp[i:]
 			s.dst = s.dst[i:]
+			s.syncDirs(dirs)
 			return err
 		}
+		dirs[filepath.Dir(s.dst[i])] = true
 	}
+	err := s.syncDirs(dirs)
 	s.tmp, s.dst, s.seen = nil, nil, nil
-	return nil
+	return err
+}
+
+func (s *stagedFiles) syncDirs(dirs map[string]bool) error {
+	var first error
+	for d := range dirs {
+		if err := fsyncPath(d); err != nil && first == nil {
+			first = fmt.Errorf("sync %s: %v", d, err)
+		}
+	}
+	return first
 }
 
 func (s *stagedFiles) abort() {

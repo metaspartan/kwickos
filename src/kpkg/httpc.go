@@ -318,12 +318,30 @@ func noProxy(host string) bool {
 	return false
 }
 
+var wgetIsBusyBox = func(bin string) bool {
+	out, _ := exec.Command(bin, "--help").CombinedOutput()
+	return strings.Contains(string(out), "BusyBox")
+}
+
+var haveOpenssl = func() bool {
+	_, err := exec.LookPath("openssl")
+	return err == nil
+}
+
+func wgetArgs(bin, u string) []string {
+	args := []string{"-q"}
+	if wgetIsBusyBox(bin) && !haveOpenssl() {
+		args = append(args, "--no-check-certificate")
+	}
+	return append(args, "-O", "-", u)
+}
+
 func externalGet(u string) (*httpResp, string, error) {
 	var cmd *exec.Cmd
 	if p, err := exec.LookPath("curl"); err == nil {
 		cmd = exec.Command(p, "-fsSL", "--retry", "2", u)
 	} else if p, err := exec.LookPath("wget"); err == nil {
-		cmd = exec.Command(p, "-q", "--no-check-certificate", "-O", "-", u)
+		cmd = exec.Command(p, wgetArgs(p, u)...)
 	} else {
 		return nil, "", errors.New("https:// sources need curl or wget (apt install curl, or use http:// mirrors — packages are signature-verified either way)")
 	}

@@ -106,19 +106,23 @@ archive and pulls in only what nginx really needs (libc6, libssl, pcre2, ...).
   `Valid-Until` is enforced; `by-hash` downloads avoid mirror races. Because
   integrity doesn't depend on TLS, kpkg ships a 300-line HTTP/1.1 client
   instead of `net/http`+`crypto/tls`, which saves about 3.5 MB. `https://` sources
-  go through curl or wget.
+  go through curl or wget, which verify certificates (except BusyBox wget without openssl).
   * The Release file's `Suite` or `Codename` must match the suite in
     `sources.list` (with apt's rules for `suite/updates`), so a validly signed
     Release of another suite can't be replayed to downgrade a system.
   * A package without a `SHA256` in the index is refused unless
     `--allow-unauthenticated` (or `APT::Get::AllowUnauthenticated=true`) is given.
   * Downloads are capped while they stream: a `.deb` at its index `Size`, an
-    index at the size in the Release file (512 MB when the Release file has none),
-    and the uncompressed index at 1 GB.
+    index at the size in the Release file (512 MB when the Release file has none).
+    An index is written to a temporary file and its SHA256 is checked against
+    the signed Release hash before anything decompresses it; the decompressed
+    output is then capped at the uncompressed size the Release file lists (or 32
+    times the download, at most 1 GB), so a compression bomb can't exhaust memory.
   * apt, apt-mark and dpkg take `/var/lib/dpkg/lock-frontend` before they read
     the status database. Unpacked files are written as `.dpkg-new`, flushed to disk
-    (fsync, or one `sync` for packages with many files), and only then renamed
-    into place. Control files, file lists and the index cache are written with
+    (fsync, or one `syncfs` per filesystem for packages with many files, so
+    writeback errors are reported), and only then renamed into place, after
+    which the parent directories are fsynced. Control files, file lists and the index cache are written with
     error checks.
 * **Compact indexes:** `Packages.gz` is stream-parsed into a field-filtered index
   (~9 MB zstd for all of Debian main; older gzip caches are still read).
@@ -137,7 +141,9 @@ archive and pulls in only what nginx really needs (libc6, libssl, pcre2, ...).
   following `/bin -> usr/bin`-style links). If apk owns one of them, kpkg stops
   and names the apk package. `--force-overwrite` (apt, dpkg, or
   `-o Dpkg::Options::=--force-overwrite`) overwrites the file with a warning.
-  kwick-base's own virtual apk entry is ignored. The reverse direction (`apk add`
+  kwick-base's own virtual apk entry is ignored, as are files a dpkg package
+  already owns (so an upgrade after one `--force-overwrite` doesn't fail again),
+  and symlinks the `.deb` itself ships are followed when resolving its paths. The reverse direction (`apk add`
   over Debian files) is guarded by `apk add` itself.
 * **Path filters:** `path-exclude` and `path-include` from
   `/etc/dpkg/dpkg.cfg.d/*` (files named only with letters, digits, `_` and `-`,
