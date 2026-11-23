@@ -378,6 +378,15 @@ corners() {
   kw kwinrc $g InactiveSecondOutlineColor 255,255,255
   kw kwinrc $g ActiveSecondOutlineAlpha 34
   kw kwinrc $g InactiveSecondOutlineAlpha 18
+  kw kwinrc $g OuterOutlineThickness 0
+  kw kwinrc $g InactiveOuterOutlineThickness 0
+  kw kwinrc $g Squircleness 0
+  kw kwinrc $g AnimationDuration 250
+  kw kwinrc $g MarkWindowsTranslucent true
+  kw kwinrc $g UseNativeDecorationShadows true
+  for k in ShadowSize InactiveShadowSize ActiveShadowAlpha InactiveShadowAlpha; do kw kwinrc $g $k 0; done
+  for k in UseSquircleShape OutlineIsGradient InactiveOutlineIsGradient SecondOutlineIsGradient InactiveSecondOutlineIsGradient OuterOutlineIsGradient InactiveOuterOutlineIsGradient; do kw kwinrc $g $k false; done
+  for k in DisableRoundMaximize DisableOutlineMaximize DisableRoundFullScreen DisableOutlineFullScreen IncludeNormalWindows IncludeDialogs; do kw kwinrc $g $k true; done
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwin4_effect_shapecorners >/dev/null 2>&1 || true
   [ "$(kreadconfig6 --file kwinrc --group Plugins --key kwick_liquidglassEnabled --default false)" = true ] && [ -x /usr/lib/kwick/liquidglass-theme ] && { /usr/lib/kwick/liquidglass-theme on >/dev/null 2>&1; qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect kwick_liquidglass >/dev/null 2>&1; }
   true

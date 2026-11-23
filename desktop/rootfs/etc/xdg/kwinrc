@@ -29,6 +29,27 @@ WobblynessLevel=1
 [Effect-overview]
 BorderActivate=9
 
+[Round-Corners]
+UseSquircleShape=false
+Squircleness=0
+AnimationDuration=250
+MarkWindowsTranslucent=true
+UseNativeDecorationShadows=true
+ShadowSize=0
+InactiveShadowSize=0
+ActiveShadowAlpha=0
+InactiveShadowAlpha=0
+OutlineIsGradient=false
+InactiveOutlineIsGradient=false
+SecondOutlineIsGradient=false
+InactiveSecondOutlineIsGradient=false
+OuterOutlineThickness=0
+InactiveOuterOutlineThickness=0
+OuterOutlineIsGradient=false
+InactiveOuterOutlineIsGradient=false
+DisableRoundFullScreen=true
+DisableOutlineFullScreen=true
+
 [Windows]
 BorderlessMaximizedWindows=false
 
