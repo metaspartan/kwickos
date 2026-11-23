@@ -15,6 +15,12 @@ if [ ! -f "$ISO" ]; then
 fi
 A=$(mktemp -d); xorriso -osirrox on -indev "$ISO" -extract /boot "$A" >/dev/null 2>&1
 K=$(mktemp -d); xorriso -osirrox on -indev "$REL/kwickos-amd64.iso" -extract /kwick/vmlinuz "$K/vmlinuz" >/dev/null 2>&1
+if [ ! -s "$K/vmlinuz" ]; then
+  xorriso -osirrox on -indev "$REL/kwickos-amd64.iso" -extract /kwick/root.erofs "$K/root.erofs" >/dev/null 2>&1
+  KV=$(dump.erofs --ls --path=/usr/lib/kwick/kernels "$K/root.erofs" | awk '/FILENAME/ {f=1; next} f && $3 ~ /^[0-9]/ {print $3}' | sort -V | tail -1)
+  dump.erofs --cat --path="/usr/lib/kwick/kernels/$KV/vmlinuz" "$K/root.erofs" > "$K/vmlinuz"
+  rm -f "$K/root.erofs"
+fi
 
 echo "# bench/vm.sh $(date -u +%Y-%m-%dT%H:%MZ) runs=$RUNS mem=${MEM}MiB smp=2"
 echo "# host: $(uname -r) $(nproc) threads; $(qemu-system-x86_64 --version | head -1)"

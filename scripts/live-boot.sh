@@ -20,7 +20,7 @@ uki_build() {
 
 live_erofs() {
 	local cfg=$1 img=$2 dir=$3 z=(-zlz4hc,12)
-	grep -q '^CONFIG_EROFS_FS_ZIP_LZMA=y' "$cfg" 2>/dev/null && z=(-zlzma,level=109 -C1048576)
+	grep -q '^CONFIG_EROFS_FS_ZIP_LZMA=y' "$cfg" 2>/dev/null && z=(-zlzma,level=109,dictsize=65536 -C65536)
 	mkfs.erofs --quiet "${z[@]}" -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$img" "$dir"
 }
 

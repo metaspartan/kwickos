@@ -13,9 +13,9 @@
       "label": "container image (Alpine: 8.4 MB)"
     },
     {
-      "value": "1.7",
+      "value": "1.4",
       "unit": "s",
-      "label": "live ISO boot to shell (Alpine: 4.0 s)"
+      "label": "live ISO boot to shell (Alpine: 3.1 s)"
     },
     {
       "value": "0.3",
@@ -23,9 +23,9 @@
       "label": "microVM guest boot (virt kernel)"
     },
     {
-      "value": "50&ndash;52",
+      "value": "47&ndash;51",
       "unit": "MiB",
-      "label": "memory after boot (Alpine: 62-71 MiB)"
+      "label": "memory after boot (Alpine: 63-74 MiB)"
     },
     {
       "value": "~69k",
@@ -46,46 +46,43 @@
     },
     {
       "what": "live ISO boot to shell prompt",
-      "alpine": "4.0 s (3.6-6.4)",
-      "kwickos": "1.7 s (1.5-2.4)",
+      "alpine": "3.1 s (2.9-4.9)",
+      "kwickos": "1.4 s (1.3-1.6)",
       "winner": "kwickos",
-      "conditions": "median (range) of 10 runs, wall time from QEMU start; QEMU/KVM q35, 2 vCPU, 512 MiB; each release ISO with its own kernel (KwickOS `generic`, Alpine `virt`)",
+      "conditions": "median (range) of 10 runs, wall time from QEMU start; QEMU/KVM q35, 2 vCPU, 512 MiB; each ISO with its own kernel (KwickOS `generic`, Alpine `virt`). KwickOS: the amd64 headless ISO built from main after 0.7.0 (see the raw file)",
       "source": [
-        "2026-11-23-vm-1.txt",
-        "2026-11-23-vm-2.txt"
+        "2026-11-23-vm-3.txt"
       ]
     },
     {
       "what": "guest boot time at the shell prompt",
-      "alpine": "3.4 s (3.1-5.4)",
-      "kwickos": "1.3 s (1.0-1.7)",
+      "alpine": "2.7 s (2.6-4.6)",
+      "kwickos": "1.1 s (1.0-1.2)",
       "winner": "kwickos",
       "conditions": "`/proc/uptime` at the prompt, same runs",
       "source": [
-        "2026-11-23-vm-1.txt",
-        "2026-11-23-vm-2.txt"
+        "2026-11-23-vm-3.txt"
       ]
     },
     {
       "what": "microVM boot (`virt` kernel, whole OS in RAM)",
       "alpine": "no microVM image",
-      "kwickos": "0.32 s guest, 0.67 s wall",
+      "kwickos": "0.27 s guest, 0.49 s wall",
       "winner": "",
-      "conditions": "QEMU `microvm`, release `kwickos-amd64.efi` and initramfs, median of 10 (guest 0.23-0.69 s, wall 0.47-1.02 s)",
+      "conditions": "QEMU `microvm`, release `kwickos-amd64.efi` and initramfs, median of 10 (guest 0.19-0.69 s, wall 0.40-1.15 s)",
       "source": [
-        "2026-11-23-vm-1.txt",
-        "2026-11-23-vm-2.txt"
+        "2026-11-23-vm-3.txt"
       ]
     },
     {
       "what": "memory in use after boot (live ISO)",
-      "alpine": "62-71 MiB",
-      "kwickos": "50-52 MiB",
+      "alpine": "63-74 MiB",
+      "kwickos": "47-51 MiB",
       "winner": "kwickos",
-      "conditions": "`MemTotal - MemAvailable` at the prompt, range of 10 runs. 15 MiB of Alpine's is its root file system held in RAM (shmem); KwickOS reads its root from the ISO (4 MiB shmem). Without shmem the two are about even (Alpine about 49, KwickOS about 47 MiB)",
+      "conditions": "`MemTotal - MemAvailable` at the prompt, range of 10 runs (medians 66.3 and 49.6). Alpine keeps its root file system in RAM: 11 MiB of its 15 MiB shmem (the other 4 MiB is the QEMU display's framebuffer, which KwickOS has too). Without the RAM root Alpine is about 55 MiB, so KwickOS still uses about 5 MiB less like for like. The live root's LZMA dictionary is 64 KiB: with main's earlier automatic dictionary the kernel held 4 MiB of decompression buffers per CPU and KwickOS measured 53-59 MiB here (2026-11-23-vm-3-before.txt)",
       "source": [
-        "2026-11-23-vm-1.txt",
-        "2026-11-23-vm-2.txt"
+        "2026-11-23-vm-3.txt",
+        "2026-11-23-vm-3-before.txt"
       ]
     },
     {
@@ -101,21 +98,34 @@
     {
       "what": "installed size with curl",
       "alpine": "14 MB",
-      "kwickos": "67 MB (Debian slim: 97 MB)",
+      "kwickos": "50 MB (Debian slim: 97 MB)",
       "winner": "alpine",
-      "conditions": "`du -smx /` after installing, package indexes and caches removed",
+      "conditions": "`du -smx /` after installing, package indexes and caches removed. KwickOS 0.7.0 with kpkg, the documentation excludes and the lean rebuild of Debian's curl from main, not yet in a release (no LDAP, RTMP, GSSAPI or libssh2; Alpine's curl has none of these either). Most of the rest is glibc (13 MB, 8 MB of it iconv modules), perl-base for debconf (13 MB, needed by ca-certificates) and OpenSSL (8.7 MB, already part of Alpine's base image). Per-lever numbers: 2026-11-23-footprint-levers.txt",
       "source": [
-        "2026-11-23-container.txt"
+        "2026-11-23-container-2.txt",
+        "2026-11-23-footprint-levers.txt"
       ]
     },
     {
       "what": "installed size with python3",
       "alpine": "52 MB",
-      "kwickos": "93 MB (Debian slim: 120 MB)",
+      "kwickos": "87 MB (Debian slim: 120 MB)",
       "winner": "alpine",
-      "conditions": "same",
+      "conditions": "same. Both install the standard library's compiled bytecode (Alpine pulls in python3-pyc, 12.8 MB; Debian's postinst compiles 12.6 MB). KwickOS adds glibc, perl-base for debconf (tzdata), OpenSSL, tzdata and Berkeley DB",
       "source": [
-        "2026-11-23-container.txt"
+        "2026-11-23-container-2.txt",
+        "2026-11-23-footprint-levers.txt"
+      ]
+    },
+    {
+      "what": "installed size with nginx / openssh-server / git",
+      "alpine": "11 / 11 / 22 MB",
+      "kwickos": "45 / 73 / 146 MB (Debian slim: 93 / 113 / 184 MB)",
+      "winner": "alpine",
+      "conditions": "same. Debian's packages bring glibc, perl-base for debconf, OpenSSL, PAM and coreutils (openssh-server) and Perl with its modules (git, 52 MB); Alpine splits git-perl out",
+      "source": [
+        "2026-11-23-container-2.txt",
+        "2026-11-23-footprint-levers.txt"
       ]
     },
     {
@@ -144,7 +154,7 @@
   ],
   "chart": {
     "title": "KwickOS vs the usual suspects",
-    "subtitle": "KwickOS 0.7.0, Alpine 3.24.4, Debian 13 slim and Ubuntu 26.04 on amd64, measured 2026-11-23. Raw output in bench/results.",
+    "subtitle": "KwickOS 0.7.0 image, with main's ISO and package changes for boot, memory and installs; Alpine 3.24.4, Debian 13 slim and Ubuntu 26.04 on amd64, measured 2026-11-23. Raw output in bench/results.",
     "panels": [
       {
         "title": "Container image (uncompressed)",
@@ -204,18 +214,18 @@
         "bars": [
           [
             "KwickOS microVM",
-            0.67,
-            "0.67"
+            0.49,
+            "0.49"
           ],
           [
             "KwickOS live ISO",
-            1.74,
-            "1.74"
+            1.45,
+            "1.45"
           ],
           [
             "Alpine live ISO",
-            4.0,
-            "4.00"
+            3.11,
+            "3.11"
           ]
         ]
       },
@@ -225,13 +235,13 @@
         "bars": [
           [
             "KwickOS",
-            51.0,
-            "51.0"
+            49.6,
+            "49.6"
           ],
           [
             "Alpine",
-            64.3,
-            "64.3 (15 in RAM root)"
+            66.3,
+            "66.3 (11 in RAM root)"
           ]
         ]
       },
@@ -257,8 +267,8 @@
         "bars": [
           [
             "KwickOS",
-            93,
-            "93"
+            87,
+            "87"
           ],
           [
             "Alpine",

@@ -16,10 +16,20 @@ vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by de
 
 * Recommends are not installed by default (`/etc/kpkg.conf`). Use `--install-recommends`.
 * Packages install without their documentation, like Debian's slim container images. `/etc/dpkg/dpkg.cfg.d/excludes` skips
-  `/usr/share/doc` (copyright files stay), man and info pages, groff and lintian data, and translations other than English and C.
-  To turn it off, delete the file (or comment out a line in it) and reinstall the packages whose files you want back, for example
+  `/usr/share/doc` (copyright files stay), `/usr/share/doc-base`, man and info pages, groff and lintian data, and translations
+  other than English and C. kpkg drops debconf question translations for the same excluded languages when it installs a
+  package's `templates`, so `tzdata` and friends store English prompts only. To turn it off, delete the file (or comment out a line in it) and reinstall the packages whose files you want back, for example
   `rm /etc/dpkg/dpkg.cfg.d/excludes; apt install man-db; apt install --reinstall nginx`. The desktop edition does not have the
   file.
+* The KwickOS apt repository carries a lean rebuild of Debian's `curl` source (`curl`, `libcurl4t64`, `libcurl3t64-gnutls`
+  and their `-dev` packages), versioned `<Debian version>+kwick1`. It is Debian's source and patches built without LDAP,
+  RTMP, GSSAPI/Kerberos and SCP/SFTP, so `apt install curl` (or `git`) does not pull in OpenLDAP, SASL, Berkeley DB, Kerberos,
+  librtmp, GnuTLS (for RTMP) and libssh2. Every other protocol and feature works as in Debian (HTTP/1.1, HTTP/2 and HTTP/3,
+  FTP(S), SMTP(S), IMAP(S), POP3(S), SMB, MQTT, TFTP, DICT, telnet, gopher, WebSockets, brotli, zstd, IDN, PSL). Alpine's
+  curl leaves out the same four. When Debian
+  publishes a newer curl (a security update), its version sorts above the lean build and apt installs Debian's until the
+  next KwickOS release rebuilds it. To keep Debian's full build, install it by version, for example
+  `apt install curl=8.14.1-2+deb13u7 libcurl4t64=8.14.1-2+deb13u7`, and hold it with `apt-mark hold`.
 * The console logs in as root automatically on VM and live images. Run `rm /etc/kinit/autologin` and `passwd` for a password
   prompt. Install `openssh-server` for remote access.
 * `kwick-kernel-install --list | --rollback` manages kernels.

@@ -1,0 +1,31 @@
+# Same as 2026-11-23-vm-3.txt but with main's ISO as built before the change (-zlzma,level=109 -C1048576, automatic dictionary).
+# bench/vm.sh 2026-11-23T04:07Z runs=5 mem=512MiB smp=2
+# host: 6.6.87.2-microsoft-standard-WSL2 32 threads; QEMU emulator version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+# 2d5f3fb3209852e70129fc9b49e0079c5212bb3b71e6a58ca5bc1668bb8da4ea  /rel/kwickos-amd64.iso
+# 329f83e1296cc812aeefd6f975e22463c018cc74cf0e64205018b4621536bf66  /rel/kwickos-amd64.efi
+# a13232fe89384d5ec967034558f484b488f6613beaa46e51743430095a0329f5  /rel/kwickos-amd64-initramfs.cpio.zst
+# 157d353f8e54252cad2d9812a0d56bb7fa2231fc154a110e1d180d7480ef8b4f  /cache/alpine-virt-3.24.4-x86_64.iso
+# columns: system wall_ms_to_prompt guest_uptime_s mem_in_use_KiB shmem_KiB user_processes kernel
+run kwickos-iso-generic 2657 1.86 55180 1056 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3230 2.78 65624 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 457 0.26 43804 7176 10 7.3.5-kwick-virt
+run kwickos-iso-generic 1512 1.07 59928 4212 11 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3169 2.75 65532 15676 13 6.18.60-0-virt
+run kwickos-microvm-virt 390 0.20 41452 7176 11 7.3.5-kwick-virt
+run kwickos-iso-generic 1443 1.00 58044 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3238 2.76 84832 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 513 0.25 45176 7176 11 7.3.5-kwick-virt
+run kwickos-iso-generic 1505 1.03 54692 208 12 7.3.5-kwick
+run alpine-3.24.4-iso-virt 2968 2.57 64644 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 400 0.23 44060 7176 8 7.3.5-kwick-virt
+run kwickos-iso-generic 1986 1.56 57748 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 4305 3.82 67608 15676 13 6.18.60-0-virt
+run kwickos-microvm-virt 430 0.23 42016 7176 10 7.3.5-kwick-virt
+
+## Boot to login shell + memory (QEMU/KVM, 2 vCPU, 512 MiB, 5 runs: median [min-max])
+
+| system | QEMU start -> shell prompt | guest uptime at shell | memory in use | of which shmem (RAM-resident files) | user processes |
+|---|---|---|---|---|---|
+| alpine-3.24.4-iso-virt | 3230 [2968-4305] ms | 2.76 [2.57-3.82] s | 64.1 [63.1-82.8] MiB | 15.3 [15.3-15.3] MiB | 13 |
+| kwickos-iso-generic | 1512 [1443-2657] ms | 1.07 [1.00-1.86] s | 56.4 [53.4-58.5] MiB | 4.1 [0.2-4.2] MiB | 10 |
+| kwickos-microvm-virt | 430 [390-513] ms | 0.23 [0.20-0.26] s | 42.8 [40.5-44.1] MiB | 7.0 [7.0-7.0] MiB | 10 |

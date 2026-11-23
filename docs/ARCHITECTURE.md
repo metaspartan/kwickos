@@ -147,6 +147,9 @@ archive and pulls in only what nginx really needs (libc6, libssl, pcre2, ...).
   fixed prefix covers is still created. Filtered files are not written to disk but
   stay in the package's `.list` file, as with dpkg, so `dpkg -L`, `dpkg -S` and
   removal see the same file set. The `apk` conflict check ignores filtered files.
+  A package's debconf `templates` lose their `Description-<lang>` and `Choices-<lang>` fields
+  for every language whose `/usr/share/locale/<lang>/` the filters exclude (`-C` fields always
+  stay), the same way locale files are dropped. Without filters the file is unchanged.
 * **dpkg-compatible database:** `/var/lib/dpkg/status`, `info/*.list`,
   maintainer scripts, conffiles (locally modified ones are kept and the new
   version is saved as `.dpkg-dist` only when the package's version changed; deleted

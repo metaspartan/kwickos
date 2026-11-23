@@ -70,4 +70,4 @@ inst() {
   set -- $out
   echo "| $img | install $pkgs ($1) | $(( (e-s) )) ms | ${2} MB | ${3} MB |"
 }
-for pkgs in curl python3; do for img in $IMAGES; do inst "$img" $pkgs; done; done
+for pkgs in ${PKGS:-curl python3 nginx openssh-server git}; do for img in $IMAGES; do inst "$img" $pkgs; done; done

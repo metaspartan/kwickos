@@ -679,6 +679,8 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		switch n {
 		case "preinst", "postinst", "prerm", "postrm", "config":
 			mode = 0755
+		case "templates":
+			b = trimTemplates(b, tx.filters())
 		}
 		if err := os.WriteFile(filepath.Join(infoDir(), infoName+"."+n), b, mode); err != nil {
 			return fmt.Errorf("unable to install control member %s of %s: %v", n, p.Key(), err)

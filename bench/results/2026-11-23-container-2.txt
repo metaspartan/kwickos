@@ -1,0 +1,61 @@
+# kwick-beat:bench is the 0.7.0 image (ghcr.io/metaspartan/kwickos@sha256:6c14ddef98f21519938d4e080e9dd38a8b71d8ae882c9fea8285d18568978039) with kpkg and /etc/dpkg/dpkg.cfg.d/excludes from main plus this change, and an extra apt source serving the curl packages built by scripts/mkleancurlpkg.sh (curl 8.14.1-2+deb13u7+kwick1). Its image size row is not comparable (the added layers duplicate kpkg); the release image numbers are in 2026-11-23-container.txt.
+# bench/container.sh 2026-11-23T04:08Z
+# docker 29.9.2 on 6.6.87.2-microsoft-standard-WSL2
+# kwick-beat:bench 
+# alpine:3.24.4 alpine@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+# debian:trixie-slim debian@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
+# ubuntu:26.04 ubuntu@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
+
+## Container image (amd64)
+
+| image | uncompressed | gzip (pull size) | files | process memory of `sh` (anon+pagetables, 5 runs: median [min-max]) |
+|---|---|---|---|---|
+| kwick-beat:bench | 11.84 MB | 5.33 MB | 605 | 60 KiB [56-60] |
+| alpine:3.24.4 | 8.43 MB | 3.72 MB | 518 | 88 KiB [84-88] |
+| debian:trixie-slim | 78.86 MB | 30.04 MB | 3274 | 324 KiB [324-336] |
+| ubuntu:26.04 | 101.54 MB | 39.54 MB | 6662 | 316 KiB [304-324] |
+
+## What is in the KwickOS image
+
+PRETTY_NAME="KwickOS 0.7.0"
+5210236 bytes /usr/bin/kpkg
+1116048 bytes /bin/busybox
+128792 bytes /sbin/kinit
+9895 bytes /usr/bin/kfetch
+TLS libraries: 0
+CA bundle: none
+# alpine:3.24.4 for comparison:
+TLS libraries: 2
+CA bundle: /etc/ssl/certs/ca-certificates.crt
+
+## Packages available (amd64, default sources)
+
+| system | source | packages |
+|---|---|---|
+| alpine:3.24.4 | main + community, x86_64 | 28661 |
+| debian:trixie-slim (the archive KwickOS's apt uses) | trixie, trixie-updates, trixie-security main, amd64 | 68946 |
+
+## Installing software (fresh container each, network time included)
+
+| image | task | wall time | rootfs after | after removing package indexes/caches |
+|---|---|---|---|---|
+| kwick-beat:bench | install curl (rc=0) | 7817 ms | 59 MB | 50 MB |
+| alpine:3.24.4 | install curl (rc=0) | 2895 ms | 14 MB | 14 MB |
+| debian:trixie-slim | install curl (rc=0) | 11932 ms | 117 MB | 97 MB |
+| ubuntu:26.04 | install curl (rc=0) | 19895 ms | 168 MB | 125 MB |
+| kwick-beat:bench | install python3 (rc=0) | 11559 ms | 97 MB | 87 MB |
+| alpine:3.24.4 | install python3 (rc=0) | 4385 ms | 52 MB | 52 MB |
+| debian:trixie-slim | install python3 (rc=0) | 11612 ms | 141 MB | 120 MB |
+| ubuntu:26.04 | install python3 (rc=0) | 77985 ms | 198 MB | 156 MB |
+| kwick-beat:bench | install nginx (rc=0) | 13700 ms | 54 MB | 45 MB |
+| alpine:3.24.4 | install nginx (rc=0) | 5299 ms | 11 MB | 11 MB |
+| debian:trixie-slim | install nginx (rc=0) | 11198 ms | 113 MB | 93 MB |
+| ubuntu:26.04 | install nginx (rc=0) | 13326 ms | 157 MB | 114 MB |
+| kwick-beat:bench | install openssh-server (rc=0) | 11836 ms | 83 MB | 73 MB |
+| alpine:3.24.4 | install openssh-server (rc=0) | 2654 ms | 11 MB | 11 MB |
+| debian:trixie-slim | install openssh-server (rc=0) | 13339 ms | 134 MB | 113 MB |
+| ubuntu:26.04 | install openssh-server (rc=0) | 16885 ms | 182 MB | 139 MB |
+| kwick-beat:bench | install git (rc=0) | 11888 ms | 155 MB | 146 MB |
+| alpine:3.24.4 | install git (rc=0) | 3406 ms | 22 MB | 22 MB |
+| debian:trixie-slim | install git (rc=0) | 13243 ms | 205 MB | 184 MB |
+| ubuntu:26.04 | install git (rc=0) | 49296 ms | 242 MB | 199 MB |

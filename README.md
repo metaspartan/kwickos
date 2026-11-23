@@ -97,13 +97,14 @@ Measured on amd64 with QEMU/KVM and Docker on one machine; the conditions and th
 | | Alpine 3.24.4 | KwickOS 0.7.0 |
 |---|---:|---:|
 | container image, uncompressed / gzip | 8.43 / 3.72 MB | **6.63 / 3.06 MB** |
-| live ISO boot to shell prompt | 4.0 s (3.6-6.4) | **1.7 s (1.5-2.4)** |
-| guest boot time at the shell prompt | 3.4 s (3.1-5.4) | **1.3 s (1.0-1.7)** |
-| microVM boot (`virt` kernel, whole OS in RAM) | no microVM image | 0.32 s guest, 0.67 s wall |
-| memory in use after boot (live ISO) | 62-71 MiB | **50-52 MiB** |
+| live ISO boot to shell prompt | 3.1 s (2.9-4.9) | **1.4 s (1.3-1.6)** |
+| guest boot time at the shell prompt | 2.7 s (2.6-4.6) | **1.1 s (1.0-1.2)** |
+| microVM boot (`virt` kernel, whole OS in RAM) | no microVM image | 0.27 s guest, 0.49 s wall |
+| memory in use after boot (live ISO) | 63-74 MiB | **47-51 MiB** |
 | packages available (amd64) | 28,661 (musl) | **68,946 (Debian 13, glibc)** |
-| installed size with curl | **14 MB** | 67 MB (Debian slim: 97 MB) |
-| installed size with python3 | **52 MB** | 93 MB (Debian slim: 120 MB) |
+| installed size with curl | **14 MB** | 50 MB (Debian slim: 97 MB) |
+| installed size with python3 | **52 MB** | 87 MB (Debian slim: 120 MB) |
+| installed size with nginx / openssh-server / git | **11 / 11 / 22 MB** | 45 / 73 / 146 MB (Debian slim: 93 / 113 / 184 MB) |
 | live ISO download, amd64 / arm64 / riscv64 | 70.3 / 93.5 / 58.3 MB | 69.0 / 125.9 / 85.6 MB |
 
 The better result of each row is in bold. Measured 2026-11-23.

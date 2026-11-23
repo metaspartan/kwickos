@@ -1,0 +1,46 @@
+# KwickOS ISO: the amd64 headless live ISO built from main after 0.7.0, with root.erofs recompressed using scripts/live-boot.sh's flags (-zlzma,level=109,dictsize=65536 -C65536). kwickos-amd64.efi and the initramfs are the 0.7.0 release files.
+# bench/vm.sh 2026-11-23T04:05Z runs=10 mem=512MiB smp=2
+# host: 6.6.87.2-microsoft-standard-WSL2 32 threads; QEMU emulator version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+# c95716a105bfe918be81cb3f65623f837b82cbcc69d63f391b32b61e83d9fa31  /rel/kwickos-amd64.iso
+# 329f83e1296cc812aeefd6f975e22463c018cc74cf0e64205018b4621536bf66  /rel/kwickos-amd64.efi
+# a13232fe89384d5ec967034558f484b488f6613beaa46e51743430095a0329f5  /rel/kwickos-amd64-initramfs.cpio.zst
+# 157d353f8e54252cad2d9812a0d56bb7fa2231fc154a110e1d180d7480ef8b4f  /cache/alpine-virt-3.24.4-x86_64.iso
+# columns: system wall_ms_to_prompt guest_uptime_s mem_in_use_KiB shmem_KiB user_processes kernel
+run kwickos-iso-generic 1391 0.98 50392 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3264 2.86 67860 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 414 0.22 40964 7176 9 7.3.5-kwick-virt
+run kwickos-iso-generic 1437 1.08 50812 4212 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 2933 2.60 64176 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 739 0.49 45460 7176 11 7.3.5-kwick-virt
+run kwickos-iso-generic 1315 0.96 51624 4212 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3085 2.70 68596 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 473 0.25 44360 7176 8 7.3.5-kwick-virt
+run kwickos-iso-generic 1543 1.14 52520 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 2958 2.58 66744 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 399 0.19 44156 7176 11 7.3.5-kwick-virt
+run kwickos-iso-generic 1499 1.04 52080 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3114 2.72 67304 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 489 0.27 42452 7176 11 7.3.5-kwick-virt
+run kwickos-iso-generic 1377 1.03 50996 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3257 2.85 73460 15676 13 6.18.60-0-virt
+run kwickos-microvm-virt 1150 0.69 43960 7176 11 7.3.5-kwick-virt
+run kwickos-iso-generic 1566 1.07 48260 4212 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3139 2.79 75716 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 399 0.23 46892 7176 9 7.3.5-kwick-virt
+run kwickos-iso-generic 1447 1.06 52008 4264 11 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3003 2.63 70584 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 532 0.30 42788 7176 9 7.3.5-kwick-virt
+run kwickos-iso-generic 1570 1.16 50720 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 4899 4.56 72672 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 668 0.34 46340 7176 9 7.3.5-kwick-virt
+run kwickos-iso-generic 1577 1.12 49120 4212 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3438 2.98 65300 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 752 0.37 35168 7176 8 7.3.5-kwick-virt
+
+## Boot to login shell + memory (QEMU/KVM, 2 vCPU, 512 MiB, 10 runs: median [min-max])
+
+| system | QEMU start -> shell prompt | guest uptime at shell | memory in use | of which shmem (RAM-resident files) | user processes |
+|---|---|---|---|---|---|
+| alpine-3.24.4-iso-virt | 3114 [2933-4899] ms | 2.72 [2.58-4.56] s | 66.3 [62.7-73.9] MiB | 15.3 [15.3-15.3] MiB | 13 |
+| kwickos-iso-generic | 1447 [1315-1577] ms | 1.06 [0.96-1.16] s | 49.6 [47.1-51.3] MiB | 4.2 [4.1-4.2] MiB | 10 |
+| kwickos-microvm-virt | 489 [399-1150] ms | 0.27 [0.19-0.69] s | 42.9 [34.3-45.8] MiB | 7.0 [7.0-7.0] MiB | 9 |

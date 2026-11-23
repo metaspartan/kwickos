@@ -1,0 +1,37 @@
+# Installed footprint, one lever at a time (amd64, 2026-11-23T03:30-04:20Z, docker --cpus 6)
+# `apt update; apt install -y PKG`, then package lists and caches removed, then `du -skx /` (KiB).
+# Images:
+#   release   ghcr.io/metaspartan/kwickos:latest (0.7.0, sha256:6c14ddef...)
+#   excludes  release + kpkg and /etc/dpkg/dpkg.cfg.d/excludes from main (docs, man, info, locales)
+#   templates excludes + /usr/share/doc-base excluded + debconf template translations dropped for excluded languages
+#   leancurl  templates + an apt source serving scripts/mkleancurlpkg.sh's curl 8.14.1-2+deb13u7+kwick1
+
+| package | release | excludes | templates | leancurl | packages installed (release / leancurl) |
+|---|---:|---:|---:|---:|---|
+| curl | 67700 | 62316 | 61552 | 50596 | 41 / 22 |
+| python3 | 94576 | 90208 | 88892 | 88896 | 35 / 35 |
+| nginx | 47260 | 46224 | 45492 | 45496 | 15 / 15 |
+| openssh-server | 95980 | 75436 | 74428 | 74436 | 59 / 59 |
+| git | 177808 | 153088 | 152324 | 148872 | 54 / 43 |
+
+# Lever effects (MB = 1000 KiB here, rounded):
+#   excludes:  curl -5.4, python3 -4.4, nginx -1.0, openssh-server -20.5, git -24.7
+#   templates: curl -0.8, python3 -1.3, nginx -0.7, openssh-server -1.0, git -0.8
+#              (/var/cache/debconf 872 -> 68 KiB and /var/lib/dpkg/info/*.templates 540 -> 28 KiB with python3)
+#   leancurl:  curl -11.0 (19 fewer packages: krb5, OpenLDAP, SASL, Berkeley DB, librtmp, GnuTLS, nettle, GMP, p11-kit, libssh2...), git -3.5
+
+# Where curl's 50.6 MB go after all levers (dpkg -L sizes, KiB):
+#   libc6 13040 (8376 of it /usr/lib/x86_64-linux-gnu/gconv), perl-base 12928 (debconf, needed by ca-certificates),
+#   libssl3t64 7568, kwick-base 7040 (the base image), libc-bin 2112, openssl 1132, libzstd1 816, libbrotli1 848,
+#   ca-certificates 624, debconf 552, libcurl4t64 ~990, curl 396, libunistring5 2056, libidn2-0 208, libpsl5t64 80,
+#   libnghttp2-14 204, libnghttp3-9 184, libcrypt1 212, libgcc-s1 180, zlib1g 128
+# Alpine's 14 MB: 8.4 MB base (musl, BusyBox, apk, libcrypto3/libssl3 5.9 MB, CA bundle) + curl, libcurl, c-ares, nghttp2,
+#   libidn2, libunistring, libpsl, brotli, zstd.
+
+# Python bytecode is not a lever against Alpine. `apk add python3` on alpine:3.24.4 installs pyc, python3-pyc and
+# python3-pycache-pyc0 (install_if), 581 .pyc files, 12764 KiB in __pycache__. Debian's postinst compiles 604 .pyc files,
+# 12568 KiB. Both systems ship compiled stdlib bytecode by default.
+
+# Recommends: kpkg already installs none by default (/etc/kpkg.conf), except ca-certificates and netbase.
+# perl-base: pulled by debconf (tzdata, ca-certificates, nginx-common, openssh-server, ucf all use debconf).
+# git: Debian's git Depends on perl (libperl5.40 29804 + perl-modules-5.40 22388 KiB); Alpine splits git-perl out.
