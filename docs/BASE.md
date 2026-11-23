@@ -15,6 +15,11 @@ vi /etc/network/interfaces                 # ifupdown syntax (DHCP on eth0 by de
 ```
 
 * Recommends are not installed by default (`/etc/kpkg.conf`). Use `--install-recommends`.
+* Packages install without their documentation, like Debian's slim container images. `/etc/dpkg/dpkg.cfg.d/excludes` skips
+  `/usr/share/doc` (copyright files stay), man and info pages, groff and lintian data, and translations other than English and C.
+  To turn it off, delete the file (or comment out a line in it) and reinstall the packages whose files you want back, for example
+  `rm /etc/dpkg/dpkg.cfg.d/excludes; apt install man-db; apt install --reinstall nginx`. The desktop edition does not have the
+  file.
 * The console logs in as root automatically on VM and live images. Run `rm /etc/kinit/autologin` and `passwd` for a password
   prompt. Install `openssh-server` for remote access.
 * `kwick-kernel-install --list | --rollback` manages kernels.

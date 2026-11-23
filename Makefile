@@ -5,6 +5,7 @@ VERSION := $(shell cat VERSION)
 OUT     ?= $(CURDIR)/out
 BUILDER ?= kwick-builder
 ALPINE  ?= alpine:3.22
+ROOTFS_TAR ?= $(OUT)/$(ARCH)/kwickos-rootfs-$(ARCH).tar.gz
 
 RUN_BUILDER = docker run --rm -v $(CURDIR):/src -v $(OUT):/out -v kwick-build:/build -v kwick-cache:/cache \
               -e KVER=$(KVER) -e KWICK_REPO_URL -e KWICK_REPO_KEY -e KWICK_SIGNING_KEY $(BUILDER)
@@ -51,7 +52,7 @@ headless-iso-grub:
 container:
 	docker import --platform linux/$(ARCH) \
 	  --change 'CMD ["/bin/sh"]' --change 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
-	  $(OUT)/$(ARCH)/kwickos-rootfs-$(ARCH).tar.gz kwickos:$(VERSION)-$(ARCH)
+	  $(ROOTFS_TAR) kwickos:$(VERSION)-$(ARCH)
 
 repo:
 	$(RUN_BUILDER) bash -c 'for f in virt generic; do [ -f /out/$(ARCH)/kernel-$$f/version ] && bash /src/scripts/mkkernelpkg.sh $(ARCH) $$f; done; bash /src/scripts/mkrepo.sh'

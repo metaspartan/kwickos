@@ -16,7 +16,7 @@ zstd -dc "$K/modules.tar.zst" | tar -C "$W/root/usr" -x
 KREL=$(cat "$K/version")
 depmod -b "$W/root" "$KREL" 2>/dev/null || depmod -b "$W/root/usr" "$KREL" || true
 
-mkfs.erofs --quiet -zlz4hc,12 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$W/live/kwick/root.erofs" "$W/root"
+live_erofs "$K/config" "$W/live/kwick/root.erofs" "$W/root"
 echo "KwickOS $(cat "$W/root/etc/kwick-release" 2>/dev/null) headless live ($KREL)" > "$W/live/kwick/README"
 live_boot_prepare "$ARCH" "$K" "$W" "$EFINAME"
 xorriso -as mkisofs -quiet -V KWICKOS -J -joliet-long -r "${BIOSARGS[@]}" \

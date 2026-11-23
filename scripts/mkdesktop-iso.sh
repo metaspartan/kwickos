@@ -9,7 +9,7 @@ case $ARCH in amd64) EFINAME=BOOTX64.EFI;; arm64) EFINAME=BOOTAA64.EFI;; riscv64
 . "$(cd "$(dirname "$0")" && pwd)/live-boot.sh"
 
 tar -C "$W/root" --numeric-owner -xpf "$TAR"
-rm -f "$W/root/.dockerenv"; : > "$W/root/etc/resolv.conf"; : > "$W/root/etc/machine-id"
+rm -f "$W/root/.dockerenv" "$W/root/etc/dpkg/dpkg.cfg.d/excludes"; : > "$W/root/etc/resolv.conf"; : > "$W/root/etc/machine-id"
 echo kwick-desktop > "$W/root/etc/hostname"
 sed -i '/^127\.0\.1\.1/d' "$W/root/etc/hosts"
 printf '127.0.1.1\tkwick-desktop\n' >> "$W/root/etc/hosts"

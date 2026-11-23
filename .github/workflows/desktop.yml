@@ -58,7 +58,8 @@ jobs:
           docker volume create kwick-cache
           mkdir -p out
           make userland kpkg kernel-generic rootfs ARCH=$ARCH KVER=$(cat KERNEL_VERSION)
-          make container ARCH=$ARCH
+          gzip -dc out/$ARCH/kwickos-rootfs-$ARCH.tar.gz | tar --delete -f - ./etc/dpkg/dpkg.cfg.d/excludes | gzip -n > out/$ARCH/desktop-base-$ARCH.tar.gz
+          make container ARCH=$ARCH ROOTFS_TAR=out/$ARCH/desktop-base-$ARCH.tar.gz
 
       - name: Desktop rootfs (Plasma, drivers, firmware, effects)
         run: docker build --progress=plain --build-context kwinflipsrc=src/kwin-flip --build-context kwinglasssrc=src/kwin-liquidglass --build-context macstylesrc=src/kwick-macstyle --build-context spotlightsrc=src/kwick-spotlight --build-context settingssrc=src/kwick-settings --build-context nativesrc=src --build-context kwickscripts=scripts --build-arg BASE=kwickos:$(cat VERSION)-$ARCH -t kwickos-desktop:ci desktop/

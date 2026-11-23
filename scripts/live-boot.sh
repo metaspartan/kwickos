@@ -18,6 +18,12 @@ uki_build() {
 	  --add-section .linux="$kernel" --change-section-vma .linux=$v3 "$stub" "$out"
 }
 
+live_erofs() {
+	local cfg=$1 img=$2 dir=$3 z=(-zlz4hc,12)
+	grep -q '^CONFIG_EROFS_FS_ZIP_LZMA=y' "$cfg" 2>/dev/null && z=(-zlzma,level=109 -C1048576)
+	mkfs.erofs --quiet "${z[@]}" -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" "$img" "$dir"
+}
+
 live_boot_prepare() {
 	local arch=$1 kdir=$2 w=$3 efiname=$4
 	local efi="$kdir/vmlinuz"
