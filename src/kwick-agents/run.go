@@ -433,6 +433,11 @@ func cmdRun(c *Catalog, o opts, pos []string, shell bool) int {
 	cmd.Env = env
 	auditLog(auditEntry{Agent: e.Name, Tool: "run", Capability: "run", Decision: map[bool]string{true: "sandbox", false: "no-sandbox"}[sandboxed], OK: true,
 		Summary: fmt.Sprintf("%s %s network=%v cwd=%s", cmdName, in.Version, network, cwd)})
+	if e.MCP == "cybara" && !shell && (network || !sandboxed) && mcpConfigured(e) {
+		stopAuto := make(chan struct{})
+		defer close(stopAuto)
+		go cybaraAutoStart(stopAuto)
+	}
 	if tty {
 		return runWithPty(cmd)
 	}
@@ -453,6 +458,7 @@ func startBroker(agent string, roots []string, sandboxed bool) (string, func()) 
 		return "", func() {}
 	}
 	os.Chmod(sock, 0o600)
+	shared := &brokerState{agent: agent}
 	go func() {
 		for {
 			conn, err := l.Accept()
@@ -462,6 +468,7 @@ func startBroker(agent string, roots []string, sandboxed bool) (string, func()) 
 			go func() {
 				defer conn.Close()
 				s := newServer(agent, roots, sandboxed)
+				s.shared = shared
 				s.serve(conn, conn)
 			}()
 		}
@@ -469,5 +476,6 @@ func startBroker(agent string, roots []string, sandboxed bool) (string, func()) 
 	return sock, func() {
 		l.Close()
 		os.Remove(sock)
+		shared.stopControl("the agent run ended")
 	}
 }

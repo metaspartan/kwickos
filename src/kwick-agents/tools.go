@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +28,7 @@ type tool struct {
 	Schema      map[string]any
 	ReadOnly    bool
 	Destructive bool
+	noSession   bool
 	fn          func(s *Server, a map[string]any) (toolResult, error)
 	detail      func(s *Server, a map[string]any) string
 	precheck    func(s *Server, a map[string]any) error
@@ -75,6 +78,8 @@ func argInt(a map[string]any, k string, def int) int {
 	switch v := a[k].(type) {
 	case float64:
 		return int(v)
+	case int:
+		return v
 	case string:
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
@@ -167,29 +172,27 @@ func toolTable() []tool {
 				}
 				return fmt.Sprintf("%s %s (%s)", strings.Title(m), argStr(a, "path"), humanBytes(int64(len(argStr(a, "content")))))
 			}, precheck: func(s *Server, a map[string]any) error {
-				_, err := s.resolvePath(argStr(a, "path"), false)
+				_, err := s.resolveWrite(argStr(a, "path"))
 				return err
 			}},
 		{Name: "notify", Title: "Desktop notification", Cap: "notify",
 			Description: "Show a desktop notification to the user.",
 			Schema:      obj(map[string]any{"title": str("Short title"), "body": str("Message"), "urgency": str("Urgency", "low", "normal", "critical")}, "title"),
 			fn:          toolNotify},
-		{Name: "settings_get", Title: "Desktop settings", Cap: "system.read", ReadOnly: true,
-			Description: "Appearance (dark or light), desktop layout (macos, windows, linux), corner radius and the running desktop session.",
+		{Name: "settings_list", Title: "List settings", Cap: "system.read", ReadOnly: true,
+			Description: "Every setting an agent can read and change, with its type, allowed values or range, whether it needs an administrator, whether it is available on this desktop and its current value. Filter by group (appearance, dock, effects, desktop, terminal, display, sound, notifications, network, power, touch, updates).",
+			Schema: obj(map[string]any{"group": str("Only this group"), "keys": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Only these keys"},
+				"values": map[string]any{"type": "boolean", "description": "Include current values (default true)"}}),
+			fn: toolSettingsList},
+		{Name: "settings_get", Title: "Read settings", Cap: "system.read", ReadOnly: true,
+			Description: "Current values of settings by key or group (see settings_list); without arguments every setting.",
+			Schema:      obj(map[string]any{"group": str("Only this group"), "keys": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}),
 			fn:          toolSettingsGet},
-		{Name: "settings_set", Title: "Change desktop settings", Cap: "settings.write",
-			Description: "Switch appearance to dark or light and/or the desktop layout to macos, windows or linux.",
-			Schema:      obj(map[string]any{"appearance": str("Color appearance", "dark", "light"), "layout": str("Desktop layout", "macos", "windows", "linux")}),
-			fn:          toolSettingsSet, precheck: needDesktop, detail: func(s *Server, a map[string]any) string {
-				var p []string
-				if v := argStr(a, "appearance"); v != "" {
-					p = append(p, "appearance to "+v)
-				}
-				if v := argStr(a, "layout"); v != "" {
-					p = append(p, "layout to "+v)
-				}
-				return "Change " + strings.Join(p, " and ")
-			}},
+		{Name: "settings_set", Title: "Change settings", Cap: "settings.write",
+			Description: "Change one or more settings from settings_list, for example {\"settings\": {\"appearance\": \"light\", \"dock.size\": 56}}. Every value is checked against the schema first. Settings marked privileged also ask for an administrator password.",
+			Schema: obj(map[string]any{"settings": map[string]any{"type": "object", "description": "key: value pairs from settings_list (at most 20)", "additionalProperties": true},
+				"appearance": str("Shortcut for settings.appearance", "dark", "light"), "layout": str("Shortcut for settings.layout", "macos", "windows", "linux")}),
+			fn: toolSettingsSet, precheck: settingsPrecheck, detail: settingsDetail},
 		{Name: "apps_list", Title: "Installed apps", Cap: "system.read", ReadOnly: true,
 			Description: "Desktop applications that can be launched, with their ids.",
 			Schema:      obj(map[string]any{"query": str("Filter by name")}),
@@ -207,14 +210,24 @@ func toolTable() []tool {
 				return "Open " + id
 			}},
 		{Name: "screenshot", Title: "Take a screenshot", Cap: "screen.capture", ReadOnly: true,
-			Description: "Capture the whole screen as a PNG. The user is asked every time unless they chose to always allow it.",
-			fn:          toolScreenshot, precheck: needGUI, detail: func(s *Server, a map[string]any) string {
+			Description: "Capture the screen, or a region of it, scaled to fit max_width x max_height (default 1280x800, good for vision models). The result says how image pixels map to desktop coordinates; pointer tools accept image pixels directly. The user is asked unless they always allow it or a computer control session is active.",
+			Schema: obj(map[string]any{
+				"region":     obj(map[string]any{"x": map[string]any{"type": "number"}, "y": map[string]any{"type": "number"}, "width": map[string]any{"type": "number", "minimum": 1}, "height": map[string]any{"type": "number", "minimum": 1}}, "x", "y", "width", "height"),
+				"max_width":  map[string]any{"type": "integer", "minimum": 64, "maximum": 3840},
+				"max_height": map[string]any{"type": "integer", "minimum": 64, "maximum": 2160},
+				"format":     str("Image format (default png)", "png", "jpeg"),
+				"quality":    map[string]any{"type": "integer", "minimum": 30, "maximum": 100, "description": "JPEG quality (default 85)"}}),
+			fn: toolScreenshot, precheck: needGUI, detail: func(s *Server, a map[string]any) string {
+				if _, ok := a["region"]; ok {
+					return "Capture part of your screen and send the image to the agent"
+				}
 				return "Capture your whole screen and send the image to the agent"
 			}},
 		{Name: "agents_list", Title: "Installed agents", Cap: "system.read", ReadOnly: true,
 			Description: "AI agents and runtimes known to kwick-agents and whether they are installed.",
 			fn:          toolAgentsList},
 	}
+	toolsOnce = append(toolsOnce, computerTools()...)
 	return toolsOnce
 }
 
@@ -623,10 +636,16 @@ func toolFilesList(s *Server, a map[string]any) (toolResult, error) {
 	if err != nil {
 		return toolResult{}, err
 	}
-	ents, err := os.ReadDir(rp)
+	d, err := s.openRead(rp)
 	if err != nil {
 		return toolResult{}, err
 	}
+	ents, err := d.ReadDir(-1)
+	d.Close()
+	if err != nil {
+		return toolResult{}, err
+	}
+	sort.Slice(ents, func(i, j int) bool { return ents[i].Name() < ents[j].Name() })
 	type ent struct {
 		Name     string `json:"name"`
 		Type     string `json:"type"`
@@ -661,7 +680,12 @@ func toolFilesRead(s *Server, a map[string]any) (toolResult, error) {
 	if err != nil {
 		return toolResult{}, err
 	}
-	st, err := os.Stat(rp)
+	f, err := s.openRead(rp)
+	if err != nil {
+		return toolResult{}, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
 	if err != nil {
 		return toolResult{}, err
 	}
@@ -673,11 +697,6 @@ func toolFilesRead(s *Server, a map[string]any) (toolResult, error) {
 		max = 1 << 20
 	}
 	off := int64(argInt(a, "offset", 0))
-	f, err := os.Open(rp)
-	if err != nil {
-		return toolResult{}, err
-	}
-	defer f.Close()
 	if off > 0 {
 		f.Seek(off, 0)
 	}
@@ -692,7 +711,7 @@ func toolFilesRead(s *Server, a map[string]any) (toolResult, error) {
 }
 
 func toolFilesWrite(s *Server, a map[string]any) (toolResult, error) {
-	rp, err := s.resolvePath(argStr(a, "path"), false)
+	rp, err := s.resolveWrite(argStr(a, "path"))
 	if err != nil {
 		return toolResult{}, err
 	}
@@ -701,29 +720,14 @@ func toolFilesWrite(s *Server, a map[string]any) (toolResult, error) {
 		return toolResult{}, fmt.Errorf("content is larger than 5 MB")
 	}
 	mode := argStr(a, "mode")
-	flags := os.O_CREATE | os.O_WRONLY
 	switch mode {
 	case "", "overwrite":
-		flags |= os.O_TRUNC
 		mode = "overwrite"
-	case "create":
-		flags |= os.O_EXCL
-	case "append":
-		flags |= os.O_APPEND
+	case "create", "append":
 	default:
 		return toolResult{}, fmt.Errorf("mode must be create, overwrite or append")
 	}
-	if err := os.MkdirAll(filepath.Dir(rp), 0o755); err != nil {
-		return toolResult{}, err
-	}
-	f, err := os.OpenFile(rp, flags, 0o644)
-	if err != nil {
-		return toolResult{}, err
-	}
-	n, err := f.WriteString(content)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
+	n, err := s.writeFile(rp, mode, content)
 	if err != nil {
 		return toolResult{}, err
 	}
@@ -751,67 +755,6 @@ func toolNotify(s *Server, a map[string]any) (toolResult, error) {
 		return toolResult{Data: map[string]any{"delivered": true, "via": "notify-send"}}, nil
 	}
 	return toolResult{Data: map[string]any{"delivered": false, "via": "audit log", "note": "no desktop session; the message is only in the audit log"}}, nil
-}
-
-func kwickConf(name string) string {
-	b, err := os.ReadFile(filepath.Join(xdg("XDG_CONFIG_HOME", ".config"), "kwick", name))
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
-}
-
-func toolSettingsGet(s *Server, a map[string]any) (toolResult, error) {
-	if lookPath("kwick-layout") != "" {
-		if j, err := runJSON(10*time.Second, "kwick-layout", "status", "--json"); err == nil {
-			var v map[string]any
-			if json.Unmarshal(j, &v) == nil {
-				return toolResult{Data: v}, nil
-			}
-		}
-	}
-	layout := kwickConf("layout")
-	if layout == "" {
-		layout = "macos"
-	}
-	app := kwickConf("appearance")
-	if app != "light" {
-		app = "dark"
-	}
-	return toolResult{Data: map[string]any{"layout": layout, "appearance": app, "radius": kwickConf("radius"), "desktop": os.Getenv("XDG_CURRENT_DESKTOP"), "edition": edition()}}, nil
-}
-
-func toolSettingsSet(s *Server, a map[string]any) (toolResult, error) {
-	if lookPath("kwick-layout") == "" {
-		return toolResult{}, fmt.Errorf("this is the headless edition; there are no desktop settings")
-	}
-	ap, lay := argStr(a, "appearance"), argStr(a, "layout")
-	if ap == "" && lay == "" {
-		return toolResult{}, fmt.Errorf("give appearance and/or layout")
-	}
-	var log []string
-	if ap != "" {
-		if ap != "dark" && ap != "light" {
-			return toolResult{}, fmt.Errorf("appearance must be dark or light")
-		}
-		out, err := runTimeout(60*time.Second, "kwick-layout", "appearance", ap)
-		if err != nil {
-			return toolResult{}, fmt.Errorf("kwick-layout appearance %s: %v %s", ap, err, strings.TrimSpace(string(out)))
-		}
-		log = append(log, strings.TrimSpace(string(out)))
-	}
-	if lay != "" {
-		if lay != "macos" && lay != "windows" && lay != "linux" {
-			return toolResult{}, fmt.Errorf("layout must be macos, windows or linux")
-		}
-		out, err := runTimeout(90*time.Second, "kwick-layout", lay)
-		if err != nil {
-			return toolResult{}, fmt.Errorf("kwick-layout %s: %v %s", lay, err, strings.TrimSpace(string(out)))
-		}
-		log = append(log, strings.TrimSpace(string(out)))
-	}
-	r, _ := toolSettingsGet(s, nil)
-	return toolResult{Data: map[string]any{"now": r.Data, "log": strings.Join(log, "\n")}}, nil
 }
 
 func desktopDirs() []string {
@@ -939,24 +882,32 @@ func toolAppsLaunch(s *Server, a map[string]any) (toolResult, error) {
 	return toolResult{Data: map[string]any{"launched": id, "name": desktopName(p)}}, nil
 }
 
-func toolScreenshot(s *Server, a map[string]any) (toolResult, error) {
+func captureScreen() (image.Image, string, error) {
 	if !guiEnv() {
-		return toolResult{}, fmt.Errorf("no desktop session to capture")
+		return nil, "", fmt.Errorf("no desktop session to capture")
+	}
+	var kwinErr error
+	if desktopKind() == "kde" {
+		img, err := kwinScreenshot()
+		if err == nil {
+			return img, "KWin ScreenShot2", nil
+		}
+		kwinErr = err
 	}
 	rd := runtimeDir()
 	os.MkdirAll(rd, 0o700)
 	f := filepath.Join(rd, fmt.Sprintf("shot-%d.png", time.Now().UnixNano()))
 	defer os.Remove(f)
-	de := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP"))
+	dk := desktopKind()
 	type cand struct {
 		ok   bool
 		name string
 		args []string
 	}
 	cands := []cand{
-		{strings.Contains(de, "kde"), "spectacle", []string{"-b", "-n", "-f", "-o", f}},
-		{os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") != "" || os.Getenv("SWAYSOCK") != "" || strings.Contains(de, "hyprland") || strings.Contains(de, "sway"), "grim", []string{f}},
-		{strings.Contains(de, "gnome"), "gnome-screenshot", []string{"-f", f}},
+		{dk == "kde", "spectacle", []string{"-b", "-n", "-f", "-o", f}},
+		{dk == "hyprland" || dk == "sway", "grim", []string{f}},
+		{dk == "gnome", "gnome-screenshot", []string{"-f", f}},
 		{true, "spectacle", []string{"-b", "-n", "-f", "-o", f}},
 		{os.Getenv("WAYLAND_DISPLAY") != "", "grim", []string{f}},
 		{os.Getenv("DISPLAY") != "" && os.Getenv("WAYLAND_DISPLAY") == "", "import", []string{"-window", "root", f}},
@@ -972,15 +923,68 @@ func toolScreenshot(s *Server, a map[string]any) (toolResult, error) {
 		if exists(f) {
 			b, rerr := os.ReadFile(f)
 			if rerr == nil && len(b) > 0 {
-				return toolResult{Image: b, Mime: "image/png", Text: fmt.Sprintf("Screenshot taken with %s (%s).", c.name, humanBytes(int64(len(b))))}, nil
+				img, derr := png.Decode(bytes.NewReader(b))
+				if derr == nil {
+					return img, c.name, nil
+				}
+				err = derr
 			}
 		}
 		errs = append(errs, fmt.Sprintf("%s: %v %s", c.name, err, strings.TrimSpace(string(out))))
 	}
-	if len(errs) == 0 {
-		return toolResult{}, fmt.Errorf("no screenshot tool found (spectacle, grim or gnome-screenshot)")
+	if kwinErr != nil {
+		errs = append([]string{"KWin: " + kwinErr.Error()}, errs...)
 	}
-	return toolResult{}, fmt.Errorf("screenshot failed: %s", strings.Join(errs, "; "))
+	if len(errs) == 0 {
+		return nil, "", fmt.Errorf("no screenshot tool found (spectacle, grim or gnome-screenshot)")
+	}
+	return nil, "", fmt.Errorf("screenshot failed: %s", strings.Join(errs, "; "))
+}
+
+func toolScreenshot(s *Server, a map[string]any) (toolResult, error) {
+	maxW, maxH := argInt(a, "max_width", 1280), argInt(a, "max_height", 800)
+	if maxW < 64 || maxW > 3840 || maxH < 64 || maxH > 2160 {
+		return toolResult{}, fmt.Errorf("max_width must be 64-3840 and max_height 64-2160")
+	}
+	format := argStr(a, "format")
+	if format == "" {
+		format = "png"
+	}
+	if format != "png" && format != "jpeg" {
+		return toolResult{}, fmt.Errorf("format must be png or jpeg")
+	}
+	var region *rectF
+	if r, ok := a["region"].(map[string]any); ok {
+		x, ox := argNum(r, "x")
+		y, oy := argNum(r, "y")
+		w, ow := argNum(r, "width")
+		h, oh := argNum(r, "height")
+		if !ox || !oy || !ow || !oh {
+			return toolResult{}, fmt.Errorf("region needs x, y, width and height in desktop coordinates")
+		}
+		region = &rectF{x, y, w, h}
+	}
+	raw, via, err := captureScreen()
+	if err != nil {
+		return toolResult{}, err
+	}
+	var desk rectF
+	sc, serr := s.screens()
+	if serr == nil {
+		desk = desktopRect(sc)
+	}
+	img, mime, g, err := processShot(raw, desk, region, maxW, maxH, format, argInt(a, "quality", 85))
+	if err != nil {
+		return toolResult{}, err
+	}
+	s.shared.setShot(g)
+	data := map[string]any{"width": g.Width, "height": g.Height, "format": strings.TrimPrefix(mime, "image/"), "bytes": len(img), "via": via,
+		"origin_x": g.OriginX, "origin_y": g.OriginY, "scale": g.Scale,
+		"mapping": fmt.Sprintf("desktop_x = %.4g + image_x * %.4g, desktop_y = %.4g + image_y * %.4g; pointer tools use image pixels by default", g.OriginX, g.Scale, g.OriginY, g.Scale)}
+	if serr == nil {
+		data["desktop"] = map[string]any{"x": desk.X, "y": desk.Y, "width": desk.W, "height": desk.H}
+	}
+	return toolResult{Image: img, Mime: mime, Data: data, Text: fmt.Sprintf("Screenshot %dx%d %s (1 image pixel = %.3g desktop pixels, origin %.0f,%.0f). Pointer tools take x,y in these image pixels.", g.Width, g.Height, strings.TrimPrefix(mime, "image/"), g.Scale, g.OriginX, g.OriginY)}, nil
 }
 
 func toolAgentsList(s *Server, a map[string]any) (toolResult, error) {
@@ -1000,13 +1004,6 @@ func toolAgentsList(s *Server, a map[string]any) (toolResult, error) {
 func needGUI(s *Server, a map[string]any) error {
 	if !guiEnv() {
 		return fmt.Errorf("no desktop session here (headless, or the agent was not started from a desktop session)")
-	}
-	return nil
-}
-
-func needDesktop(s *Server, a map[string]any) error {
-	if lookPath("kwick-layout") == "" {
-		return fmt.Errorf("this is the headless edition; there are no desktop settings")
 	}
 	return nil
 }
@@ -1037,6 +1034,15 @@ func userCommand(args []string) string {
 		return "kwick-update upgrade " + strings.Join(args[1:], " ")
 	case "snapshot":
 		return "kwick-snapshot create '" + strings.Join(args[1:], " ") + "'"
+	case "session":
+		return "kwick-desktop switch " + strings.Join(args[1:], " ")
+	case "login-shell":
+		return "kwick-shell " + strings.Join(args[1:], " ")
+	case "auto-update":
+		if len(args) == 3 && args[1] == "interval" {
+			return "kwick-update auto interval " + args[2]
+		}
+		return "kwick-update auto set " + strings.Join(args[1:], " ")
 	}
 	return strings.Join(args, " ")
 }

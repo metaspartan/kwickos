@@ -10,6 +10,8 @@ printf ',"audit":'
 kwick-agents audit --json -n 60 2>/dev/null || printf '{"entries":[]}'
 printf ',"consent":'
 kwick-agents consent list --json 2>/dev/null || printf '{"pending":[]}'
+printf ',"control":'
+kwick-agents control list --json 2>/dev/null || printf '{"sessions":[]}'
 printf ',"doctor":'
 kwick-agents doctor --json 2>/dev/null
 printf '}\n'

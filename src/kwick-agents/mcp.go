@@ -8,18 +8,23 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 var mcpVersions = []string{"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"}
 
 const mcpInstructions = `This is KwickOS, a small Debian-13-compatible Linux. Use these tools instead of guessing shell commands:
-system_info first; permissions_get tells you what you may do. Package changes and snapshots ask the user and an administrator.
-Files are limited to the project folder and folders the user granted. Screenshots always need the user's consent.
-Read kwickos://docs/agents for the full guide. If a tool says "denied", do not retry: tell the user which capability is needed.`
+system_info first; permissions_get tells you what you may do. settings_list shows every setting with its allowed values;
+change them with settings_set. Package changes and snapshots ask the user and an administrator. Files are limited to the
+project folder and folders the user granted. To use the desktop: screenshot, then pointer_click/type_text/key_press with x,y
+in the screenshot's pixels, and screenshot again to check; windows_list and window_focus manage windows. The first computer
+control call asks the user once for the session; call computer_release when done. Read kwickos://docs/agents for the full
+guide. If a tool says "denied" or "refused", do not retry another way: tell the user which capability is needed.`
 
 type rpcMsg struct {
 	JSONRPC string          `json:"jsonrpc"`
@@ -38,12 +43,13 @@ type Server struct {
 	client    string
 	roots     []string
 	sandboxed bool
+	shared    *brokerState
 	outMu     sync.Mutex
 	out       io.Writer
 }
 
 func newServer(agent string, roots []string, sandboxed bool) *Server {
-	return &Server{agent: agent, roots: roots, sandboxed: sandboxed}
+	return &Server{agent: agent, roots: roots, sandboxed: sandboxed, shared: &brokerState{agent: agent}}
 }
 
 func (s *Server) send(v any) {
@@ -225,11 +231,24 @@ func (s *Server) callTool(name string, args map[string]any) (map[string]any, boo
 		}
 	}
 	d := decide(s.agent, t.Cap)
+	if t.noSession && d != "deny" {
+		d = "allow"
+	}
+	if d != "deny" && !t.noSession && (t.Cap == ctlCap || (t.Cap == "screen.capture" && d == "ask")) && s.shared.active() != nil {
+		d = "session"
+	}
 	switch d {
+	case "session":
+		entry.Decision = "session"
 	case "allow":
 		entry.Decision = "allow"
 	case "ask":
-		ok, how := requestConsent(s.agent, s.client, t.Cap, detail)
+		ask := detail
+		if t.Cap == ctlCap {
+			total, _ := ctlLimits()
+			ask = fmt.Sprintf("Control your mouse, keyboard, windows and clipboard for up to %d minutes, until it is done or you stop it (%sthe Stop button shown at the top of the screen). Password and permission prompts stay off limits.\n\nFirst action: %s", int(total.Minutes()), hotkeyText(), detail)
+		}
+		ok, how := requestConsent(s.agent, s.client, t.Cap, ask)
 		entry.Decision = "ask:" + how
 		if !ok {
 			if how == "timeout" {
@@ -240,6 +259,11 @@ func (s *Server) callTool(name string, args map[string]any) (map[string]any, boo
 	default:
 		entry.Decision = "deny"
 		return fail(fmt.Sprintf("Denied: your KwickOS permissions do not allow %s (%s). The user can change this in Settings > Agents or with 'kwick-agents grant %s %s allow'.", t.Name, t.Cap, s.agent, t.Cap)), true
+	}
+	if t.Cap == ctlCap && !t.noSession && d != "session" {
+		if _, err := s.shared.startControl(s, entry.Decision); err != nil {
+			return fail("Could not start computer control: " + err.Error()), true
+		}
 	}
 	r, err := t.fn(s, args)
 	if err != nil {
@@ -417,7 +441,15 @@ func mcpMain(o opts) int {
 		roots = append(roots, cwd)
 	}
 	s := newServer(agent, roots, false)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	go func() {
+		<-sigs
+		s.shared.stopControl("the MCP server was stopped")
+		os.Exit(0)
+	}()
 	s.serve(os.Stdin, os.Stdout)
+	s.shared.stopControl("the MCP client disconnected")
 	return 0
 }
 

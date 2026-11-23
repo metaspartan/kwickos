@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KwickOS Agents
+Comment=AI agents using this computer through kwick-mcp
+Icon=input-mouse
+Exec=/usr/bin/kwick-agents control
+Terminal=true
+NoDisplay=true
+Categories=System;
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2

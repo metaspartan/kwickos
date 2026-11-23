@@ -27,9 +27,10 @@ var capabilities = []capInfo{
 	{"files.read", "allow", "List and read files in the project folder and in folders you granted", false},
 	{"files.write", "ask", "Create and change files in the project folder and in folders you granted", false},
 	{"notify", "allow", "Show desktop notifications", false},
-	{"settings.write", "ask", "Change the appearance (dark or light) and the desktop layout", false},
+	{"settings.write", "ask", "Change settings: layout, appearance, dock, effects, fonts, display, sound, Wi-Fi, Bluetooth, power and updates (system-wide ones also ask for an administrator password)", false},
 	{"apps.launch", "ask", "Open applications", false},
 	{"screen.capture", "ask", "Take a screenshot of your screen", false},
+	{"computer.control", "ask", "Use the computer: move the pointer, click, type, manage windows and the clipboard (one approval lasts for the agent's session)", false},
 	{"packages.manage", "ask", "Install packages and system updates; also asks for an administrator password", true},
 	{"snapshots.manage", "ask", "Create system snapshots; also asks for an administrator password", true},
 }

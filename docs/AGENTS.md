@@ -10,8 +10,9 @@ binary that does four things:
 3. **Keys.** Keeps API keys in the Secret Service (KWallet or GNOME Keyring) on the desktop, or in a mode 600 file on headless
    machines, and hands them to an agent as environment variables when it starts.
 4. **kwick-mcp.** A Model Context Protocol server that gives agents permissioned access to KwickOS: system information, packages,
-   updates, snapshots, files, notifications, desktop settings, apps and screenshots. Every request is checked against per-agent
-   grants, risky ones ask the user, and everything goes to an audit log.
+   updates, snapshots, files, notifications, every setting of KwickOS Settings, apps, screenshots and computer use (pointer, keyboard,
+   windows and clipboard). Every request is checked against per-agent grants, risky ones ask the user, and everything goes to an audit
+   log.
 
 The guide that tells an agent how to behave on KwickOS is `/usr/share/doc/kwickos/AGENTS.md` (in the base system, source
 `rootfs/usr/share/doc/kwickos/AGENTS.md`; the package carries a copy in `/usr/share/doc/kwick-agents/`). kwick-mcp serves it as the
@@ -34,6 +35,7 @@ kwick-agents folders NAME [add|rm PATH]
 kwick-agents sandbox NAME [on|off] | network NAME [on|off]
 kwick-agents consent [list|allow ID|always ID|deny ID] [--json]
 kwick-agents audit [--json] [-n N] [--agent NAME]
+kwick-agents control [list|stop [ID|NAME]] [--json]
 kwick-agents mcp serve [--agent NAME] | mcp enable NAME | mcp disable NAME | mcp status [--json] | mcp tools [--json]
 kwick-agents doctor [--json]
 ```
@@ -59,6 +61,7 @@ KwickOS repository key.
 
 | Name | Project | Version | Install method and verification | amd64 | arm64 | riscv64 |
 |---|---|---|---|---|---|---|
+| `cybara` | Cybara | 1.0.2596 | `cybara-v*-linux-*-cli` from GitHub, sha256 equal to the vendor `.sha256` and `checksums.txt` | yes | yes | no build |
 | `claude-code` | Claude Code, Anthropic | 2.1.323 (stable channel) | binary from `downloads.claude.ai/claude-code-releases`, sha256 equal to the vendor `manifest.json`; auto-updater off | yes | yes | no build |
 | `codex` | Codex CLI, OpenAI | 0.171.0 | `codex-*-unknown-linux-musl.tar.gz` from GitHub, sha256 equal to the release digest | yes | yes | no build |
 | `gemini-cli` | Gemini CLI, Google | 0.70.0 | `gemini-cli-bundle.zip` from GitHub, sha256; runs on the Node.js runtime | yes | yes | yes |
@@ -68,7 +71,6 @@ KwickOS repository key.
 | `hermes` | Hermes Agent, Nous Research | 0.23.3 | `git clone` of tag `v0.23.3`, commit `caafe538` checked; `uv sync --frozen` with the hashes in the project's `uv.lock`; needs `git` | yes | yes | not supported upstream |
 | `aider` | Aider | 0.86.2 | `uv pip install --require-hashes` from a hash-locked requirements file shipped by KwickOS (109 packages), Python 3.12 | yes | yes | no wheels |
 | `goose` | Goose, Agentic AI Foundation | 1.60.2 | `goose-*-unknown-linux-gnu.tar.bz2` from GitHub, sha256 equal to the release digest | yes | yes | no build |
-| `cybara` | Cybara | 1.0.2596 | `cybara-v*-linux-*-cli` from GitHub, sha256 equal to the vendor `.sha256` and `checksums.txt` | yes | yes | no build |
 | `ollama` | Ollama | 0.40.16 | `ollama-linux-*.tar.zst` from GitHub (about 1.5 GB), sha256 equal to the vendor `sha256sum.txt`; no service, no extra user | yes | yes | no build |
 | `llama-cpp` | llama.cpp, ggml-org | b12600 | `llama-b12600-bin-ubuntu-*.tar.gz` (CPU) from GitHub, sha256 equal to the release digest | yes | yes | no build |
 | `inference` | KwickOS inference engine | - | placeholder, "not available yet" | - | - | - |
@@ -104,15 +106,19 @@ new pins.
 
 | Path | What |
 |---|---|
-| `/usr/bin/kwick-agents`, `/usr/bin/kwick-mcp` | the program (one binary, `kwick-mcp` is a symlink) |
+| `/usr/bin/kwick-agents`, `/usr/bin/kwick-mcp`, `/usr/bin/kwick-cua-driver` | the program (one binary; the other two are symlinks) |
+| `/usr/lib/kwick/agents/indicator.qml` | the computer control indicator |
 | `/usr/lib/kwick/agents/catalog.json`, `locks/` | catalog and lock files |
-| `/usr/lib/kwick/agents/kwick-agents-priv` | the only program kwick-mcp runs as root: `install PKG...`, `upgrade SCOPE`, `snapshot TEXT` |
+| `/usr/lib/kwick/agents/kwick-agents-priv` | the only program kwick-mcp runs as root: `install PKG...`, `upgrade SCOPE`, `snapshot TEXT`, `session DESKTOP`, `login-shell SHELL`, `auto-update KEY on\|off`, `auto-update interval HOURS` |
+| `/usr/share/applications/org.kwickos.agents.desktop` | app id `org.kwickos.agents`: the name shown in the system remote control dialog and on notifications; lets kwick-agents use KWin's screenshot interface |
 | `/usr/share/polkit-1/actions/org.kwickos.agents.policy` | polkit action for it (`auth_admin`, never cached) |
 | `~/.local/share/kwick-agents/pkgs/NAME/VERSION` | installed agents |
 | `~/.local/share/kwick-agents/runtimes/`, `python/` | Node.js, uv, Bun and uv's Python builds |
 | `~/.local/share/kwick-agents/home/NAME` | the agent's private home inside the sandbox |
 | `~/.local/state/kwick-agents/state.json` | installed versions |
 | `~/.local/state/kwick-agents/audit.jsonl` | audit log (JSON lines, rotated at 5 MB) |
+| `~/.local/state/kwick-agents/remote-desktop.token` | restore token of the remote desktop portal (mode 600), so the system dialog is shown once |
+| `$XDG_RUNTIME_DIR/kwick-agents/control/ID.json` | one file per active computer control session; deleting it ends the session |
 | `~/.config/kwick-agents/grants.json` | permissions and folders per agent |
 | `~/.config/kwick-agents/agents/NAME.json` | sandbox profile overrides (`sandbox`, `network`, `gpu`, `project`, `rw`, `ro`, `env`) |
 | `~/.config/kwick-agents/keys.json` | names of the stored keys and their backend (no values) |
@@ -176,7 +182,25 @@ in the agent's own MCP configuration when an agent is installed (undo with `kwic
 | Goose | `~/.config/goose/config.yaml` | `extensions.kwickos` |
 | Hermes | `~/.hermes/config.yaml` | `mcp_servers.kwickos` |
 | OpenClaw | `~/.openclaw/openclaw.json` | `mcp.servers.kwickos` (only while the file is plain JSON) |
-| Cybara | its database | add `/usr/bin/kwick-mcp` under Settings > MCP Servers |
+| Cybara | `~/.cybara/plugins/kwickos/cybara-plugin.json` and `mcp.json` | a local Cybara plugin contributing the stdio server `kwickos` (shown as "KwickOS: kwickos"); `$CYBARA_HOME` and `~/.cybara_home` are honoured |
+
+Cybara reads MCP servers only from its database and starts none by itself. A local plugin is the one file-based route it has: at
+gateway start it adds the plugin's servers to the database. kwick-agents writes that plugin and then starts the server through the
+gateway API (`POST /api/mcp/ID/start` on `http://127.0.0.1:4269`, with `~/.cybara/api_key` when the gateway requires a key): right away
+when the gateway is running, and on every `kwick-agents run cybara` as soon as the gateway answers (polled for three minutes). Nothing
+has to be added by hand.
+
+Cybara also has its own `computer_use` tool. It drives an external "cua-driver" over MCP (`cua-driver mcp`): on Linux it would
+download trycua's `cua-driver-rs` 0.7.1 into `~/.cybara/runtime/cua-driver/`, which cannot see a Wayland session from inside the
+sandbox and would bypass KwickOS's consent. Cybara lets the driver be replaced with `CYBARA_CUA_DRIVER_CMD`, so the catalog sets it to
+`/usr/bin/kwick-cua-driver` (a link to kwick-agents). That driver speaks the cua-driver tool set Cybara uses (`list_windows`,
+`list_apps`, `screenshot`, `get_window_state`, `bring_to_front`, `move_cursor`, `click`, `double_click`, `right_click`, `scroll`,
+`drag`, `type_text`, `hotkey`, `press_key`) and forwards each call to the kwick-mcp broker of the run as the agent `cybara`, so Cybara's
+own computer use goes through the same `computer.control` consent, indicator, protected-window checks, rate limits, revoke and audit
+log. Window ids are numbered per driver session, and click coordinates are pixels of the last window screenshot, as cua-driver does.
+Accessibility element indexes (`element_index`, `set_value`) are not available; Cybara falls back to coordinates. Cybara needs nothing
+else: no X server, no ydotool and no extra sandbox binds, because input and screenshots happen in the broker outside the sandbox.
+Cybara can also use the kwick-mcp tools directly (they are registered through the plugin above).
 
 How identity works: `kwick-agents run` starts a broker on a private socket (mode 600, in `$XDG_RUNTIME_DIR/kwick-agents`) and binds it into
 the sandbox at `/run/kwick-mcp.sock`. The agent starts `/usr/bin/kwick-mcp`, which only relays to that socket, so the broker outside the
@@ -188,18 +212,102 @@ Tools and the capability each needs:
 
 | Tool | Capability | Default |
 |---|---|---|
-| `system_info`, `permissions_get`, `packages_installed`, `packages_search`, `packages_updates`, `snapshots_list`, `settings_get`, `apps_list`, `agents_list` | `system.read` | allow |
+| `system_info`, `permissions_get`, `packages_installed`, `packages_search`, `packages_updates`, `snapshots_list`, `settings_list`, `settings_get`, `apps_list`, `agents_list` | `system.read` | allow |
 | `files_list`, `files_read` | `files.read` | allow |
 | `files_write` | `files.write` | ask |
 | `notify` | `notify` | allow |
 | `settings_set` | `settings.write` | ask |
 | `apps_launch` | `apps.launch` | ask |
 | `screenshot` | `screen.capture` | ask |
+| `screen_info`, `pointer_move`, `pointer_click`, `pointer_drag`, `scroll`, `key_press`, `type_text`, `windows_list`, `window_focus`, `window_close`, `window_move_resize`, `clipboard_get`, `clipboard_set`, `computer_release` | `computer.control` | ask (once per session) |
 | `packages_install`, `system_upgrade` | `packages.manage` | ask |
 | `snapshots_create` | `snapshots.manage` | ask |
 
-File tools work only below the folder the agent was started in and folders granted with `kwick-agents folders NAME add PATH`; paths are
-resolved through symlinks before the check.
+File tools work only below the folder the agent was started in and folders granted with `kwick-agents folders NAME add PATH`. Paths
+are resolved through symlinks before the check, and the file is then opened beneath the granted folder with `os.Root` (openat
+without following links out of it), so a symlink swapped in after the check, or a dangling link, cannot lead outside; the opened file
+descriptor is checked again before anything is written. kwick-agents' own folders (`~/.config/kwick-agents`,
+`~/.local/state/kwick-agents`, `~/.local/share/kwick-agents`, the runtime folder and the `--system` equivalents) are never writable
+through kwick-mcp, even when a granted folder contains them, and `secrets.json` is never readable.
+
+### Settings
+
+`settings_list` returns a typed schema of 57 settings: every page of KwickOS Settings that a user changes, plus the quick settings of
+the Control Center. Each entry has `key`, `group`, `title`, `type` (`enum`, `bool`, `int`, `number`, `string`, `path`, `list`), the
+allowed `values` or `min`/`max`/`step`, `privileged`, `desktops`, `available` with a `reason`, and the current `value`.
+`settings_get` reads values by `keys` or `group`; `settings_set {"settings": {...}}` changes up to 20 at once (the old
+`{"appearance": ..., "layout": ...}` form still works). Every value is validated against the schema before the consent dialog;
+commands are run with argument vectors, never through a shell.
+
+| Group | Keys | Backend |
+|---|---|---|
+| appearance | `layout`, `appearance`, `corner_radius`, `accent`, `wallpaper`, `fonts` | `kwick-layout`, `kwriteconfig6`/`plasma-apply-colorscheme`/`gsettings` (as Settings does), `plasma-apply-wallpaperimage`/`gsettings`/`swaymsg`/`hyprctl hyprpaper`, `kwick-fonts apply` |
+| dock | `dock.position`, `dock.size`, `dock.autohide`, `dock.floating`, `dock.magnify`, `dock.apps` | `kwick-dock` (`sync` for the app list), then `kwick-dock apply` |
+| effects | `effects.preset`, `effects.desktop_switch`, `effects.alt_tab`, `effects.open_close`, `effects.open_close_duration`, `effects.wobbly_amount`, `effects.wobbly_sway`, `effects.flame_style`, `effects.flame_height`, `effects.cube_depth`, `effects.flip_style`, `effects.wobbly`, `lamp`, `blur`, `transparency`, `sheet`, `dim`, `overview`, `cube`, `liquidglass` | `kwick-effects` |
+| desktop | `desktop.default_session` (privileged), `desktop.shell` | `kwick-agents-priv session` (runs `kwick-desktop switch`), `kwick-desktop shell` (only for installed shells of the login session) |
+| terminal | `shell.login` (privileged), `shell.prompt` | `kwick-agents-priv login-shell` (runs `kwick-shell --user` for the calling user only), `kwick-shell prompt` |
+| display | `display.night_light`, `display.brightness`, `display.scale` | KWin `NightColor` with `kwriteconfig6 --notify` or GNOME `night-light-enabled`; PowerDevil `org.kde.ScreenBrightness` or `brightnessctl`; `kscreen-doctor`, `swaymsg output`, `hyprctl keyword monitor` |
+| sound | `sound.volume`, `sound.mute` | `wpctl` on the default sink |
+| notifications | `notifications.do_not_disturb` | Plasma `plasmanotifyrc [DoNotDisturb] Until` (what the Control Center's Focus writes), GNOME `show-banners` |
+| network | `network.wifi`, `bluetooth.enabled`, `nearby.visibility`, `nearby.name` | `nmcli radio wifi`, `kwick-bluetooth power`, `kwick-nearby --set` |
+| power | `power.profile` | power-profiles-daemon over D-Bus (`ActiveProfile`), `powerprofilesctl` as fallback |
+| touch | `touch.tablet_mode`, `touch.on_screen_keyboard`, `touch.rotation` | `kwick-touch` |
+| updates | `updates.check`, `updates.download`, `updates.install_system`, `updates.install_security`, `updates.install_apps`, `updates.notify`, `updates.interval_hours` (all privileged) | `kwick-agents-priv auto-update` (runs `kwick-update auto set` or `kwick-update auto interval`) |
+
+Left out on purpose: Privacy & Security (Flatpak permissions), VPN profiles, GPU driver installs, storage pools, gaming session
+switches and Wi-Fi passwords. An agent should not be able to widen app permissions or route traffic; those stay with the user.
+
+### Computer use
+
+The `computer.control` tools let an agent use the desktop like a person. How they work per desktop:
+
+| | KDE Plasma (Wayland) | GNOME | sway | Hyprland |
+|---|---|---|---|---|
+| Pointer and keyboard | xdg-desktop-portal RemoteDesktop with ScreenCast streams (absolute positions), `persist_mode` 2 and a restore token | same portal | `swaymsg seat - cursor`, `wtype` | `hyprctl dispatch movecursor`, `wlrctl pointer`, `wtype`; `ydotool` for drags when present |
+| Windows | KWin scripts over D-Bus (`workspace.stackingOrder`, `activeWindow`, `frameGeometry`, `closeWindow`) | not available | `swaymsg -t get_tree`, `[con_id=N]` commands | `hyprctl clients`, `focuswindow`, `movewindowpixel` |
+| Screens | KWin `workspace.screens` | portal streams | `swaymsg -t get_outputs` | `hyprctl monitors` |
+| Screenshot | KWin `ScreenShot2.CaptureWorkspace` (allowed by `org.kwickos.agents.desktop`), Spectacle as fallback | `gnome-screenshot` | `grim` | `grim` |
+| Clipboard | Klipper over D-Bus | wl-clipboard | wl-clipboard | wl-clipboard |
+| Stop hotkey | Meta+Alt+Escape (KWin script shortcut) | the system's screen sharing indicator | Meta+Alt+Escape (`bindsym`) | Meta+Alt+Escape (`bind`) |
+
+`screenshot` scales the capture to fit `max_width` x `max_height` (default 1280x800, area-averaged) and returns PNG or JPEG with the
+mapping to desktop coordinates; it can capture a `region`. Pointer tools take coordinates in the pixels of the last screenshot by
+default, so an agent can click what it sees without arithmetic. `type_text` sends keysyms; on the portal backend characters outside
+ASCII are pasted through the clipboard (`ctrl+shift+v` in terminals) and the clipboard is restored. `wtype` and `wlrctl` are in
+`desktop/packages.list` for the tiling sessions.
+
+Safety design:
+
+* **Consent per session.** The first `computer.control` call opens the consent dialog (Allow once covers the session, Always allow
+  stores `allow`). A session ends when the agent run ends (the broker stops), after 60 minutes (`KWICK_AGENTS_CONTROL_MINUTES`),
+  after 15 idle minutes (`KWICK_AGENTS_CONTROL_IDLE_MINUTES`), when the agent calls `computer_release`, or when the user stops it. On
+  KDE and GNOME the system remote control dialog is a second, independent approval the first time; its restore token is kept in
+  `~/.local/state/kwick-agents/remote-desktop.token`.
+* **Visible indicator.** While a session is active a floating capsule sits at the top centre of every screen, above all windows
+  (`/usr/lib/kwick/agents/indicator.qml`, a wlr-layer-shell overlay run with `qml6`, on KDE Plasma, Hyprland and sway): the agent's
+  initial on an accent-tinted badge with a pulsing "controlling" dot, "AGENT is using this computer", the end time and the hotkey,
+  and a red-tinted Stop button with hover and pressed states. It follows the accent colour (`kdeglobals` AccentColor, GNOME
+  accent-color, or the platform palette), light or dark appearance and the layout (capsule, Windows 11 corner radius and Selawik,
+  Linux radius and Ubuntu Sans; below the menu bar on macOS and Linux, at the top edge on Windows). Agents cannot click, move or close
+  it. Where layer-shell is missing (GNOME) a resident notification with a Stop action is shown instead; the portal adds its own
+  screen sharing indicator. When the session ends a notification says why.
+* **Revoke at any time.** The Stop button of the indicator, Meta+Alt+Escape (stops every session; Meta+Shift+Escape is taken by
+  Plasma's "Disable Active Input Capture"), `kwick-agents control stop [ID|NAME]`, Stop in
+  Settings > Agents, or closing the portal's screen sharing session. Each session is a file in `$XDG_RUNTIME_DIR/kwick-agents/control`
+  that the broker checks twice a second; removing it ends the session.
+* **Protected windows.** Before every pointer, key and typing action the window list is read (KWin, sway or Hyprland). Input is
+  refused while a protected window is focused, clicks and drags are refused on a protected window, and window tools refuse to touch
+  one. Protected: polkit agents, KWallet and GNOME Keyring prompts, pinentry and SSH askpass, lock screens and greeters, the portal
+  dialogs, the KwickOS consent dialog, and KwickOS Settings (where grants are changed). A locked screen refuses all input. If the
+  window list cannot be read on KDE, input is refused rather than sent blind.
+* **Rate limits.** 15 input actions per second with a burst of 30, 2000 characters per `type_text`, 1 MB of clipboard text, 30
+  wheel steps per scroll, 50 repeats per key press.
+* **Audit.** Every call, including each click (with coordinates), key combination and the first 60 characters of typed text, and the
+  start and end of every session with its reason and action count, goes to the audit log.
+
+GNOME offers no way to list windows from outside the shell, so on GNOME the protected-window check is limited to the lock screen.
+Treat granting `computer.control` like letting someone sit at the keyboard: an agent with it can do what you can do in an unlocked
+session, except answering the prompts above.
 
 "ask" opens a dialog with Allow once, Always allow and Deny: `kdialog` on KDE, `zenity` elsewhere, a notification with actions
 (`notify-send --wait`) as the last resort. Without a desktop the request waits 90 seconds (`KWICK_AGENTS_CONSENT_WAIT`) for an answer from
@@ -245,6 +353,7 @@ Without root they act on the calling user's installs and need no password. `upda
 
 Other JSON outputs: `grants --json` (`capabilities` and `agents.NAME.caps/folders`), `key list --json` (`backend`, `keys[].agent/var/backend`),
 `audit --json` (`path`, `entries[]` with `time`, `agent`, `client`, `tool`, `capability`, `decision`, `ok`, `summary`, `error`),
+`control list --json` (`sessions[]` with `id`, `agent`, `client`, `pid`, `started`, `expires`, `desktop`),
 `consent list --json` (`pending[]` with `id`, `agent`, `capability`, `detail`, `time`, `expires`), `mcp status --json`, `mcp tools --json`,
 `doctor --json` (`ok`, `checks[]`).
 
@@ -266,7 +375,8 @@ The human-readable output of every command is unchanged.
 ## Settings > Agents
 
 `desktop/rootfs/usr/share/kwick/settings/PageAgents.qml` lists the installed agents with their sandbox, network and MCP switches, the
-permission level of each capability, granted folders, stored key names (new keys are typed into a password dialog, never on a command
+permission level of each capability (including computer control), agents that control the computer right now with a Stop
+button, granted folders, stored key names (new keys are typed into a password dialog, never on a command
 line), pending permission requests and the recent audit log. It reads everything from `helpers/agents.sh`, which calls the JSON
 commands above.
 
@@ -276,6 +386,10 @@ commands above.
 and packages `kwick-agents_VERSION_ARCH.deb` with `desktop/agents/rootfs`. The release workflow already runs it in `kwick-builder`.
 `tools/vmlab/buildrepo.sh` runs it when a Go toolchain is present; otherwise build the package with `kwick-builder` and pass it in
 `EXTRA_DEBS`.
+
+`src/kwick-agents` uses the standard library, `klauspost/compress` and `godbus/dbus` (portal, KWin, notifications, PowerDevil and
+power-profiles-daemon). `desktop/Dockerfile` copies Breeze's `systemdialog` into the KwickOS look-and-feel packages before it removes
+Breeze: without it every Plasma system dialog (the remote control and screen sharing portals among them) failed to load.
 
 Package relations: `Depends: bubblewrap, ca-certificates, libstdc++6, libgomp1` (Node.js, llama.cpp and Ollama need the two C++ runtime
 libraries), `Recommends: libsecret-tools, sudo`, `Suggests: git, zenity | kdialog, libnotify-bin`. Hermes needs `git`.

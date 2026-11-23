@@ -53,6 +53,8 @@ func mcpConfigFile(e *Entry) string {
 		return filepath.Join(xdg("XDG_CONFIG_HOME", ".config"), "goose", "config.yaml")
 	case "hermes":
 		return filepath.Join(h, ".hermes", "config.yaml")
+	case "cybara":
+		return filepath.Join(cybaraPluginDir(), "cybara-plugin.json")
 	}
 	return ""
 }
@@ -125,6 +127,9 @@ func mcpConfigured(e *Entry) bool {
 		return false
 	}
 	switch e.MCP {
+	case "cybara":
+		m, err := os.ReadFile(filepath.Join(cybaraPluginDir(), "mcp.json"))
+		return err == nil && strings.Contains(string(m), mcpPath)
 	case "codex":
 		return strings.Contains(string(b), tomlHeader)
 	case "goose":
@@ -166,6 +171,9 @@ func mcpEnable(e *Entry) (string, error) {
 	f := mcpConfigFile(e)
 	if f == "" {
 		return "", nil
+	}
+	if e.MCP == "cybara" {
+		return f, cybaraEnable()
 	}
 	b, _ := os.ReadFile(f)
 	s := string(b)
@@ -217,6 +225,9 @@ func mcpDisable(e *Entry) (string, error) {
 	f := mcpConfigFile(e)
 	if f == "" {
 		return "", nil
+	}
+	if e.MCP == "cybara" {
+		return f, os.RemoveAll(cybaraPluginDir())
 	}
 	b, err := os.ReadFile(f)
 	if err != nil {

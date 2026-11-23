@@ -21,12 +21,13 @@ for arch in ${ARCHES:-amd64 arm64 riscv64}; do
   find "$P" -type f -exec chmod 644 {} +
   install -m 755 "$B/kwick-agents-$arch" "$P/usr/bin/kwick-agents"
   ln -sf kwick-agents "$P/usr/bin/kwick-mcp"
+  ln -sf kwick-agents "$P/usr/bin/kwick-cua-driver"
   chmod 755 "$P/usr/lib/kwick/agents/kwick-agents-priv"
   sed 's/\r$//' "$SRC/rootfs/usr/share/doc/kwickos/AGENTS.md" > "$P/usr/share/doc/kwick-agents/AGENTS.md"
   sed 's/\r$//' "$SRC/docs/AGENTS.md" > "$P/usr/share/doc/kwick-agents/README.md"
   deb_control "$P" kwick-agents "$VER" "$arch" utils <<EOF
 Depends: bubblewrap, ca-certificates, libstdc++6, libgomp1
-Recommends: libsecret-tools, sudo
+Recommends: libsecret-tools, sudo, qml-qt6, qml6-module-org-kde-layershell
 Suggests: git, zenity | kdialog, libnotify-bin
 Description: KwickOS AI agents: catalog, sandbox, keys and MCP server
  kwick-agents installs AI agents (Claude Code, Codex, Gemini CLI, opencode,

@@ -15,6 +15,7 @@ ColumnLayout {
     property string backend: ""
     property var audit: []
     property var pending: []
+    property var control: []
     property var checks: ({})
     property string selected: ""
     property string keyAgent: ""
@@ -24,7 +25,7 @@ ColumnLayout {
     readonly property var installable: agents.filter(function (a) { return !a.installed && a.supported && a.kind !== "runtime" })
     readonly property var unavailable: agents.filter(function (a) { return !a.supported && a.kind !== "runtime" })
     readonly property var tint: ({ "claude-code": "#c96442", "codex": "#1a7f64", "gemini-cli": "#3d74e0", "opencode": "#4a4a52", "omp": "#7c4ddb", "openclaw": "#d9483b", "hermes": "#9b51e0", "aider": "#139c8c", "goose": "#d98a0b", "cybara": "#1690c9", "ollama": "#5b5b63", "llama-cpp": "#6aa121", "inference": "#8e8e93" })
-    readonly property var capTitles: ({ "system.read": "Read system information", "files.read": "Read files", "files.write": "Change files", "notify": "Notifications", "settings.write": "Change desktop settings", "apps.launch": "Open apps", "screen.capture": "Screenshots", "packages.manage": "Install software", "snapshots.manage": "Create snapshots" })
+    readonly property var capTitles: ({ "system.read": "Read system information", "files.read": "Read files", "files.write": "Change files", "notify": "Notifications", "settings.write": "Change settings", "apps.launch": "Open apps", "screen.capture": "Screenshots", "computer.control": "Use the mouse, keyboard and windows", "packages.manage": "Install software", "snapshots.manage": "Create snapshots" })
     readonly property var levels: [{ id: "allow", label: "Allow" }, { id: "ask", label: "Ask" }, { id: "deny", label: "Deny" }]
 
     function q(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
@@ -43,6 +44,7 @@ ColumnLayout {
             page.backend = (d.keys && d.keys.backend) || ""
             page.audit = ((d.audit && d.audit.entries) || []).slice().reverse()
             page.pending = (d.consent && d.consent.pending) || []
+            page.control = (d.control && d.control.sessions) || []
             var c = {}
             ;((d.doctor && d.doctor.checks) || []).forEach(function (x) { c[x.name] = x })
             page.checks = c
@@ -109,6 +111,22 @@ ColumnLayout {
         }
     }
 
+    SectionTitle { text: "IN CONTROL OF THIS COMPUTER"; visible: page.control.length > 0 }
+    Card {
+        visible: page.control.length > 0
+        Repeater {
+            model: page.control.filter(function (c) { return /^[0-9a-f]{8}$/.test(String(c.id)) })
+            delegate: Cell {
+                required property var modelData
+                required property int index
+                last: index === page.control.length - 1
+                title: page.titleOf(modelData.agent) + " is using the mouse and keyboard"
+                subtitle: "Since " + page.ago(modelData.started) + ", ends by " + Qt.formatTime(new Date(modelData.expires), "HH:mm") + "  •  Meta+Alt+Escape stops every agent"
+                Btn { text: "Stop"; danger: true; onClicked: page.act("kwick-agents control stop " + page.q(modelData.id)) }
+            }
+        }
+    }
+
     Card {
         visible: page.available && page.loaded
         Cell {
@@ -125,7 +143,7 @@ ColumnLayout {
         Cell {
             last: true
             title: "KwickOS tools for agents"
-            subtitle: "kwick-mcp lets agents read system information, manage software, files and settings. Anything that changes your system asks you first, and every request is logged below."
+            subtitle: "kwick-mcp lets agents read system information, manage software, files and settings, and use the desktop. Anything that changes your system asks you first, and every request is logged below."
             Btn { text: "Agent guide"; onClicked: Sys.run("xdg-open /usr/share/doc/kwickos/AGENTS.md || xdg-open /usr/share/doc/kwick-agents/AGENTS.md") }
         }
     }

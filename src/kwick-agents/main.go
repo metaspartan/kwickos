@@ -169,12 +169,16 @@ Permissions, sandbox and audit:
                                     answer permission requests from a terminal
   audit [--json] [-n N] [--agent NAME]
                                     what agents asked for and what was decided
+  control [list|stop [ID|NAME]] [--json]
+                                    agents controlling the pointer and keyboard; stop them
 
 MCP:
   mcp serve [--agent NAME]          the KwickOS MCP server on stdio (also: kwick-mcp)
   mcp enable NAME | disable NAME    register kwick-mcp in an agent's own config
   mcp status [--json]               which agents have kwick-mcp registered
   mcp tools [--json]                tools kwick-mcp offers and the capability each needs
+  cua-driver mcp                    cua-driver compatible computer use server (also: kwick-cua-driver),
+                                    routed through kwick-mcp; Cybara uses it for its computer use
 
   doctor [--json]                   check bubblewrap, user namespaces, keystore and dialogs
   catalog                           the raw catalog as JSON
@@ -190,6 +194,9 @@ func main() {
 			fail(err)
 		}
 		os.Exit(mcpMain(o))
+	}
+	if base == "kwick-cua-driver" {
+		os.Exit(cuaMain(os.Args[1:]))
 	}
 	os.Exit(cli(os.Args[1:]))
 }
@@ -284,6 +291,10 @@ func cli(a []string) int {
 		err = cmdConsent(o, pos)
 	case "audit":
 		err = cmdAudit(o)
+	case "control":
+		err = cmdControl(o, pos)
+	case "cua-driver":
+		return cuaMain(pos)
 	case "mcp":
 		return cmdMCP(cat, o, pos)
 	case "doctor":
