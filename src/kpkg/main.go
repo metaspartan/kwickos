@@ -23,6 +23,9 @@ type Config struct {
 	KeepDebs, DownloadOnly    bool
 	Purge, AutoRemove         bool
 	AllowHeld, IndexXZ        bool
+	AllowUnauth               bool
+	ForceOverwrite            bool
+	PathFilters               []filterRule
 	Quiet                     int
 	TargetRelease             string
 	Avoid                     map[string]bool
@@ -148,7 +151,9 @@ func main() {
 	os.Exit(rc)
 }
 
-func memTotal() int64 {
+var memTotal = readMemTotal
+
+func readMemTotal() int64 {
 	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0
@@ -166,13 +171,26 @@ func memTotal() int64 {
 	return 0
 }
 
-func tuneGC() {
-	total := memTotal()
+func tuneGC() { tuneGCFor(memTotal()) }
+
+func tuneGCFor(total int64) {
 	if total < 1<<30 {
 		debug.SetGCPercent(50)
-		debug.SetMemoryLimit(96 << 20)
+		debug.SetMemoryLimit(max(192<<20, total/2))
 		return
 	}
 	debug.SetGCPercent(200)
 	debug.SetMemoryLimit(max(256<<20, total/4))
+}
+
+func relaxGC() func() {
+	pct := debug.SetGCPercent(-1)
+	lim := debug.SetMemoryLimit(-1)
+	if total := memTotal(); total > 0 {
+		debug.SetMemoryLimit(max(lim, total/2))
+	}
+	return func() {
+		debug.SetMemoryLimit(lim)
+		debug.SetGCPercent(pct)
+	}
 }

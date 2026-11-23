@@ -174,7 +174,7 @@ func forEachTar(member []byte, fn func(name string, data []byte)) error {
 			}
 			return nil
 		}
-		if h.Typeflag == tar.TypeReg || h.Typeflag == tar.TypeRegA {
+		if h.Typeflag == tar.TypeReg {
 			data, _ := io.ReadAll(io.LimitReader(tr, 64<<20))
 			fn(h.Name, data)
 		}

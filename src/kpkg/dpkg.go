@@ -40,8 +40,16 @@ func parseDpkgOpts(args []string) []string {
 		case a == "--root" && i+1 < len(args):
 			cfg.Root = args[i+1]
 			i++
-		case a == "--force-architecture" || a == "--force-all":
+		case a == "--force-architecture":
 			cfg.ForceArch = true
+		case a == "--force-all":
+			cfg.ForceArch = true
+			cfg.ForceOverwrite = true
+		case (a == "--path-exclude" || a == "--path-include") && i+1 < len(args):
+			dpkgOption(a + "=" + args[i+1])
+			i++
+		case a == "--force-overwrite" || strings.HasPrefix(a, "--path-exclude=") || strings.HasPrefix(a, "--path-include="):
+			dpkgOption(a)
 		case strings.HasPrefix(a, "--force-") || strings.HasPrefix(a, "--no-force-") || strings.HasPrefix(a, "--refuse-") ||
 			a == "--no-triggers" || a == "--triggers" || a == "--no-debsig" || a == "--abort-after" ||
 			strings.HasPrefix(a, "--admindir") || strings.HasPrefix(a, "--instdir") || strings.HasPrefix(a, "--log") ||
@@ -63,6 +71,13 @@ func mainDpkg(args []string) int {
 		return 2
 	}
 	cmd, rest := args[0], args[1:]
+	switch cmd {
+	case "--set-selections", "-i", "--install", "--unpack", "-r", "--remove", "-P", "--purge", "--configure", "--triggers-only":
+		if _, err := lockDB(); err != nil {
+			fmt.Fprintln(os.Stderr, "dpkg: error:", err)
+			return 2
+		}
+	}
 	switch cmd {
 	case "--version":
 		fmt.Printf("Debian 'dpkg' package management program version %s (kpkg %s, %s).\n", dpkgCompatVersion, kpkgVersion, cfg.Arch)
@@ -494,7 +509,7 @@ func mainDpkgDeb(args []string) int {
 		saved := cfg.Root
 		cfg.Root, _ = filepath.Abs(rest[1])
 		os.MkdirAll(cfg.Root, 0755)
-		res, err := ExtractData(rest[0], nil, nil, nil, nil)
+		res, err := ExtractData(rest[0], nil, nil, nil, nil, nil)
 		cfg.Root = saved
 		if err != nil {
 			return fail(err)

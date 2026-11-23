@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/klauspost/compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
@@ -285,6 +284,9 @@ func updateSuite(ss []*Source, pr *progress) (int64, error) {
 	if rel == nil {
 		return fetched, fmt.Errorf("%s: empty Release file", s0.label())
 	}
+	if !checkDist(rel, s0.Suite) {
+		return fetched, fmt.Errorf("suite mismatch for %s: expected '%s' but the Release file is for Suite '%s', Codename '%s' (refusing a possible downgrade or replay)", s0.label(), s0.Suite, rel.Get("Suite"), rel.Get("Codename"))
+	}
 	if vu := rel.Get("Valid-Until"); vu != "" {
 		if t, err := time.Parse(time.RFC1123, strings.Replace(vu, "UTC", "GMT", 1)); err == nil && time.Now().After(t) {
 			return fetched, fmt.Errorf("Release file for %s is expired (invalid since %s)", s0.label(), vu)
@@ -327,9 +329,56 @@ func updateSuite(ss []*Source, pr *progress) (int64, error) {
 			}
 		}
 	}
-	os.WriteFile(cached+".tmp", raw, 0644)
-	os.Rename(cached+".tmp", cached)
+	if err := writeFileAtomic(cached, raw, 0644, true); err != nil {
+		return fetched, err
+	}
 	return fetched, nil
+}
+
+func checkDist(rel *Paragraph, dist string) bool {
+	suite, code := rel.Get("Suite"), rel.Get("Codename")
+	if suite == "" && code == "" {
+		return true
+	}
+	if dist == code || dist == suite {
+		return true
+	}
+	t := dist
+	if t == "../project/experimental" {
+		t = "experimental"
+	}
+	if i := strings.LastIndexByte(t, '/'); i >= 0 {
+		t = t[:i]
+	}
+	if t == "." {
+		t = ""
+	}
+	return t == "" || t == code || t == suite
+}
+
+const maxIndexDownload = 512 << 20
+
+type capReader struct {
+	r    io.Reader
+	left int64
+	what string
+}
+
+func (c *capReader) Read(p []byte) (int, error) {
+	if c.left <= 0 {
+		var b [1]byte
+		n, err := c.r.Read(b[:])
+		if n > 0 {
+			return 0, fmt.Errorf("size mismatch: %s is larger than expected", c.what)
+		}
+		return 0, err
+	}
+	if int64(len(p)) > c.left {
+		p = p[:c.left]
+	}
+	n, err := c.r.Read(p)
+	c.left -= int64(n)
+	return n, err
 }
 
 func stripClearsign(t string) string {
@@ -397,41 +446,38 @@ func fetchIndex(s *Source, arch, base string, hashes map[string]relEntry, byHash
 		return 0, err
 	}
 	defer resp.Body.Close()
-	hr := &hashingReader{r: resp.Body, h: sha256.New()}
+	limit := int64(maxIndexDownload)
+	if ent.size > 0 {
+		limit = ent.size
+	}
+	hr := &hashingReader{r: &capReader{r: resp.Body, left: limit, what: url}, h: sha256.New()}
 	dr, err := decompressor(name, hr)
 	if err != nil {
 		return 0, err
 	}
-	out := s.indexPath(arch)
-	tmp := out + ".tmp"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return 0, err
-	}
-	zw, _ := gzip.NewWriterLevel(f, gzip.BestSpeed)
-	bw := bufio.NewWriterSize(zw, 1<<16)
-	count := 0
-	err = ParseParagraphs(dr, indexKeep, func(p *Paragraph) error {
-		count++
-		p.Write822(bw)
-		bw.WriteString("\n")
+	var buf bytes.Buffer
+	err = ParseParagraphs(&capReader{r: dr, left: maxIndexSize, what: url + " (uncompressed)"}, indexKeep, func(p *Paragraph) error {
+		p.Write822(&buf)
+		buf.WriteString("\n")
 		return nil
 	})
-	io.Copy(io.Discard, hr)
-	bw.Flush()
-	zw.Close()
-	f.Close()
+	if err == nil {
+		_, err = io.Copy(io.Discard, hr)
+	}
 	if err != nil {
-		os.Remove(tmp)
 		return hr.n, fmt.Errorf("%s: %v", url, err)
+	}
+	if ent.size > 0 && hr.n != ent.size {
+		return hr.n, fmt.Errorf("size mismatch for %s (%d != %d)", url, hr.n, ent.size)
 	}
 	if ent.hash != "" {
 		if got := hex.EncodeToString(hr.h.Sum(nil)); got != ent.hash {
-			os.Remove(tmp)
 			return hr.n, fmt.Errorf("hash sum mismatch for %s", url)
 		}
 	}
-	os.Rename(tmp, out)
+	if err := writeKidx(s.indexPath(arch), buf.Bytes()); err != nil {
+		return hr.n, err
+	}
 	fmt.Printf("Get:%d %s/%s %s Packages [%s]\n", pr.next(), s.label(), s.Comp, arch, human(hr.n))
 	return hr.n, nil
 }

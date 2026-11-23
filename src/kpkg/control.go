@@ -3,19 +3,50 @@ package main
 import (
 	"io"
 	"strings"
+	"sync"
 	"unsafe"
 )
 
 type Paragraph struct {
 	Keys []string
 	M    map[string]string
+	raw  string
+	lazy bool
+	once sync.Once
 }
 
 func NewParagraph() *Paragraph { return &Paragraph{M: map[string]string{}} }
 
-func (p *Paragraph) Get(k string) string { return p.M[k] }
+func lazyParagraph(raw string) *Paragraph { return &Paragraph{raw: raw, lazy: true} }
+
+func (p *Paragraph) ensure() {
+	if p.lazy {
+		p.once.Do(p.expand)
+	}
+}
+
+func (p *Paragraph) expand() {
+	p.Keys = make([]string, 0, 16)
+	p.M = make(map[string]string, 16)
+	scanParagraphs(p.raw, nil, p.set, nil)
+}
+
+func (p *Paragraph) Fields() []string {
+	p.ensure()
+	return p.Keys
+}
+
+func (p *Paragraph) Get(k string) string {
+	p.ensure()
+	return p.M[k]
+}
 
 func (p *Paragraph) Set(k, v string) {
+	p.ensure()
+	p.set(k, v)
+}
+
+func (p *Paragraph) set(k, v string) {
 	if _, ok := p.M[k]; !ok {
 		p.Keys = append(p.Keys, k)
 	}
@@ -23,6 +54,7 @@ func (p *Paragraph) Set(k, v string) {
 }
 
 func (p *Paragraph) Del(k string) {
+	p.ensure()
 	if _, ok := p.M[k]; !ok {
 		return
 	}
@@ -36,6 +68,7 @@ func (p *Paragraph) Del(k string) {
 }
 
 func (p *Paragraph) Write822(w io.Writer) {
+	p.ensure()
 	var b strings.Builder
 	for _, k := range p.Keys {
 		v := p.M[k]
@@ -86,17 +119,34 @@ func blankLine(l string) bool {
 
 func parseParagraphString(s string, keep map[string]bool, fn func(*Paragraph) error) error {
 	p := newParagraphSized()
-	last := ""
-	lastEnd := -1
-	flush := func() error {
-		if len(p.Keys) == 0 {
-			return nil
-		}
+	return scanParagraphs(s, keep, func(k, v string) { p.set(k, v) }, func(int, int) error {
 		err := fn(p)
 		p = newParagraphSized()
-		last = ""
-		lastEnd = -1
 		return err
+	})
+}
+
+func scanParagraphs(s string, keep map[string]bool, field func(k, v string), end func(start, stop int) error) error {
+	key, val, have := "", "", false
+	lastEnd := -1
+	start, stop, n := -1, 0, 0
+	emit := func() {
+		if have {
+			field(key, val)
+			n++
+		}
+		key, val, have = "", "", false
+		lastEnd = -1
+	}
+	flush := func() error {
+		emit()
+		cnt := n
+		a, b := start, stop
+		start, n = -1, 0
+		if cnt == 0 || end == nil {
+			return nil
+		}
+		return end(a, b)
 	}
 	pos := 0
 	for pos < len(s) {
@@ -108,6 +158,7 @@ func parseParagraphString(s string, keep map[string]bool, fn func(*Paragraph) er
 		} else {
 			pos = len(s)
 		}
+		rawEnd := lineEnd
 		if lineEnd > lineStart && s[lineEnd-1] == '\r' {
 			lineEnd--
 		}
@@ -118,14 +169,17 @@ func parseParagraphString(s string, keep map[string]bool, fn func(*Paragraph) er
 			}
 			continue
 		}
+		if start < 0 {
+			start = lineStart
+		}
+		stop = rawEnd
 		if line[0] == ' ' || line[0] == '\t' {
-			if last != "" {
-				cur := p.M[last]
+			if have && key != "" {
 				if lastEnd >= 0 && lineStart == lastEnd+1 {
-					p.M[last] = s[lastEnd-len(cur) : lineEnd]
+					val = s[lastEnd-len(val) : lineEnd]
 					lastEnd = lineEnd
 				} else {
-					p.M[last] = cur + "\n" + line
+					val = val + "\n" + line
 					lastEnd = -1
 				}
 			}
@@ -138,10 +192,9 @@ func parseParagraphString(s string, keep map[string]bool, fn func(*Paragraph) er
 		if i < 0 {
 			continue
 		}
+		emit()
 		k := line[:i]
 		if keep != nil && !keep[k] {
-			last = ""
-			lastEnd = -1
 			continue
 		}
 		a := i + 1
@@ -152,8 +205,7 @@ func parseParagraphString(s string, keep map[string]bool, fn func(*Paragraph) er
 		for e > a && (line[e-1] == ' ' || line[e-1] == '\t' || line[e-1] == '\v' || line[e-1] == '\f') {
 			e--
 		}
-		p.Set(k, line[a:e])
-		last = k
+		key, val, have = k, line[a:e], true
 		if e == len(line) {
 			lastEnd = lineEnd
 		} else {

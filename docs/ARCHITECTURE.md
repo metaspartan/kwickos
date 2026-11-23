@@ -95,11 +95,46 @@ archive and pulls in only what nginx really needs (libc6, libssl, pcre2, ...).
   integrity doesn't depend on TLS, kpkg ships a 300-line HTTP/1.1 client
   instead of `net/http`+`crypto/tls`, which saves about 3.5 MB. `https://` sources
   go through curl or wget.
-* **Compact indexes:** `Packages.gz` is stream-parsed into a field-filtered,
-  gzip'd index (~11 MB for all of Debian main) without ever being fully loaded.
-  It downloads 3.6 MB more than `Packages.xz` but decodes about 4× faster, which cut
-  `apt update` from 2.3 s to 1.6 s on one core. `index-compression = xz` in
-  `/etc/kpkg.conf` switches back for slow links.
+  * The Release file's `Suite` or `Codename` must match the suite in
+    `sources.list` (with apt's rules for `suite/updates`), so a validly signed
+    Release of another suite can't be replayed to downgrade a system.
+  * A package without a `SHA256` in the index is refused unless
+    `--allow-unauthenticated` (or `APT::Get::AllowUnauthenticated=true`) is given.
+  * Downloads are capped while they stream: a `.deb` at its index `Size`, an
+    index at the size in the Release file (512 MB when the Release file has none),
+    and the uncompressed index at 1 GB.
+  * apt, apt-mark and dpkg take `/var/lib/dpkg/lock-frontend` before they read
+    the status database. Unpacked files are written as `.dpkg-new`, flushed to disk
+    (fsync, or one `sync` for packages with many files), and only then renamed
+    into place. Control files, file lists and the index cache are written with
+    error checks.
+* **Compact indexes:** `Packages.gz` is stream-parsed into a field-filtered index
+  (~9 MB zstd for all of Debian main; older gzip caches are still read).
+  `Packages.gz` downloads 3.6 MB more than `Packages.xz` but decodes about 4× faster,
+  which cut `apt update` from 2.3 s to 1.6 s on one core. `index-compression = xz`
+  in `/etc/kpkg.conf` switches back for slow links.
+* **Lean index loading:** loading keeps one fixed struct per package with the
+  fields the solver uses (Package, Version, Architecture, Multi-Arch, Provides,
+  Essential, Protected and the Depends family). Every other field is parsed from
+  the package's raw paragraph the first time it's asked for. GC is paused while
+  the indexes load. For the 68,825-package Debian amd64 index this takes about
+  170 ms and 87 MB of live heap, instead of 485 ms and 173 MB (945 ms on
+  machines with less than 1 GB of RAM).
+* **Alpine side by side:** before a `.deb` is unpacked, its files are checked
+  against apk's database (`/lib/apk/db/installed` and `/usr/lib/apk/db/installed`,
+  following `/bin -> usr/bin`-style links). If apk owns one of them, kpkg stops
+  and names the apk package. `--force-overwrite` (apt, dpkg, or
+  `-o Dpkg::Options::=--force-overwrite`) overwrites the file with a warning.
+  kwick-base's own virtual apk entry is ignored. The reverse direction (`apk add`
+  over Debian files) is guarded by `apk add` itself.
+* **Path filters:** `path-exclude` and `path-include` from
+  `/etc/dpkg/dpkg.cfg.d/*` (files named only with letters, digits, `_` and `-`,
+  in sorted order), then `/etc/dpkg/dpkg.cfg`, then `--path-exclude` and `--path-include`
+  options, work as in dpkg. Globs follow fnmatch without flags, so `*` also matches `/`.
+  The last matching rule wins. A directory or symlink that an include pattern's
+  fixed prefix covers is still created. Filtered files are not written to disk but
+  stay in the package's `.list` file, as with dpkg, so `dpkg -L`, `dpkg -S` and
+  removal see the same file set. The `apk` conflict check ignores filtered files.
 * **dpkg-compatible database:** `/var/lib/dpkg/status`, `info/*.list`,
   maintainer scripts, conffiles (locally modified ones are kept and the new
   version is saved as `.dpkg-dist` only when the package's version changed; deleted

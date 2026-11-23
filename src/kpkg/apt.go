@@ -59,6 +59,10 @@ func parseCommon(args []string) []string {
 			cfg.AutoRemove = true
 		case a == "--allow-change-held-packages":
 			cfg.AllowHeld = true
+		case a == "--allow-unauthenticated":
+			cfg.AllowUnauth = true
+		case a == "--force-overwrite":
+			cfg.ForceOverwrite = true
 		case a == "--root" && i+1 < len(args):
 			cfg.Root = args[i+1]
 			i++
@@ -73,12 +77,16 @@ func parseCommon(args []string) []string {
 				cfg.Recommends = v == "true" || v == "1"
 			case "APT::Get::Assume-Yes":
 				cfg.Yes = v == "true" || v == "1"
+			case "APT::Get::AllowUnauthenticated":
+				cfg.AllowUnauth = v == "true" || v == "1"
+			case "Dpkg::Options::":
+				dpkgOption(v)
 			}
 			i++
 		case strings.HasPrefix(a, "-o"):
 		case a == "--no-install-suggests" || a == "--fix-broken" || a == "-f" || a == "--fix-missing" ||
 			a == "--allow-downgrades" || a == "--allow-remove-essential" ||
-			a == "--no-upgrade" || a == "--only-upgrade" || a == "-m" || a == "--force-yes" || a == "--allow-unauthenticated" ||
+			a == "--no-upgrade" || a == "--only-upgrade" || a == "-m" || a == "--force-yes" ||
 			a == "--no-show-upgraded" || a == "-V" || a == "--verbose-versions" || a == "--show-progress" || a == "--no-cache":
 		case (a == "-t" || a == "--target-release" || a == "--default-release") && i+1 < len(args):
 			cfg.TargetRelease = args[i+1]
@@ -94,6 +102,12 @@ func parseCommon(args []string) []string {
 		}
 	}
 	return rest
+}
+
+func mustLock() {
+	if _, err := lockDB(); err != nil {
+		die(err)
+	}
 }
 
 func mustDB(avail bool) *DB {
@@ -121,6 +135,9 @@ func mainApt(name string, args []string) int {
 	if needRoot[cmd] && os.Geteuid() != 0 && !cfg.DryRun {
 		fmt.Fprintln(os.Stderr, "E: This command requires root privileges (try sudo or su).")
 		return 100
+	}
+	if needRoot[cmd] && !cfg.DryRun {
+		mustLock()
 	}
 	var err error
 	switch cmd {
@@ -606,7 +623,7 @@ func mainAptCache(args []string) int {
 					die(err)
 				}
 			}
-			for _, k := range p.P.Keys {
+			for _, k := range p.P.Fields() {
 				if k == "SHA256" || k == "Filename" || k == "Size" {
 					continue
 				}
@@ -695,6 +712,10 @@ func mainAptMark(args []string) int {
 	if len(args) == 0 {
 		fmt.Println("Usage: apt-mark auto|manual|showauto|showmanual|hold|unhold PKG...")
 		return 1
+	}
+	switch args[0] {
+	case "auto", "markauto", "manual", "unmarkauto", "hold", "unhold":
+		mustLock()
 	}
 	db := mustDB(false)
 	switch args[0] {

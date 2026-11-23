@@ -196,22 +196,10 @@ func archRank(c *Pkg, from string) int {
 	return 2
 }
 
-func (p *Pkg) sameInstance(q *Pkg) bool { return p.Name == q.Name && p.Arch == q.Arch }
-
 func (db *DB) installedInstances(name string) []*Installed {
 	var out []*Installed
 	for _, k := range sortedKeys(db.Installed) {
 		if in := db.Installed[k]; in.Name == name && in.State() != "not-installed" {
-			out = append(out, in)
-		}
-	}
-	return out
-}
-
-func (db *DB) installedMatching(d Dep, from string) []*Installed {
-	var out []*Installed
-	for _, k := range nameKeys(d.Name) {
-		if in := db.lookupInstalled(k); in != nil && archFits(d.Arch, from, in.Pkg) && VersionSatisfies(in.Version, d.Op, d.Ver) {
 			out = append(out, in)
 		}
 	}

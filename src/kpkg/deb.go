@@ -178,7 +178,7 @@ type extractResult struct {
 	Conffiles map[string]string
 }
 
-func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]string, canOverwrite func(p string) bool, shared func(p string) int) (*extractResult, error) {
+func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]string, canOverwrite func(p string) bool, shared func(p string) int, filt *pathFilter) (*extractResult, error) {
 	f, err := os.Open(debPath)
 	if err != nil {
 		return nil, err
@@ -186,6 +186,8 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 	defer f.Close()
 	res := &extractResult{Conffiles: map[string]string{}}
 	var hardlinks [][2]string
+	var staged stagedFiles
+	defer staged.abort()
 	member := func(fn func(dr io.Reader) error) error {
 		if pt := takePreTar(debPath); pt != "" {
 			tf, err := os.Open(pt)
@@ -221,6 +223,9 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				continue
 			}
 			res.Files = append(res.Files, p)
+			if filt.skip(p, h.Typeflag) {
+				continue
+			}
 			if h.Typeflag != tar.TypeDir && kwickOwned(p) {
 				continue
 			}
@@ -267,7 +272,7 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 				}
 				os.Lchown(host, h.Uid, h.Gid)
 				os.Chmod(host, mode)
-			case tar.TypeReg, tar.TypeRegA:
+			case tar.TypeReg:
 				os.MkdirAll(parent, 0755)
 				if conffiles[p] {
 					data, err := io.ReadAll(tr)
@@ -292,19 +297,19 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 							continue
 						}
 						if curMD5 != newMD5 && (!tracked || curMD5 != old) {
-							if err := writeAtomic(host+".dpkg-dist", data, mode, h); err != nil {
+							if err := staged.add(host+".dpkg-dist", bytes.NewReader(data), mode, h); err != nil {
 								return err
 							}
 							fmt.Printf("Configuration file '%s' modified locally; new version saved as %s.dpkg-dist\n", p, p)
 							continue
 						}
 					}
-					if err := writeAtomic(host, data, mode, h); err != nil {
+					if err := staged.add(host, bytes.NewReader(data), mode, h); err != nil {
 						return err
 					}
 					continue
 				}
-				if err := writeStreamAtomic(host, tr, mode, h); err != nil {
+				if err := staged.add(host, tr, mode, h); err != nil {
 					return fmt.Errorf("unpacking %s: %w", p, err)
 				}
 			case tar.TypeSymlink:
@@ -343,6 +348,9 @@ func ExtractData(debPath string, conffiles map[string]bool, oldConf map[string]s
 	if err != nil {
 		return nil, err
 	}
+	if err := staged.commit(); err != nil {
+		return nil, err
+	}
 	for _, hl := range hardlinks {
 		src, _ := resolveInRoot(cfg.Root, hl[0], true)
 		dst, _ := resolveInRoot(cfg.Root, hl[1], false)
@@ -370,7 +378,7 @@ func checkSharedIdentical(host, p string, h *tar.Header, tr io.Reader) (bool, er
 			return false, differ
 		}
 		return true, nil
-	case tar.TypeReg, tar.TypeRegA:
+	case tar.TypeReg:
 		if !fi.Mode().IsRegular() {
 			return false, differ
 		}
@@ -401,31 +409,85 @@ func mkdev(maj, min int64) uint64 {
 	return uint64((min & 0xff) | ((maj & 0xfff) << 8) | ((min &^ 0xff) << 12) | ((maj &^ 0xfff) << 32))
 }
 
-func writeAtomic(host string, data []byte, mode os.FileMode, h *tar.Header) error {
-	return writeStreamAtomic(host, bytes.NewReader(data), mode, h)
+type stagedFiles struct {
+	tmp, dst []string
+	seen     map[string]bool
 }
 
-func writeStreamAtomic(host string, r io.Reader, mode os.FileMode, h *tar.Header) error {
+func (s *stagedFiles) add(host string, r io.Reader, mode os.FileMode, h *tar.Header) error {
+	if fi, err := os.Lstat(host); err == nil && fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
+		return fmt.Errorf("cannot replace directory %s with a file", host)
+	}
 	tmp := host + ".dpkg-new"
 	os.Remove(tmp)
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(f, r); err != nil {
-		f.Close()
+	_, err = io.Copy(f, r)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
 		os.Remove(tmp)
 		return err
 	}
-	f.Close()
 	os.Lchown(tmp, h.Uid, h.Gid)
 	os.Chmod(tmp, mode)
 	os.Chtimes(tmp, h.ModTime, h.ModTime)
-	if fi, err := os.Lstat(host); err == nil && fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		os.Remove(tmp)
-		return fmt.Errorf("cannot replace directory %s with a file", host)
+	if s.seen == nil {
+		s.seen = map[string]bool{}
 	}
-	return os.Rename(tmp, host)
+	if !s.seen[host] {
+		s.seen[host] = true
+		s.tmp = append(s.tmp, tmp)
+		s.dst = append(s.dst, host)
+	}
+	return nil
+}
+
+func (s *stagedFiles) sync() error {
+	if len(s.tmp) == 0 {
+		return nil
+	}
+	if len(s.tmp) > 16 {
+		syscall.Sync()
+		return nil
+	}
+	for _, t := range s.tmp {
+		f, err := os.Open(t)
+		if err != nil {
+			return err
+		}
+		err = f.Sync()
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("sync %s: %v", t, err)
+		}
+	}
+	return nil
+}
+
+func (s *stagedFiles) commit() error {
+	if err := s.sync(); err != nil {
+		return err
+	}
+	for i, t := range s.tmp {
+		if err := os.Rename(t, s.dst[i]); err != nil {
+			s.tmp = s.tmp[i:]
+			s.dst = s.dst[i:]
+			return err
+		}
+	}
+	s.tmp, s.dst, s.seen = nil, nil, nil
+	return nil
+}
+
+func (s *stagedFiles) abort() {
+	for _, t := range s.tmp {
+		os.Remove(t)
+	}
+	s.tmp, s.dst = nil, nil
 }
 
 func kwickOwned(p string) bool {

@@ -318,16 +318,6 @@ func noProxy(host string) bool {
 	return false
 }
 
-type cmdBody struct {
-	io.ReadCloser
-	cmd *exec.Cmd
-}
-
-func (c *cmdBody) Close() error {
-	c.ReadCloser.Close()
-	return c.cmd.Wait()
-}
-
 func externalGet(u string) (*httpResp, string, error) {
 	var cmd *exec.Cmd
 	if p, err := exec.LookPath("curl"); err == nil {

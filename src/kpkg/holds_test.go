@@ -159,7 +159,7 @@ func TestConffileUpgradeSemantics(t *testing.T) {
 
 	os.WriteFile(host, []byte("local\n"), 0644)
 	deb := buildConfDeb(t, work, "1.1", "shipped\n")
-	if _, err := ExtractData(deb, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil); err != nil {
+	if _, err := ExtractData(deb, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(host); string(b) != "local\n" {
@@ -170,7 +170,7 @@ func TestConffileUpgradeSemantics(t *testing.T) {
 	}
 
 	deb2 := buildConfDeb(t, work, "2.0", "shipped v2\n")
-	if _, err := ExtractData(deb2, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil); err != nil {
+	if _, err := ExtractData(deb2, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(host + ".dpkg-dist"); string(b) != "shipped v2\n" {
@@ -179,14 +179,14 @@ func TestConffileUpgradeSemantics(t *testing.T) {
 
 	os.Remove(host)
 	os.Remove(host + ".dpkg-dist")
-	if _, err := ExtractData(deb2, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil); err != nil {
+	if _, err := ExtractData(deb2, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(host); err == nil {
 		t.Errorf("conffile deleted by the admin was re-created")
 	}
 
-	if _, err := ExtractData(deb2, conf, nil, nil, nil); err != nil {
+	if _, err := ExtractData(deb2, conf, nil, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(host); string(b) != "shipped v2\n" {
@@ -194,7 +194,7 @@ func TestConffileUpgradeSemantics(t *testing.T) {
 	}
 
 	os.WriteFile(host, []byte("shipped\n"), 0644)
-	if _, err := ExtractData(deb2, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil); err != nil {
+	if _, err := ExtractData(deb2, conf, map[string]string{"/etc/foo.conf": md5hex("shipped\n")}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(host); string(b) != "shipped v2\n" {

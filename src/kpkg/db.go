@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/klauspost/compress/gzip"
+	"github.com/klauspost/compress/zstd"
 )
 
 type Pkg struct {
@@ -28,13 +29,87 @@ type Pkg struct {
 	Also     []*Source
 	deps     map[string][][]Dep
 	provides []Provided
+	lean     bool
+	hot      hotFields
+}
+
+type hotFields struct {
+	multiArch, provides, essential, protected                              string
+	depends, preDepends, recommends, suggests, conflicts, breaks, replaces string
 }
 
 func newPkg(p *Paragraph) *Pkg {
 	return &Pkg{P: p, Name: p.Get("Package"), Version: p.Get("Version"), Arch: p.Get("Architecture")}
 }
 
-func (p *Pkg) Field(k string) string { return p.P.Get(k) }
+func (p *Pkg) Field(k string) string {
+	if p.lean {
+		switch k {
+		case "Package":
+			return p.Name
+		case "Version":
+			return p.Version
+		case "Architecture":
+			return p.Arch
+		case "Multi-Arch":
+			return p.hot.multiArch
+		case "Provides":
+			return p.hot.provides
+		case "Essential":
+			return p.hot.essential
+		case "Protected":
+			return p.hot.protected
+		case "Depends":
+			return p.hot.depends
+		case "Pre-Depends":
+			return p.hot.preDepends
+		case "Recommends":
+			return p.hot.recommends
+		case "Suggests":
+			return p.hot.suggests
+		case "Conflicts":
+			return p.hot.conflicts
+		case "Breaks":
+			return p.hot.breaks
+		case "Replaces":
+			return p.hot.replaces
+		}
+	}
+	return p.P.Get(k)
+}
+
+func (h *hotFields) set(name, version, arch *string, k, v string) {
+	switch k {
+	case "Package":
+		*name = v
+	case "Version":
+		*version = v
+	case "Architecture":
+		*arch = v
+	case "Multi-Arch":
+		h.multiArch = v
+	case "Provides":
+		h.provides = v
+	case "Essential":
+		h.essential = v
+	case "Protected":
+		h.protected = v
+	case "Depends":
+		h.depends = v
+	case "Pre-Depends":
+		h.preDepends = v
+	case "Recommends":
+		h.recommends = v
+	case "Suggests":
+		h.suggests = v
+	case "Conflicts":
+		h.conflicts = v
+	case "Breaks":
+		h.breaks = v
+	case "Replaces":
+		h.replaces = v
+	}
+}
 
 func (p *Pkg) Deps(field string) [][]Dep {
 	if p.deps == nil {
@@ -42,7 +117,7 @@ func (p *Pkg) Deps(field string) [][]Dep {
 	}
 	d, ok := p.deps[field]
 	if !ok {
-		d = ParseDeps(p.P.Get(field), p.selfArch())
+		d = ParseDeps(p.Field(field), p.selfArch())
 		p.deps[field] = d
 	}
 	return d
@@ -50,7 +125,7 @@ func (p *Pkg) Deps(field string) [][]Dep {
 
 func (p *Pkg) Provides() []Provided {
 	if p.provides == nil {
-		p.provides = ParseProvides(p.P.Get("Provides"))
+		p.provides = ParseProvides(p.Field("Provides"))
 		if p.provides == nil {
 			p.provides = []Provided{}
 		}
@@ -130,10 +205,17 @@ type idxJob struct {
 	pkgs []*Pkg
 }
 
+var zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
+
+const maxIndexSize = 1 << 30
+
 func readKidx(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
+	}
+	if bytes.HasPrefix(data, zstdMagic) {
+		return decodeZstdIndex(data)
 	}
 	zr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -143,7 +225,7 @@ func readKidx(path string) (string, error) {
 	var out []byte
 	if n := len(data); n >= 18 {
 		isize := int(binary.LittleEndian.Uint32(data[n-4:]))
-		if isize >= n && isize < 1<<30 {
+		if isize >= n && isize < maxIndexSize {
 			out = make([]byte, isize)
 			got, err := io.ReadFull(zr, out)
 			out = out[:got]
@@ -151,7 +233,7 @@ func readKidx(path string) (string, error) {
 				return "", err
 			}
 			if err == nil {
-				rest, err := io.ReadAll(zr)
+				rest, err := io.ReadAll(io.LimitReader(zr, maxIndexSize))
 				if err != nil {
 					return "", err
 				}
@@ -160,7 +242,7 @@ func readKidx(path string) (string, error) {
 		}
 	}
 	if out == nil {
-		if out, err = io.ReadAll(zr); err != nil {
+		if out, err = io.ReadAll(io.LimitReader(zr, maxIndexSize)); err != nil {
 			return "", err
 		}
 	}
@@ -168,6 +250,36 @@ func readKidx(path string) (string, error) {
 		return "", nil
 	}
 	return unsafe.String(unsafe.SliceData(out), len(out)), nil
+}
+
+func decodeZstdIndex(data []byte) (string, error) {
+	var h zstd.Header
+	var dst []byte
+	if h.Decode(data) == nil && h.HasFCS && h.FrameContentSize < maxIndexSize {
+		dst = make([]byte, 0, h.FrameContentSize)
+	}
+	dec, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1), zstd.WithDecoderMaxMemory(maxIndexSize))
+	if err != nil {
+		return "", err
+	}
+	defer dec.Close()
+	out, err := dec.DecodeAll(data, dst)
+	if err != nil {
+		return "", err
+	}
+	if len(out) == 0 {
+		return "", nil
+	}
+	return unsafe.String(unsafe.SliceData(out), len(out)), nil
+}
+
+func writeKidx(path string, data []byte) error {
+	enc, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault), zstd.WithEncoderCRC(true))
+	if err != nil {
+		return err
+	}
+	defer enc.Close()
+	return writeFileAtomic(path, enc.EncodeAll(data, make([]byte, 0, len(data)/4)), 0644, true)
 }
 
 func splitParagraphChunks(s string, n int) []string {
@@ -201,20 +313,7 @@ func parseIndexPkgs(s string, src *Source) []*Pkg {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			var pkgs []*Pkg
-			parseParagraphString(c, nil, func(p *Paragraph) error {
-				pk := newPkg(p)
-				if !pk.archOK() {
-					return nil
-				}
-				pk.Src = src
-				if p.Get("Provides") != "" {
-					pk.Provides()
-				}
-				pkgs = append(pkgs, pk)
-				return nil
-			})
-			parts[i] = pkgs
+			parts[i] = parseLeanChunk(c, src)
 		}()
 	}
 	wg.Wait()
@@ -230,6 +329,25 @@ func parseIndexPkgs(s string, src *Source) []*Pkg {
 		all = append(all, p...)
 	}
 	return all
+}
+
+func parseLeanChunk(c string, src *Source) []*Pkg {
+	pkgs := make([]*Pkg, 0, strings.Count(c, "\nPackage: ")+1)
+	var cur Pkg
+	scanParagraphs(c, nil, func(k, v string) {
+		cur.hot.set(&cur.Name, &cur.Version, &cur.Arch, k, v)
+	}, func(start, stop int) error {
+		if cur.archOK() {
+			pk := &Pkg{P: lazyParagraph(c[start:stop]), Name: cur.Name, Version: cur.Version, Arch: cur.Arch, Src: src, lean: true, hot: cur.hot}
+			if pk.hot.provides != "" {
+				pk.Provides()
+			}
+			pkgs = append(pkgs, pk)
+		}
+		cur = Pkg{}
+		return nil
+	})
+	return pkgs
 }
 
 func (db *DB) LoadAvailable() error {
@@ -257,6 +375,7 @@ func (db *DB) LoadAvailable() error {
 			missing++
 		}
 	}
+	defer relaxGC()()
 	var wg sync.WaitGroup
 	for _, j := range jobs {
 		wg.Add(1)
@@ -270,6 +389,13 @@ func (db *DB) LoadAvailable() error {
 		}()
 	}
 	wg.Wait()
+	if len(db.Avail) == 0 {
+		total := 0
+		for _, j := range jobs {
+			total += len(j.pkgs)
+		}
+		db.Avail = make(map[string][]*Pkg, total)
+	}
 	for _, j := range jobs {
 		for _, pk := range j.pkgs {
 			db.addAvail(pk)
@@ -296,7 +422,7 @@ func (db *DB) addAvail(pk *Pkg) {
 		}
 	}
 	db.Avail[key] = append(db.Avail[key], pk)
-	if strings.Contains(pk.P.Get("Provides"), "") && pk.P.Get("Provides") != "" {
+	if pk.provides != nil || pk.Field("Provides") != "" {
 		for _, pv := range pk.Provides() {
 			db.provAvail[pv.Name] = append(db.provAvail[pv.Name], provider{pk, pv.Ver})
 		}
@@ -319,7 +445,7 @@ func (db *DB) loadStatus() error {
 	return ParseParagraphs(f, nil, func(p *Paragraph) error {
 		pk := newPkg(p)
 		inst := &Installed{Pkg: pk, Status: p.Get("Status")}
-		if inst.State() == "not-installed" || inst.State() == "config-files" && false {
+		if inst.State() == "not-installed" {
 			return nil
 		}
 		key := pk.InfoName()

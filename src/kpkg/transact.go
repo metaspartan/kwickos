@@ -19,7 +19,16 @@ import (
 	"time"
 )
 
+var (
+	lockFile  *os.File
+	lockDepth int
+)
+
 func lockDB() (func(), error) {
+	if lockDepth > 0 {
+		lockDepth++
+		return unlockDB, nil
+	}
 	os.MkdirAll(cfg.Admin, 0755)
 	f, err := os.OpenFile(filepath.Join(cfg.Admin, "lock-frontend"), os.O_RDWR|os.O_CREATE, 0640)
 	if err != nil {
@@ -33,11 +42,24 @@ func lockDB() (func(), error) {
 			fmt.Fprintln(os.Stderr, "Waiting for dpkg frontend lock (another kpkg/apt is running)...")
 		}
 		if i > 600 {
+			f.Close()
 			return nil, errors.New("could not get lock /var/lib/dpkg/lock-frontend")
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return func() { f.Close() }, nil
+	lockFile, lockDepth = f, 1
+	return unlockDB, nil
+}
+
+func unlockDB() {
+	if lockDepth == 0 {
+		return
+	}
+	lockDepth--
+	if lockDepth == 0 {
+		lockFile.Close()
+		lockFile = nil
+	}
 }
 
 func debCacheName(p *Pkg) string {
@@ -119,7 +141,14 @@ func fileSHA256(p, want string) (bool, error) {
 	return hex.EncodeToString(h.Sum(nil)) == want, nil
 }
 
+const maxDebDownload = 4 << 30
+
+var errNoHash = errors.New("the package index has no SHA256 checksum for it; refusing an unverified download (use --allow-unauthenticated to accept it anyway)")
+
 func fetchTo(url, dst, wantHash string, size int64) error {
+	if wantHash == "" && !cfg.AllowUnauth {
+		return errNoHash
+	}
 	resp, err := httpGet(url)
 	if err != nil {
 		return err
@@ -130,9 +159,18 @@ func fetchTo(url, dst, wantHash string, size int64) error {
 	if err != nil {
 		return err
 	}
+	limit := int64(maxDebDownload)
+	if size > 0 {
+		limit = size
+	}
 	h := sha256.New()
-	n, err := io.Copy(io.MultiWriter(f, h), resp.Body)
-	f.Close()
+	n, err := io.Copy(io.MultiWriter(f, h), &capReader{r: resp.Body, left: limit, what: url})
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
 	if err != nil {
 		os.Remove(tmp)
 		return err
@@ -230,6 +268,9 @@ type Tx struct {
 	prevVer   map[string]string
 	healed    map[string]bool
 	ldSeen    int
+	apkOwners map[string]string
+	filt      *pathFilter
+	filtDone  bool
 }
 
 type scriptError struct {
@@ -496,6 +537,9 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		return err
 	}
 	ctl := dc.Para
+	if err := tx.checkApkConflicts(p, deb); err != nil {
+		return err
+	}
 	old := tx.db.installedByKey(p.Key())
 	oldVer := ""
 	var oldConf map[string]string
@@ -517,7 +561,9 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 	os.RemoveAll(stage)
 	os.MkdirAll(stage, 0755)
 	for n, b := range dc.Files {
-		os.WriteFile(filepath.Join(stage, n), b, 0755)
+		if err := os.WriteFile(filepath.Join(stage, n), b, 0755); err != nil {
+			return fmt.Errorf("unable to stage control member %s of %s: %v", n, deb, err)
+		}
 	}
 	infoName := infoNameFor(p.Name, ctl.Get("Architecture"), ctl.Get("Multi-Arch"))
 	if old != nil && old.State() == "installed" {
@@ -593,7 +639,7 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		}
 		return true
 	}
-	res, err := ExtractData(deb, conf, oldConf, canOverwrite, shared)
+	res, err := ExtractData(deb, conf, oldConf, canOverwrite, shared, tx.filters())
 	if err != nil {
 		return fmt.Errorf("error processing archive %s: %v", deb, err)
 	}
@@ -634,9 +680,13 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 		case "preinst", "postinst", "prerm", "postrm", "config":
 			mode = 0755
 		}
-		os.WriteFile(filepath.Join(infoDir(), infoName+"."+n), b, mode)
+		if err := os.WriteFile(filepath.Join(infoDir(), infoName+"."+n), b, mode); err != nil {
+			return fmt.Errorf("unable to install control member %s of %s: %v", n, p.Key(), err)
+		}
 	}
-	writeList(infoName, res.Files)
+	if err := writeList(infoName, res.Files); err != nil {
+		return fmt.Errorf("unable to write file list of %s: %v", p.Key(), err)
+	}
 	tx.lists[infoName] = res.Files
 	for _, f := range res.Files {
 		tx.owners[f] = append(tx.owners[f], infoName)
@@ -654,7 +704,7 @@ func (tx *Tx) unpack(p *Pkg, deb string) error {
 	st := NewParagraph()
 	st.Set("Package", p.Name)
 	st.Set("Status", status)
-	for _, k := range ctl.Keys {
+	for _, k := range ctl.Fields() {
 		if k == "Package" || k == "Status" {
 			continue
 		}

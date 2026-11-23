@@ -92,7 +92,7 @@ func lookupField(in *Installed, name string) string {
 	if v := in.Field(name); v != "" {
 		return v
 	}
-	for _, k := range in.P.Keys {
+	for _, k := range in.P.Fields() {
 		if strings.EqualFold(k, name) {
 			return in.P.Get(k)
 		}
