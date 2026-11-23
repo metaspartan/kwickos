@@ -458,6 +458,9 @@ struct svc {
 	int exit_code;
 	time_t since;
 	int loaded;
+	int start_after_stop;
+	long kill_at;
+	long started_bt;
 };
 
 static struct svc *svcs[MAX_SVC];
@@ -551,8 +554,9 @@ static void parse_env_assign(struct svc *s, char *v)
 	}
 }
 
-static void parse_unit_file(struct svc *s, const char *path)
+static void parse_unit_file(void *p, const char *path)
 {
+	struct svc *s = p;
 	FILE *f = fopen(path, "re");
 	if (!f) return;
 	char line[4096], acc[8192];
@@ -606,17 +610,8 @@ static void parse_unit_file(struct svc *s, const char *path)
 	fclose(f);
 }
 
-static struct svc *load_unit(const char *name)
+static void parse_dropins(const char *name, void (*fn)(void *, const char *), void *ctx)
 {
-	char path[PATH_MAX];
-	if (!find_unit_file(name, path, sizeof path)) return NULL;
-	char rp[PATH_MAX];
-	if (realpath(path, rp) && !strcmp(rp, "/dev/null")) return NULL;
-	struct svc *s = calloc(1, sizeof *s);
-	snprintf(s->name, sizeof s->name, "%s", name);
-	snprintf(s->path, sizeof s->path, "%s", path);
-	s->restart = R_NO;
-	parse_unit_file(s, path);
 	for (int i = 0; unit_dirs[i]; i++) {
 		char dd[PATH_MAX];
 		snprintf(dd, sizeof dd, "%s/%s.d", unit_dirs[i], name);
@@ -628,23 +623,46 @@ static struct svc *load_unit(const char *name)
 			if (l > 5 && !strcmp(de->d_name + l - 5, ".conf")) {
 				char p[PATH_MAX + 300];
 				snprintf(p, sizeof p, "%s/%s", dd, de->d_name);
-				parse_unit_file(s, p);
+				fn(ctx, p);
 			}
 		}
 		closedir(d);
 	}
+}
+
+static struct svc *load_unit(const char *name)
+{
+	char path[PATH_MAX];
+	if (!find_unit_file(name, path, sizeof path)) return NULL;
+	char rp[PATH_MAX];
+	if (realpath(path, rp) && !strcmp(rp, "/dev/null")) return NULL;
+	struct svc *s = calloc(1, sizeof *s);
+	snprintf(s->name, sizeof s->name, "%s", name);
+	snprintf(s->path, sizeof s->path, "%s", path);
+	s->restart = R_NO;
+	parse_unit_file(s, path);
+	parse_dropins(name, parse_unit_file, s);
 	if (!s->nstart) { free_svc(s); return NULL; }
 	if (s->type == T_ONESHOT && s->restart == R_ALWAYS) s->restart = R_NO;
 	s->loaded = 1;
 	return s;
 }
 
-static struct svc *svc_find(const char *name)
+static struct svc *svc_loaded(const char *name)
 {
 	char full[128];
 	snprintf(full, sizeof full, "%s%s", name, strchr(name, '.') ? "" : ".service");
 	for (int i = 0; i < nsvc; i++)
 		if (!strcmp(svcs[i]->name, full)) return svcs[i];
+	return NULL;
+}
+
+static struct svc *svc_find(const char *name)
+{
+	struct svc *f = svc_loaded(name);
+	if (f) return f;
+	char full[128];
+	snprintf(full, sizeof full, "%s%s", name, strchr(name, '.') ? "" : ".service");
 	if (nsvc >= MAX_SVC) return NULL;
 	struct svc *s = load_unit(full);
 	if (s) svcs[nsvc++] = s;
@@ -848,6 +866,7 @@ static void svc_start(struct svc *s)
 {
 	if (s->state == S_RUNNING || s->state == S_STARTING) return;
 	s->want = 1;
+	if (s->state == S_STOPPING) { s->start_after_stop = 1; return; }
 	if (!conds_met(s)) {
 		s->state = s->remain ? S_EXITED : S_STOPPED;
 		if (verbose) say("skipped %s (condition not met)", s->name);
@@ -861,6 +880,7 @@ static void svc_start(struct svc *s)
 	s->state = S_STARTING;
 	s->forking_wait = s->type == T_FORKING;
 	s->since = time(NULL);
+	s->started_bt = now_ms(CLOCK_BOOTTIME);
 	if (s->type == T_SIMPLE) s->state = S_RUNNING;
 	if (verbose) say("started %s (pid %d)", s->name, p);
 	for (int i = 0; i < s->npost; i++) sh_run(s->post[i] + strspn(s->post[i], "-@+!:"));
@@ -874,10 +894,20 @@ static pid_t read_pidfile(const char *pf)
 	return p > 1 ? p : 0;
 }
 
+static void svc_stopped(struct svc *s)
+{
+	s->pid = 0;
+	s->state = S_STOPPED;
+	s->kill_at = 0;
+	if (s->start_after_stop) { s->start_after_stop = 0; svc_start(s); }
+}
+
 static void svc_stop(struct svc *s)
 {
 	s->want = 0;
 	s->restart_at = 0;
+	s->start_after_stop = 0;
+	if (s->state == S_STOPPING) return;
 	if (s->stop && (s->state == S_RUNNING || s->state == S_EXITED)) {
 		char envmp[64];
 		snprintf(envmp, sizeof envmp, "%d", s->pid);
@@ -890,22 +920,31 @@ static void svc_stop(struct svc *s)
 		kill(s->pid, SIGTERM);
 		kill(s->pid, SIGCONT);
 		s->state = S_STOPPING;
-		for (int i = 0; i < 100; i++) {
-			if (kill(s->pid, 0) < 0) break;
-			int st;
-			if (waitpid(s->pid, &st, WNOHANG) == s->pid) break;
-			usleep(50000);
-		}
-		if (kill(s->pid, 0) == 0) { kill(-s->pid, SIGKILL); kill(s->pid, SIGKILL); waitpid(s->pid, NULL, WNOHANG); }
+		s->kill_at = now_ms(CLOCK_MONOTONIC) + 5000;
+		return;
 	}
 	s->pid = 0;
 	s->state = S_STOPPED;
+}
+
+static int stop_tick(long now)
+{
+	int wait = 5000;
+	for (int i = 0; i < nsvc; i++) {
+		struct svc *s = svcs[i];
+		if (s->state != S_STOPPING) continue;
+		if (s->pid <= 0 || kill(s->pid, 0) < 0) { svc_stopped(s); continue; }
+		if (now >= s->kill_at) { kill(-s->pid, SIGKILL); kill(s->pid, SIGKILL); svc_stopped(s); continue; }
+		wait = 100;
+	}
+	return wait;
 }
 
 static void svc_exited(struct svc *s, int st)
 {
 	int code = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
 	s->exit_code = code;
+	if (s->state == S_STOPPING) { s->forking_wait = 0; svc_stopped(s); return; }
 	if (s->forking_wait) {
 		s->forking_wait = 0;
 		if (code == 0) {
@@ -918,7 +957,7 @@ static void svc_exited(struct svc *s, int st)
 	}
 	if (s->type == T_ONESHOT && code == 0) { s->state = s->remain ? S_EXITED : S_STOPPED; s->pid = 0; return; }
 	s->pid = 0;
-	if (s->state == S_STOPPING || !s->want) { s->state = S_STOPPED; return; }
+	if (!s->want) { s->state = S_STOPPED; return; }
 	s->state = (code == 0 || s->ignore_main_fail) ? S_STOPPED : S_FAILED;
 	if (s->restart == R_ALWAYS || (s->restart == R_ONFAIL && code != 0)) {
 		if (time(NULL) - s->since >= 30) s->fails = 0;
@@ -948,15 +987,16 @@ static int is_enabled(const char *name, char *target_out, size_t tsz)
 	return en;
 }
 
+static const char *boot_wants[] = { "sysinit.target.wants", "basic.target.wants",
+	"network.target.wants", "network-online.target.wants", "multi-user.target.wants",
+	"default.target.wants", "getty.target.wants", "timers.target.wants", NULL };
+
 static void load_boot_units(void)
 {
-	static const char *targets[] = { "sysinit.target.wants", "basic.target.wants",
-		"network.target.wants", "network-online.target.wants", "multi-user.target.wants",
-		"default.target.wants", "getty.target.wants", NULL };
-	for (int t = 0; targets[t]; t++) {
+	for (int t = 0; boot_wants[t]; t++) {
 		for (int i = 0; unit_dirs[i]; i++) {
 			char dd[PATH_MAX];
-			snprintf(dd, sizeof dd, "%s/%s", unit_dirs[i], targets[t]);
+			snprintf(dd, sizeof dd, "%s/%s", unit_dirs[i], boot_wants[t]);
 			DIR *d = opendir(dd);
 			if (!d) continue;
 			struct dirent *de;
@@ -974,6 +1014,464 @@ static void load_boot_units(void)
 static volatile int shutdown_req;
 static int sfd = -1, ctlfd = -1, uevfd = -1;
 static long boot_ready_ms;
+
+#define MAX_TIMER 64
+#define TIMER_DIR "/var/lib/kinit/timers"
+
+struct cal { uint64_t sec, min; uint32_t hour, day; uint16_t mon; uint8_t dow; };
+
+struct tmr {
+	char name[96], unit[96], desc[128], path[PATH_MAX];
+	struct cal cal[4];
+	int ncal, persistent, manual, seen, boot_done, active_done;
+	long boot_ms, active_ms, unit_ms, rnd_ms, off_ms, activated_bt, last_fire_bt;
+	time_t cal_next, last;
+};
+
+static struct tmr *tmrs[MAX_TIMER];
+static int ntmr;
+
+static long parse_span(const char *v)
+{
+	static const struct { const char *u; double ms; } units[] = {
+		{ "", 1000 }, { "s", 1000 }, { "sec", 1000 }, { "second", 1000 }, { "seconds", 1000 },
+		{ "ms", 1 }, { "msec", 1 }, { "us", 0.001 }, { "usec", 0.001 },
+		{ "m", 60000 }, { "min", 60000 }, { "minute", 60000 }, { "minutes", 60000 },
+		{ "h", 3600000 }, { "hr", 3600000 }, { "hour", 3600000 }, { "hours", 3600000 },
+		{ "d", 86400000 }, { "day", 86400000 }, { "days", 86400000 },
+		{ "w", 604800000 }, { "week", 604800000 }, { "weeks", 604800000 },
+		{ "M", 2629800000.0 }, { "month", 2629800000.0 }, { "months", 2629800000.0 },
+		{ "y", 31557600000.0 }, { "year", 31557600000.0 }, { "years", 31557600000.0 }, { NULL, 0 } };
+	double total = 0;
+	int any = 0;
+	while (*v) {
+		while (isspace((unsigned char)*v)) v++;
+		if (!*v) break;
+		if (!isdigit((unsigned char)*v) && *v != '.') return -1;
+		char *e;
+		double n = strtod(v, &e);
+		if (e == v) return -1;
+		v = e;
+		while (isspace((unsigned char)*v)) v++;
+		char u[16];
+		size_t o = 0;
+		while (isalpha((unsigned char)*v) && o < sizeof u - 1) u[o++] = *v++;
+		u[o] = 0;
+		int k = 0;
+		while (units[k].u && strcmp(units[k].u, u)) k++;
+		if (!units[k].u) return -1;
+		total += n * units[k].ms;
+		any = 1;
+	}
+	return any && total < 1e15 ? (long)total : -1;
+}
+
+static int cal_value(const char *s, int lo, int hi, int dow, int *out)
+{
+	static const char *days[] = { "sun", "mon", "tue", "wed", "thu", "fri", "sat" };
+	static const char *full[] = { "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday" };
+	if (dow) {
+		for (int i = 0; i < 7; i++)
+			if (!strcasecmp(s, days[i]) || !strcasecmp(s, full[i])) { *out = i; return 0; }
+		return -1;
+	}
+	if (!isdigit((unsigned char)*s)) return -1;
+	char *e;
+	long v = strtol(s, &e, 10);
+	if (*e || v < lo || v > hi) return -1;
+	*out = (int)v;
+	return 0;
+}
+
+static int cal_field(const char *s, int lo, int hi, int dow, uint64_t *mask)
+{
+	char tmp[128], *save;
+	snprintf(tmp, sizeof tmp, "%s", s);
+	*mask = 0;
+	for (char *it = strtok_r(tmp, ",", &save); it; it = strtok_r(NULL, ",", &save)) {
+		int a, b, step = 1;
+		char *sl = strchr(it, '/');
+		if (sl) {
+			*sl = 0;
+			char *e;
+			step = (int)strtol(sl + 1, &e, 10);
+			if (*e || step <= 0 || sl[1] == 0) return -1;
+		}
+		char *dd = strstr(it, "..");
+		if (dd) *dd = 0;
+		if (!strcmp(it, "*")) {
+			if (dd) return -1;
+			a = lo; b = hi;
+		} else {
+			if (cal_value(it, lo, hi, dow, &a)) return -1;
+			b = sl ? hi : a;
+			if (dd && cal_value(dd + 2, lo, hi, dow, &b)) return -1;
+		}
+		if (b < a) return -1;
+		for (int v = a; v <= b; v += step) *mask |= 1ULL << v;
+	}
+	return *mask ? 0 : -1;
+}
+
+static int parse_cal(const char *v, struct cal *c)
+{
+	static const char *alias[][2] = {
+		{ "minutely", "*-*-* *:*:00" }, { "hourly", "*-*-* *:00:00" }, { "daily", "*-*-* 00:00:00" },
+		{ "weekly", "Mon *-*-* 00:00:00" }, { "monthly", "*-*-01 00:00:00" }, { "yearly", "*-01-01 00:00:00" },
+		{ "annually", "*-01-01 00:00:00" }, { "quarterly", "*-01,04,07,10-01 00:00:00" },
+		{ "semiannually", "*-01,07-01 00:00:00" }, { NULL, NULL } };
+	char tmp[256], *save;
+	snprintf(tmp, sizeof tmp, "%s", v);
+	for (int i = 0; alias[i][0]; i++)
+		if (!strcasecmp(v, alias[i][0])) snprintf(tmp, sizeof tmp, "%s", alias[i][1]);
+	uint64_t m;
+	c->dow = 0x7f; c->mon = 0x1ffe; c->day = 0xfffffffe; c->hour = 1; c->min = 1; c->sec = 1;
+	int stage = 0;
+	for (char *tok = strtok_r(tmp, " \t", &save); tok; tok = strtok_r(NULL, " \t", &save)) {
+		if (strchr(tok, ':') && stage <= 2) {
+			char *mi = strchr(tok, ':'), *se;
+			*mi++ = 0;
+			se = strchr(mi, ':');
+			if (se) *se++ = 0;
+			if (cal_field(tok, 0, 23, 0, &m)) return -1;
+			c->hour = (uint32_t)m;
+			if (cal_field(mi, 0, 59, 0, &c->min)) return -1;
+			if (se && cal_field(se, 0, 59, 0, &c->sec)) return -1;
+			stage = 3;
+		} else if (strchr(tok, '-') && stage <= 1) {
+			char *p[3];
+			int n = 1;
+			for (char *q = tok; (q = strchr(q, '-')); q++) n++;
+			if (n > 3) return -1;
+			p[0] = tok;
+			for (int i = 1; i < n; i++) { p[i] = strchr(p[i - 1], '-'); *p[i]++ = 0; }
+			if (n == 3 && strcmp(p[0], "*")) return -1;
+			if (cal_field(p[n - 2], 1, 12, 0, &m)) return -1;
+			c->mon = (uint16_t)m;
+			if (cal_field(p[n - 1], 1, 31, 0, &m)) return -1;
+			c->day = (uint32_t)m;
+			stage = 2;
+		} else if (isalpha((unsigned char)tok[0]) && stage == 0) {
+			if (cal_field(tok, 0, 6, 1, &m)) return -1;
+			c->dow = (uint8_t)m;
+			stage = 1;
+		} else return -1;
+	}
+	return stage ? 0 : -1;
+}
+
+static time_t next_cal(const struct cal *c, time_t after)
+{
+	time_t t = after + 1;
+	struct tm tm;
+	for (int i = 0; i < 20000; i++) {
+		if (!localtime_r(&t, &tm)) return 0;
+		if (!(c->mon >> (tm.tm_mon + 1) & 1)) { tm.tm_mon++; tm.tm_mday = 1; tm.tm_hour = tm.tm_min = tm.tm_sec = 0; }
+		else if (!(c->day >> tm.tm_mday & 1) || !(c->dow >> tm.tm_wday & 1)) { tm.tm_mday++; tm.tm_hour = tm.tm_min = tm.tm_sec = 0; }
+		else if (!(c->hour >> tm.tm_hour & 1)) { tm.tm_hour++; tm.tm_min = tm.tm_sec = 0; }
+		else if (!(c->min >> tm.tm_min & 1)) { tm.tm_min++; tm.tm_sec = 0; }
+		else if (!(c->sec >> tm.tm_sec & 1)) tm.tm_sec++;
+		else return t;
+		tm.tm_isdst = -1;
+		time_t n = mktime(&tm);
+		t = n > t ? n : t + 1;
+	}
+	return 0;
+}
+
+static long timer_span(struct tmr *t, const char *k, const char *v)
+{
+	if (!*v) return -1;
+	long r = parse_span(v);
+	if (r < 0) say("%s: unsupported %s=%s, skipped", t->name, k, v);
+	return r;
+}
+
+static void parse_timer_file(void *p, const char *path)
+{
+	struct tmr *t = p;
+	FILE *f = fopen(path, "re");
+	if (!f) return;
+	char line[1024], section[64] = "";
+	while (fgets(line, sizeof line, f)) {
+		char *l = trim(line);
+		if (!*l || *l == '#' || *l == ';') continue;
+		if (*l == '[') { snprintf(section, sizeof section, "%s", l); continue; }
+		char *eq = strchr(l, '=');
+		if (!eq) continue;
+		*eq = 0;
+		char *k = trim(l), *v = trim(eq + 1);
+		if (!strcmp(section, "[Unit]") && !strcmp(k, "Description")) snprintf(t->desc, sizeof t->desc, "%s", v);
+		if (strcmp(section, "[Timer]")) continue;
+		if (!strcmp(k, "OnCalendar")) {
+			if (!*v) t->ncal = 0;
+			else if (t->ncal < 4 && parse_cal(v, &t->cal[t->ncal]) == 0) t->ncal++;
+			else say("%s: unsupported OnCalendar=%s, skipped", t->name, v);
+		} else if (!strcmp(k, "OnBootSec") || !strcmp(k, "OnStartupSec")) t->boot_ms = timer_span(t, k, v);
+		else if (!strcmp(k, "OnActiveSec")) t->active_ms = timer_span(t, k, v);
+		else if (!strcmp(k, "OnUnitActiveSec") || !strcmp(k, "OnUnitInactiveSec")) t->unit_ms = timer_span(t, k, v);
+		else if (!strcmp(k, "Persistent")) t->persistent = !strcmp(v, "yes") || !strcmp(v, "true") || !strcmp(v, "1");
+		else if (!strcmp(k, "RandomizedDelaySec")) { long r = parse_span(v); t->rnd_ms = r > 0 ? r : 0; }
+		else if (!strcmp(k, "Unit")) snprintf(t->unit, sizeof t->unit, "%s", v);
+	}
+	fclose(f);
+}
+
+static struct tmr *timer_load(const char *name)
+{
+	char path[PATH_MAX], rp[PATH_MAX];
+	if (!find_unit_file(name, path, sizeof path)) return NULL;
+	if (realpath(path, rp) && !strcmp(rp, "/dev/null")) return NULL;
+	struct tmr *t = calloc(1, sizeof *t);
+	snprintf(t->name, sizeof t->name, "%s", name);
+	snprintf(t->path, sizeof t->path, "%s", path);
+	t->boot_ms = t->active_ms = t->unit_ms = -1;
+	parse_timer_file(t, path);
+	parse_dropins(name, parse_timer_file, t);
+	if (!t->unit[0]) snprintf(t->unit, sizeof t->unit, "%.*s.service", (int)(strlen(name) - 6), name);
+	if (!t->ncal && t->boot_ms < 0 && t->active_ms < 0 && t->unit_ms < 0) {
+		say("%s: no supported trigger, skipped", name);
+		free(t);
+		return NULL;
+	}
+	if (t->unit_ms >= 0 && t->unit_ms < 1000) t->unit_ms = 1000;
+	if (t->rnd_ms > 0) {
+		char id[64] = "";
+		if (read_file("/etc/machine-id", id, sizeof id) < 0) id[0] = 0;
+		uint64_t h = 1469598103934665603ULL;
+		for (const char *c = trim(id); *c; c++) h = (h ^ (unsigned char)*c) * 1099511628211ULL;
+		for (const char *c = name; *c; c++) h = (h ^ (unsigned char)*c) * 1099511628211ULL;
+		t->off_ms = (long)(h % (uint64_t)t->rnd_ms);
+	}
+	return t;
+}
+
+static void timer_schedule(struct tmr *t)
+{
+	t->cal_next = 0;
+	time_t base = t->persistent && t->last ? t->last : time(NULL);
+	for (int i = 0; i < t->ncal; i++) {
+		time_t n = next_cal(&t->cal[i], base);
+		if (n && (!t->cal_next || n < t->cal_next)) t->cal_next = n;
+	}
+}
+
+static void timer_activate(struct tmr *t)
+{
+	t->activated_bt = now_ms(CLOCK_BOOTTIME);
+	if (t->persistent) {
+		char p[PATH_MAX];
+		struct stat st;
+		snprintf(p, sizeof p, TIMER_DIR "/%s", t->name);
+		if (stat(p, &st) == 0) t->last = st.st_mtime;
+		else { mkdir_p(TIMER_DIR, 0755); write_file(p, ""); }
+	}
+	timer_schedule(t);
+}
+
+static long timer_mono_due(struct tmr *t)
+{
+	long due = LONG_MAX;
+	if (t->boot_ms >= 0 && !t->boot_done) due = t->boot_ms + t->off_ms;
+	if (t->active_ms >= 0 && !t->active_done && t->activated_bt + t->active_ms + t->off_ms < due)
+		due = t->activated_bt + t->active_ms + t->off_ms;
+	if (t->unit_ms >= 0) {
+		long base = t->last_fire_bt;
+		struct svc *s = svc_loaded(t->unit);
+		if (s && s->started_bt > base) base = s->started_bt;
+		if (base && base + t->unit_ms + t->off_ms < due) due = base + t->unit_ms + t->off_ms;
+	}
+	return due;
+}
+
+static long timer_cal_due(struct tmr *t)
+{
+	return t->cal_next ? t->cal_next * 1000L + t->off_ms : 0;
+}
+
+static void timer_fire(struct tmr *t, long bt)
+{
+	t->last_fire_bt = bt;
+	t->last = time(NULL);
+	if (t->persistent) {
+		char p[PATH_MAX];
+		snprintf(p, sizeof p, TIMER_DIR "/%s", t->name);
+		mkdir_p(TIMER_DIR, 0755);
+		write_file(p, "");
+		utimensat(AT_FDCWD, p, NULL, 0);
+	}
+	timer_schedule(t);
+	struct svc *s = svc_find(t->unit);
+	if (!s) { say("%s: unit %s not found", t->name, t->unit); return; }
+	if (verbose) say("%s: starting %s", t->name, s->name);
+	svc_start(s);
+}
+
+static long timers_tick(void)
+{
+	long wait = 60000;
+	if (shutdown_req) return wait;
+	long bt = now_ms(CLOCK_BOOTTIME), rt = now_ms(CLOCK_REALTIME);
+	for (int i = 0; i < ntmr; i++) {
+		struct tmr *t = tmrs[i];
+		long due = timer_mono_due(t), cal = timer_cal_due(t);
+		if (due <= bt || (cal && cal <= rt)) {
+			if (t->boot_ms >= 0 && t->boot_ms + t->off_ms <= bt) t->boot_done = 1;
+			if (t->active_ms >= 0 && t->activated_bt + t->active_ms + t->off_ms <= bt) t->active_done = 1;
+			timer_fire(t, bt);
+			due = timer_mono_due(t);
+			cal = timer_cal_due(t);
+		}
+		if (due != LONG_MAX && due - bt < wait) wait = due - bt;
+		if (cal && cal - rt < wait) wait = cal - rt;
+	}
+	return wait < 0 ? 0 : wait;
+}
+
+static int timer_index(const char *name)
+{
+	for (int i = 0; i < ntmr; i++) if (!strcmp(tmrs[i]->name, name)) return i;
+	return -1;
+}
+
+static void timer_remove(int i)
+{
+	free(tmrs[i]);
+	memmove(tmrs + i, tmrs + i + 1, (ntmr - i - 1) * sizeof *tmrs);
+	ntmr--;
+}
+
+static void timer_reload(int i)
+{
+	struct tmr *o = tmrs[i], *t = timer_load(o->name);
+	if (!t) { o->seen = 0; o->manual = 0; return; }
+	t->activated_bt = o->activated_bt; t->boot_done = o->boot_done; t->active_done = o->active_done;
+	t->last_fire_bt = o->last_fire_bt; t->last = o->last; t->manual = o->manual; t->seen = 1;
+	timer_schedule(t);
+	tmrs[i] = t;
+	free(o);
+}
+
+static void timers_scan(void)
+{
+	for (int i = 0; i < ntmr; i++) tmrs[i]->seen = 0;
+	for (int w = 0; boot_wants[w]; w++) {
+		for (int i = 0; unit_dirs[i]; i++) {
+			char dd[PATH_MAX];
+			snprintf(dd, sizeof dd, "%s/%s", unit_dirs[i], boot_wants[w]);
+			DIR *d = opendir(dd);
+			if (!d) continue;
+			struct dirent *de;
+			while ((de = readdir(d))) {
+				size_t l = strlen(de->d_name);
+				if (l < 7 || l >= 96 || strcmp(de->d_name + l - 6, ".timer")) continue;
+				int k = timer_index(de->d_name);
+				if (k >= 0) { if (!tmrs[k]->seen) timer_reload(k); continue; }
+				if (ntmr >= MAX_TIMER) continue;
+				struct tmr *t = timer_load(de->d_name);
+				if (!t) continue;
+				t->seen = 1;
+				timer_activate(t);
+				tmrs[ntmr++] = t;
+			}
+			closedir(d);
+		}
+	}
+	for (int i = 0; i < ntmr; i++)
+		if (!tmrs[i]->seen && tmrs[i]->manual) timer_reload(i);
+	for (int i = ntmr - 1; i >= 0; i--)
+		if (!tmrs[i]->seen) timer_remove(i);
+}
+
+static void fmt_span(long ms, char *b, size_t sz)
+{
+	long s = ms / 1000;
+	if (s >= 86400) snprintf(b, sz, "%ldd %ldh", s / 86400, s % 86400 / 3600);
+	else if (s >= 3600) snprintf(b, sz, "%ldh %ldmin", s / 3600, s % 3600 / 60);
+	else if (s >= 60) snprintf(b, sz, "%ldmin %lds", s / 60, s % 60);
+	else snprintf(b, sz, "%lds", s);
+}
+
+static void fmt_when(long rt, char *b, size_t sz)
+{
+	time_t tt = rt / 1000;
+	struct tm tm;
+	if (rt <= 0 || !localtime_r(&tt, &tm)) { snprintf(b, sz, "-"); return; }
+	strftime(b, sz, "%a %Y-%m-%d %H:%M:%S %Z", &tm);
+}
+
+static long timer_next_rt(struct tmr *t, long bt, long rt)
+{
+	long due = timer_mono_due(t), cal = timer_cal_due(t), next = 0;
+	if (due != LONG_MAX) next = rt + (due > bt ? due - bt : 0);
+	if (cal && (!next || cal < next)) next = cal;
+	return next;
+}
+
+static void fmt_timers(char *out, size_t sz)
+{
+	long bt = now_ms(CLOCK_BOOTTIME), rt = now_ms(CLOCK_REALTIME);
+	int ord[MAX_TIMER];
+	long nx[MAX_TIMER];
+	for (int i = 0; i < ntmr; i++) {
+		long v = timer_next_rt(tmrs[i], bt, rt);
+		nx[i] = v ? v : LONG_MAX;
+		int j = i;
+		while (j > 0 && nx[ord[j - 1]] > nx[i]) { ord[j] = ord[j - 1]; j--; }
+		ord[j] = i;
+	}
+	size_t o = snprintf(out, sz, "%-31s %-16s %-31s %-16s %-28s %s\n", "NEXT", "LEFT", "LAST", "PASSED", "UNIT", "ACTIVATES");
+	for (int k = 0; k < ntmr && o < sz - 512; k++) {
+		struct tmr *t = tmrs[ord[k]];
+		char next[64], left[32] = "-", last[64], passed[32] = "-";
+		long n = nx[ord[k]] == LONG_MAX ? 0 : nx[ord[k]];
+		fmt_when(n, next, sizeof next);
+		if (n) { fmt_span(n - rt, left, sizeof left - 5); strcat(left, " left"); }
+		fmt_when(t->last * 1000L, last, sizeof last);
+		if (t->last) { fmt_span(rt - t->last * 1000L, passed, sizeof passed - 4); strcat(passed, " ago"); }
+		o += snprintf(out + o, sz - o, "%-31s %-16s %-31s %-16s %-28s %s\n", next, left, last, passed, t->name, t->unit);
+	}
+	snprintf(out + o, sz - o, "\n%d timers listed.\n", ntmr);
+}
+
+static int ctl_timer(const char *cmd, const char *arg, int root, char *out, size_t sz)
+{
+	int i = timer_index(arg);
+	struct tmr *t = i >= 0 ? tmrs[i] : NULL;
+	char path[PATH_MAX] = "";
+	if (!t && !find_unit_file(arg, path, sizeof path)) { snprintf(out, sz, "Unit %s not found.\n", arg); return 5; }
+	if (!strcmp(cmd, "is-active")) { snprintf(out, sz, "%s\n", t ? "active" : "inactive"); return t ? 0 : 3; }
+	if (!strcmp(cmd, "status")) {
+		int en = is_enabled(arg, NULL, 0);
+		if (!t) {
+			snprintf(out, sz, "* %s\n     Loaded: loaded (%s; %s)\n     Active: inactive (dead)\n", arg, path, en ? "enabled" : "disabled");
+			return 3;
+		}
+		long bt = now_ms(CLOCK_BOOTTIME), rt = now_ms(CLOCK_REALTIME), n = timer_next_rt(t, bt, rt);
+		char next[64], left[32] = "";
+		fmt_when(n, next, sizeof next);
+		if (n) fmt_span(n - rt, left, sizeof left);
+		snprintf(out, sz, "* %s - %s\n     Loaded: loaded (%s; %s)\n     Active: active (waiting)\n    Trigger: %s%s%s%s\n   Triggers: * %s\n",
+			t->name, t->desc[0] ? t->desc : t->name, t->path, en ? "enabled" : "disabled", next,
+			n ? "; " : "", left, n ? " left" : "", t->unit);
+		return 0;
+	}
+	if (!root) return 4;
+	if (!strcmp(cmd, "stop") || !strcmp(cmd, "restart")) {
+		if (t) timer_remove(i);
+		t = NULL;
+		if (!strcmp(cmd, "stop")) return 0;
+	}
+	if (!strcmp(cmd, "start") || !strcmp(cmd, "restart")) {
+		if (t) return 0;
+		if (ntmr >= MAX_TIMER || !(t = timer_load(arg))) return 1;
+		t->manual = 1;
+		timer_activate(t);
+		tmrs[ntmr++] = t;
+		return 0;
+	}
+	return 1;
+}
 
 static void mount_api(void)
 {
@@ -1128,16 +1626,30 @@ static void coldplug_walk(const char *dir, char **list, int *n, int max, int dep
 	closedir(d);
 }
 
+static int cmp_str(const void *a, const void *b)
+{
+	return strcmp(*(char *const *)a, *(char *const *)b);
+}
+
 static void coldplug(void)
 {
 	if (!have_modules()) return;
 	static char *list[4096];
 	int n = 0;
 	coldplug_walk("/sys/devices", list, &n, 4000, 0);
-	char **argv = calloc(n + 4, sizeof *argv);
+	qsort(list, n, sizeof *list, cmp_str);
+	int u = 0;
+	for (int i = 0; i < n; i++) {
+		if (u && !strcmp(list[u - 1], list[i])) free(list[i]);
+		else list[u++] = list[i];
+	}
+	if (verbose) say("coldplug: %d modaliases, %d unique", n, u);
+	char **argv = calloc(u + 4, sizeof *argv);
 	argv[0] = "modprobe"; argv[1] = "-aq";
-	for (int i = 0; i < n; i++) argv[2 + i] = list[i];
+	for (int i = 0; i < u; i++) argv[2 + i] = list[i];
 	spawn_bg(argv);
+	for (int i = 0; i < u; i++) free(list[i]);
+	free(argv);
 	FILE *f = fopen("/etc/modules", "re");
 	if (f) {
 		char line[256];
@@ -1243,23 +1755,84 @@ static void fmt_status(struct svc *s, char *out, size_t sz)
 
 static void do_shutdown(int how);
 
-static void ctl_handle(int c)
-{
+#define MAX_CLIENTS 32
+#define ROOT_SLOTS 8
+enum { C_READ = 1, C_WAIT, C_WRITE };
+enum { W_START = 1, W_STOP };
+
+struct client {
+	int fd, phase, root, wait, idx;
+	size_t len, olen, ooff;
+	long deadline;
+	char *out;
 	char buf[1024];
-	struct timeval tmo = { 0, 250000 };
-	setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tmo, sizeof tmo);
-	setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tmo, sizeof tmo);
-	ssize_t n = recv(c, buf, sizeof buf - 1, 0);
-	if (n <= 0) { close(c); return; }
-	buf[n] = 0;
-	struct ucred cr;
-	socklen_t cl = sizeof cr;
-	int root = getsockopt(c, SOL_SOCKET, SO_PEERCRED, &cr, &cl) == 0 && cr.uid == 0;
-	char *cmd = strtok(buf, " \n"), *arg = strtok(NULL, " \n");
+};
+
+static struct client clients[MAX_CLIENTS];
+
+static void ctl_close(struct client *c)
+{
+	close(c->fd);
+	free(c->out);
+	memset(c, 0, sizeof *c);
+}
+
+static void ctl_flush(struct client *c)
+{
+	while (c->ooff < c->olen) {
+		ssize_t n = send(c->fd, c->out + c->ooff, c->olen - c->ooff, MSG_NOSIGNAL | MSG_DONTWAIT);
+		if (n > 0) { c->ooff += n; continue; }
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+		if (n < 0 && errno == EINTR) continue;
+		break;
+	}
+	ctl_close(c);
+}
+
+static void ctl_reply(struct client *c, int rc, const char *text)
+{
+	size_t l = strlen(text) + 16;
+	c->out = malloc(l);
+	if (!c->out) { ctl_close(c); return; }
+	c->olen = (size_t)snprintf(c->out, l, "%d\n%s", rc, text);
+	c->ooff = 0;
+	c->phase = C_WRITE;
+	c->deadline = now_ms(CLOCK_MONOTONIC) + 5000;
+	ctl_flush(c);
+}
+
+static int ctl_wait_done(struct client *c)
+{
+	struct svc *s = svcs[c->idx];
+	if (c->wait == W_STOP) return s->state != S_STOPPING;
+	return !s->start_after_stop && s->state != S_STOPPING && s->state != S_STARTING && !s->forking_wait;
+}
+
+static long ctl_progress(long now)
+{
+	long wait = LONG_MAX;
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		struct client *c = &clients[i];
+		if (!c->phase) continue;
+		if (c->phase == C_WAIT && (ctl_wait_done(c) || now >= c->deadline)) {
+			ctl_reply(c, c->wait == W_START && svcs[c->idx]->state == S_FAILED ? 1 : 0, "");
+			continue;
+		}
+		if (now >= c->deadline) { ctl_close(c); continue; }
+		if (c->deadline - now < wait) wait = c->deadline - now;
+	}
+	return wait;
+}
+
+static void ctl_request(struct client *c)
+{
+	char *save, *cmd = strtok_r(c->buf, " \n", &save), *arg = strtok_r(NULL, " \n", &save);
 	if (arg && (strchr(arg, '/') || arg[0] == '.')) arg = NULL;
+	int root = c->root;
 	static char out[65536];
 	int rc = 0;
 	out[0] = 0;
+	size_t al = arg ? strlen(arg) : 0;
 	if (!cmd) rc = 1;
 	else if (!strcmp(cmd, "list")) {
 		size_t o = 0;
@@ -1269,21 +1842,29 @@ static void ctl_handle(int c)
 				s->state == S_FAILED ? "failed" : "loaded", state_names[s->state],
 				s->desc[0] ? s->desc : "");
 		}
+	} else if (!strcmp(cmd, "list-timers")) {
+		fmt_timers(out, sizeof out);
 	} else if (!strcmp(cmd, "ready")) {
 		snprintf(out, sizeof out, "%ld\n", boot_ready_ms);
 	} else if (!strcmp(cmd, "reload-units")) {
 		if (!root) rc = 4;
-		else for (int i = 0; i < nsvc; i++) {
-			struct svc *ns = load_unit(svcs[i]->name);
-			if (!ns) continue;
-			ns->want = svcs[i]->want; ns->state = svcs[i]->state; ns->pid = svcs[i]->pid;
-			ns->since = svcs[i]->since; ns->forking_wait = svcs[i]->forking_wait;
-			free_svc(svcs[i]); svcs[i] = ns;
+		else {
+			for (int i = 0; i < nsvc; i++) {
+				struct svc *ns = load_unit(svcs[i]->name), *os = svcs[i];
+				if (!ns) continue;
+				ns->want = os->want; ns->state = os->state; ns->pid = os->pid;
+				ns->since = os->since; ns->forking_wait = os->forking_wait;
+				ns->restart_at = os->restart_at; ns->fails = os->fails; ns->exit_code = os->exit_code;
+				ns->start_after_stop = os->start_after_stop; ns->kill_at = os->kill_at; ns->started_bt = os->started_bt;
+				free_svc(os); svcs[i] = ns;
+			}
+			if (is_pid1) timers_scan();
 		}
 	} else if (!strcmp(cmd, "poweroff") || !strcmp(cmd, "reboot") || !strcmp(cmd, "halt")) {
 		if (!root) rc = 4;
 		else shutdown_req = cmd[0] == 'p' ? 2 : cmd[0] == 'r' ? 3 : 1;
 	} else if (!arg) rc = 1;
+	else if (al > 6 && !strcmp(arg + al - 6, ".timer")) rc = ctl_timer(cmd, arg, root, out, sizeof out);
 	else {
 		struct svc *s = svc_find(arg);
 		if (!s) { snprintf(out, sizeof out, "Unit %s not found.\n", arg); rc = 5; }
@@ -1292,26 +1873,61 @@ static void ctl_handle(int c)
 			else snprintf(out, sizeof out, "%s\n", state_names[s->state]);
 			rc = (s->state == S_RUNNING || s->state == S_EXITED) ? 0 : 3;
 		} else if (!root) rc = 4;
-		else if (!strcmp(cmd, "start")) {
-			svc_start(s);
-			if (s->type != T_SIMPLE) {
-				for (int i = 0; i < 600 && (s->state == S_STARTING || s->forking_wait); i++) {
-					int st;
-					pid_t p = waitpid(s->pid, &st, WNOHANG);
-					if (p == s->pid) svc_exited(s, st);
-					else usleep(10000);
-				}
+		else if (!strcmp(cmd, "start") || !strcmp(cmd, "stop") || !strcmp(cmd, "restart")) {
+			if (!strcmp(cmd, "stop")) svc_stop(s);
+			else {
+				if (cmd[2] == 's') { svc_stop(s); s->fails = 0; }
+				svc_start(s);
 			}
-			rc = s->state == S_FAILED ? 1 : 0;
-		} else if (!strcmp(cmd, "stop")) svc_stop(s);
-		else if (!strcmp(cmd, "restart")) { svc_stop(s); s->fails = 0; svc_start(s); }
-		else if (!strcmp(cmd, "reload")) {
+			for (int i = 0; i < nsvc; i++) if (svcs[i] == s) c->idx = i;
+			c->wait = cmd[2] == 'o' ? W_STOP : W_START;
+			c->phase = C_WAIT;
+			long now = now_ms(CLOCK_MONOTONIC);
+			c->deadline = now + (c->wait == W_STOP ? 7000 : 6000);
+			ctl_progress(now);
+			return;
+		} else if (!strcmp(cmd, "reload")) {
 			if (s->reload) rc = sh_run(s->reload);
 			else if (s->pid > 0) kill(s->pid, SIGHUP);
 		} else rc = 1;
 	}
-	dprintf(c, "%d\n%s", rc, out);
-	close(c);
+	ctl_reply(c, rc, out);
+}
+
+static void ctl_read(struct client *c)
+{
+	ssize_t n = recv(c->fd, c->buf + c->len, sizeof c->buf - 1 - c->len, MSG_DONTWAIT);
+	if (n < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return;
+		ctl_close(c);
+		return;
+	}
+	if (n == 0 && c->len == 0) { ctl_close(c); return; }
+	c->len += n;
+	c->buf[c->len] = 0;
+	if (n == 0 || memchr(c->buf, '\n', c->len) || c->len >= sizeof c->buf - 1) ctl_request(c);
+}
+
+static void ctl_accept(void)
+{
+	for (;;) {
+		int fd = accept4(ctlfd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
+		if (fd < 0) return;
+		struct ucred cr;
+		socklen_t cl = sizeof cr;
+		int root = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cr, &cl) == 0 && cr.uid == 0;
+		int slot = -1, others = 0;
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			if (!clients[i].phase) { if (slot < 0) slot = i; }
+			else if (!clients[i].root) others++;
+		}
+		if (slot < 0 || (!root && others >= MAX_CLIENTS - ROOT_SLOTS)) { close(fd); continue; }
+		struct client *c = &clients[slot];
+		c->fd = fd;
+		c->root = root;
+		c->phase = C_READ;
+		c->deadline = now_ms(CLOCK_MONOTONIC) + 5000;
+	}
 }
 
 static void do_shutdown(int how)
@@ -1374,7 +1990,7 @@ static void main_loop(void)
 	for (;;) {
 		if (shutdown_req) do_shutdown(shutdown_req);
 		long now = now_ms(CLOCK_MONOTONIC);
-		int timeout = 5000;
+		int timeout = stop_tick(now);
 		for (int i = 0; i < nsvc; i++) {
 			struct svc *s = svcs[i];
 			if (s->restart_at && s->want) {
@@ -1382,8 +1998,17 @@ static void main_loop(void)
 				else if (s->restart_at - now < timeout) timeout = (int)(s->restart_at - now);
 			}
 		}
-		struct pollfd pf[3] = { { sfd, POLLIN, 0 }, { ctlfd, POLLIN, 0 }, { uevfd, POLLIN, 0 } };
-		int r = poll(pf, 3, timeout);
+		long w = timers_tick();
+		if (w < timeout) timeout = (int)w;
+		w = ctl_progress(now);
+		if (w < timeout) timeout = (int)w;
+		struct pollfd pf[3 + MAX_CLIENTS] = { { sfd, POLLIN, 0 }, { ctlfd, POLLIN, 0 }, { uevfd, POLLIN, 0 } };
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			struct client *c = &clients[i];
+			pf[3 + i].fd = c->phase == C_READ || c->phase == C_WRITE ? c->fd : -1;
+			pf[3 + i].events = c->phase == C_WRITE ? POLLOUT : POLLIN;
+		}
+		int r = poll(pf, 3 + MAX_CLIENTS, timeout);
 		if (r <= 0) continue;
 		if (pf[0].revents & POLLIN) {
 			struct signalfd_siginfo si;
@@ -1411,10 +2036,13 @@ static void main_loop(void)
 				}
 			}
 		}
-		if (ctlfd >= 0 && (pf[1].revents & POLLIN)) {
-			int c;
-			while ((c = accept4(ctlfd, NULL, NULL, SOCK_CLOEXEC)) >= 0) ctl_handle(c);
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+			struct client *c = &clients[i];
+			if (pf[3 + i].fd < 0 || !pf[3 + i].revents) continue;
+			if (c->phase == C_READ) ctl_read(c);
+			else if (c->phase == C_WRITE) ctl_flush(c);
 		}
+		if (ctlfd >= 0 && (pf[1].revents & POLLIN)) ctl_accept();
 		if (uevfd >= 0 && (pf[2].revents & POLLIN)) handle_uevent();
 	}
 }
@@ -1459,6 +2087,7 @@ static int stage1(void)
 	ctl_listen();
 	load_boot_units();
 	start_wanted();
+	timers_scan();
 	boot_ready_ms = now_ms(CLOCK_BOOTTIME);
 	char b[64];
 	snprintf(b, sizeof b, "%ld\n", boot_ready_ms);
@@ -1511,6 +2140,10 @@ static int ctl_send(const char *cmd, const char *arg, int quiet)
 	ssize_t n;
 	while ((n = read(c, buf + o, sizeof buf - 1 - o)) > 0) o += n;
 	close(c);
+	if (!o) {
+		if (!quiet) fprintf(stderr, "kinit: the service manager is busy, try again\n");
+		return 1;
+	}
 	buf[o] = 0;
 	char *nl = strchr(buf, '\n');
 	int rc = atoi(buf);
@@ -1622,6 +2255,10 @@ static int cmd_systemctl(int argc, char **argv)
 		else if (a[0] == '-') continue;
 		else if (!verb) verb = a;
 		else if (nu < 64) units[nu++] = a;
+	}
+	if (!strcmp(verb ? verb : "", "list-timers")) {
+		if (ctl_send("list-timers", NULL, 0) < 0) puts("0 timers listed.");
+		return 0;
 	}
 	if (!verb || !strcmp(verb, "list-units") || !strcmp(verb, "list-unit-files")) {
 		if (ctl_send("list", NULL, 0) < 0) {

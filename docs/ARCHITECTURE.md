@@ -66,9 +66,21 @@ no GRUB, no initramfs generator, and nothing to regenerate on kernel updates.
   `%i %n %p %t ...` specifiers.
 * Services start **in parallel** as soon as PID 1 is up. Boot "ordering" is
   whatever finishes first: daemons that need the network retry, as on systemd.
-* `systemctl start|stop|restart|reload|status|enable|disable|mask|is-active|is-enabled|cat|daemon-reload|list-units`,
+* `systemctl start|stop|restart|reload|status|enable|disable|mask|is-active|is-enabled|cat|daemon-reload|list-units|list-timers`,
   `service`, `journalctl -u UNIT [-f]` (per-unit log files in `/var/log/kinit/`),
   `poweroff|reboot|halt`.
+* **Timers.** Enabled `.timer` units (`timers.target.wants`) start their service the way `systemctl start` does, so
+  Debian's logrotate, fstrim, e2scrub, man-db and certbot timers run. This matters because their `cron.daily` scripts
+  exit when `/run/systemd/system` exists. Supported: `OnCalendar=` (`minutely`, `hourly`, `daily`, `weekly`, `monthly`,
+  `quarterly`, `yearly`, and `[Weekday] *-MM-DD HH:MM[:SS]` patterns with lists, `a..b` ranges and `/step`, in local
+  time), `OnBootSec=`, `OnStartupSec=`, `OnActiveSec=`, `OnUnitActiveSec=` (`OnUnitInactiveSec=` is treated the same),
+  `Persistent=` (stamps in `/var/lib/kinit/timers`, so a missed run happens at the next boot), `RandomizedDelaySec=`
+  (a fixed offset hashed from the machine id and timer name) and `Unit=`. An `OnCalendar=` expression kinit can't
+  parse (time zones, years, `~`) is logged and skipped.
+* The control socket `/run/kinit.sock` never blocks PID 1. Clients are polled with the rest of the main loop,
+  `start`, `stop` and `restart` answer when the job finishes (oneshot exit, or SIGKILL 5 s after SIGTERM) without
+  holding up reaping or restarts. At most 32 clients are served at once, 8 of them reserved for root, and a client
+  that doesn't send its request within 5 s is dropped.
 * **Containers:** `systemctl start nginx` inside a container transparently starts
   `kinit --supervisor`, a non-PID-1 service manager. Agents can therefore use the
   same commands everywhere.
@@ -222,8 +234,8 @@ build and boot matrix then tests.
   BIOS mode on amd64. Direct `-kernel` boot works everywhere.
 * kpkg implements the commonly used apt/dpkg surface, multiarch and apt's pin priorities (`/etc/apt/preferences(.d)`, `-t`,
   `APT::Default-Release`, `apt-cache policy`). Source packages are not implemented.
-* kinit implements the commonly used subset of systemd units: no socket activation, timers or D-Bus, and units start in parallel
-  with only the ordering described above.
+* kinit implements the commonly used subset of systemd units: no socket activation or D-Bus, timers only with the settings
+  listed above, and units start in parallel with only the ordering described above.
 * No SELinux/AppArmor policy. Lockdown, Landlock, Yama and seccomp are enabled.
 * riscv64 is tested under QEMU emulation only.
 * Desktop effects need a GPU compositor. GPU, Apple Silicon and GB10 specifics are in [HARDWARE.md](HARDWARE.md).
