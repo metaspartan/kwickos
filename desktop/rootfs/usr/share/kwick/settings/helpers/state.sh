@@ -25,6 +25,16 @@ echo "[radius]"
 kwick-layout radius 2>/dev/null
 echo "[accent]"
 kwick-layout accent 2>/dev/null
+echo "[accents]"
+kwick-layout accent list 2>/dev/null
+echo "[highlight]"
+kwick-layout highlight 2>/dev/null
+echo "[sidebar]"
+kwick-layout sidebar 2>/dev/null
+echo "[tint]"
+kwick-layout tint 2>/dev/null
+echo "[colors]"
+kwick-layout colors --json 2>/dev/null
 echo "[gpu]"
 kwick-gpu 2>&1 | head -6
 echo "[sessions]"

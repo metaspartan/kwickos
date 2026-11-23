@@ -9,7 +9,7 @@ Item {
     property color titleColor: Theme.text
     default property alias trailing: slot.data
     Layout.fillWidth: true
-    implicitHeight: Math.max(54, textCol.implicitHeight + 22)
+    implicitHeight: Math.max(54, textCol.implicitHeight + 22, slot.implicitHeight + 22)
 
     ColumnLayout {
         id: textCol

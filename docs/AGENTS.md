@@ -247,7 +247,7 @@ through kwick-mcp, even when a granted folder contains them, and `secrets.json` 
 
 ### Settings
 
-`settings_list` returns a typed schema of 57 settings: every page of KwickOS Settings that a user changes, plus the quick settings of
+`settings_list` returns a typed schema of 60 settings: every page of KwickOS Settings that a user changes, plus the quick settings of
 the Control Center. Each entry has `key`, `group`, `title`, `type` (`enum`, `bool`, `int`, `number`, `string`, `path`, `list`), the
 allowed `values` or `min`/`max`/`step`, `privileged`, `desktops`, `available` with a `reason`, and the current `value`.
 `settings_get` reads values by `keys` or `group`; `settings_set {"settings": {...}}` changes up to 20 at once (the old
@@ -256,7 +256,7 @@ commands are run with argument vectors, never through a shell.
 
 | Group | Keys | Backend |
 |---|---|---|
-| appearance | `layout`, `appearance`, `corner_radius`, `accent`, `wallpaper`, `fonts` | `kwick-layout`, `kwriteconfig6`/`plasma-apply-colorscheme`/`gsettings` (as Settings does), `plasma-apply-wallpaperimage`/`gsettings`/`swaymsg`/`hyprctl hyprpaper`, `kwick-fonts apply` |
+| appearance | `layout`, `appearance`, `corner_radius`, `accent`, `highlight`, `sidebar_icons`, `wallpaper_tinting`, `wallpaper`, `fonts` | `kwick-layout` (`accent` falls back to `kwriteconfig6`/`plasma-apply-colorscheme`/`gsettings` without it), `plasma-apply-wallpaperimage`/`gsettings`/`swaymsg`/`hyprctl hyprpaper`, `kwick-fonts apply` |
 | dock | `dock.position`, `dock.size`, `dock.autohide`, `dock.floating`, `dock.magnify`, `dock.apps` | `kwick-dock` (`sync` for the app list), then `kwick-dock apply` |
 | effects | `effects.preset`, `effects.desktop_switch`, `effects.alt_tab`, `effects.open_close`, `effects.open_close_duration`, `effects.wobbly_amount`, `effects.wobbly_sway`, `effects.flame_style`, `effects.flame_height`, `effects.cube_depth`, `effects.flip_style`, `effects.wobbly`, `lamp`, `blur`, `transparency`, `sheet`, `dim`, `overview`, `cube`, `liquidglass` | `kwick-effects` |
 | desktop | `desktop.default_session` (privileged), `desktop.shell` | `kwick-agents-priv session` (runs `kwick-desktop switch`), `kwick-desktop shell` (only for installed shells of the login session) |
@@ -379,7 +379,7 @@ Other JSON outputs: `grants --json` (`capabilities` and `agents.NAME.caps/folder
 | `kwick-update status --json` | existing |
 | `kwick-kernel status --json`, `kwick-kernel list --json` | existing |
 | `kwick-bluetooth json`, `kwick-bluetooth status --json` | `json` existing, `status --json` new (same output) |
-| `kwick-layout status [--json]` | new: `{"layout","appearance","radius","desktop"}` |
+| `kwick-layout status [--json]` | new: `{"layout","appearance","radius","accent","highlight","sidebar","tint","desktop"}`; `kwick-layout colors --json` prints the derived accent, highlight and sidebar colours of both appearances |
 | `kwick-desktop list --json` | new: `{"desktops":[{"name","session","installed","default"}]}` |
 | `kwick-gpu status --json` (or `kwick-gpu --json`) | new: `{"vendors","cards":[{"card","vendor","driver"}],"devices":[{"index","vendor","name","pci","card","vram_mb","gtt_mb","compute_cap","driver","driver_version","unified","display"}],"ram_mb","memory_budget_mb","arch","packages","i386","uinput"}` |
 | `kwick-agents inference status --json`, `models --json`, `fit ID --json`, `gpu --json` | new, schema 1, see [INFERENCE.md](INFERENCE.md) |

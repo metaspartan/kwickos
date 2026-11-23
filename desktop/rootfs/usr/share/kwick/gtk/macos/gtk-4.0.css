@@ -129,7 +129,16 @@ windowcontrols:hover button image {
 .sidebar-pane image,
 placessidebar image,
 .sidebar image {
-  color: @ACCENT@;
+  color: @SIDEBAR_ICON@;
+}
+
+.navigation-sidebar > row:selected,
+placessidebar row:selected {
+  background-color: @SIDEBAR_SEL@;
+}
+
+selection {
+  background-color: @TEXT_SEL@;
 }
 
 window.csd:not(.maximized):not(.fullscreen):not(.tiled) {

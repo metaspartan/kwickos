@@ -92,9 +92,16 @@ Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk,
 the same KwickOS object icons.
 
 The accent color defaults to Apple's orange in the macOS layout (`#FF9F0A` dark, `#FF9500` light; links stay blue) and to each
-layout's own accent elsewhere. Picking one in Appearance runs `kwick-layout accent NAME`, which stores it in
-`~/.config/kwick/accent` and applies it to KDE, GTK, GNOME Shell and the Hyprland and sway configs in every layout;
-`kwick-layout accent default` goes back to the layout's accent. When upgrading from a release with the blue default, the first
+layout's own accent elsewhere. Appearance shows macOS-style swatch rows: Apple's eight accents, nine deeper ones (deep blue,
+indigo, teal, forest, crimson, burnt orange, plum, brown, slate) and a custom colour picker. Picking one runs
+`kwick-layout accent NAME` (or `'#RRGGBB'`), which stores it in `~/.config/kwick/accent`, derives the fill, hover, pressed,
+text and selection shades with contrast checks and applies them live to KDE, GTK, GNOME Shell and the Hyprland and sway
+configs in every layout; `kwick-layout accent default` goes back to the layout's accent. Below the swatches are macOS-style
+popup buttons for the Highlight color (list and text selection: the accent, graphite or any colour; `kwick-layout highlight`)
+and the Sidebar icon color (neutral or accent; `kwick-layout sidebar`), and the "Allow wallpaper tinting in windows" switch
+(`kwick-layout tint`). In the macOS layout sidebars use a subtle grey rounded selection and neutral icons by default, and
+wallpaper tinting is on while KWin's blur is on. `kwick-layout` writes the derived colours to `~/.config/kwick/colors.json`
+(`kwick-layout colors --json`), which Settings and the App Store read. When upgrading from a release with the blue default, the first
 `kwick-layout` run records an earlier choice: an `AccentColor` in `kdeglobals` that is one of the Settings colours other than
 blue, or blue when GNOME's `accent-color` was also set to blue in the user's dconf (only Settings writes it on Plasma), is kept.
 Everyone else follows the new default, and the next login applies orange once. See [PALETTE](PALETTE.md#accent).
@@ -218,7 +225,7 @@ Plasma, GNOME and Hyprland:
 
 | layout | theme | style |
 |---|---|---|
-| macOS | `KwickOS` | squircle apps with layered gradients, light-blue folders with embossed glyphs, accent-coloured sidebar glyphs |
+| macOS | `KwickOS` | squircle apps with layered gradients, light-blue folders with embossed glyphs, neutral or accent sidebar glyphs (`kwick-layout sidebar`) |
 | Windows | `KwickOS-Fluent` | white line icons for places, folders, actions, status and file types, flat Fluent app tiles |
 | Linux | `KwickOS-Linux` | Tokyo Night squircles |
 

@@ -6,6 +6,7 @@ Rectangle {
     id: pick
     property var options: []
     property string current
+    property int menuWidth: 340
     signal picked(string id)
     readonly property var currentOption: {
         for (var i = 0; i < options.length; i++)
@@ -24,17 +25,31 @@ Rectangle {
         })
         return out
     }
-    implicitWidth: Math.max(170, label.implicitWidth + 44)
+    implicitWidth: Math.max(170, label.implicitWidth + (dot.visible ? 61 : 44))
     implicitHeight: 26
     radius: 7
     color: area.pressed ? Theme.controlPressed : area.containsMouse ? Theme.controlHover : Theme.control
     border.width: Theme.light ? 1 : 0
     border.color: Theme.lineStrong
 
+    Rectangle {
+        id: dot
+        visible: !!(pick.currentOption && pick.currentOption.swatch)
+        anchors.left: parent.left
+        anchors.leftMargin: 9
+        anchors.verticalCenter: parent.verticalCenter
+        width: 12
+        height: 12
+        radius: 6
+        color: visible ? pick.currentOption.swatch : "transparent"
+        border.width: 1
+        border.color: Theme.line
+    }
+
     Text {
         id: label
         anchors.left: parent.left
-        anchors.leftMargin: 10
+        anchors.leftMargin: dot.visible ? 27 : 10
         anchors.right: chevrons.left
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
@@ -53,7 +68,7 @@ Rectangle {
         width: 18
         height: 18
         radius: 5
-        color: Theme.accent
+        color: Theme.fill
         Canvas {
             anchors.centerIn: parent
             width: 8
@@ -85,7 +100,7 @@ Rectangle {
         id: menu
         y: pick.height + 4
         x: pick.width - width
-        width: 340
+        width: pick.menuWidth
         height: Math.min(list.contentHeight + 12, 460)
         padding: 6
         margins: 12
@@ -102,8 +117,10 @@ Rectangle {
                 required property var modelData
                 readonly property bool header: row.modelData.header !== undefined
                 readonly property bool on: !header && row.modelData.id === pick.current
+                readonly property bool compact: !header && !row.modelData.sub
+                readonly property bool swatch: !header && !!row.modelData.swatch
                 width: list.width
-                height: header ? 28 : 42
+                height: header ? 28 : compact ? 26 : 42
                 Text {
                     visible: row.header
                     anchors.left: parent.left
@@ -120,7 +137,7 @@ Rectangle {
                     visible: !row.header
                     anchors.fill: parent
                     radius: 6
-                    color: rowArea.containsMouse ? Theme.accent : "transparent"
+                    color: rowArea.containsMouse ? Theme.fill : "transparent"
                     Text {
                         x: 9
                         anchors.verticalCenter: parent.verticalCenter
@@ -130,15 +147,26 @@ Rectangle {
                         font.pixelSize: 12
                         font.weight: Font.DemiBold
                     }
+                    Rectangle {
+                        visible: row.swatch
+                        x: 26
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 12
+                        height: 12
+                        radius: 6
+                        color: row.swatch ? row.modelData.swatch : "transparent"
+                        border.width: 1
+                        border.color: rowArea.containsMouse ? "#66ffffff" : Theme.line
+                    }
                     ColumnLayout {
                         anchors.left: parent.left
-                        anchors.leftMargin: 26
+                        anchors.leftMargin: row.swatch ? 46 : 26
                         anchors.right: parent.right
                         anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 1
                         Text { Layout.fillWidth: true; text: row.header ? "" : row.modelData.label; color: rowArea.containsMouse ? "#ffffff" : Theme.text; font.family: Theme.sans; font.pixelSize: 13; elide: Text.ElideRight }
-                        Text { Layout.fillWidth: true; text: row.header ? "" : row.modelData.sub; color: rowArea.containsMouse ? "#d9ffffff" : Theme.sub; font.family: Theme.sans; font.pixelSize: 11; elide: Text.ElideRight }
+                        Text { Layout.fillWidth: true; visible: !row.compact; text: row.header || row.compact ? "" : row.modelData.sub; color: rowArea.containsMouse ? "#d9ffffff" : Theme.sub; font.family: Theme.sans; font.pixelSize: 11; elide: Text.ElideRight }
                     }
                     MouseArea {
                         id: rowArea

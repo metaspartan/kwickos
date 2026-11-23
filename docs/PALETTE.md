@@ -46,27 +46,99 @@ Window controls: close `#FF5F57`, minimise `#FEBC2E`, zoom `#28C840`.
 ### Accent
 
 The macOS layout's default accent is Apple's orange, `systemOrange`: `#FF9F0A` (255, 159, 10) in the dark appearance and
-`#FF9500` (255, 149, 0) in the light one. The colours AppKit derives from the accent are derived the same way for orange:
+`#FF9500` (255, 149, 0) in the light one. `kwick-layout` derives every other accent colour from the chosen accent with one
+formula (`DERIVE` in `kwick-layout`, printed by `kwick-layout colors`), so the eight Apple colours, the deeper ones and a custom
+colour all get the same treatment. For orange:
 
-| Role | Dark | Light | KwickOS use |
-|---|---|---|---|
-| `controlAccentColor` | `#FF9F0A` | `#FF9500` | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Control Center toggles), ForegroundActive (sidebar glyphs through `ColorScheme-ActiveText`), Qt menu highlight, GTK `accent_bg_color`, Settings switches and buttons, App Store, Spotlight, installer |
-| `selectedContentBackgroundColor` | `#D06F00` (208, 111, 0) | `#E17B00` (225, 123, 0) | KDE Selection (list and text selection, white text), GTK 3 `theme_selected_bg_color`, Settings sidebar selection |
-| `selectedTextBackgroundColor` | `#896B42` (137, 107, 66) | `#FFDFB3` (255, 223, 179) | foot selection, GtkSourceView selection |
-| accent as text | `#FF9F0A` | `#AD6500` | GTK `accent_color` (accent labels, focus rings); the light value is darkened to 4.5:1 on white |
-| `linkColor` | `#419CFF` | `#0068DA` | links stay blue, as macOS keeps `linkColor` blue with every accent |
+| Role | Dark | Light | How it is derived | KwickOS use |
+|---|---|---|---|---|
+| `controlAccentColor` | `#FF9F0A` | `#FF9500` | the swatch | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Control Center toggles), Settings switches and sliders, App Store, Spotlight, installer |
+| fill | `#D28308` | `#D97F00` | the accent with its brightness lowered until white text on it reaches 3:1 | GTK `accent_bg_color` (suggested buttons, menu highlight), Settings and App Store filled buttons, fuzzel selection |
+| hover, pressed | `#C17907`, `#B06E07` | `#C87500`, `#B66B00` | the fill at 92 % and 84 % brightness, so white text stays above 3:1 | Settings buttons |
+| accent as text | `#FF9F0A` | `#9C5B00` | the accent brightened (dark) or darkened (light) until it reaches 4.5:1 on the window colour `#323232` or `#ECECEC` | GTK `accent_color`, Settings and App Store accent text, accent sidebar icons |
+| `selectedContentBackgroundColor` | `#D06F00` (208, 111, 0) | `#E07A00` (224, 122, 0) | the highlight colour at 1.15 times its saturation, brightness 0.816 (dark) or 0.882 (light), hue moved 4.5 or 2.3 degrees towards the nearest of red, green and blue; then darkened until white text reaches 3:1 | KDE Selection (list and text selection, white text), GTK 3 `theme_selected_bg_color` |
+| `selectedTextBackgroundColor` | `#896B42` (137, 107, 66) | `#FFDFB3` (255, 223, 179) | 30 % of the highlight colour over `#565559` (dark) or white (light) | foot selection, GTK text selection, Settings text fields |
+| `linkColor` | `#419CFF` | `#0068DA` | fixed | links stay blue, as macOS keeps `linkColor` blue with every accent |
 
-Apple has not published the orange variants of `selectedContentBackgroundColor` and `selectedTextBackgroundColor`, so they
-are derived from the published blue pair. With the blue accent `selectedContentBackgroundColor` is the accent at full saturation
-with the brightness scaled to 0.816 (dark) and 0.882 (light) and the hue moved 4.5 and 2.3 degrees deeper; the orange values
-apply the same scaling and move the hue towards red. `selectedTextBackgroundColor` is 30 % of the accent over `#565559` (dark)
-or white (light), which reproduces `#3F638B` and `#B3D7FF` for blue. White text on the accent measures 2.1:1 and on the
-selection 3.5:1 (dark) and 3.0:1 (light); Apple draws white text on orange, so KwickOS does too.
+The selection formula reproduces Apple's published blue pair: `#0058D0` and `#3F638B` for `#0A84FF`, `#B3D7FF` for `#007AFF`.
+White text measures at least 3:1 on every fill, hover, pressed and selection colour, and the accent used as text measures at
+least 4.5:1 on the window colour, for every accent in both appearances. The Apple swatches themselves are kept as Apple ships
+them for the non-text uses (orange, yellow and green measure 2.2:1, 1.5:1 and 2.2:1 on white, as on macOS).
 
-Settings > Appearance can pick blue, purple, pink, red, orange, yellow, green or graphite (Apple's dark and light system
-colours). The choice is stored in `~/.config/kwick/accent` (`kwick-layout accent NAME`, `default` to follow the layout) and
-applies to every layout and desktop; without a choice the macOS layout uses orange and the Windows and Linux layouts keep
-`#0078D4` and the Tokyo Night blue.
+#### Accent colours
+
+Settings > Appearance shows Apple's eight accents in the first row and nine deeper ones in the second, followed by a custom
+colour picker. `kwick-layout accent list` prints them; `kwick-layout accent NAME` or `kwick-layout accent '#RRGGBB'` picks one.
+
+| Name | Accent, dark / light | Fill | Accent as text | Selection |
+|---|---|---|---|---|
+| blue | `#0A84FF` / `#007AFF` | `#0A84FF` / `#007AFF` | `#3B9DFF` / `#0067D7` | `#0058D0` / `#0063E1` |
+| purple | `#BF5AF2` / `#AF52DE` | `#BF5AF2` / `#AF52DE` | `#CF71FF` / `#9646BE` | `#8B37C5` / `#8F36C4` |
+| pink | `#FF375F` / `#FF2D55` | `#FF375F` / `#FF2D55` | `#FF6584` / `#CD2444` | `#D0142C` / `#E10C2C` |
+| red | `#FF453A` / `#FF3B30` | `#FF453A` / `#FF3B30` | `#FF685F` / `#C92F26` | `#D01717` / `#E1120F` |
+| orange | `#FF9F0A` / `#FF9500` | `#D28308` / `#D97F00` | `#FF9F0A` / `#9C5B00` | `#D06F00` / `#E07A00` |
+| yellow | `#FFD60A` / `#FFCC00` | `#AF9307` / `#B49000` | `#FFD60A` / `#826800` | `#BA8E00` / `#BB8E00` |
+| green | `#30D158` / `#34C759` | `#27A947` / `#2CAA4C` | `#30D158` / `#207A37` | `#13AB2E` / `#19AB38` |
+| graphite | `#98989D` / `#8E8E93` | `#949499` / `#8E8E93` | `#99999E` / `#6A6A6E` | `#7B7B80` / `#7D7D82` |
+| deepblue | `#4070FF` / `#0040DD` | `#4070FF` / `#0040DD` | `#7295FF` / `#0040DD` | `#1D3CD0` / `#0031C3` |
+| indigo | `#5E5CE6` / `#5856D6` | `#5E5CE6` / `#5856D6` | `#8F8EFE` / `#5856D6` | `#3A3ABC` / `#3B3BBD` |
+| teal | `#30B0C7` / `#008299` | `#2CA2B8` / `#008299` | `#30B0C7` / `#00758A` | `#1582A2` / `#006D87` |
+| forest | `#40AA68` / `#1E7A3C` | `#3FA766` / `#1E7A3C` | `#41AD6A` / `#1E7A3C` | `#278B45` / `#0E6C29` |
+| crimson | `#EC405A` / `#B3122E` | `#EC405A` / `#B3122E` | `#FE667D` / `#B3122E` | `#C11F2B` / `#9E0015` |
+| burntorange | `#EE6C2E` / `#C2410C` | `#EE6C2E` / `#C2410C` | `#F87130` / `#BE400C` | `#C23B0E` / `#AB2B00` |
+| plum | `#BA68C8` / `#7E3A9E` | `#BA68C8` / `#7E3A9E` | `#D275E2` / `#7E3A9E` | `#8F49A3` / `#67268B` |
+| brown | `#AC8E68` / `#8A6A45` | `#AC8E68` / `#8A6A45` | `#B4946D` / `#846542` | `#8C6B4D` / `#7A5734` |
+| slate | `#8494A8` / `#5B6B7F` | `#8494A8` / `#5B6B7F` | `#8A9BB0` / `#5B6B7F` | `#677489` / `#4B5A70` |
+
+A custom colour is used as picked, except that it is brightened in the dark appearance until it reaches 2.5:1 on `#1E1E1E`
+and darkened in the light one until it reaches 1.5:1 on white, so a near-black or near-white pick stays visible. GNOME Shell
+only knows nine named accents, so for the deeper and custom colours `kwick-layout` sets the nearest one (`accent-color`) while
+GTK 4 apps get the exact colour from `~/.config/gtk-4.0/gtk.css`.
+
+The choice is stored in `~/.config/kwick/accent` (`default` follows the layout) and applies to every layout and desktop;
+without a choice the macOS layout uses orange and the Windows and Linux layouts keep `#0078D4` and the Tokyo Night blue.
+
+#### Highlight colour
+
+Like macOS's separate Highlight color, `kwick-layout highlight accent|graphite|NAME|#RRGGBB` (`~/.config/kwick/highlight`,
+`accent` by default) picks the colour of list and text selection independently of the accent:
+
+* `accent` follows the accent, as in the table above.
+* `graphite` is neutral: `unemphasizedSelectedContentBackgroundColor` `#464646` with white text in the dark appearance,
+  `#DCDCDC` with dark text (`#262626`) in the light one, for list and text selection alike.
+* any accent name or colour derives the selection and text selection colours from that colour with the formula above.
+
+It applies to the KDE Selection colours, GTK 3 `theme_selected_bg_color` and `theme_selected_fg_color`, GTK text selection,
+foot and Settings text fields. Sidebars do not follow it in the macOS layout: as in Finder and System Settings, the selected
+sidebar row is a subtle translucent grey (white at 0.1 in the dark appearance, black at 0.08 in the light one, rounded, with
+normal text), in Dolphin and KDE file dialogs (the KwickMac style draws `KFilePlacesView` rows), GTK 3 and GTK 4 sidebars,
+Settings and the App Store. The Windows and Linux layouts keep sidebar selection in the highlight colour.
+
+#### Sidebar icons
+
+Sidebar glyphs of the three KwickOS icon themes use `ColorScheme-ActiveText`, and `kwick-layout sidebar neutral|accent`
+(`~/.config/kwick/sidebar`) sets KDE's ForegroundActive to the text colour or to the accent as text. Neutral, the default in
+the macOS and Windows layouts, draws them white (dark) or dark grey (light); accent, the Linux layout's default and what macOS
+itself does, draws them in the accent. GTK sidebars (`@SIDEBAR_ICON@`), Settings and the App Store follow the same choice.
+
+#### Wallpaper tinting
+
+`kwick-layout tint on|off|default` (`~/.config/kwick/tint`) is macOS's "Allow wallpaper tinting in windows":
+
+* Plasma: `kwick-layout` writes `WallpaperTint=true` to `[KwickOS]` in `kdeglobals`. The KwickMac style then makes the main
+  windows of the apps in `TintApps` (`dolphin` by default, comma separated) translucent: it paints the window colour at 0.82
+  (dark) or 0.84 (light) opacity, clears the base colour of the Places sidebar and asks KWin to blur behind the window. The
+  toolbar and sidebar show a blurred tint of the wallpaper while the file view stays opaque. Breeze 6.3 itself has no
+  translucent windows (only `MenuOpacity`), and an alpha in the colour scheme would darken every other Qt window, so the colour
+  scheme stays opaque. Open Files windows are reopened when the switch changes.
+* Settings: the sidebar becomes translucent at the same opacity and `kwick-settings-app` asks KWin for blur behind the window.
+* Hyprland: file managers, Settings, System Settings and the App Store get `opacity 0.94 0.9` (`~/.config/hypr/kwick-tint.conf`),
+  which Hyprland's blur fills in.
+* GNOME Shell and sway have no blur behind application windows, so tinting does nothing there.
+
+It is on by default in the macOS layout while KWin's blur effect is on, and off in the Windows and Linux layouts. Blur behind
+one window is a single blur pass in KWin's existing blur effect, the same work it already does for every menu and the dock, so
+it costs nothing noticeable with a GPU; `kwick-effects` turns blur off on software rendering, and the next `kwick-layout` run turns tinting off with it.
 
 ### Materials
 

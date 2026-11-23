@@ -10,7 +10,17 @@ ApplicationWindow {
     minimumWidth: 860
     minimumHeight: 560
     title: "KwickOS Settings"
-    color: Theme.bg
+    color: Theme.tint ? "transparent" : Theme.bg
+
+    function updateBlur() {
+        if (typeof Platform !== "undefined")
+            Platform.setBlur(win, Theme.tint)
+    }
+
+    Connections {
+        target: Theme
+        function onTintChanged() { win.updateBlur() }
+    }
 
     property int current: 0
     property string query: ""
@@ -45,6 +55,7 @@ ApplicationWindow {
     Component.onCompleted: {
         Qt.application.domain = "settings.kwickos.org"
         visible = true
+        updateBlur()
         Sys.refreshAll()
         Sys.run("printenv KWICK_SETTINGS_PAGE", function (out) {
             var want = out.trim().toLowerCase().replace(/[-_]/g, " ")
@@ -69,6 +80,13 @@ ApplicationWindow {
         onTriggered: Sys.refresh()
     }
 
+    Rectangle {
+        visible: Theme.tint
+        anchors.fill: parent
+        anchors.leftMargin: 252
+        color: Theme.bg
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -76,7 +94,7 @@ ApplicationWindow {
         Rectangle {
             Layout.fillHeight: true
             Layout.preferredWidth: 252
-            color: Theme.sidebar
+            color: Theme.tint ? Qt.rgba(Theme.sidebar.r, Theme.sidebar.g, Theme.sidebar.b, Theme.light ? 0.84 : 0.82) : Theme.sidebar
 
             Rectangle {
                 width: 1
@@ -167,7 +185,7 @@ ApplicationWindow {
                                 visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0 || win.matches(modelData, win.query)
                                 implicitHeight: 30
                                 radius: 6
-                                color: on ? Theme.selection : hover.containsMouse ? Theme.hover : "transparent"
+                                color: on ? Theme.sidebarSelection : hover.containsMouse ? Theme.hover : "transparent"
                                 onOnChanged: if (on) Qt.callLater(navFlick.reveal, item)
                                 Component.onCompleted: if (on) Qt.callLater(navFlick.reveal, item)
                                 RowLayout {
@@ -184,7 +202,7 @@ ApplicationWindow {
                                     Text {
                                         Layout.fillWidth: true
                                         text: item.modelData.name
-                                        color: item.on ? "#ffffff" : Theme.text
+                                        color: item.on ? Theme.sidebarSelectionText : Theme.text
                                         font.family: Theme.sans
                                         font.pixelSize: 13
                                         elide: Text.ElideRight

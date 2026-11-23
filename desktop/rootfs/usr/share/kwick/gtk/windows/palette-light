@@ -14,7 +14,11 @@
 @SHADE@ rgba(0, 0, 0, 0.05)
 @ACCENT_TEXT@ #003e92
 @ACCENT@ #005fb8
+@SELECTED@ #005fb8
+@SEL_FG@ #ffffff
 @RED@ #c42b1c
 @YELLOW@ #9d5d00
 @GREEN@ #0f7b0f
 @MENU_SHADOW@ rgba(0, 0, 0, 0.14)
+@SIDEBAR_ICON@ #1b1b1b
+@SIDEBAR_SEL@ rgba(0, 0, 0, 0.04)

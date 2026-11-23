@@ -5,6 +5,7 @@
 #include <KWindowShadow>
 
 #include <QAbstractItemView>
+#include <QAbstractScrollArea>
 #include <QAbstractSpinBox>
 #include <QApplication>
 #include <QCheckBox>
@@ -18,9 +19,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
+#include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPainter>
+#include <QPaintEvent>
 #include <QPainterPath>
 #include <QPlainTextEdit>
 #include <QPlatformSurfaceEvent>
@@ -334,6 +337,142 @@ QList<KWindowShadowTile::Ptr> shadowTiles(const Look &look, qreal dpr)
     cache.insert(key, tiles);
     return tiles;
 }
+
+QString kwickSetting(const QString &key, const QString &fallback)
+{
+    const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kdeglobals");
+    QSettings settings(path, QSettings::IniFormat);
+    return settings.value(QStringLiteral("KwickOS/") + key, fallback).toString();
+}
+
+bool isSidebarView(const QWidget *widget)
+{
+    return widget && widget->inherits("KFilePlacesView");
+}
+
+QColor sidebarSelectionColor(const QPalette &palette)
+{
+    const bool dark = palette.color(QPalette::Window).lightness() < 128;
+    QColor color = dark ? QColor(255, 255, 255) : QColor(0, 0, 0);
+    color.setAlphaF(dark ? 0.1 : 0.08);
+    return color;
+}
+
+class SidebarDecorator : public QObject
+{
+public:
+    SidebarDecorator(const Look &look, QObject *parent)
+        : QObject(parent)
+        , m_look(look)
+    {
+    }
+
+    bool neutral() const
+    {
+        return kwickSetting(QStringLiteral("SidebarSelection"), m_look.fluent ? QStringLiteral("highlight") : QStringLiteral("neutral")) == QLatin1String("neutral");
+    }
+
+    void apply(QWidget *view) const
+    {
+        QPalette palette = view->palette();
+        const QPalette base = QApplication::palette(view);
+        const bool clear = view->window()->testAttribute(Qt::WA_TranslucentBackground) && view->window()->property("_kwick_tint").toBool();
+        for (const auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+            palette.setColor(group, QPalette::Base, clear ? QColor(Qt::transparent) : base.color(group, QPalette::Base));
+        }
+        if (auto area = qobject_cast<QAbstractScrollArea *>(view)) {
+            area->viewport()->setAutoFillBackground(!clear);
+        }
+        if (neutral()) {
+            for (const auto group : {QPalette::Active, QPalette::Inactive}) {
+                palette.setColor(group, QPalette::Highlight, sidebarSelectionColor(base));
+                palette.setColor(group, QPalette::HighlightedText, base.color(group, QPalette::Text));
+            }
+        } else {
+            for (const auto group : {QPalette::Active, QPalette::Inactive}) {
+                palette.setColor(group, QPalette::Highlight, base.color(group, QPalette::Highlight));
+                palette.setColor(group, QPalette::HighlightedText, base.color(group, QPalette::HighlightedText));
+            }
+        }
+        view->setPalette(palette);
+    }
+
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        if (event->type() == QEvent::ApplicationPaletteChange) {
+            if (auto view = qobject_cast<QWidget *>(object)) {
+                apply(view);
+            }
+        }
+        return false;
+    }
+
+private:
+    Look m_look;
+};
+
+class TintDecorator : public QObject
+{
+public:
+    using QObject::QObject;
+
+    static bool wanted(const QWidget *widget)
+    {
+        if (!widget->isWindow() || !qobject_cast<const QMainWindow *>(widget) || widget->isVisible()) {
+            return false;
+        }
+        if (kwickSetting(QStringLiteral("WallpaperTint"), QStringLiteral("false")) != QLatin1String("true")) {
+            return false;
+        }
+        const QStringList apps = kwickSetting(QStringLiteral("TintApps"), QStringLiteral("dolphin")).split(QLatin1Char(','), Qt::SkipEmptyParts);
+        return apps.contains(QCoreApplication::applicationName());
+    }
+
+    static QColor tint(const QPalette &palette)
+    {
+        QColor color = palette.color(QPalette::Active, QPalette::Window);
+        color.setAlphaF(color.lightness() < 128 ? 0.82 : 0.84);
+        return color;
+    }
+
+    void install(QWidget *window)
+    {
+        const bool created = window->testAttribute(Qt::WA_WState_Created);
+        window->setAttribute(Qt::WA_TranslucentBackground);
+        if (created) {
+            window->setWindowFlags(window->windowFlags());
+        }
+        window->setAttribute(Qt::WA_NoSystemBackground, false);
+        window->setProperty("_kwick_tint", true);
+        window->removeEventFilter(this);
+        window->installEventFilter(this);
+    }
+
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        auto window = qobject_cast<QWidget *>(object);
+        if (!window) {
+            return false;
+        }
+        switch (event->type()) {
+        case QEvent::Paint: {
+            QPainter painter(window);
+            painter.setCompositionMode(QPainter::CompositionMode_Source);
+            painter.fillRect(static_cast<QPaintEvent *>(event)->rect(), tint(window->palette()));
+            break;
+        }
+        case QEvent::Show:
+        case QEvent::Resize:
+            if (window->windowHandle()) {
+                KWindowEffects::enableBlurBehind(window->windowHandle(), true);
+            }
+            break;
+        default:
+            break;
+        }
+        return false;
+    }
+};
 
 class MenuDecorator : public QObject
 {
@@ -670,12 +809,22 @@ public:
         , m_look(look)
         , m_accent(accentColor())
         , m_decorator(new MenuDecorator(look, this))
-        , m_tint(new TextTint(m_accent, this))
+        , m_textTint(new TextTint(m_accent, this))
+        , m_sidebar(new SidebarDecorator(look, this))
+        , m_tint(new TintDecorator(this))
     {
     }
 
     void polish(QWidget *widget) override
     {
+        if (TintDecorator::wanted(widget)) {
+            m_tint->install(widget);
+        }
+        if (isSidebarView(widget)) {
+            widget->removeEventFilter(m_sidebar);
+            widget->installEventFilter(m_sidebar);
+            m_sidebar->apply(widget);
+        }
         if (auto menu = qobject_cast<QMenu *>(widget)) {
             menu->setAttribute(Qt::WA_TranslucentBackground);
             menu->removeEventFilter(m_decorator);
@@ -699,9 +848,9 @@ public:
             return;
         }
         if (qobject_cast<QLineEdit *>(widget) || qobject_cast<QTextEdit *>(widget) || qobject_cast<QPlainTextEdit *>(widget)) {
-            m_tint->apply(widget);
-            widget->removeEventFilter(m_tint);
-            widget->installEventFilter(m_tint);
+            m_textTint->apply(widget);
+            widget->removeEventFilter(m_textTint);
+            widget->installEventFilter(m_textTint);
         }
         if (auto box = qobject_cast<QCheckBox *>(widget); box && isSwitch(box) && !box->property("_kwick_switch").toBool()) {
             box->setProperty("_kwick_switch", true);
@@ -778,11 +927,15 @@ public:
 
     void unpolish(QWidget *widget) override
     {
+        if (isSidebarView(widget)) {
+            widget->removeEventFilter(m_sidebar);
+        }
         if (auto menu = qobject_cast<QMenu *>(widget)) {
             menu->removeEventFilter(m_decorator);
             return;
         }
         if (widget) {
+            widget->removeEventFilter(m_textTint);
             widget->removeEventFilter(m_tint);
             if (widget->inherits("QComboBoxPrivateContainer")) {
                 widget->removeEventFilter(m_decorator);
@@ -978,6 +1131,23 @@ public:
                 }
                 return;
             }
+        }
+        if (element == PE_PanelItemViewItem && isSidebarView(widget) && m_sidebar->neutral()) {
+            const bool selected = option->state & State_Selected;
+            const bool hovered = option->state & State_MouseOver;
+            if (selected || hovered) {
+                QColor color = sidebarSelectionColor(option->palette);
+                if (!selected) {
+                    color.setAlphaF(color.alphaF() * 0.5);
+                }
+                painter->save();
+                painter->setRenderHint(QPainter::Antialiasing);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(color);
+                painter->drawRoundedRect(QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
+                painter->restore();
+            }
+            return;
         }
         if (!m_look.fluent && drawMacPrimitive(element, option, painter, widget)) {
             return;
@@ -2406,7 +2576,9 @@ private:
     Look m_look;
     QColor m_accent;
     MenuDecorator *m_decorator;
-    TextTint *m_tint;
+    TextTint *m_textTint;
+    SidebarDecorator *m_sidebar;
+    TintDecorator *m_tint;
 };
 
 }

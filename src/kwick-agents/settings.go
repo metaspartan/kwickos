@@ -321,7 +321,8 @@ func onOff(v any) string {
 }
 
 var (
-	accentNames  = []string{"blue", "purple", "pink", "red", "orange", "yellow", "green", "graphite"}
+	accentNames  = []string{"blue", "purple", "pink", "red", "orange", "yellow", "green", "graphite", "deepblue", "indigo", "teal", "forest", "crimson", "burntorange", "plum", "brown", "slate"}
+	highlights   = append([]string{"accent"}, accentNames...)
 	accentRGB    = map[string]string{"blue": "10,132,255", "purple": "191,90,242", "pink": "255,55,95", "red": "255,69,58", "orange": "255,159,10", "yellow": "255,214,10", "green": "48,209,88", "graphite": "152,152,157"}
 	accentHex    = map[string]string{"blue": "#0a84ff", "purple": "#bf5af2", "pink": "#ff375f", "red": "#ff453a", "orange": "#ff9f0a", "yellow": "#ffd60a", "green": "#30d158", "graphite": "#98989d"}
 	ocStyles     = []string{"none", "scale", "fade", "glide", "flip", "flame", "dissolve", "fallapart", "apparition", "aura-glow", "broken-glass", "doom", "energize-a", "energize-b", "fire", "focus", "glitch", "hexagon", "incinerate", "matrix", "mushroom", "paint-brush", "pixelate", "pixel-wheel", "pixel-wipe", "portal", "rgbwarp", "snap", "team-rocket", "trex", "tv", "tv-glitch", "wisps"}
@@ -534,6 +535,29 @@ func settingsTable() []*setting {
 			Description: "Dark or light colors for the desktop and apps.",
 			get:         layoutField("appearance"),
 			set:         func(c *setCtx, v any) error { return c.run(60*time.Second, "kwick-layout", "appearance", v.(string)) }},
+		{Key: "highlight", Group: "appearance", Title: "Highlight color", Type: "enum", Values: highlights, Needs: []string{"kwick-layout"},
+			Description: "Color of list and text selection: the accent color, graphite (neutral grey) or any accent name.",
+			get: func(c *setCtx) (any, error) {
+				o, err := c.out("kwick-layout", "highlight")
+				return strings.TrimSpace(o), err
+			},
+			set: func(c *setCtx, v any) error { return c.run(60*time.Second, "kwick-layout", "highlight", v.(string)) }},
+		{Key: "sidebar_icons", Group: "appearance", Title: "Sidebar icon color", Type: "enum", Values: []string{"neutral", "accent"}, Needs: []string{"kwick-layout"},
+			Description: "Sidebar icons in Files, Settings and other apps: neutral (white or dark grey) or the accent color.",
+			get: func(c *setCtx) (any, error) {
+				o, err := c.out("kwick-layout", "sidebar")
+				return strings.TrimSpace(o), err
+			},
+			set: func(c *setCtx, v any) error { return c.run(60*time.Second, "kwick-layout", "sidebar", v.(string)) }},
+		{Key: "wallpaper_tinting", Group: "appearance", Title: "Allow wallpaper tinting in windows", Type: "bool", Needs: []string{"kwick-layout"},
+			Description: "Translucent, blurred window backgrounds and sidebars tinted by the wallpaper.",
+			get: func(c *setCtx) (any, error) {
+				o, err := c.out("kwick-layout", "tint")
+				return strings.TrimSpace(o) == "on", err
+			},
+			set: func(c *setCtx, v any) error {
+				return c.run(60*time.Second, "kwick-layout", "tint", map[bool]string{true: "on", false: "off"}[v.(bool)])
+			}},
 		{Key: "corner_radius", Group: "appearance", Title: "Window corner radius", Type: "int", Min: 0, Max: 24, Step: 1, Needs: []string{"kwick-layout"},
 			Description: "Rounding of window corners in pixels.",
 			get:         layoutField("radius"),
@@ -541,8 +565,13 @@ func settingsTable() []*setting {
 				return c.run(60*time.Second, "kwick-layout", "radius", strconv.Itoa(v.(int)))
 			}},
 		{Key: "accent", Group: "appearance", Title: "Accent color", Type: "enum", Values: accentNames, Desktops: desk,
-			Description: "Highlight color for buttons, selections and switches.",
+			Description: "Accent color for buttons, switches, focus rings and, when highlight is accent, selection.",
 			get: func(c *setCtx) (any, error) {
+				if lookPath("kwick-layout") != "" {
+					if o, err := c.out("kwick-layout", "accent"); err == nil && strings.TrimSpace(o) != "" {
+						return strings.TrimSpace(o), nil
+					}
+				}
 				if desktopKind() == "gnome" {
 					g := gsetGet(c, "org.gnome.desktop.interface", "accent-color")
 					if g == "slate" {
@@ -563,6 +592,12 @@ func settingsTable() []*setting {
 			},
 			set: func(c *setCtx, v any) error {
 				n := v.(string)
+				if lookPath("kwick-layout") != "" {
+					return c.run(60*time.Second, "kwick-layout", "accent", n)
+				}
+				if accentRGB[n] == "" {
+					return fmt.Errorf("%s needs kwick-layout", n)
+				}
 				var errs []string
 				if lookPath("kwriteconfig6") != "" {
 					if err := c.run(20*time.Second, "kwriteconfig6", "--file", "kdeglobals", "--group", "General", "--key", "AccentColor", accentRGB[n]); err != nil {

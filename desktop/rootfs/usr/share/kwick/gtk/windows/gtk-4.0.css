@@ -187,3 +187,10 @@ menubar > item:selected {
   box-shadow: none;
   color: @FG@;
 }
+
+.navigation-sidebar row image,
+.navigation-sidebar image,
+placessidebar image,
+.sidebar image {
+  color: @SIDEBAR_ICON@;
+}

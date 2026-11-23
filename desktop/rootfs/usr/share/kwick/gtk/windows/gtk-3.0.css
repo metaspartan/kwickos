@@ -2,8 +2,8 @@
 @define-color theme_fg_color @FG@;
 @define-color theme_base_color @VIEW@;
 @define-color theme_text_color @FG@;
-@define-color theme_selected_bg_color @ACCENT@;
-@define-color theme_selected_fg_color #ffffff;
+@define-color theme_selected_bg_color @SELECTED@;
+@define-color theme_selected_fg_color @SEL_FG@;
 @define-color theme_unfocused_bg_color @BASE@;
 @define-color theme_unfocused_fg_color @FG_SECONDARY@;
 @define-color theme_unfocused_base_color @VIEW@;
@@ -211,4 +211,11 @@ menubar > menuitem:hover {
   background-color: @HOVER@;
   box-shadow: none;
   color: @FG@;
+}
+
+.navigation-sidebar row image,
+.navigation-sidebar image,
+placessidebar image,
+.sidebar image {
+  color: @SIDEBAR_ICON@;
 }

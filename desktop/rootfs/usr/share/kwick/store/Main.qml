@@ -153,6 +153,8 @@ ApplicationWindow {
                 Look.light = j.appearance === "light"
                 if (j.accent) Look.systemAccent = j.accent
                 if (j.accentText) Look.systemAccentText = j.accentText
+                if (j.fill) Look.systemFill = j.fill
+                if (j.sidebar) Look.sidebarIcons = j.sidebar
             }
         })
         Store.loadSources(function () {
@@ -214,7 +216,7 @@ ApplicationWindow {
             anchors.leftMargin: 10
             anchors.rightMargin: 10
             spacing: 10
-            Glyph { name: ni.item.glyph; size: 17; stroke: 1.7; color: Look.accentText }
+            Glyph { name: ni.item.glyph; size: 17; stroke: 1.7; color: Look.sidebarIcon }
             Text { Layout.fillWidth: true; text: ni.item.label; color: Look.text; font.family: Look.sans; font.pixelSize: 13; font.weight: ni.on ? Font.DemiBold : Font.Normal }
             Rectangle {
                 visible: ni.badge > 0

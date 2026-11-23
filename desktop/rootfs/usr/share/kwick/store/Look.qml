@@ -9,6 +9,8 @@ QtObject {
     property bool light: false
     property color systemAccent: "#ff9f0a"
     property string systemAccentText: ""
+    property string systemFill: ""
+    property string sidebarIcons: ""
 
     readonly property bool mac: layout === "macos"
     readonly property bool win: layout === "windows"
@@ -19,7 +21,9 @@ QtObject {
     readonly property string mono: win ? "Cascadia Code" : gnu ? "Ubuntu Sans Mono" : "JetBrains Mono"
 
     readonly property color accent: win ? (light ? "#005fb8" : "#60cdff") : gnu ? (light ? "#3584e4" : "#3584e4") : systemAccent
-    readonly property color accentText: win ? (light ? "#005fb8" : "#60cdff") : gnu ? (light ? "#1c71d8" : "#78aeed") : (light ? (systemAccentText !== "" ? systemAccentText : Qt.darker(systemAccent, 1.08)) : Qt.lighter(systemAccent, 1.12))
+    readonly property color accentText: win ? (light ? "#005fb8" : "#60cdff") : gnu ? (light ? "#1c71d8" : "#78aeed") : systemAccentText !== "" ? systemAccentText : (light ? Qt.darker(systemAccent, 1.08) : Qt.lighter(systemAccent, 1.12))
+    readonly property color fill: mac && systemFill !== "" ? systemFill : accent
+    readonly property color sidebarIcon: sidebarIcons === "neutral" ? text : accentText
     readonly property color onAccent: win && !light ? "#000000" : "#ffffff"
 
     readonly property color window: mac ? (light ? "#ffffff" : "#1e1e1e") : win ? (light ? "#f3f3f3" : "#202020") : (light ? "#fafafb" : "#222226")

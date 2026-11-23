@@ -65,14 +65,14 @@ MAC = {"window": 50, "under": 40, "control_bg": 30, "alt_row": over(0.047, 30), 
        "orange": "255,159,10", "green": "50,215,75", "ink": 255, "fill": 0.047, "button_alt": 0.098}
 MAC_LIGHT = {"window": 236, "under": 246, "control_bg": 255, "alt_row": 244, "button": 255,
              "label": 0.847, "secondary": 0.498, "tertiary": 0.259,
-             "accent": "255,149,0", "selected": "225,123,0", "link": "0,104,218", "purple": "175,82,222", "red": "255,59,48",
+             "accent": "255,149,0", "selected": "224,122,0", "link": "0,104,218", "purple": "175,82,222", "red": "255,59,48",
              "orange": "255,149,0", "green": "40,205,65", "ink": 0, "fill": 0.03, "button_alt": 0.05}
 
 
 def mac_fg(P, bg):
     ink = P["ink"]
     return {"ForegroundNormal": grey(over(P["label"], bg, ink)), "ForegroundInactive": grey(over(P["secondary"], bg, ink)),
-            "ForegroundActive": P["accent"], "ForegroundLink": P["link"], "ForegroundVisited": P["purple"],
+            "ForegroundActive": grey(over(P["label"], bg, ink)), "ForegroundLink": P["link"], "ForegroundVisited": P["purple"],
             "ForegroundNegative": P["red"], "ForegroundNeutral": P["orange"], "ForegroundPositive": P["green"]}
 
 
@@ -116,7 +116,7 @@ FLU_LIGHT = {"base": 243, "secondary": 249, "card": 251, "control": 251, "contro
 
 def flu_fg(bg, F=FLU):
     return {"ForegroundNormal": F["text"], "ForegroundInactive": grey(over(F["text2"], bg, F["ink"])),
-            "ForegroundActive": F["accent_light2"], "ForegroundLink": F["accent_light3"],
+            "ForegroundActive": F["text"], "ForegroundLink": F["accent_light3"],
             "ForegroundNegative": F["critical"], "ForegroundNeutral": F["caution"], "ForegroundPositive": F["success"]}
 
 
@@ -140,9 +140,9 @@ def flu_scheme(name, F, base=None):
 flu_scheme("KwickFluent", FLU)
 flu_scheme("KwickFluentLight", FLU_LIGHT, BREEZE_LIGHT)
 scheme("KwickDark", "22,23,31", "29,30,41", "17,18,26", "24,25,34", "35,37,50", "44,46,62",
-       "94,129,244", "94,129,244", "26,27,37")
+       "94,129,244", "94,129,244", "26,27,37", {"*": {"ForegroundActive": "94,129,244"}, "Colors:Selection": {"ForegroundActive": "252,252,252"}})
 scheme("KwickLight", "239,240,244", "230,231,237", "255,255,255", "246,247,250", "251,251,253", "239,240,244",
-       "46,125,233", "46,125,233", "228,230,236", base=BREEZE_LIGHT)
+       "46,125,233", "46,125,233", "228,230,236", {"*": {"ForegroundActive": "46,125,233"}, "Colors:Selection": {"ForegroundActive": "255,255,255"}}, base=BREEZE_LIGHT)
 
 
 def svg_rect_path(x, y, wd, ht, rtl=0, rtr=0, fill="#000", op=1.0):

@@ -118,7 +118,7 @@ Popup {
                 implicitHeight: 28
                 radius: 7
                 opacity: dlg.confirmEnabled ? 1 : 0.45
-                color: dlg.danger ? (oa.pressed ? Qt.darker(Look.bad, 1.1) : Look.bad) : (oa.pressed ? Qt.darker(Look.accent, 1.1) : Look.accent)
+                color: dlg.danger ? (oa.pressed ? Qt.darker(Look.bad, 1.1) : Look.bad) : (oa.pressed ? Qt.darker(Look.fill, 1.1) : Look.fill)
                 Text { anchors.centerIn: parent; text: dlg.confirmText; color: "#ffffff"; font.family: Look.sans; font.pixelSize: 13; font.weight: Font.Medium }
                 MouseArea { id: oa; anchors.fill: parent; enabled: dlg.confirmEnabled; cursorShape: Qt.PointingHandCursor; onClicked: { dlg.close(); dlg.confirmed() } }
             }
@@ -150,7 +150,7 @@ Popup {
                     implicitHeight: 40
                     radius: 20
                     opacity: dlg.confirmEnabled ? 1 : 0.45
-                    color: dlg.danger ? (gb.pressed ? Qt.darker("#e01b24", 1.1) : "#e01b24") : (gb.pressed ? Qt.darker(Look.accent, 1.1) : Look.accent)
+                    color: dlg.danger ? (gb.pressed ? Qt.darker("#e01b24", 1.1) : "#e01b24") : (gb.pressed ? Qt.darker(Look.fill, 1.1) : Look.fill)
                     Text { anchors.centerIn: parent; text: dlg.confirmText; color: "#ffffff"; font.family: Look.sans; font.pixelSize: 14; font.weight: Font.Bold }
                     MouseArea { id: gb; anchors.fill: parent; enabled: dlg.confirmEnabled; cursorShape: Qt.PointingHandCursor; onClicked: { dlg.close(); dlg.confirmed() } }
                 }

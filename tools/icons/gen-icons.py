@@ -330,7 +330,7 @@ class Glass(Style):
     vpn = "vpnlock"
     text = "#e8ebf4"
     accent = "#0a84ff"
-    side_class = "ColorScheme-Highlight"
+    side_class = "ColorScheme-ActiveText"
 
     def tile(self, glyph, pal, dark):
         return FI.free_icon(glyph, self.colors, pal, glyph_markup, ID.DV)
@@ -359,8 +359,12 @@ class Glass(Style):
     def plain(self, glyph, color):
         return plain_svg(glyph, self.sw, self.text, color)
 
+    @property
+    def side_default(self):
+        return self.accent
+
     def side_svg(self, glyph):
-        return plain_svg(glyph, 1.8, self.accent, None, self.side_class)
+        return plain_svg(glyph, 1.8, self.side_default, None, self.side_class)
 
 
 TRAY_RE = re.compile(r"^(network-|audio-volume|audio-input|audio-card|battery|bluetooth|redshift|night-light|avatar-|user-identity|system-users|system-switch-user|video-display|printer|smartphone|drive-removable|media-removable|kdeconnect|klipper|color-picker|kcolorchooser|notification|preferences-system-notifications|ac-adapter|input-)")
@@ -369,9 +373,9 @@ TRAY_RE = re.compile(r"^(network-|audio-volume|audio-input|audio-card|battery|bl
 class Mac(Glass):
     text = "#ffffff"
     accent = "#ff9f0a"
-    side_class = "ColorScheme-ActiveText"
+    side_default = "#ffffff"
     name = "KwickOS"
-    comment = "KwickOS macOS-style icon set: Liquid Glass squircle apps, blue folders, accent-coloured sidebar glyphs"
+    comment = "KwickOS macOS-style icon set: Liquid Glass squircle apps, blue folders, neutral or accent sidebar glyphs"
     inherits = "Papirus-Dark,breeze-dark,hicolor"
 
     def app(self, names, glyph, pal, sub, dark):
@@ -414,7 +418,7 @@ class Fluent(Style):
         return plain_svg(glyph, self.sw, "#ffffff", color)
 
     def side_svg(self, glyph):
-        return plain_svg(glyph, self.sw, "#ffffff")
+        return plain_svg(glyph, self.sw, "#ffffff", None, "ColorScheme-ActiveText")
 
     def mono(self, names, glyph, sub):
         svg = self.plain(glyph, None)

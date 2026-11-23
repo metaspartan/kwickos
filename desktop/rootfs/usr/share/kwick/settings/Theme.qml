@@ -3,9 +3,20 @@ import QtQuick
 import QtCore
 
 QtObject {
-    property color accent: light ? "#ff9500" : "#ff9f0a"
-    property color selection: light ? "#e17b00" : "#d06f00"
-    readonly property color textSelection: Qt.rgba(accent.r, accent.g, accent.b, light ? 0.3 : 0.4)
+    property var colors: ({})
+    readonly property var scheme: colors[light ? "light" : "dark"] || ({})
+    readonly property color accent: scheme.accent || (light ? "#ff9500" : "#ff9f0a")
+    readonly property color fill: scheme.fill || (light ? "#d97f00" : "#d28308")
+    readonly property color fillHover: scheme.hover || (light ? "#c87500" : "#c17907")
+    readonly property color fillPressed: scheme.pressed || (light ? "#b66b00" : "#b06e07")
+    readonly property color accentText: scheme.text || (light ? "#9c5b00" : "#ff9f0a")
+    readonly property color selection: scheme.selected || (light ? "#e07a00" : "#d06f00")
+    readonly property color selectionText: scheme.selectedtext || "#ffffff"
+    readonly property color textSelection: scheme.textsel || (light ? "#ffdfb3" : "#896b42")
+    readonly property bool sidebarNeutral: (colors.sidebarSelection || "neutral") === "neutral"
+    readonly property color sidebarSelection: sidebarNeutral ? (light ? "#14000000" : "#1affffff") : selection
+    readonly property color sidebarSelectionText: sidebarNeutral ? text : selectionText
+    readonly property bool tint: colors.tint === true
     property bool light: false
     readonly property color bg: light ? "#f5f5f5" : "#1e1e1e"
     readonly property color sidebar: light ? "#e8e8e8" : "#282828"
@@ -39,5 +50,12 @@ QtObject {
         req.open("GET", StandardPaths.writableLocation(StandardPaths.GenericConfigLocation) + "/kwick/appearance", false)
         req.send()
         light = req.responseText.trim() === "light"
+        const cr = new XMLHttpRequest()
+        cr.open("GET", StandardPaths.writableLocation(StandardPaths.GenericConfigLocation) + "/kwick/colors.json", false)
+        try {
+            cr.send()
+            colors = JSON.parse(cr.responseText)
+        } catch (e) {
+        }
     }
 }

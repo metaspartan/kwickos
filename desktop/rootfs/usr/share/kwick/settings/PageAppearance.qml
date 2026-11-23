@@ -2,7 +2,27 @@ import QtQuick
 import QtQuick.Layouts
 
 ColumnLayout {
+    id: page
     spacing: 10
+
+    function accentLabel(name) {
+        if (name.charAt(0) === "#") return "Custom, " + name.toUpperCase()
+        for (var i = 0; i < Sys.accents.length; i++)
+            if (Sys.accents[i].name === name) return Sys.accents[i].label
+        return "Layout default"
+    }
+
+    readonly property var highlightOptions: {
+        var out = [
+            { id: "accent", label: "Accent Color", swatch: Theme.selection },
+            { id: "graphite", label: "Graphite", swatch: Theme.light ? "#8e8e93" : "#98989d" }
+        ]
+        Sys.accents.forEach(function (a) {
+            if (a.name !== "graphite") out.push({ id: a.name, label: a.label, swatch: Theme.light ? a.lhex : a.hex })
+        })
+        if (Sys.highlightName.charAt(0) === "#") out.push({ id: Sys.highlightName, label: "Custom", swatch: Sys.highlightName })
+        return out
+    }
 
     SectionTitle { text: "DESKTOP LAYOUT" }
     RowLayout {
@@ -45,7 +65,7 @@ ColumnLayout {
                     width: 22
                     height: 22
                     radius: 11
-                    color: Theme.accent
+                    color: Theme.fill
                     anchors.top: parent.top
                     anchors.right: parent.right
                     anchors.margins: 18
@@ -59,34 +79,79 @@ ColumnLayout {
     SectionTitle { text: "COLOR" }
     Card {
         Cell {
+            id: accentCell
             title: "Accent color"
-            subtitle: "Used for buttons, selection and focus rings"
-            last: true
-            Row {
+            subtitle: page.accentLabel(Sys.accentName)
+            readonly property bool custom: Sys.accentName.charAt(0) === "#"
+            ColumnLayout {
                 spacing: 9
                 Repeater {
-                    model: Sys.accents
-                    delegate: Rectangle {
+                    model: [Sys.accents.slice(0, 8), Sys.accents.slice(8)]
+                    delegate: Row {
+                        id: swatchRow
                         required property var modelData
-                        width: 24
-                        height: 24
-                        radius: 12
-                        color: Theme.light ? modelData.lhex : modelData.hex
-                        border.width: Sys.accentName === modelData.name && !Theme.light ? 2 : 0
-                        border.color: "#ffffff"
-                        Rectangle {
-                            visible: Sys.accentName === modelData.name
-                            anchors.centerIn: parent
-                            width: 8
-                            height: 8
-                            radius: 4
-                            color: "#ffffff"
+                        required property int index
+                        Layout.alignment: Qt.AlignRight
+                        spacing: 8
+                        Repeater {
+                            model: swatchRow.modelData
+                            delegate: Swatch {
+                                required property var modelData
+                                color: Theme.light ? modelData.lhex : modelData.hex
+                                selected: Sys.accentName === modelData.name
+                                tip: modelData.label
+                                onClicked: Sys.setAccent(modelData.name)
+                            }
                         }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Sys.setAccent(modelData) }
+                        Swatch {
+                            visible: swatchRow.index === 1
+                            rainbow: !accentCell.custom
+                            color: accentCell.custom ? Sys.accentName : "transparent"
+                            selected: accentCell.custom
+                            tip: "Custom color"
+                            onClicked: customPicker.openAt(this, accentCell.custom ? Sys.accentName : Theme.accent)
+                        }
                     }
                 }
             }
         }
+        Cell {
+            title: "Highlight color"
+            subtitle: "List and text selection"
+            Pick {
+                menuWidth: 220
+                current: Sys.highlightName
+                options: page.highlightOptions
+                onPicked: id => Sys.setHighlight(id)
+            }
+        }
+        Cell {
+            title: "Sidebar icon color"
+            subtitle: "Icons in Files, Settings and app sidebars"
+            Pick {
+                menuWidth: 220
+                current: Sys.sidebarIcons
+                options: [
+                    { id: "neutral", label: "Neutral", swatch: Theme.light ? "#404040" : "#ffffff" },
+                    { id: "accent", label: "Accent Color", swatch: Theme.accentText }
+                ]
+                onPicked: id => Sys.setSidebarIcons(id)
+            }
+        }
+        Cell {
+            title: "Allow wallpaper tinting in windows"
+            subtitle: "Sidebars and window backgrounds take on a blurred tint of the wallpaper"
+            last: true
+            Toggle {
+                checked: Sys.tint
+                onToggled: (v) => Sys.setTint(v)
+            }
+        }
+    }
+
+    ColorPicker {
+        id: customPicker
+        onPicked: hex => Sys.setAccent(hex)
     }
 
     SectionTitle { text: "WINDOWS" }
@@ -111,7 +176,7 @@ ColumnLayout {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: Sys.radius !== Sys.radiusDefault
                     text: "Reset"
-                    color: Theme.accent
+                    color: Theme.accentText
                     font.family: Theme.sans
                     font.pixelSize: 13
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Sys.resetRadius() }

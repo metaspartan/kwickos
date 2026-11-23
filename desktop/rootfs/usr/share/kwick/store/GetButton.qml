@@ -30,7 +30,7 @@ Item {
         anchors.fill: parent
         radius: Look.mac ? height / 2 : Look.controlRadius
         opacity: b.unavailable ? 0.5 : 1
-        color: b.filled ? (Look.mac ? (area.pressed ? Qt.darker(Look.accent, 1.15) : Look.accent) : area.pressed ? Qt.darker(Look.getBg, 1.1) : area.containsMouse ? Look.getBgHover : Look.getBg)
+        color: b.filled ? (Look.mac ? (area.pressed ? Qt.darker(Look.fill, 1.15) : Look.fill) : area.pressed ? Qt.darker(Look.getBg, 1.1) : area.containsMouse ? Look.getBgHover : Look.getBg)
                         : Look.mac ? (area.pressed ? Look.pressed : area.containsMouse ? Look.getBgHover : Look.getBg) : (area.pressed ? Look.pressed : area.containsMouse ? Qt.tint(Look.openBg, Look.hover) : Look.openBg)
         border.width: Look.win && !b.filled ? 1 : 0
         border.color: Look.fieldStroke

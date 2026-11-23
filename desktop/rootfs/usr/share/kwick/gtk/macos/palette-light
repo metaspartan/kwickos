@@ -17,9 +17,10 @@
 @MENU@ rgba(246, 246, 246, 0.98)
 @IDLE@ #d1d1d1
 @IDLE_ALPHA@ rgba(0, 0, 0, 0.16)
-@ACCENT@ #ff9500
-@SELECTED@ #e17b00
-@ACCENT_TEXT@ #ad6500
+@ACCENT@ #d97f00
+@SELECTED@ #e07a00
+@SEL_FG@ #ffffff
+@ACCENT_TEXT@ #9c5b00
 @LINK@ #0068da
 @RED@ #ff3b30
 @ORANGE@ #ff9500
@@ -31,3 +32,6 @@
 @FIELD_EDGE@ rgba(0, 0, 0, 0.18)
 @TRACK@ rgba(0, 0, 0, 0.1)
 @KNOB@ #ffffff
+@SIDEBAR_ICON@ rgba(0, 0, 0, 0.847)
+@SIDEBAR_SEL@ rgba(0, 0, 0, 0.08)
+@TEXT_SEL@ #ffdfb3

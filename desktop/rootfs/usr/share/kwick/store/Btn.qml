@@ -16,7 +16,7 @@ Rectangle {
     readonly property bool macOff: Look.mac && !enabled
     opacity: enabled || macOff ? 1 : 0.45
     color: macOff ? (flat ? "transparent" : Look.getBg)
-         : primary ? (area.pressed ? Qt.darker(Look.accent, 1.12) : area.containsMouse ? Qt.lighter(Look.accent, 1.06) : Look.accent)
+         : primary ? (area.pressed ? Qt.darker(Look.fill, 1.12) : area.containsMouse ? Qt.darker(Look.fill, 1.06) : Look.fill)
                    : flat ? (area.pressed ? Look.pressed : area.containsMouse ? Look.hover : "transparent")
                    : Look.mac ? (area.pressed ? Look.pressed : area.containsMouse ? Look.getBgHover : Look.getBg)
                    : (area.pressed ? Look.pressed : area.containsMouse ? Qt.tint(Look.openBg, Look.hover) : Look.openBg)

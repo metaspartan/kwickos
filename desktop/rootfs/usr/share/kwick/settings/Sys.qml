@@ -39,16 +39,10 @@ QtObject {
     property bool dockMagnify: true
     property var pinned: []
 
-    readonly property var accents: [
-        { name: "blue", hex: "#0a84ff", lhex: "#007aff" },
-        { name: "purple", hex: "#bf5af2", lhex: "#af52de" },
-        { name: "pink", hex: "#ff375f", lhex: "#ff2d55" },
-        { name: "red", hex: "#ff453a", lhex: "#ff3b30" },
-        { name: "orange", hex: "#ff9f0a", lhex: "#ff9500", sel: "#d06f00", lsel: "#e17b00" },
-        { name: "yellow", hex: "#ffd60a", lhex: "#ffcc00" },
-        { name: "green", hex: "#30d158", lhex: "#34c759" },
-        { name: "graphite", hex: "#98989d", lhex: "#8e8e93" }
-    ]
+    property var accents: []
+    property string highlightName: "accent"
+    property string sidebarIcons: "neutral"
+    property bool tint: false
 
     readonly property QtObject source: P5.DataSource {
         engine: "executable"
@@ -132,15 +126,30 @@ QtObject {
                 sys.radiusDefault = parseInt(rp[1])
             }
         }
-        if (s.accent && s.accent.length) {
-            sys.accentName = s.accent[0].trim()
-            for (var i = 0; i < sys.accents.length; i++) {
-                if (sys.accents[i].name === sys.accentName) {
-                    Theme.accent = Theme.light ? sys.accents[i].lhex : sys.accents[i].hex
-                    Theme.selection = sys.accents[i].sel ? (Theme.light ? sys.accents[i].lsel : sys.accents[i].sel) : Theme.accent
-                }
-            }
+        if (s.accent && s.accent.length) sys.accentName = s.accent[0].trim()
+        if (s.accents && s.accents.length) {
+            var al = []
+            s.accents.forEach(function (l) {
+                var p = l.trim().split(/\s+/)
+                if (p.length === 4) al.push({ name: p[0], label: p[1].replace(/_/g, " "), hex: p[2], lhex: p[3] })
+            })
+            sys.accents = al
         }
+        if (s.highlight && s.highlight.length) sys.highlightName = s.highlight[0].trim()
+        if (s.sidebar && s.sidebar.length) sys.sidebarIcons = s.sidebar[0].trim()
+        if (s.tint && s.tint.length) sys.tint = s.tint[0].trim() === "on"
+        if (s.colors && s.colors.length) applyColors(s.colors.join(""))
+    }
+
+    function applyColors(text) {
+        try {
+            Theme.colors = JSON.parse(text)
+        } catch (e) {
+        }
+    }
+
+    function reloadColors() {
+        run("kwick-layout colors --json", function (out) { applyColors(out); refresh() })
     }
 
     function parseDock(text) {
@@ -223,11 +232,24 @@ QtObject {
         run("kwick-layout radius default", refresh)
     }
 
-    function setAccent(a) {
-        sys.accentName = a.name
-        Theme.accent = Theme.light ? a.lhex : a.hex
-        Theme.selection = a.sel ? (Theme.light ? a.lsel : a.sel) : Theme.accent
-        run("kwick-layout accent " + a.name, refresh)
+    function setAccent(name) {
+        sys.accentName = name
+        run("kwick-layout accent '" + name + "'", reloadColors)
+    }
+
+    function setHighlight(name) {
+        sys.highlightName = name
+        run("kwick-layout highlight '" + name + "'", reloadColors)
+    }
+
+    function setSidebarIcons(v) {
+        sys.sidebarIcons = v
+        run("kwick-layout sidebar " + v, reloadColors)
+    }
+
+    function setTint(on) {
+        sys.tint = on
+        run("kwick-layout tint " + (on ? "on" : "off"), reloadColors)
     }
 
     function setPreset(p) {

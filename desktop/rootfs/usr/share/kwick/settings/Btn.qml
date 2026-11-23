@@ -13,7 +13,7 @@ Rectangle {
     readonly property bool filled: primary && enabled
     readonly property color ink: !enabled ? Theme.faint : danger ? Theme.bad : filled ? "#ffffff" : Theme.controlText
     color: !enabled ? Theme.control
-                    : filled ? (area.pressed ? Qt.darker(Theme.accent, 1.2) : area.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent)
+                    : filled ? (area.pressed ? Theme.fillPressed : area.containsMouse ? Theme.fillHover : Theme.fill)
                     : (area.pressed ? Theme.controlPressed : area.containsMouse ? Theme.controlHover : Theme.control)
     border.width: Theme.light && !filled ? 1 : 0
     border.color: Theme.lineStrong

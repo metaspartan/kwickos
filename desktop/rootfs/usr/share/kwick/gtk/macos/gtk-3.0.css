@@ -3,7 +3,7 @@
 @define-color theme_base_color @VIEW@;
 @define-color theme_text_color @FG@;
 @define-color theme_selected_bg_color @SELECTED@;
-@define-color theme_selected_fg_color #ffffff;
+@define-color theme_selected_fg_color @SEL_FG@;
 @define-color theme_unfocused_bg_color @UNDER@;
 @define-color theme_unfocused_fg_color @FG_SECONDARY@;
 @define-color theme_unfocused_base_color @VIEW@;
@@ -88,7 +88,26 @@ headerbar:hover button image {
 .sidebar-pane image,
 placessidebar image,
 .sidebar image {
-  color: @ACCENT@;
+  color: @SIDEBAR_ICON@;
+}
+
+placessidebar row:selected,
+.navigation-sidebar row:selected,
+.sidebar row:selected {
+  background-color: @SIDEBAR_SEL@;
+  color: @FG@;
+}
+
+placessidebar row:selected label,
+.navigation-sidebar row:selected label,
+.sidebar row:selected label {
+  color: @FG@;
+}
+
+selection,
+*:selected selection {
+  background-color: @TEXT_SEL@;
+  color: @FG@;
 }
 
 window.csd decoration {

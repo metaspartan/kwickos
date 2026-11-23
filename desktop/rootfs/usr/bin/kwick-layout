@@ -8,10 +8,20 @@ usage: kwick-layout radius [0-24|default]
   set the window corner radius for the current layout, or print "current default"
 usage: kwick-layout appearance [dark|light]
   switch every layout and desktop to dark or light, or print the current appearance
-usage: kwick-layout accent [blue|purple|pink|red|orange|yellow|green|graphite|default]
-  set the accent color for every layout, or print the current one
+usage: kwick-layout accent [NAME|#RRGGBB|default|list]
+  set the accent color for every layout, or print the current one; list prints every NAME with its label,
+  dark and light value: blue purple pink red orange yellow green graphite deepblue indigo teal forest
+  crimson burntorange plum brown slate
+usage: kwick-layout highlight [accent|graphite|NAME|#RRGGBB]
+  colour of list and text selection, or print the current one
+usage: kwick-layout sidebar [neutral|accent|default]
+  colour of sidebar icons, or print the current one
+usage: kwick-layout tint [on|off|default]
+  wallpaper tinting: translucent, blurred window backgrounds and sidebars, or print the current state
+usage: kwick-layout colors [--json]
+  the accent, highlight and sidebar colours derived for the current appearance
 usage: kwick-layout status [--json]
-  layout, appearance, corner radius and desktop session
+  layout, appearance, corner radius, colours and desktop session
 USAGE
 }
 set -u
@@ -23,10 +33,14 @@ if [ "${1:-}" = status ]; then
   sr=$(cat "$cfg/radius" 2>/dev/null)
   case $sr in ''|*[!0-9]*) sr= ;; esac
   sd=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9:_-')
+  sc=$(cat "$cfg/accent" 2>/dev/null | tr -cd 'a-z0-9#'); sc=${sc:-default}
+  sh=$(cat "$cfg/highlight" 2>/dev/null | tr -cd 'a-z0-9#'); sh=${sh:-accent}
+  sb=$(cat "$cfg/sidebar" 2>/dev/null | tr -cd 'a-z'); sb=${sb:-default}
+  st=$(cat "$cfg/tint" 2>/dev/null | tr -cd 'a-z'); st=${st:-default}
   if [ "${2:-}" = --json ]; then
-    printf '{"layout":"%s","appearance":"%s","radius":%s,"desktop":"%s"}\n' "$sl" "$sa" "${sr:-null}" "$sd"
+    printf '{"layout":"%s","appearance":"%s","radius":%s,"accent":"%s","highlight":"%s","sidebar":"%s","tint":"%s","desktop":"%s"}\n' "$sl" "$sa" "${sr:-null}" "$sc" "$sh" "$sb" "$st" "$sd"
   else
-    printf 'layout %s\nappearance %s\nradius %s\ndesktop %s\n' "$sl" "$sa" "${sr:-default}" "${sd:-none}"
+    printf 'layout %s\nappearance %s\nradius %s\naccent %s\nhighlight %s\nsidebar %s\ntint %s\ndesktop %s\n' "$sl" "$sa" "${sr:-default}" "$sc" "$sh" "$sb" "$st" "${sd:-none}"
   fi
   exit 0
 fi
@@ -43,9 +57,12 @@ if [ "$want" = appearance ]; then
   want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
 fi
 rcmd=
-acmd=
-if [ "$want" = accent ]; then
-  acmd=${2:-query}
+ccmd=
+copt=
+case $want in
+  accent|highlight|sidebar|tint|colors) ccmd=$want; copt=${2:-query} ;;
+esac
+if [ -n "$ccmd" ]; then
   want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
 elif [ "$want" = radius ]; then
   rcmd=${2:-query}
@@ -61,24 +78,40 @@ light() { [ "$MODE" = light ]; }
 
 accents() {
   cat <<'ACCENTS'
-blue 10,132,255 0,122,255 #419cff #0068da
-purple 191,90,242 175,82,222 #bf5af2 #a64ed3
-pink 255,55,95 255,45,85 #ff375f #e2284b
-red 255,69,58 255,59,48 #ff453a #df342a
-orange 255,159,10 255,149,0 #ff9f0a #ad6500
-yellow 255,214,10 255,204,0 #ffd60a #907300
-green 48,209,88 52,199,89 #30d158 #23873c
-graphite 152,152,157 142,142,147 #98989d #757579
+blue Blue 10,132,255 0,122,255
+purple Purple 191,90,242 175,82,222
+pink Pink 255,55,95 255,45,85
+red Red 255,69,58 255,59,48
+orange Orange 255,159,10 255,149,0
+yellow Yellow 255,214,10 255,204,0
+green Green 48,209,88 52,199,89
+graphite Graphite 152,152,157 142,142,147
+deepblue Deep_Blue 64,112,255 0,64,221
+indigo Indigo 94,92,230 88,86,214
+teal Teal 48,176,199 0,130,153
+forest Forest 64,170,104 30,122,60
+crimson Crimson 236,64,90 179,18,46
+burntorange Burnt_Orange 238,108,46 194,65,12
+plum Plum 186,104,200 126,58,158
+brown Brown 172,142,104 138,106,69
+slate Slate 132,148,168 91,107,127
 ACCENTS
 }
 
+ishex() { case $1 in \#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]) return 0 ;; esac; return 1; }
+
+rgbof() { h=${1#?}; printf '%d,%d,%d' "0x$(printf '%s' "$h" | cut -c1-2)" "0x$(printf '%s' "$h" | cut -c3-4)" "0x$(printf '%s' "$h" | cut -c5-6)"; }
+
 accentcol() {
-  accents | while read -r an ad al atd atl; do
+  if ishex "$1"; then
+    case $2 in old|rgb) rgbof "$1" ;; esac
+    return 0
+  fi
+  accents | while read -r an _ ad al; do
     [ "$an" = "$1" ] || continue
     case $2 in
       old) echo "$ad" ;;
       rgb) if [ "${3:-$MODE}" = light ]; then echo "$al"; else echo "$ad"; fi ;;
-      text) if [ "${3:-$MODE}" = light ]; then echo "$atl"; else echo "$atd"; fi ;;
     esac
   done
 }
@@ -91,7 +124,7 @@ accentmigrate() {
   u=
   grep -qas accent-color "${XDG_CONFIG_HOME:-$HOME/.config}/dconf/user" && u=$(gsettings get org.gnome.desktop.interface accent-color 2>/dev/null | tr -d "'")
   [ "$u" = slate ] && u=graphite
-  n=$(accents | while read -r an ad _; do [ "$ad" = "$k" ] && echo "$an"; done)
+  n=$(accents | head -n 8 | while read -r an _ ad _; do [ "$ad" = "$k" ] && echo "$an"; done)
   [ "$n" = blue ] && [ "$u" != blue ] && n=
   case $de in *gnome*) [ -n "$n" ] || [ "$u" = purple ] || [ -z "$(accentcol "$u" old)" ] || n=$u ;; esac
   echo "${n:-default}" > "$cfg/accent"
@@ -100,21 +133,182 @@ accentmigrate() {
 chosen() {
   accentmigrate
   c=$(cat "$cfg/accent" 2>/dev/null)
+  ishex "$c" && c=$(printf '%s' "$c" | tr 'A-F' 'a-f')
   [ -n "$(accentcol "$c" old)" ] && echo "$c"
   true
 }
 
-defaccent() { case $want in macos) light && echo 255,149,0 || echo 255,159,10 ;; windows) echo 0,120,212 ;; *) light && echo 46,125,233 || echo 94,129,244 ;; esac; }
+defaccent() { m=${1:-$MODE}; case $want in macos) [ "$m" = light ] && echo 255,149,0 || echo 255,159,10 ;; windows) echo 0,120,212 ;; *) [ "$m" = light ] && echo 46,125,233 || echo 94,129,244 ;; esac; }
 
-accentpal() {
-  c=$(chosen)
-  if [ -z "$c" ] || { [ "$want" = macos ] && [ "$c" = orange ]; }; then cat; return 0; fi
-  a=$(hexof "$(accentcol "$c" rgb "$1")")
-  ts=$(accentcol "$c" rgb "$1" | awk -F, -v l="$1" '{ if (l == "light") printf "%02x%02x%02x", .3*$1+179, .3*$2+179, .3*$3+179; else printf "%02x%02x%02x", .3*$1+60.5, .3*$2+59.93, .3*$3+63.01 }')
-  sed -e "s|^@ACCENT@ .*|@ACCENT@ $a|" -e "s|^@SELECTED@ .*|@SELECTED@ $a|" -e "s|^@TERM_SEL@ .*|@TERM_SEL@ $ts|" -e "s|^@ACCENT_TEXT@ .*|@ACCENT_TEXT@ $(accentcol "$c" text "$1")|" -e "s|^@ACCENT_RAW@ .*|@ACCENT_RAW@ ${a#?}|"
+highlight() {
+  h=$(cat "$cfg/highlight" 2>/dev/null)
+  ishex "$h" && h=$(printf '%s' "$h" | tr 'A-F' 'a-f')
+  case $h in graphite) echo graphite ;; ''|accent) echo accent ;; *) [ -n "$(accentcol "$h" old)" ] && echo "$h" || echo accent ;; esac
 }
 
-palette() { [ -f "$1/palette-$MODE" ] && accentpal "$MODE" < "$1/palette-$MODE" | sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/'; true; }
+sidebar() {
+  s=$(cat "$cfg/sidebar" 2>/dev/null)
+  case $s in neutral|accent) echo "$s" ;; *) [ "$want" = linux ] && echo accent || echo neutral ;; esac
+}
+
+tinton() {
+  t=$(cat "$cfg/tint" 2>/dev/null)
+  case $t in on) return 0 ;; off) return 1 ;; esac
+  [ "$want" = macos ] || return 1
+  [ -e "$cfg/blur.auto-off" ] && return 1
+  case $de in
+    *kde*) [ "$(kreadconfig6 --file kwinrc --group Plugins --key blurEnabled --default true 2>/dev/null)" = true ] ;;
+    *gnome*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+acc_set() { [ -n "$(chosen)" ]; }
+
+hl_set() { [ "$(highlight)" != accent ]; }
+
+DERIVE='
+function lin(c) { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ^ 2.4 }
+function lum(r, g, b) { return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) }
+function con(a, b) { return a > b ? (a + 0.05) / (b + 0.05) : (b + 0.05) / (a + 0.05) }
+function rd(x) { return int(x + 0.5) }
+function hsv(r, g, b,    mx, mn, d) {
+  mx = r > g ? (r > b ? r : b) : (g > b ? g : b)
+  mn = r < g ? (r < b ? r : b) : (g < b ? g : b)
+  d = mx - mn; V = mx / 255; S = mx ? d / mx : 0
+  if (!d) H = 0
+  else if (mx == r) H = 60 * ((g - b) / d)
+  else if (mx == g) H = 60 * (2 + (b - r) / d)
+  else H = 60 * (4 + (r - g) / d)
+  if (H < 0) H += 360
+}
+function rgb(h, s, v,    i, f, p, q, t) {
+  h = (h % 360 + 360) % 360 / 60; i = int(h); f = h - i
+  p = v * (1 - s); q = v * (1 - s * f); t = v * (1 - s * (1 - f))
+  if (i == 0) { R = v; G = t; B = p } else if (i == 1) { R = q; G = v; B = p } else if (i == 2) { R = p; G = v; B = t }
+  else if (i == 3) { R = p; G = q; B = v } else if (i == 4) { R = t; G = p; B = v } else { R = v; G = p; B = q }
+  R = rd(R * 255); G = rd(G * 255); B = rd(B * 255)
+}
+function fmt(r, g, b) { return r "," g "," b }
+function darken(r, g, b, bg, want,    k) {
+  hsv(r, g, b)
+  for (k = V; k > 0; k -= 0.005) { rgb(H, S, k); if (con(lum(R, G, B), bg) >= want) return fmt(R, G, B) }
+  return "0,0,0"
+}
+function lighten(r, g, b, bg, want,    k) {
+  hsv(r, g, b)
+  for (k = V; k <= 1; k += 0.005) { rgb(H, S, k); if (con(lum(R, G, B), bg) >= want) return fmt(R, G, B) }
+  r = R; g = G; b = B
+  for (k = 0; k <= 1; k += 0.01) {
+    R = rd(r + (255 - r) * k); G = rd(g + (255 - g) * k); B = rd(b + (255 - b) * k)
+    if (con(lum(R, G, B), bg) >= want) return fmt(R, G, B)
+  }
+  return "255,255,255"
+}
+function scale(r, g, b, f) { hsv(r, g, b); rgb(H, S, V * f); return fmt(R, G, B) }
+function deepen(r, g, b, dark,    sh, t, d) {
+  hsv(r, g, b)
+  sh = dark ? 4.5 : 2.3
+  t = H < 60 ? 0 : H < 180 ? 120 : H < 300 ? 240 : 360
+  d = t - H; if (d > sh) d = sh; if (d < -sh) d = -sh
+  rgb(H + d, S * 1.15 > 1 ? 1 : S * 1.15, V * (dark ? 0.816 : 0.882))
+  return fmt(R, G, B)
+}
+BEGIN {
+  dark = mode != "light"
+  W = 1
+  win = dark ? lum(50, 50, 50) : lum(236, 236, 236)
+  split(accent, a, ",")
+  if (custom) {
+    if (dark && con(lum(a[1], a[2], a[3]), lum(30, 30, 30)) < 2.5) accent = lighten(a[1], a[2], a[3], lum(30, 30, 30), 2.5)
+    if (!dark && con(lum(a[1], a[2], a[3]), W) < 1.5) accent = darken(a[1], a[2], a[3], W, 1.5)
+    split(accent, a, ",")
+  }
+  print "accent " accent
+  fill = con(lum(a[1], a[2], a[3]), W) >= 3 ? accent : darken(a[1], a[2], a[3], W, 3)
+  print "fill " fill
+  split(fill, f, ",")
+  print "hover " scale(f[1], f[2], f[3], 0.92)
+  print "pressed " scale(f[1], f[2], f[3], 0.84)
+  text = con(lum(a[1], a[2], a[3]), win) >= 4.5 ? accent : dark ? lighten(a[1], a[2], a[3], win, 4.5) : darken(a[1], a[2], a[3], win, 4.5)
+  print "text " text
+  if (hl == "graphite") {
+    print "selected " (dark ? "70,70,70" : "220,220,220")
+    print "selectedtext " (dark ? "255,255,255" : "38,38,38")
+    print "textsel " (dark ? "70,70,70" : "220,220,220")
+  } else {
+    if (hl == "accent") hl = accent
+    split(hl, h, ",")
+    s = deepen(h[1], h[2], h[3], dark); split(s, x, ",")
+    if (con(lum(x[1], x[2], x[3]), W) < 3) s = darken(x[1], x[2], x[3], W, 3)
+    print "selected " s
+    print "selectedtext 255,255,255"
+    print "textsel " (dark ? fmt(int(.3 * h[1] + 60.5), int(.3 * h[2] + 59.93), int(.3 * h[3] + 63.01)) : fmt(int(.3 * h[1] + 179), int(.3 * h[2] + 179), int(.3 * h[3] + 179)))
+  }
+  print "sidebaricon " (side == "accent" ? text : dark ? "255,255,255" : "64,64,64")
+  print "sidebarsel " (dark ? "255,255,255,0.1" : "0,0,0,0.08")
+}'
+
+derive() {
+  m=${1:-$MODE}
+  c=$(chosen)
+  if [ -n "$c" ]; then a=$(accentcol "$c" rgb "$m"); else a=$(defaccent "$m"); fi
+  h=$(highlight)
+  case $h in graphite|accent) ;; *) h=$(accentcol "$h" rgb "$m") ;; esac
+  awk -v mode="$m" -v accent="$a" -v hl="$h" -v side="$(sidebar)" -v custom="$(ishex "$c" && echo 1 || echo 0)" "$DERIVE"
+}
+
+dv() { printf '%s\n' "$1" | sed -n "s/^$2 //p"; }
+
+rgbcss() { printf '%s' "$1" | awk -F, '{ if (NF == 4) printf "rgba(%d, %d, %d, %s)", $1, $2, $3, $4; else printf "#%02x%02x%02x", $1, $2, $3 }'; }
+
+accentpal() {
+  d=$(derive "$1")
+  ex=
+  if [ "$want" = macos ] || acc_set; then
+    ex="$ex
+s|^@ACCENT@ .*|@ACCENT@ $(rgbcss "$(dv "$d" fill)")|
+s|^@ACCENT_TEXT@ .*|@ACCENT_TEXT@ $(rgbcss "$(dv "$d" text)")|
+s|^@ACCENT_RAW@ .*|@ACCENT_RAW@ $(rgbcss "$(dv "$d" fill)" | cut -c2-)|"
+  fi
+  if [ "$want" = macos ] || acc_set || hl_set; then
+    ex="$ex
+s|^@SELECTED@ .*|@SELECTED@ $(rgbcss "$(dv "$d" selected)")|
+s|^@SEL_FG@ .*|@SEL_FG@ $(rgbcss "$(dv "$d" selectedtext)")|
+s|^@TERM_SEL@ .*|@TERM_SEL@ $(rgbcss "$(dv "$d" textsel)" | cut -c2-)|
+s|^@TEXT_SEL@ .*|@TEXT_SEL@ $(rgbcss "$(dv "$d" textsel)")|
+s|^@TERM_SEL_FG@ .*|@TERM_SEL_FG@ $(rgbcss "$(dv "$d" selectedtext)" | cut -c2-)|"
+  fi
+  si=$(rgbcss "$(dv "$d" sidebaricon)")
+  [ "$(sidebar)" = neutral ] && si=$(sed -n 's/^@FG@ //p' "$2" 2>/dev/null | head -n 1)
+  sed -e "$ex
+s|^@SIDEBAR_ICON@ .*|@SIDEBAR_ICON@ $si|
+s|^@SIDEBAR_SEL@ .*|@SIDEBAR_SEL@ $(rgbcss "$(dv "$d" sidebarsel)")|" "$2"
+}
+
+gnomename() {
+  printf '%s\n' "$1" | awk -F, '{
+    split("blue teal green yellow orange red pink purple slate", n, " ")
+    split("53,132,228 33,144,164 58,148,74 200,136,0 237,91,0 230,45,66 213,97,153 145,65,172 111,131,150", v, " ")
+    m = sat = 0; mx = $1 > $2 ? ($1 > $3 ? $1 : $3) : ($2 > $3 ? $2 : $3); mn = $1 < $2 ? ($1 < $3 ? $1 : $3) : ($2 < $3 ? $2 : $3)
+    if (mx - mn < 30) { print "slate"; exit }
+    best = 1e9
+    for (i = 1; i <= 8; i++) { split(v[i], c, ","); d = ($1 - c[1]) ^ 2 + ($2 - c[2]) ^ 2 + ($3 - c[3]) ^ 2; if (d < best) { best = d; m = i } }
+    print n[m]
+  }'
+}
+
+colorsjson() {
+  dd=$(derive dark); dl=$(derive light)
+  one() { printf '%s\n' "$1" | while read -r k v; do printf '"%s":"%s",' "$k" "$(rgbcss "$v")"; done | sed 's/,$//'; }
+  c=$(chosen); [ -n "$c" ] || c=default
+  printf '{"accent":"%s","highlight":"%s","sidebar":"%s","sidebarSelection":"%s","tint":%s,"layout":"%s","dark":{%s},"light":{%s}}\n' \
+    "$c" "$(highlight)" "$(sidebar)" "$([ "$want" = macos ] && echo neutral || echo highlight)" "$(tinton && echo true || echo false)" "$want" "$(one "$dd")" "$(one "$dl")"
+}
+
+writecolors() { colorsjson > "$cfg/colors.json.new" && mv "$cfg/colors.json.new" "$cfg/colors.json"; }
+
+palette() { [ -f "$1/palette-$MODE" ] && accentpal "$MODE" "$1/palette-$MODE" | sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/'; true; }
 
 symbolic() { [ -f "$1/palette-dark" ] && sed -n 's/^@\([A-Z_]*\)@ .*$/\1/p' "$1/palette-dark" | while read -r n; do printf 's|@%s@|@kwick_%s|g\n' "$n" "$(printf '%s' "$n" | tr 'A-Z' 'a-z')"; done; true; }
 
@@ -135,7 +329,7 @@ gtk3themes() {
     mkdir -p "$gt"
     {
       printf '@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained%s.css");\n' "$([ $gm = dark ] && echo -dark)"
-      accentpal "$gm" < "$gd/palette-$gm" | sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' | while read -r gn gv; do
+      accentpal "$gm" "$gd/palette-$gm" | sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' | while read -r gn gv; do
         printf '@define-color kwick_%s %s;\n' "$(printf '%s' "$gn" | tr 'A-Z' 'a-z')" "$gv"
       done
     } > "$gt/gtk.css.new" && mv "$gt/gtk.css.new" "$gt/gtk.css"
@@ -244,6 +438,20 @@ gtkbuttons() {
   true
 }
 
+gtklinux() {
+  d=$(derive)
+  if acc_set; then
+    printf '@define-color accent_bg_color %s;\n@define-color accent_color %s;\n:root {\n  --accent-bg-color: %s;\n  --accent-color: %s;\n}\n' \
+      "$(rgbcss "$(dv "$d" fill)")" "$(rgbcss "$(dv "$d" text)")" "$(rgbcss "$(dv "$d" fill)")" "$(rgbcss "$(dv "$d" text)")" >> "$1"
+  fi
+  if [ "$(sidebar)" = accent ]; then
+    printf '.navigation-sidebar row image,\n.navigation-sidebar image,\nplacessidebar image,\n.sidebar image {\n  color: %s;\n}\n' "$(rgbcss "$(dv "$d" sidebaricon)")" >> "$1"
+  fi
+  if hl_set; then
+    printf 'selection {\n  background-color: %s;\n}\n' "$(rgbcss "$(dv "$d" textsel)")" >> "$1"
+  fi
+}
+
 gtkstyle() {
   GC=${XDG_CONFIG_HOME:-$HOME/.config}
   rad=$(curradius); [ -n "$rad" ] || rad=$(defrad)
@@ -274,6 +482,7 @@ gtkstyle() {
       fi
     fi
   done
+  [ "$want" = linux ] && gtklinux "$GC/gtk-4.0/gtk.css"
   for p in $(pgrep -f '[g]nome-terminal-server' 2>/dev/null); do
     [ -z "$(pgrep -P "$p" 2>/dev/null)" ] && kill "$p" 2>/dev/null
   done
@@ -336,10 +545,9 @@ kdescheme() {
     windows) SCHEME=KwickFluent$(light && echo Light) ;;
     linux)   SCHEME=Kwick$(light && echo Light || echo Dark) ;;
   esac
-  ACC=$(defaccent)
-  c=$(chosen)
-  [ -n "$c" ] && ACC=$(accentcol "$c" rgb)
-  if [ "$want" = macos ] && [ "$ACC" = "$(defaccent)" ]; then
+  KD=$(derive)
+  ACC=$(dv "$KD" accent)
+  if [ "$want" = macos ]; then
     kwriteconfig6 --file kdeglobals --group General --key AccentColor --delete
   else
     kw kdeglobals General AccentColor "$ACC"
@@ -347,18 +555,69 @@ kdescheme() {
   kw kdeglobals General ColorScheme none
   plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
   kw kdeglobals General AccentColor "$ACC"
+  SF=
   for d in "${XDG_DATA_HOME:-$HOME/.local/share}" /usr/local/share /usr/share; do
     [ -f "$d/color-schemes/$SCHEME.colors" ] || continue
-    kw kdeglobals General ColorSchemeHash "$(sha1sum "$d/color-schemes/$SCHEME.colors" | cut -d' ' -f1)"
+    SF=$d/color-schemes/$SCHEME.colors
+    kw kdeglobals General ColorSchemeHash "$(sha1sum "$SF" | cut -d' ' -f1)"
     break
   done
+  kdecolors
+}
+
+schemekey() { [ -n "$SF" ] && awk -F= -v g="[$1]" -v k="$2" '$0 == g { on = 1; next } /^\[/ { on = 0 } on && $1 == k { print $2; exit }' "$SF"; }
+
+kdecolors() {
+  [ -n "${KD:-}" ] || KD=$(derive)
+  SB=$(sidebar)
+  AS=; { [ "$want" = macos ] || acc_set; } && AS=1
+  HS=; { [ -n "$AS" ] || hl_set; } && HS=1
+  TN=false; tinton && TN=true
+  for g in Window View Button Header Header][Inactive Tooltip Complementary; do
+    set -- --file kdeglobals --group "Colors:${g%%]*}"
+    [ "$g" = "Header][Inactive" ] && set -- "$@" --group Inactive
+    if [ "$SB" = accent ]; then
+      kwriteconfig6 "$@" --key ForegroundActive "$(dv "$KD" text)"
+    else
+      fa=$(schemekey "Colors:$g" ForegroundNormal)
+      [ -n "$fa" ] && kwriteconfig6 "$@" --key ForegroundActive "$fa"
+    fi
+    if [ -n "$AS" ]; then
+      kwriteconfig6 "$@" --key DecorationFocus "$ACC"
+      kwriteconfig6 "$@" --key DecorationHover "$ACC"
+    fi
+  done
+  if [ -n "$HS" ]; then
+    S="--file kdeglobals --group Colors:Selection"
+    st=$(dv "$KD" selectedtext)
+    kwriteconfig6 $S --key BackgroundNormal "$(dv "$KD" selected)"
+    kwriteconfig6 $S --key BackgroundAlternate "$(dv "$KD" selected)"
+    kwriteconfig6 $S --key DecorationFocus "$ACC"
+    kwriteconfig6 $S --key DecorationHover "$ACC"
+    for k in ForegroundNormal ForegroundActive ForegroundLink ForegroundVisited ForegroundNeutral; do kwriteconfig6 $S --key $k "$st"; done
+    if [ "$st" = 255,255,255 ]; then
+      kwriteconfig6 $S --key ForegroundInactive "$(schemekey Colors:Selection ForegroundInactive || echo 216,216,216)"
+    else
+      kwriteconfig6 $S --key ForegroundInactive 110,110,110
+    fi
+  fi
+  wb=$(schemekey Colors:Window BackgroundNormal)
+  [ -n "$wb" ] && kw kdeglobals Colors:Window BackgroundNormal "$wb"
+  kw kdeglobals KwickOS SidebarSelection "$([ "$want" = macos ] && echo neutral || echo highlight)"
+  kw kdeglobals KwickOS SidebarIcons "$SB"
+  kw kdeglobals KwickOS WallpaperTint "$TN"
+  dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.notifyChange int32:0 int32:0 >/dev/null 2>&1 || true
 }
 
 gnomeaccent() {
   c=$(chosen)
   [ -n "$c" ] || c=$(sed -n "s/^org.gnome.desktop.interface accent-color '\([a-z]*\)'$/\1/p" "/usr/share/kwick/gnome/$want.settings" 2>/dev/null)
   [ -n "$c" ] || return 0
-  [ "$c" = graphite ] && c=slate
+  case $c in
+    blue|purple|pink|red|orange|yellow|green|teal|slate) ;;
+    graphite) c=slate ;;
+    *) c=$(gnomename "$(accentcol "$c" rgb dark)") ;;
+  esac
   gsettings set org.gnome.desktop.interface accent-color "'$c'" 2>/dev/null
   true
 }
@@ -662,6 +921,11 @@ tiling() {
 }
 ' "$(curradius)" >> "$C/hypr/kwick-layout.conf"
   [ -f "$C/hypr/kwick-effects.conf" ] || : > "$C/hypr/kwick-effects.conf"
+  if tinton; then
+    echo 'windowrulev2 = opacity 0.94 0.9, class:^(org.kde.dolphin|dolphin|org.gnome.Nautilus|nautilus|kwick-settings|org.kwickos.settings.qml|kwick-store|org.kwickos.store|systemsettings|org.gnome.Settings|org.gnome.Software)$' > "$C/hypr/kwick-tint.conf"
+  else
+    : > "$C/hypr/kwick-tint.conf"
+  fi
   if [ -f "$T/$want/hyprbars.conf" ]; then sub x "$T/$want/hyprbars.conf" > "$C/hypr/kwick-bars.conf"; else : > "$C/hypr/kwick-bars.conf"; fi
   [ -f "$T/$want/colors.conf" ] && sub x "$T/$want/colors.conf" >> "$C/hypr/kwick-bars.conf"
   sub sway "$T/common/sway.conf" > "$C/sway/config"
@@ -744,24 +1008,47 @@ radius_main() {
   echo "radius: ${r:-default}"
 }
 
-accent_main() {
-  case $acmd in
-    query) c=$(chosen); [ -n "$c" ] || c=$([ "$want" = macos ] && echo orange || echo default); echo "$c"; return 0 ;;
-    default) echo default > "$cfg/accent" ;;
-    *) [ -n "$(accentcol "$acmd" old)" ] || { usage >&2; return 1; }; echo "$acmd" > "$cfg/accent" ;;
+color_main() {
+  case $ccmd:$copt in
+    accent:query) c=$(chosen); [ -n "$c" ] || c=$([ "$want" = macos ] && echo orange || echo default); echo "$c"; return 0 ;;
+    accent:list) accents | while read -r an al ad all; do printf '%s %s %s %s\n' "$an" "$al" "$(hexof "$ad")" "$(hexof "$all")"; done; return 0 ;;
+    accent:default) echo default > "$cfg/accent" ;;
+    accent:*) ishex "$copt" && copt=$(printf '%s' "$copt" | tr 'A-F' 'a-f'); [ -n "$(accentcol "$copt" old)" ] || { usage >&2; return 1; }; echo "$copt" > "$cfg/accent" ;;
+    highlight:query) highlight; return 0 ;;
+    highlight:accent|highlight:graphite|highlight:default) [ "$copt" = default ] && copt=accent; echo "$copt" > "$cfg/highlight" ;;
+    highlight:*) ishex "$copt" && copt=$(printf '%s' "$copt" | tr 'A-F' 'a-f'); [ -n "$(accentcol "$copt" old)" ] || { usage >&2; return 1; }; echo "$copt" > "$cfg/highlight" ;;
+    sidebar:query) sidebar; return 0 ;;
+    sidebar:neutral|sidebar:accent) echo "$copt" > "$cfg/sidebar" ;;
+    sidebar:default) rm -f "$cfg/sidebar" ;;
+    tint:query) tinton && echo on || echo off; return 0 ;;
+    tint:on|tint:off) echo "$copt" > "$cfg/tint" ;;
+    tint:default) rm -f "$cfg/tint" ;;
+    colors:--json) colorsjson; return 0 ;;
+    colors:query) derive | while read -r k v; do printf '%s %s\n' "$k" "$(rgbcss "$v")"; done; return 0 ;;
+    *) usage >&2; return 1 ;;
   esac
   case $de in
-    *kde*) kdescheme; gtkstyle; kdegtk ;;
+    *kde*)
+      case $ccmd in
+        accent|highlight) kdescheme ;;
+        *) case $want in macos) SCHEME=KwickGlass$(light && echo Light) ;; windows) SCHEME=KwickFluent$(light && echo Light) ;; *) SCHEME=Kwick$(light && echo Light || echo Dark) ;; esac
+           SF=$(for d in "${XDG_DATA_HOME:-$HOME/.local/share}" /usr/local/share /usr/share; do [ -f "$d/color-schemes/$SCHEME.colors" ] && echo "$d/color-schemes/$SCHEME.colors" && break; done)
+           ACC=$(dv "$(derive)" accent); kdecolors ;;
+      esac
+      gtkstyle; kdegtk
+      case $ccmd in accent) refresh_icons ;; sidebar|tint) (dolphin_reload) >/dev/null 2>&1 & ;; esac ;;
     *gnome*) gtkstyle; colorscheme ;;
     *hyprland*|*sway*) tiling >/dev/null ;;
   esac
   gnomeaccent
-  echo "accent: $(cat "$cfg/accent")"
+  writecolors
+  echo "$ccmd: $(cat "$cfg/$ccmd" 2>/dev/null || echo default)"
 }
 
 if [ -n "$rcmd" ]; then radius_main; exit $?; fi
-if [ -n "$acmd" ]; then accent_main; exit $?; fi
+if [ -n "$ccmd" ]; then color_main; exit $?; fi
 accentmigrate
+writecolors
 command -v kwick-touch >/dev/null 2>&1 && kwick-touch apply >/dev/null 2>&1
 case $de in
   *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) tiling ;;
