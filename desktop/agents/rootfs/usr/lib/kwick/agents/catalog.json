@@ -3,6 +3,35 @@
   "updated": "2026-11-20",
   "entries": [
     {
+      "name": "cybara",
+      "title": "Cybara",
+      "kind": "agent",
+      "vendor": "Carsen Klock",
+      "description": "Self-hosted open-source AI agent platform: gateway, web dashboard and terminal UI",
+      "homepage": "https://cybara.ai",
+      "source": "https://github.com/metaspartan/cybara",
+      "license": "MIT",
+      "version": "1.0.2596",
+      "released": "2026-11-19",
+      "method": "binary",
+      "assets": {
+        "amd64": {"url": "https://github.com/metaspartan/cybara/releases/download/v1.0.2596/cybara-v1.0.2596-linux-x64-cli", "sha256": "1f94ddeb8d1956c8afb77f9ceb6fbaa91b24630f6a13d456d8622e5b7f1cdda9", "size": 203503792, "format": "raw"},
+        "arm64": {"url": "https://github.com/metaspartan/cybara/releases/download/v1.0.2596/cybara-v1.0.2596-linux-arm64-cli", "sha256": "e9e97470340c6547cdfbbb79de2a3bf449ca515dd3dfa011ad004cf2d898cc9b", "size": 203607032, "format": "raw"}
+      },
+      "bin": {"cybara": "bin/cybara"},
+      "keys": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY"],
+      "home": [".cybara/"],
+      "env": {"CYBARA_DISABLE_UPDATE_CHECK": "1"},
+      "network": true,
+      "mcp": "none",
+      "mcp_hint": "Cybara keeps MCP servers in its database: in the dashboard open Settings > MCP Servers and add the command /usr/bin/kwick-mcp",
+      "ports": [4269],
+      "unsupported": {"riscv64": "Cybara publishes x64 and arm64 builds only"},
+      "verify": "sha256 pinned by KwickOS; equal to the vendor's .sha256 sidecar and checksums.txt",
+      "upstream_install": "curl -fsSL https://cybara.ai/install.sh | bash (same binary, checked against the .sha256 sidecar)",
+      "first_run": "run 'cybara start' and open http://localhost:4269"
+    },
+    {
       "name": "claude-code",
       "title": "Claude Code",
       "kind": "agent",
@@ -247,35 +276,6 @@
       "verify": "sha256 pinned by KwickOS; equal to the GitHub release asset digest (the vendor publishes no checksum file)",
       "upstream_install": "curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash (no checksum check)",
       "first_run": "run 'goose configure' to choose a provider; keys from 'kwick-agents key set goose ...' are passed as environment variables"
-    },
-    {
-      "name": "cybara",
-      "title": "Cybara",
-      "kind": "agent",
-      "vendor": "Carsen Klock",
-      "description": "Self-hosted open-source AI agent platform: gateway, web dashboard and terminal UI",
-      "homepage": "https://cybara.ai",
-      "source": "https://github.com/metaspartan/cybara",
-      "license": "MIT",
-      "version": "1.0.2596",
-      "released": "2026-11-19",
-      "method": "binary",
-      "assets": {
-        "amd64": {"url": "https://github.com/metaspartan/cybara/releases/download/v1.0.2596/cybara-v1.0.2596-linux-x64-cli", "sha256": "1f94ddeb8d1956c8afb77f9ceb6fbaa91b24630f6a13d456d8622e5b7f1cdda9", "size": 203503792, "format": "raw"},
-        "arm64": {"url": "https://github.com/metaspartan/cybara/releases/download/v1.0.2596/cybara-v1.0.2596-linux-arm64-cli", "sha256": "e9e97470340c6547cdfbbb79de2a3bf449ca515dd3dfa011ad004cf2d898cc9b", "size": 203607032, "format": "raw"}
-      },
-      "bin": {"cybara": "bin/cybara"},
-      "keys": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY"],
-      "home": [".cybara/"],
-      "env": {"CYBARA_DISABLE_UPDATE_CHECK": "1"},
-      "network": true,
-      "mcp": "none",
-      "mcp_hint": "Cybara keeps MCP servers in its database: in the dashboard open Settings > MCP Servers and add the command /usr/bin/kwick-mcp",
-      "ports": [4269],
-      "unsupported": {"riscv64": "Cybara publishes x64 and arm64 builds only"},
-      "verify": "sha256 pinned by KwickOS; equal to the vendor's .sha256 sidecar and checksums.txt",
-      "upstream_install": "curl -fsSL https://cybara.ai/install.sh | bash (same binary, checked against the .sha256 sidecar)",
-      "first_run": "run 'cybara start' and open http://localhost:4269"
     },
     {
       "name": "ollama",
