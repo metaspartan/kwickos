@@ -6,7 +6,7 @@ LNF = os.path.join(ROOT, "desktop/rootfs/usr/share/plasma/look-and-feel")
 
 THEMES = {
     "macos": dict(name="KwickOS macOS", desc="Liquid glass: floating menu bar and dock, traffic lights, Inter",
-                  scheme="KwickGlass", accent="10,132,255", lib="org.kde.kwin.aurorae", deco="__aurorae__svg__KwickGlass",
+                  scheme="KwickGlass", accent="255,159,10", lib="org.kde.kwin.aurorae", deco="__aurorae__svg__KwickGlass",
                   left="XIA", right="", wall="KwickGlass", ui="Inter", mono="JetBrains Mono", icons="KwickOS"),
     "windows": dict(name="KwickOS Windows", desc="Windows 11 style: centered taskbar, Fluent caption buttons, Selawik",
                     scheme="KwickFluent", accent="0,120,212", lib="org.kde.kwin.aurorae", deco="__aurorae__svg__KwickFluent",

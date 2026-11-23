@@ -145,7 +145,7 @@ private:
     QString m_desktop;
     bool m_layered = false;
     bool m_dark = true;
-    QColor m_accent = QColor(10, 132, 255);
+    QColor m_accent = QColor(255, 159, 10);
     int m_radius = 10;
     QQmlEngine *m_engine = nullptr;
     QPointer<QQuickView> m_sheet;

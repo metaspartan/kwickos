@@ -257,7 +257,7 @@ void QuickLook::refreshTheme()
         accent = QColor::fromString(raw);
     }
     if (!accent.isValid()) {
-        accent = dark ? QColor(QStringLiteral("#0a84ff")) : QColor(QStringLiteral("#007aff"));
+        accent = dark ? QColor(QStringLiteral("#ff9f0a")) : QColor(QStringLiteral("#ff9500"));
     }
     if (!qEnvironmentVariable("XDG_CURRENT_DESKTOP").contains(QLatin1String("KDE"), Qt::CaseInsensitive) && layout != m_layout) {
         QIcon::setThemeName(iconThemeFor(layout));

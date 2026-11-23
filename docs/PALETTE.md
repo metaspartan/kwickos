@@ -23,18 +23,18 @@ KDE colour schemes only take opaque colours, so Apple's translucent label colour
 | `separatorColor` | white at 0.098 | borders and separators (`#19FFFFFF`), GTK `borders` |
 | `gridColor` | `#1A1A1A` (Monterey dump) | not used |
 | `controlColor` | white at 0.247 | buttons: KDE Button `over(0.247, 50)` = `#656565`; Settings buttons `#3FFFFFFF` |
-| `selectedContentBackgroundColor` | `#0058D0` (0, 88, 208) | KDE Selection alternate |
+| `selectedContentBackgroundColor` | `#0058D0` (0, 88, 208) with the blue accent | KwickOS uses the orange equivalent, see [Accent](#accent) |
 | `unemphasizedSelectedContentBackgroundColor` | `#464646` (70, 70, 70) | Settings switch and slider tracks; GTK3 unfocused selection |
-| `selectedTextBackgroundColor` | `#3F638B` (63, 99, 139) | foot (Hyprland Terminal) selection |
-| `linkColor` | `#419CFF` (65, 156, 255) | KDE ForegroundLink; GTK `accent_color` |
-| `controlAccentColor` | `#007AFF` | not used, the accent follows `systemBlue` |
+| `selectedTextBackgroundColor` | `#3F638B` (63, 99, 139) with the blue accent | KwickOS uses the orange equivalent, see [Accent](#accent) |
+| `linkColor` | `#419CFF` (65, 156, 255) | KDE ForegroundLink; GTK links. It stays blue whatever the accent, as on macOS |
+| `controlAccentColor` | the chosen accent | the accent, `systemOrange` by default, see [Accent](#accent) |
 
 | System colour (dark) | Value | KwickOS use |
 |---|---|---|
-| `systemBlue` | `#0A84FF` | accent (KDE AccentColor, Selection, focus), menu highlight, Settings accent |
+| `systemBlue` | `#0A84FF` | blue accent when chosen in Settings |
 | `systemGray` | `#98989D` | "graphite" accent, neutral title buttons |
 | `systemRed` | `#FF453A` | negative text, errors, Settings `bad` |
-| `systemOrange` | `#FF9F0A` | neutral text, warnings, attention dot in the dock |
+| `systemOrange` | `#FF9F0A` | default accent (KDE AccentColor, focus, active text, sidebar glyphs), menu highlight, Settings accent; neutral text, warnings, attention dot in the dock |
 | `systemYellow` | `#FFD60A` | yellow accent |
 | `systemGreen` | `#32D74B` (Monterey dump) | positive text, Settings `good` |
 | `systemPurple` | `#BF5AF2` | visited links, purple accent |
@@ -42,6 +42,31 @@ KDE colour schemes only take opaque colours, so Apple's translucent label colour
 | `systemIndigo` | `#5E5CE6` | Settings icon tint |
 
 Window controls: close `#FF5F57`, minimise `#FEBC2E`, zoom `#28C840`.
+
+### Accent
+
+The macOS layout's default accent is Apple's orange, `systemOrange`: `#FF9F0A` (255, 159, 10) in the dark appearance and
+`#FF9500` (255, 149, 0) in the light one. The colours AppKit derives from the accent are derived the same way for orange:
+
+| Role | Dark | Light | KwickOS use |
+|---|---|---|---|
+| `controlAccentColor` | `#FF9F0A` | `#FF9500` | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Control Center toggles), ForegroundActive (sidebar glyphs through `ColorScheme-ActiveText`), Qt menu highlight, GTK `accent_bg_color`, Settings switches and buttons, App Store, Spotlight, installer |
+| `selectedContentBackgroundColor` | `#D06F00` (208, 111, 0) | `#E17B00` (225, 123, 0) | KDE Selection (list and text selection, white text), GTK 3 `theme_selected_bg_color`, Settings sidebar selection |
+| `selectedTextBackgroundColor` | `#896B42` (137, 107, 66) | `#FFDFB3` (255, 223, 179) | foot selection, GtkSourceView selection |
+| accent as text | `#FF9F0A` | `#AD6500` | GTK `accent_color` (accent labels, focus rings); the light value is darkened to 4.5:1 on white |
+| `linkColor` | `#419CFF` | `#0068DA` | links stay blue, as macOS keeps `linkColor` blue with every accent |
+
+Apple has not published the orange variants of `selectedContentBackgroundColor` and `selectedTextBackgroundColor`, so they
+are derived from the published blue pair. With the blue accent `selectedContentBackgroundColor` is the accent at full saturation
+with the brightness scaled to 0.816 (dark) and 0.882 (light) and the hue moved 4.5 and 2.3 degrees deeper; the orange values
+apply the same scaling and move the hue towards red. `selectedTextBackgroundColor` is 30 % of the accent over `#565559` (dark)
+or white (light), which reproduces `#3F638B` and `#B3D7FF` for blue. White text on the accent measures 2.1:1 and on the
+selection 3.5:1 (dark) and 3.0:1 (light); Apple draws white text on orange, so KwickOS does too.
+
+Settings > Appearance can pick blue, purple, pink, red, orange, yellow, green or graphite (Apple's dark and light system
+colours). The choice is stored in `~/.config/kwick/accent` (`kwick-layout accent NAME`, `default` to follow the layout) and
+applies to every layout and desktop; without a choice the macOS layout uses orange and the Windows and Linux layouts keep
+`#0078D4` and the Tokyo Night blue.
 
 ### Materials
 
@@ -52,7 +77,7 @@ KwickOS approximates them with the documented solid colour of the same surface p
 |---|---|
 | Menu bar | `#1E1E1E` at 0.6 over blur (GNOME panel, Hyprland waybar); KwickGlass Plasma theme `#323232` at 0.55 over blur, no border |
 | Dock | `#323232` at 0.55 over blur, 1 px white 0.15 border, 18 px radius, white dot at 0.55 under running apps |
-| Menus and popovers | `windowBackgroundColor` `#323232`, separator border, `systemBlue` highlight |
+| Menus and popovers | `windowBackgroundColor` `#323232`, separator border, accent (`systemOrange`) highlight |
 | Sidebar | `underPageBackgroundColor` `#282828` (GTK) or the window colour (KDE, which has no separate sidebar role) |
 | Title bar | `windowBackgroundColor` active, `underPageBackgroundColor` inactive, title in `labelColor`, bold |
 
@@ -62,7 +87,7 @@ KwickOS approximates them with the documented solid colour of the same surface p
 |---|---|
 | Background | `#1E1E1E` (`textBackgroundColor`) |
 | Text | `#FFFFFF` (`textColor`) |
-| Selection | `#3F638B` (`selectedTextBackgroundColor`) |
+| Selection | `#896B42` (`selectedTextBackgroundColor` for the orange accent, see [Accent](#accent)) |
 | Cursor | `#929292`, block (approximation, see below) |
 | ANSI 0 to 7 | `#000000` `#990000` `#00A600` `#999900` `#0000B2` `#B200B2` `#00A6B2` `#BFBFBF` |
 | ANSI 8 to 15 | `#666666` `#E60000` `#00D900` `#E6E600` `#0000FF` `#E600E6` `#00E6E6` `#E6E6E6` |
@@ -160,5 +185,7 @@ Display P3 or a device colour space, not sRGB, so it is not used.
 - The Terminal.app Basic cursor colour (`#929292`) and the menu, dock and menu bar materials are approximations, not published values.
 - The Breeze widget style draws Qt menus in a mix of the Window and View colours, so KDE menus measure `#2C2C2C` in the macOS
   layout and `#1F1F1F` in the Windows layout instead of `#323232` and `#202020`. GNOME menus and popovers use the exact values.
-- KDE applies the accent colour to selections, so list selections use `systemBlue` `#0A84FF` rather than Finder's
-  `selectedContentBackgroundColor` `#0058D0`.
+- The orange `selectedContentBackgroundColor` and `selectedTextBackgroundColor` are derived from the blue values (see
+  [Accent](#accent)), not dumped from a Mac set to orange.
+- With an accent chosen in Settings, KDE's own accent code colours the selection (the accent at 70 % over the view) and the
+  links (the accent, lightened or darkened for contrast), as it did before the default became orange.

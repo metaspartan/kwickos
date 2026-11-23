@@ -62,7 +62,7 @@ the status icons drawn with the same 22 px white KwickOS tray glyphs as Plasma (
 charging), spaced evenly, and the date and time as "Wed Nov 18  1:37 AM". The dock floats centred at the bottom and is always shown.
 hyprbars draws a 28 px #323232 title bar with the traffic lights on the left, vertically centred; windows have a 10 px radius, a
 1 px light rim and a soft shadow, and stay opaque unless the transparency effect is on. swaylock uses the KwickOS dark palette with
-a blue ring (swaylock shows no user picture; SDDM shows the KwickOS avatar).
+an accent-coloured ring (swaylock shows no user picture; SDDM shows the KwickOS avatar).
 
 On GNOME the macOS layout is applied at the first GNOME login (`/usr/lib/kwick/gnome-session-init`), so the session never starts in
 the overview. The `kwick-menubar` extension makes the top bar a fully transparent 32 px bar: the KwickOS logo, the focused app in
@@ -90,6 +90,14 @@ Shells, or with `kwick-desktop shell NAME`; terminal shells and prompt presets w
 Keyboard (every shortcut, recorded with a click; `kwick-settings keyboard`, see [KEYS](KEYS.md)), GPU,
 Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Software Update (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). It runs in `/usr/lib/kwick/kwick-settings-app` (built from `src/kwick-settings`), which sets the Wayland app id to `kwick-settings`, so KWin (Alt+Tab, Overview, window icons), the dock and the taskbar match `kwick-settings.desktop`; without that binary it falls back to `qml6` with the app id `org.kwickos.settings.qml`, which `kwick-settings.desktop` names in `StartupWMClass`. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
 the same KwickOS object icons.
+
+The accent color defaults to Apple's orange in the macOS layout (`#FF9F0A` dark, `#FF9500` light; links stay blue) and to each
+layout's own accent elsewhere. Picking one in Appearance runs `kwick-layout accent NAME`, which stores it in
+`~/.config/kwick/accent` and applies it to KDE, GTK, GNOME Shell and the Hyprland and sway configs in every layout;
+`kwick-layout accent default` goes back to the layout's accent. When upgrading from a release with the blue default, the first
+`kwick-layout` run records an earlier choice: an `AccentColor` in `kdeglobals` that is one of the Settings colours other than
+blue, or blue when GNOME's `accent-color` was also set to blue in the user's dconf (only Settings writes it on Plasma), is kept.
+Everyone else follows the new default, and the next login applies orange once. See [PALETTE](PALETTE.md#accent).
 
 ## Keyboard shortcuts
 
@@ -124,7 +132,7 @@ There are no web results or suggestions. The four buttons at the right of the ba
 Files, Actions and the clipboard history (when the clipboard applet runs). Up and Down move, Cmd+Up and Cmd+Down jump between
 groups, Return opens, Cmd+Return shows a file in Files, Tab or Right takes the completion, Esc clears the text and closes on the
 second press, and a click outside closes it. It follows the appearance (`~/.config/kwick/appearance`, dark by default), the accent
-color (`AccentColor` in `kdeglobals`, macOS blue when unset) and the window corner radius, and keeps the last search for the next
+color (`AccentColor` in `kdeglobals`, macOS orange when unset) and the window corner radius, and keeps the last search for the next
 time.
 
 Every key typed after the shortcut lands in the field, even when typed at once. On Plasma, Hyprland and sway Spotlight is a
@@ -210,7 +218,7 @@ Plasma, GNOME and Hyprland:
 
 | layout | theme | style |
 |---|---|---|
-| macOS | `KwickOS` | squircle apps with layered gradients, light-blue folders with embossed glyphs, accent-blue sidebar glyphs |
+| macOS | `KwickOS` | squircle apps with layered gradients, light-blue folders with embossed glyphs, accent-coloured sidebar glyphs |
 | Windows | `KwickOS-Fluent` | white line icons for places, folders, actions, status and file types, flat Fluent app tiles |
 | Linux | `KwickOS-Linux` | Tokyo Night squircles |
 

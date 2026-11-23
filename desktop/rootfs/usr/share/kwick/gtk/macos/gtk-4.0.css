@@ -163,3 +163,11 @@ popover.menu separator {
   margin: 5px 5px;
   background-color: @SEPARATOR@;
 }
+
+link,
+link:visited,
+button.link,
+button.link:visited,
+button.link > label {
+  color: @LINK@;
+}

@@ -52,8 +52,8 @@ Rectangle {
         color: Look.text
         font.family: Look.sans
         font.pixelSize: Look.win ? 14 : 13
-        selectionColor: Look.accent
-        selectedTextColor: "#ffffff"
+        selectionColor: Look.mac ? Qt.rgba(Look.accent.r, Look.accent.g, Look.accent.b, Look.light ? 0.3 : 0.4) : Look.accent
+        selectedTextColor: Look.mac ? Look.text : "#ffffff"
         clip: true
         onAccepted: sf.accepted(text)
         Keys.onEscapePressed: { text = ""; sf.cleared() }

@@ -4,7 +4,7 @@ c=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
 d=${XDG_DATA_HOME:-$HOME/.local/share}
 [ -d "$c" ] && [ -d "$d/Trash/info" ] || mkdir -p "$c" "$d/Trash/files" "$d/Trash/info"
 layout=$(kwick-layout)
-state="$layout $(kwick-layout appearance)"
+state="$layout $(kwick-layout appearance) $(kwick-layout accent)"
 [ "$(cat "$c/$de.applied" 2>/dev/null)" = "$state" ] && exit 0
 kwick-layout "$layout" >/dev/null 2>&1
 echo "$state" > "$c/$de.applied"

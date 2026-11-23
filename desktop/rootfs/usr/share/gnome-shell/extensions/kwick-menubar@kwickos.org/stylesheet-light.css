@@ -101,8 +101,50 @@
 .popup-menu-item:hover,
 .popup-menu-item:focus,
 .popup-menu-item.selected {
-  background-color: #007aff;
+  background-color: #ff9500;
   color: #ffffff;
+}
+
+.kwick-accent-blue .popup-menu-item:hover,
+.kwick-accent-blue .popup-menu-item:focus,
+.kwick-accent-blue .popup-menu-item.selected {
+  background-color: #007aff;
+}
+
+.kwick-accent-purple .popup-menu-item:hover,
+.kwick-accent-purple .popup-menu-item:focus,
+.kwick-accent-purple .popup-menu-item.selected {
+  background-color: #af52de;
+}
+
+.kwick-accent-pink .popup-menu-item:hover,
+.kwick-accent-pink .popup-menu-item:focus,
+.kwick-accent-pink .popup-menu-item.selected {
+  background-color: #ff2d55;
+}
+
+.kwick-accent-red .popup-menu-item:hover,
+.kwick-accent-red .popup-menu-item:focus,
+.kwick-accent-red .popup-menu-item.selected {
+  background-color: #ff3b30;
+}
+
+.kwick-accent-yellow .popup-menu-item:hover,
+.kwick-accent-yellow .popup-menu-item:focus,
+.kwick-accent-yellow .popup-menu-item.selected {
+  background-color: #ffcc00;
+}
+
+.kwick-accent-green .popup-menu-item:hover,
+.kwick-accent-green .popup-menu-item:focus,
+.kwick-accent-green .popup-menu-item.selected {
+  background-color: #34c759;
+}
+
+.kwick-accent-slate .popup-menu-item:hover,
+.kwick-accent-slate .popup-menu-item:focus,
+.kwick-accent-slate .popup-menu-item.selected {
+  background-color: #8e8e93;
 }
 
 .popup-separator-menu-item .popup-separator-menu-item-separator {

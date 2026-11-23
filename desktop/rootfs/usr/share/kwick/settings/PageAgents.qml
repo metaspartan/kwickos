@@ -512,7 +512,8 @@ ColumnLayout {
                 color: Theme.text
                 font.family: Theme.mono
                 font.pixelSize: 13
-                selectionColor: Theme.accent
+                selectionColor: Theme.textSelection
+                selectedTextColor: Theme.text
                 Text { visible: !keyName.text.length; anchors.verticalCenter: parent.verticalCenter; text: "ANTHROPIC_API_KEY"; color: Theme.faint; font: keyName.font }
             }
         }

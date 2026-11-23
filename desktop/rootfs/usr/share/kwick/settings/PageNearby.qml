@@ -134,7 +134,8 @@ ColumnLayout {
                     color: Theme.text
                     font.family: Theme.sans
                     font.pixelSize: 13
-                    selectionColor: Theme.accent
+                    selectionColor: Theme.textSelection
+                    selectedTextColor: Theme.text
                     maximumLength: 64
                     clip: true
                     onEditingFinished: if (text.trim() !== "" && text !== page.st.alias) page.set("alias", text.trim())
@@ -174,7 +175,8 @@ ColumnLayout {
                     color: Theme.text
                     font.family: Theme.mono
                     font.pixelSize: 13
-                    selectionColor: Theme.accent
+                    selectionColor: Theme.textSelection
+                    selectedTextColor: Theme.text
                     maximumLength: 12
                     onEditingFinished: if (text.trim().length >= 4 && text.trim() !== page.st.pin) page.set("pin", text.trim())
                 }

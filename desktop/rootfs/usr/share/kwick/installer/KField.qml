@@ -55,8 +55,8 @@ FocusScope {
         color: Theme.text
         font.family: Theme.sans
         font.pixelSize: Theme.bodySize
-        selectionColor: Theme.accent
-        selectedTextColor: Theme.accentText
+        selectionColor: Theme.textSelection
+        selectedTextColor: Theme.text
         selectByMouse: true
         clip: true
         focus: true

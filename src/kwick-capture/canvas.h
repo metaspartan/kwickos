@@ -101,7 +101,7 @@ private:
     QString m_source;
     QString m_tool = QStringLiteral("arrow");
     QColor m_color = QColor(0xff, 0x3b, 0x30);
-    QColor m_accent = QColor(0x0a, 0x84, 0xff);
+    QColor m_accent = QColor(0xff, 0x9f, 0x0a);
     qreal m_strokeWidth = 4;
     QList<CanvasState> m_history;
     int m_index = 0;

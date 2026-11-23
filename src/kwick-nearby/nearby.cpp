@@ -256,7 +256,7 @@ void Nearby::refreshTheme()
         accent = QColor::fromString(raw);
     }
     if (!accent.isValid()) {
-        accent = dark ? QColor(QStringLiteral("#0a84ff")) : QColor(QStringLiteral("#007aff"));
+        accent = dark ? QColor(QStringLiteral("#ff9f0a")) : QColor(QStringLiteral("#ff9500"));
     }
     if (dark != m_dark || radius != m_radius || accent != m_accent) {
         m_dark = dark;

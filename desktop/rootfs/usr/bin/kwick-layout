@@ -8,6 +8,8 @@ usage: kwick-layout radius [0-24|default]
   set the window corner radius for the current layout, or print "current default"
 usage: kwick-layout appearance [dark|light]
   switch every layout and desktop to dark or light, or print the current appearance
+usage: kwick-layout accent [blue|purple|pink|red|orange|yellow|green|graphite|default]
+  set the accent color for every layout, or print the current one
 usage: kwick-layout status [--json]
   layout, appearance, corner radius and desktop session
 USAGE
@@ -41,7 +43,11 @@ if [ "$want" = appearance ]; then
   want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
 fi
 rcmd=
-if [ "$want" = radius ]; then
+acmd=
+if [ "$want" = accent ]; then
+  acmd=${2:-query}
+  want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
+elif [ "$want" = radius ]; then
   rcmd=${2:-query}
   want=$(cat "$cfg/layout" 2>/dev/null || echo macos)
 else
@@ -53,7 +59,62 @@ kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
 light() { [ "$MODE" = light ]; }
 
-palette() { [ -f "$1/palette-$MODE" ] && sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/' "$1/palette-$MODE"; true; }
+accents() {
+  cat <<'ACCENTS'
+blue 10,132,255 0,122,255 #419cff #0068da
+purple 191,90,242 175,82,222 #bf5af2 #a64ed3
+pink 255,55,95 255,45,85 #ff375f #e2284b
+red 255,69,58 255,59,48 #ff453a #df342a
+orange 255,159,10 255,149,0 #ff9f0a #ad6500
+yellow 255,214,10 255,204,0 #ffd60a #907300
+green 48,209,88 52,199,89 #30d158 #23873c
+graphite 152,152,157 142,142,147 #98989d #757579
+ACCENTS
+}
+
+accentcol() {
+  accents | while read -r an ad al atd atl; do
+    [ "$an" = "$1" ] || continue
+    case $2 in
+      old) echo "$ad" ;;
+      rgb) if [ "${3:-$MODE}" = light ]; then echo "$al"; else echo "$ad"; fi ;;
+      text) if [ "${3:-$MODE}" = light ]; then echo "$atl"; else echo "$atd"; fi ;;
+    esac
+  done
+}
+
+hexof() { printf '#%02x%02x%02x' $(printf '%s' "$1" | tr ',' ' '); }
+
+accentmigrate() {
+  [ -e "$cfg/accent" ] && return 0
+  k=$(sed -n 's/^AccentColor=//p' "${XDG_CONFIG_HOME:-$HOME/.config}/kdeglobals" 2>/dev/null | head -n 1)
+  u=
+  grep -qas accent-color "${XDG_CONFIG_HOME:-$HOME/.config}/dconf/user" && u=$(gsettings get org.gnome.desktop.interface accent-color 2>/dev/null | tr -d "'")
+  [ "$u" = slate ] && u=graphite
+  n=$(accents | while read -r an ad _; do [ "$ad" = "$k" ] && echo "$an"; done)
+  [ "$n" = blue ] && [ "$u" != blue ] && n=
+  case $de in *gnome*) [ -n "$n" ] || [ "$u" = purple ] || [ -z "$(accentcol "$u" old)" ] || n=$u ;; esac
+  echo "${n:-default}" > "$cfg/accent"
+}
+
+chosen() {
+  accentmigrate
+  c=$(cat "$cfg/accent" 2>/dev/null)
+  [ -n "$(accentcol "$c" old)" ] && echo "$c"
+  true
+}
+
+defaccent() { case $want in macos) light && echo 255,149,0 || echo 255,159,10 ;; windows) echo 0,120,212 ;; *) light && echo 46,125,233 || echo 94,129,244 ;; esac; }
+
+accentpal() {
+  c=$(chosen)
+  if [ -z "$c" ] || { [ "$want" = macos ] && [ "$c" = orange ]; }; then cat; return 0; fi
+  a=$(hexof "$(accentcol "$c" rgb "$1")")
+  ts=$(accentcol "$c" rgb "$1" | awk -F, -v l="$1" '{ if (l == "light") printf "%02x%02x%02x", .3*$1+179, .3*$2+179, .3*$3+179; else printf "%02x%02x%02x", .3*$1+60.5, .3*$2+59.93, .3*$3+63.01 }')
+  sed -e "s|^@ACCENT@ .*|@ACCENT@ $a|" -e "s|^@SELECTED@ .*|@SELECTED@ $a|" -e "s|^@TERM_SEL@ .*|@TERM_SEL@ $ts|" -e "s|^@ACCENT_TEXT@ .*|@ACCENT_TEXT@ $(accentcol "$c" text "$1")|" -e "s|^@ACCENT_RAW@ .*|@ACCENT_RAW@ ${a#?}|"
+}
+
+palette() { [ -f "$1/palette-$MODE" ] && accentpal "$MODE" < "$1/palette-$MODE" | sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/'; true; }
 
 symbolic() { [ -f "$1/palette-dark" ] && sed -n 's/^@\([A-Z_]*\)@ .*$/\1/p' "$1/palette-dark" | while read -r n; do printf 's|@%s@|@kwick_%s|g\n' "$n" "$(printf '%s' "$n" | tr 'A-Z' 'a-z')"; done; true; }
 
@@ -74,7 +135,7 @@ gtk3themes() {
     mkdir -p "$gt"
     {
       printf '@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained%s.css");\n' "$([ $gm = dark ] && echo -dark)"
-      sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' "$gd/palette-$gm" | while read -r gn gv; do
+      accentpal "$gm" < "$gd/palette-$gm" | sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' | while read -r gn gv; do
         printf '@define-color kwick_%s %s;\n' "$(printf '%s' "$gn" | tr 'A-Z' 'a-z')" "$gv"
       done
     } > "$gt/gtk.css.new" && mv "$gt/gtk.css.new" "$gt/gtk.css"
@@ -269,17 +330,48 @@ kdecapture() {
   kwriteconfig6 --file kglobalshortcutsrc --group services --group kwick-capture.desktop --key _launch "Meta+Shift+S"
 }
 
+kdescheme() {
+  case $want in
+    macos)   SCHEME=KwickGlass$(light && echo Light) ;;
+    windows) SCHEME=KwickFluent$(light && echo Light) ;;
+    linux)   SCHEME=Kwick$(light && echo Light || echo Dark) ;;
+  esac
+  ACC=$(defaccent)
+  c=$(chosen)
+  [ -n "$c" ] && ACC=$(accentcol "$c" rgb)
+  if [ "$want" = macos ] && [ "$ACC" = "$(defaccent)" ]; then
+    kwriteconfig6 --file kdeglobals --group General --key AccentColor --delete
+  else
+    kw kdeglobals General AccentColor "$ACC"
+  fi
+  kw kdeglobals General ColorScheme none
+  plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
+  kw kdeglobals General AccentColor "$ACC"
+  for d in "${XDG_DATA_HOME:-$HOME/.local/share}" /usr/local/share /usr/share; do
+    [ -f "$d/color-schemes/$SCHEME.colors" ] || continue
+    kw kdeglobals General ColorSchemeHash "$(sha1sum "$d/color-schemes/$SCHEME.colors" | cut -d' ' -f1)"
+    break
+  done
+}
+
+gnomeaccent() {
+  c=$(chosen)
+  [ -n "$c" ] || c=$(sed -n "s/^org.gnome.desktop.interface accent-color '\([a-z]*\)'$/\1/p" "/usr/share/kwick/gnome/$want.settings" 2>/dev/null)
+  [ -n "$c" ] || return 0
+  [ "$c" = graphite ] && c=slate
+  gsettings set org.gnome.desktop.interface accent-color "'$c'" 2>/dev/null
+  true
+}
+
 kde() {
   fontconf kde
   case $want in
-    macos)   SCHEME=KwickGlass$(light && echo Light); ACC=$(light && echo 0,122,255 || echo 10,132,255); LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__$SCHEME; L=XIA; R="" ;;
-    windows) SCHEME=KwickFluent$(light && echo Light); ACC="0,120,212"; LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__$SCHEME; L=M; R=IAX ;;
-    linux)   SCHEME=Kwick$(light && echo Light || echo Dark); ACC=$(light && echo 46,125,233 || echo 94,129,244); LIB=org.kde.breeze; DECO=Breeze; L=M; R=IAX ;;
+    macos)   LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickGlass$(light && echo Light); L=XIA; R="" ;;
+    windows) LIB=org.kde.kwin.aurorae; DECO=__aurorae__svg__KwickFluent$(light && echo Light); L=M; R=IAX ;;
+    linux)   LIB=org.kde.breeze; DECO=Breeze; L=M; R=IAX ;;
   esac
   ICO=$(icontheme)
-  kw kdeglobals General AccentColor "$ACC"
-  kw kdeglobals General ColorScheme none
-  plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || kw kdeglobals General ColorScheme "$SCHEME"
+  kdescheme
   kw kdeglobals Icons Theme "$ICO"
   kw kdeglobals KDE LookAndFeelPackage "org.kwickos.$want"
   kwriteconfig6 --notify --file kdeglobals --group KDE --key widgetStyle "$(if ls /usr/lib/*/qt6/plugins/styles/kwickmac.so >/dev/null 2>&1; then case $want in macos) echo KwickMac ;; windows) echo KwickFluent ;; *) echo Breeze ;; esac; else echo Breeze; fi)"
@@ -522,6 +614,7 @@ gnome() {
     done < "$f"
   done
   gnomeexts "$exts"
+  gnomeaccent
   command -v kwick-keys >/dev/null 2>&1 && kwick-keys apply --session gnome --quiet >/dev/null 2>&1
   start=/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-start-fluent.svg
   if [ "$want" = windows ] && light && [ -f "$start" ]; then
@@ -651,7 +744,24 @@ radius_main() {
   echo "radius: ${r:-default}"
 }
 
+accent_main() {
+  case $acmd in
+    query) c=$(chosen); [ -n "$c" ] || c=$([ "$want" = macos ] && echo orange || echo default); echo "$c"; return 0 ;;
+    default) echo default > "$cfg/accent" ;;
+    *) [ -n "$(accentcol "$acmd" old)" ] || { usage >&2; return 1; }; echo "$acmd" > "$cfg/accent" ;;
+  esac
+  case $de in
+    *kde*) kdescheme; gtkstyle; kdegtk ;;
+    *gnome*) gtkstyle; colorscheme ;;
+    *hyprland*|*sway*) tiling >/dev/null ;;
+  esac
+  gnomeaccent
+  echo "accent: $(cat "$cfg/accent")"
+}
+
 if [ -n "$rcmd" ]; then radius_main; exit $?; fi
+if [ -n "$acmd" ]; then accent_main; exit $?; fi
+accentmigrate
 command -v kwick-touch >/dev/null 2>&1 && kwick-touch apply >/dev/null 2>&1
 case $de in
   *kde*) kde ;; *gnome*) gnome ;; *hyprland*|*sway*) tiling ;;

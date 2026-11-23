@@ -44,7 +44,7 @@ MouseArea {
             Layout.preferredWidth: 26
             Layout.preferredHeight: 26
             radius: 13
-            color: row.status === "connected" ? Kirigami.Theme.highlightColor : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.16)
+            color: row.status === "connected" ? Kirigami.Theme.focusColor : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.16)
             Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
 
             Kirigami.Icon {

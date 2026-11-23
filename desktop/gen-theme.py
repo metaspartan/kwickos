@@ -61,18 +61,18 @@ def grey(v):
 
 MAC = {"window": 50, "under": 40, "control_bg": 30, "alt_row": over(0.047, 30), "button": over(0.247, 50),
        "label": 0.847, "secondary": 0.549, "tertiary": 0.247,
-       "blue": "10,132,255", "link": "65,156,255", "purple": "191,90,242", "red": "255,69,58",
+       "accent": "255,159,10", "selected": "208,111,0", "link": "65,156,255", "purple": "191,90,242", "red": "255,69,58",
        "orange": "255,159,10", "green": "50,215,75", "ink": 255, "fill": 0.047, "button_alt": 0.098}
 MAC_LIGHT = {"window": 236, "under": 246, "control_bg": 255, "alt_row": 244, "button": 255,
              "label": 0.847, "secondary": 0.498, "tertiary": 0.259,
-             "blue": "0,122,255", "link": "0,104,218", "purple": "175,82,222", "red": "255,59,48",
+             "accent": "255,149,0", "selected": "225,123,0", "link": "0,104,218", "purple": "175,82,222", "red": "255,59,48",
              "orange": "255,149,0", "green": "40,205,65", "ink": 0, "fill": 0.03, "button_alt": 0.05}
 
 
 def mac_fg(P, bg):
     ink = P["ink"]
     return {"ForegroundNormal": grey(over(P["label"], bg, ink)), "ForegroundInactive": grey(over(P["secondary"], bg, ink)),
-            "ForegroundActive": P["blue"], "ForegroundLink": P["link"], "ForegroundVisited": P["purple"],
+            "ForegroundActive": P["accent"], "ForegroundLink": P["link"], "ForegroundVisited": P["purple"],
             "ForegroundNegative": P["red"], "ForegroundNeutral": P["orange"], "ForegroundPositive": P["green"]}
 
 
@@ -83,7 +83,7 @@ def mac_scheme(name, P, base):
         return mac_fg(P, bg)
 
     scheme(name, grey(P["window"]), grey(over(P["fill"], P["window"], ink)), grey(P["control_bg"]), grey(P["alt_row"]),
-           grey(P["button"]), grey(over(P["button_alt"], P["button"], ink)), P["blue"], P["blue"], grey(P["window"]), {
+           grey(P["button"]), grey(over(P["button_alt"], P["button"], ink)), P["selected"], P["accent"], grey(P["window"]), {
                "Colors:Window": fg(P["window"]),
                "Colors:View": fg(P["control_bg"]),
                "Colors:Button": fg(P["button"]),
@@ -91,10 +91,10 @@ def mac_scheme(name, P, base):
                "Colors:Header[Inactive]": dict(fg(P["under"]), BackgroundNormal=grey(P["under"]), BackgroundAlternate=grey(P["under"])),
                "Colors:Tooltip": dict(fg(P["window"]), BackgroundNormal=grey(P["window"]), BackgroundAlternate=grey(P["under"])),
                "Colors:Complementary": dict(mac_fg(MAC, MAC["window"]), BackgroundNormal=grey(MAC["window"]), BackgroundAlternate=grey(MAC["under"])),
-               "Colors:Selection": {"BackgroundAlternate": "0,88,208", "ForegroundNormal": "255,255,255", "ForegroundActive": "255,255,255",
+               "Colors:Selection": {"BackgroundAlternate": P["selected"], "ForegroundNormal": "255,255,255", "ForegroundActive": "255,255,255",
                                     "ForegroundInactive": grey(over(MAC["label"], 0)), "ForegroundLink": "255,255,255",
                                     "ForegroundVisited": "255,255,255", "ForegroundNegative": P["red"],
-                                    "ForegroundNeutral": P["orange"], "ForegroundPositive": P["green"]},
+                                    "ForegroundNeutral": "255,255,255", "ForegroundPositive": P["green"]},
                "WM": {"activeBackground": grey(P["window"]), "activeBlend": grey(over(P["label"], P["window"], ink)),
                       "activeForeground": grey(over(P["label"], P["window"], ink)), "inactiveBackground": grey(P["under"]),
                       "inactiveBlend": grey(over(P["tertiary"], P["under"], ink)), "inactiveForeground": grey(over(P["tertiary"], P["under"], ink))},

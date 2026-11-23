@@ -128,7 +128,8 @@ ApplicationWindow {
                         color: Theme.text
                         font.family: Theme.sans
                         font.pixelSize: 13
-                        selectionColor: Theme.accent
+                        selectionColor: Theme.textSelection
+                        selectedTextColor: Theme.text
                         clip: true
                         onTextChanged: win.query = text.toLowerCase()
                         Text { visible: !searchField.text.length; anchors.verticalCenter: parent.verticalCenter; text: "Search"; color: Theme.sub; font: searchField.font }
@@ -160,7 +161,7 @@ ApplicationWindow {
                                 visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0 || win.matches(modelData, win.query)
                                 implicitHeight: 40
                                 radius: 9
-                                color: on ? Theme.accent : hover.containsMouse ? Theme.hover : "transparent"
+                                color: on ? Theme.selection : hover.containsMouse ? Theme.hover : "transparent"
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: 8

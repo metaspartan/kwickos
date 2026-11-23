@@ -2,7 +2,7 @@
 @define-color theme_fg_color @FG@;
 @define-color theme_base_color @VIEW@;
 @define-color theme_text_color @FG@;
-@define-color theme_selected_bg_color @ACCENT@;
+@define-color theme_selected_bg_color @SELECTED@;
 @define-color theme_selected_fg_color #ffffff;
 @define-color theme_unfocused_bg_color @UNDER@;
 @define-color theme_unfocused_fg_color @FG_SECONDARY@;
@@ -210,4 +210,13 @@ menu separator {
   margin: 5px 10px;
   min-height: 1px;
   background-color: @SEPARATOR@;
+}
+
+*:link,
+*:visited,
+button:link,
+button:visited,
+button:link > label,
+button:visited > label {
+  color: @LINK@;
 }

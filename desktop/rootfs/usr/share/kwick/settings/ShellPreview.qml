@@ -9,7 +9,7 @@ Rectangle {
     readonly property color winBg: lightMode ? "#f4f4f6" : "#2c2c2e"
     readonly property color winLine: lightMode ? "#1f000000" : "#26ffffff"
     readonly property color ink: lightMode ? "#33000000" : "#40ffffff"
-    readonly property color accent: kind === "dms" ? (lightMode ? "#6750a4" : "#b69df8") : kind === "noctalia" ? (lightMode ? "#8a7a00" : "#fff59b") : layout === "windows" ? "#3b9cff" : layout === "linux" ? "#7c8cff" : "#0a84ff"
+    readonly property color accent: kind === "dms" ? (lightMode ? "#6750a4" : "#b69df8") : kind === "noctalia" ? (lightMode ? "#8a7a00" : "#fff59b") : layout === "windows" ? "#3b9cff" : layout === "linux" ? "#7c8cff" : (lightMode ? "#ff9500" : "#ff9f0a")
     implicitWidth: 240
     implicitHeight: 140
     radius: 10

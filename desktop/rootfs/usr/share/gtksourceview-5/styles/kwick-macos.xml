@@ -10,6 +10,6 @@
   <style name="current-line" background="#292929"/>
   <style name="current-line-number" background="#292929"/>
   <style name="line-numbers" foreground="#5c5c5c" background="#1e1e1e"/>
-  <style name="selection" background="#3f638b"/>
+  <style name="selection" background="#896b42"/>
   <style name="cursor" foreground="#dddddd"/>
 </style-scheme>

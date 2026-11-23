@@ -193,7 +193,7 @@ bool App::dark() const
 
 QColor App::accent() const
 {
-    return m_accent.isValid() ? m_accent : (m_dark ? QColor(0x0a, 0x84, 0xff) : QColor(0x00, 0x7a, 0xff));
+    return m_accent.isValid() ? m_accent : (m_dark ? QColor(0xff, 0x9f, 0x0a) : QColor(0xff, 0x95, 0x00));
 }
 
 int App::radius() const

@@ -38,6 +38,9 @@ export default class KwickMenubar extends Extension {
         const activities = panel.statusArea.activities;
         this._hidden = [];
         Main.layoutManager.uiGroup.add_style_class_name('kwick-macos');
+        this._iface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+        this._accentId = this._iface.connect('changed::accent-color', () => this._accent());
+        this._accent();
         if (activities) {
             const kids = activities.get_children();
             const box = kids.find(c => c instanceof St.BoxLayout) ?? null;
@@ -190,9 +193,26 @@ export default class KwickMenubar extends Extension {
         });
     }
 
+    _accent() {
+        const ui = Main.layoutManager.uiGroup;
+        if (this._accentClass)
+            ui.remove_style_class_name(this._accentClass);
+        this._accentClass = `kwick-accent-${this._iface.get_string('accent-color')}`;
+        ui.add_style_class_name(this._accentClass);
+    }
+
     disable() {
         const panel = Main.panel;
         Main.layoutManager.uiGroup.remove_style_class_name('kwick-macos');
+        if (this._accentId) {
+            this._iface.disconnect(this._accentId);
+            this._accentId = 0;
+        }
+        if (this._accentClass) {
+            Main.layoutManager.uiGroup.remove_style_class_name(this._accentClass);
+            this._accentClass = null;
+        }
+        this._iface = null;
         if (this._focusId) {
             this._tracker.disconnect(this._focusId);
             this._focusId = 0;

@@ -3,7 +3,7 @@ widgetStyle=Breeze
 
 [kdeglobals][General]
 ColorScheme=KwickGlass
-AccentColor=10,132,255
+AccentColor=255,159,10
 font=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 menuFont=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 toolBarFont=Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1

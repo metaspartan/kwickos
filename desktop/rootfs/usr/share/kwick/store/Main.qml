@@ -152,6 +152,7 @@ ApplicationWindow {
                 if (["macos", "windows", "linux"].indexOf(j.layout) >= 0) Look.layout = j.layout
                 Look.light = j.appearance === "light"
                 if (j.accent) Look.systemAccent = j.accent
+                if (j.accentText) Look.systemAccentText = j.accentText
             }
         })
         Store.loadSources(function () {

@@ -4,7 +4,7 @@ disable-user-list=false
 
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
-accent-color='blue'
+accent-color='orange'
 icon-theme='KwickOS'
 cursor-theme='breeze_cursors'
 cursor-size=24

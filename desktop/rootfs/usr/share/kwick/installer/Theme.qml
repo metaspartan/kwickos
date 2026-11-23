@@ -3,11 +3,12 @@ import QtQuick
 
 QtObject {
     property bool dark: true
-    property color accent: "#0a84ff"
+    property color accent: dark ? "#ff9f0a" : "#ff9500"
     readonly property color accentPressed: Qt.darker(accent, 1.18)
     readonly property color accentHover: Qt.lighter(accent, 1.08)
     readonly property color accentSoft: Qt.rgba(accent.r, accent.g, accent.b, dark ? 0.22 : 0.14)
     readonly property color focusRing: Qt.rgba(accent.r, accent.g, accent.b, 0.55)
+    readonly property color textSelection: Qt.rgba(accent.r, accent.g, accent.b, dark ? 0.4 : 0.3)
 
     readonly property color bg: dark ? "#1e1e1e" : "#f5f5f7"
     readonly property color bgTop: dark ? "#282828" : "#fbfbfd"

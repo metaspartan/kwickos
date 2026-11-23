@@ -5,7 +5,7 @@ Item {
     id: root
 
     readonly property bool dark: spotlight.dark
-    readonly property color accent: spotlight.accent.valid ? spotlight.accent : (dark ? "#0a84ff" : "#007aff")
+    readonly property color accent: spotlight.accent.valid ? spotlight.accent : (dark ? "#ff9f0a" : "#ff9500")
     readonly property color ink: dark ? "#ffffff" : "#000000"
     readonly property color label: Qt.rgba(ink.r, ink.g, ink.b, dark ? 0.92 : 0.86)
     readonly property color secondary: Qt.rgba(ink.r, ink.g, ink.b, dark ? 0.55 : 0.5)

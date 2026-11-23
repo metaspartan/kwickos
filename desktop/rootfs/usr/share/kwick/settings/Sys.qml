@@ -26,7 +26,7 @@ QtObject {
     property var apps: []
     property var gaming: ({})
     property string loginShell: "zsh"
-    property string accentName: "blue"
+    property string accentName: "orange"
     property int radius: 10
     property int radiusDefault: 10
 
@@ -40,14 +40,14 @@ QtObject {
     property var pinned: []
 
     readonly property var accents: [
-        { name: "blue", rgb: "10,132,255", hex: "#0a84ff" },
-        { name: "purple", rgb: "191,90,242", hex: "#bf5af2" },
-        { name: "pink", rgb: "255,55,95", hex: "#ff375f" },
-        { name: "red", rgb: "255,69,58", hex: "#ff453a" },
-        { name: "orange", rgb: "255,159,10", hex: "#ff9f0a" },
-        { name: "yellow", rgb: "255,214,10", hex: "#ffd60a" },
-        { name: "green", rgb: "48,209,88", hex: "#30d158" },
-        { name: "graphite", rgb: "152,152,157", hex: "#98989d" }
+        { name: "blue", hex: "#0a84ff", lhex: "#007aff" },
+        { name: "purple", hex: "#bf5af2", lhex: "#af52de" },
+        { name: "pink", hex: "#ff375f", lhex: "#ff2d55" },
+        { name: "red", hex: "#ff453a", lhex: "#ff3b30" },
+        { name: "orange", hex: "#ff9f0a", lhex: "#ff9500", sel: "#d06f00", lsel: "#e17b00" },
+        { name: "yellow", hex: "#ffd60a", lhex: "#ffcc00" },
+        { name: "green", hex: "#30d158", lhex: "#34c759" },
+        { name: "graphite", hex: "#98989d", lhex: "#8e8e93" }
     ]
 
     readonly property QtObject source: P5.DataSource {
@@ -133,11 +133,11 @@ QtObject {
             }
         }
         if (s.accent && s.accent.length) {
-            var rgb = s.accent[0].trim()
+            sys.accentName = s.accent[0].trim()
             for (var i = 0; i < sys.accents.length; i++) {
-                if (sys.accents[i].rgb === rgb) {
-                    sys.accentName = sys.accents[i].name
-                    Theme.accent = sys.accents[i].hex
+                if (sys.accents[i].name === sys.accentName) {
+                    Theme.accent = Theme.light ? sys.accents[i].lhex : sys.accents[i].hex
+                    Theme.selection = sys.accents[i].sel ? (Theme.light ? sys.accents[i].lsel : sys.accents[i].sel) : Theme.accent
                 }
             }
         }
@@ -225,8 +225,9 @@ QtObject {
 
     function setAccent(a) {
         sys.accentName = a.name
-        Theme.accent = a.hex
-        run("kwriteconfig6 --file kdeglobals --group General --key AccentColor '" + a.rgb + "'; plasma-apply-colorscheme --accent-color '" + a.hex + "'; gsettings set org.gnome.desktop.interface accent-color '" + (a.name === "graphite" ? "slate" : a.name) + "'", refresh)
+        Theme.accent = Theme.light ? a.lhex : a.hex
+        Theme.selection = a.sel ? (Theme.light ? a.lsel : a.sel) : Theme.accent
+        run("kwick-layout accent " + a.name, refresh)
     }
 
     function setPreset(p) {

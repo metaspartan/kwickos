@@ -17,8 +17,10 @@
 @MENU@ rgba(43, 43, 43, 0.98)
 @IDLE@ #4d4d4d
 @IDLE_ALPHA@ rgba(255, 255, 255, 0.24)
-@ACCENT@ #0a84ff
-@ACCENT_TEXT@ #419cff
+@ACCENT@ #ff9f0a
+@SELECTED@ #d06f00
+@ACCENT_TEXT@ #ff9f0a
+@LINK@ #419cff
 @RED@ #ff453a
 @ORANGE@ #ff9f0a
 @GREEN@ #32d74b

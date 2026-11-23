@@ -71,8 +71,8 @@ ColumnLayout {
                         width: 24
                         height: 24
                         radius: 12
-                        color: modelData.hex
-                        border.width: Sys.accentName === modelData.name ? 2 : 0
+                        color: Theme.light ? modelData.lhex : modelData.hex
+                        border.width: Sys.accentName === modelData.name && !Theme.light ? 2 : 0
                         border.color: "#ffffff"
                         Rectangle {
                             visible: Sys.accentName === modelData.name

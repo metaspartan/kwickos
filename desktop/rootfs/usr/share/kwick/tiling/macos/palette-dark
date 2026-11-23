@@ -14,8 +14,9 @@
 @TERM_BG@ 1e1e1e
 @TERM_FG@ ffffff
 @TERM_CURSOR@ 929292
-@TERM_SEL@ 3f638b
+@TERM_SEL@ 896b42
 @TERM_SEL_FG@ ffffff
 @TIP_BG@ rgba(50, 50, 50, 0.96)
 @TIP_BORDER@ rgba(255, 255, 255, 0.098)
 @TIP_TEXT@ rgba(255, 255, 255, 0.9)
+@ACCENT_RAW@ ff9f0a

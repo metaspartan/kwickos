@@ -209,7 +209,8 @@ ColumnLayout {
                     color: Theme.text
                     font.family: Theme.sans
                     font.pixelSize: 13
-                    selectionColor: Theme.accent
+                    selectionColor: Theme.textSelection
+                    selectedTextColor: Theme.text
                     Text { visible: !search.text.length; anchors.verticalCenter: parent.verticalCenter; text: "Search apps"; color: Theme.sub; font: search.font }
                 }
             }

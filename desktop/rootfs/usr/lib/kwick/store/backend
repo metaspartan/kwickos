@@ -2023,17 +2023,26 @@ def cmd_appearance(args):
     cfg = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config"), "kwick")
     rd = lambda n, d: (open(os.path.join(cfg, n)).read().strip() if os.path.isfile(os.path.join(cfg, n)) else "") or d
     accent = ""
+    accent_text = ""
     de = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
-    if "gnome" in de and which("gsettings"):
+    light = (os.environ.get("KWICK_STORE_APPEARANCE") or rd("appearance", "dark")) == "light"
+    if which("kwick-layout"):
+        rc, so, _ = run(["kwick-layout", "accent"], timeout=5)
+        t = {"blue": ("#0a84ff", "#007aff", ""), "purple": ("#bf5af2", "#af52de", "#a64ed3"), "pink": ("#ff375f", "#ff2d55", "#e2284b"),
+             "red": ("#ff453a", "#ff3b30", "#df342a"), "orange": ("#ff9f0a", "#ff9500", "#ad6500"), "yellow": ("#ffd60a", "#ffcc00", "#907300"),
+             "green": ("#30d158", "#34c759", "#23873c"), "graphite": ("#98989d", "#8e8e93", "#757579")}.get(so.strip() if rc == 0 else "")
+        if t:
+            accent, accent_text = (t[1], t[2]) if light else (t[0], "")
+    if not accent and "gnome" in de and which("gsettings"):
         rc, so, _ = run(["gsettings", "get", "org.gnome.desktop.interface", "accent-color"], timeout=5)
         accent = {"'blue'": "#0a84ff", "'purple'": "#bf5af2", "'pink'": "#ff375f", "'red'": "#ff453a", "'orange'": "#ff9f0a", "'yellow'": "#ffd60a", "'green'": "#30d158", "'slate'": "#98989d", "'teal'": "#30b0c7"}.get(so.strip(), "")
-    elif which("kreadconfig6"):
+    elif not accent and which("kreadconfig6"):
         rc, so, _ = run(["kreadconfig6", "--file", "kdeglobals", "--group", "General", "--key", "AccentColor"], timeout=5)
         p = so.strip().split(",")
         if len(p) >= 3 and all(x.strip().isdigit() for x in p[:3]):
             accent = "#%02x%02x%02x" % tuple(int(x) for x in p[:3])
     tiling = bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") or os.environ.get("SWAYSOCK"))
-    out({"layout": os.environ.get("KWICK_STORE_LAYOUT") or rd("layout", "macos"), "appearance": os.environ.get("KWICK_STORE_APPEARANCE") or rd("appearance", "dark"), "accent": accent, "desktop": "tiling" if tiling else ("gnome" if "gnome" in de else "kde")})
+    out({"layout": os.environ.get("KWICK_STORE_LAYOUT") or rd("layout", "macos"), "appearance": os.environ.get("KWICK_STORE_APPEARANCE") or rd("appearance", "dark"), "accent": accent, "accentText": accent_text, "desktop": "tiling" if tiling else ("gnome" if "gnome" in de else "kde")})
 
 
 CMDS = {

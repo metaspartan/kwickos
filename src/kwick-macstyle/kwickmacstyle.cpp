@@ -196,14 +196,14 @@ QColor accentColor()
 {
     const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kdeglobals");
     QSettings settings(path, QSettings::IniFormat);
-    const QStringList parts = settings.value(QStringLiteral("General/AccentColor")).toStringList();
+    const QStringList parts = settings.value(QStringLiteral("AccentColor")).toStringList();
     if (parts.size() >= 3) {
         const QColor color(parts.at(0).trimmed().toInt(), parts.at(1).trimmed().toInt(), parts.at(2).trimmed().toInt());
         if (color.isValid()) {
             return color;
         }
     }
-    return QColor(10, 132, 255);
+    return QColor(255, 159, 10);
 }
 
 QPainterPath panelPath(const QRectF &rect, int radius)

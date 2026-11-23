@@ -3,7 +3,9 @@ import QtQuick
 import QtCore
 
 QtObject {
-    property color accent: "#0a84ff"
+    property color accent: light ? "#ff9500" : "#ff9f0a"
+    property color selection: light ? "#e17b00" : "#d06f00"
+    readonly property color textSelection: Qt.rgba(accent.r, accent.g, accent.b, light ? 0.3 : 0.4)
     property bool light: false
     readonly property color bg: light ? "#f5f5f5" : "#1e1e1e"
     readonly property color sidebar: light ? "#e8e8e8" : "#282828"
