@@ -10,3 +10,4 @@ build/overlay/
 
 /keys/
 __pycache__/
+/.claude/
