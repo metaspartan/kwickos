@@ -9,7 +9,7 @@ Item {
     readonly property var op: app ? Store.ops[app.key] || null : null
     readonly property bool installed: Store.isInstalled(app)
     readonly property bool unavailable: !!app && app.available === false && !installed
-    readonly property bool canOpen: !!app && installed && app.src !== "agent" && !app.system_only
+    readonly property bool canOpen: !!app && installed && app.src !== "agent" && app.src !== "model" && !app.system_only
     readonly property real progress: op && op.progress >= 0 ? op.progress / 100 : -1
     readonly property string label: {
         if (!app) return ""

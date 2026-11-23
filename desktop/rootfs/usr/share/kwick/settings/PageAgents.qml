@@ -148,6 +148,16 @@ ColumnLayout {
         }
     }
 
+    Card {
+        visible: page.available && page.loaded
+        Cell {
+            last: true
+            title: "Local models"
+            subtitle: "Run open models on this computer's GPU and connect your agents to them."
+            Btn { text: "Open"; primary: true; onClicked: win.sub = "PageLocalModels.qml" }
+        }
+    }
+
     SectionTitle { text: "INSTALLED"; visible: page.available && page.loaded }
     Card {
         visible: page.available && page.loaded

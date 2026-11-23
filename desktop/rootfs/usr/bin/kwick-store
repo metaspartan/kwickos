@@ -6,7 +6,7 @@ case ${1:-} in
   -h|--help)
     cat <<'EOF'
 usage: kwick-store [updates | installed | search TEXT | app SOURCE:ID]
-  opens the App Store; SOURCE is flathub, apt, arch, aur or agent
+  opens the App Store; SOURCE is flathub, apt, arch, aur, agent or model
 EOF
     exit 0 ;;
 esac

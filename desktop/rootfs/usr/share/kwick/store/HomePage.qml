@@ -376,7 +376,7 @@ ColumnLayout {
             columnSpacing: 12
             rowSpacing: 12
             Repeater {
-                model: page.cats.concat(Store.agentsOn ? [{ id: "agents", name: "AI Agents", glyph: "agents", tint: "#bf5af2" }] : [])
+                model: page.cats.concat(Store.agentsOn ? [{ id: "agents", name: "AI Agents", glyph: "agents", tint: "#bf5af2" }, { id: "local-ai", name: "Local AI", glyph: "agents", tint: "#30d158" }] : [])
                 delegate: Rectangle {
                     id: ct
                     required property var modelData

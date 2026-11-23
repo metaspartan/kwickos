@@ -62,11 +62,11 @@ QtObject {
     readonly property int section: mac ? 19 : win ? 20 : 17
 
     function sourceName(s) {
-        return { flathub: "Flathub", apt: "Debian", arch: "Arch Linux", aur: "AUR", agent: "KwickOS Agents" }[s] || s || ""
+        return { flathub: "Flathub", apt: "Debian", arch: "Arch Linux", aur: "AUR", agent: "KwickOS Agents", model: "Local AI" }[s] || s || ""
     }
 
     function sourceTint(s) {
-        return { flathub: light ? "#2a6ad4" : "#5aa1ff", apt: light ? "#c70036" : "#ff5a7a", arch: light ? "#1478b8" : "#3ab0f0", aur: light ? "#b25000" : "#ff9f0a", agent: light ? "#8944ab" : "#bf5af2" }[s] || sub
+        return { flathub: light ? "#2a6ad4" : "#5aa1ff", apt: light ? "#c70036" : "#ff5a7a", arch: light ? "#1478b8" : "#3ab0f0", aur: light ? "#b25000" : "#ff9f0a", agent: light ? "#8944ab" : "#bf5af2", model: light ? "#8944ab" : "#bf5af2" }[s] || sub
     }
 
     function readCfg(name) {

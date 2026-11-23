@@ -42,7 +42,7 @@ ColumnLayout {
 
     Seg {
         visible: page.search && Object.keys(page.present).length > 1
-        options: [{ id: "all", label: "All" }].concat(["flathub", "apt", "arch", "aur", "agent"].filter(function (s) { return page.present[s] }).map(function (s) { return { id: s, label: Look.sourceName(s) } }))
+        options: [{ id: "all", label: "All" }].concat(["flathub", "apt", "arch", "aur", "agent", "model"].filter(function (s) { return page.present[s] }).map(function (s) { return { id: s, label: Look.sourceName(s) } }))
         current: page.filter
         onPicked: function (id) { page.filter = id; page.limit = 60 }
     }

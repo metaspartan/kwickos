@@ -14,6 +14,8 @@ ApplicationWindow {
 
     property int current: 0
     property string query: ""
+    property string sub: ""
+    readonly property var subs: ({ "PageLocalModels.qml": { name: "Local Models", parent: "Agents" } })
     readonly property var pages: [
         { name: "Appearance", icon: "layout", color: "#0a84ff", page: "PageAppearance.qml" },
         { name: "Dock", icon: "dock", color: "#5e5ce6", page: "PageDock.qml" },
@@ -27,7 +29,7 @@ ApplicationWindow {
         { name: "Storage", icon: "storage", color: "#64d2ff", page: "PageStorage.qml" },
         { name: "VPN", icon: "vpn", color: "#2c5aa0", page: "PageVPN.qml" },
         { name: "Nearby Share", icon: "nearby", color: "#0a84ff", page: "PageNearby.qml", keys: "airdrop localsend quick share send receive files phone transfer pin" },
-        { name: "Agents", icon: "agents", color: "#5e5ce6", page: "PageAgents.qml", keys: "ai agents mcp claude codex gemini opencode ollama llama keys permissions sandbox" },
+        { name: "Agents", icon: "agents", color: "#5e5ce6", page: "PageAgents.qml", keys: "ai agents mcp claude codex gemini opencode ollama llama keys permissions sandbox local models inference gguf huggingface hugging face" },
         { name: "Privacy & Security", icon: "privacy", color: "#0a84ff", page: "PagePrivacy.qml", keys: "camera microphone mic screen recording sharing location permissions flatpak portal firmware fwupd lvfs secure boot encryption security" },
         { name: "About", icon: "about", color: "#64d2ff", page: "PageAbout.qml" },
         { name: "Software Update", icon: "update", color: "#8e8e93", page: "PageUpdate.qml", keys: "updates upgrade kernel" },
@@ -47,6 +49,11 @@ ApplicationWindow {
             var want = out.trim().toLowerCase().replace(/[-_]/g, " ")
             for (var j = 0; j < pages.length; j++)
                 if (want !== "" && matches(pages[j], want)) { current = j; break }
+            if (/^(local models?|local ai|inference)$/.test(want)) {
+                sub = "PageLocalModels.qml"
+                for (var k = 0; k < pages.length; k++)
+                    if (pages[k].name === "Agents") current = k
+            }
         })
     }
 
@@ -156,7 +163,7 @@ ApplicationWindow {
                                 font.weight: item.on ? Font.Medium : Font.Normal
                             }
                         }
-                        MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: win.current = item.index }
+                        MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { win.sub = ""; win.current = item.index } }
                     }
                 }
 
@@ -179,15 +186,29 @@ ApplicationWindow {
             Layout.fillHeight: true
             spacing: 0
 
-            Text {
+            RowLayout {
                 Layout.leftMargin: 36
                 Layout.topMargin: 28
                 Layout.bottomMargin: 14
-                text: win.pages[win.current].name
-                color: Theme.text
-                font.family: Theme.sans
-                font.pixelSize: 26
-                font.weight: Font.DemiBold
+                spacing: 12
+                Rectangle {
+                    visible: win.sub !== ""
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    radius: 9
+                    color: backArea.pressed ? Theme.controlPressed : backArea.containsMouse ? Theme.controlHover : Theme.control
+                    border.width: Theme.light ? 1 : 0
+                    border.color: Theme.lineStrong
+                    Text { anchors.centerIn: parent; anchors.verticalCenterOffset: -1; text: "‹"; color: Theme.controlText; font.family: Theme.sans; font.pixelSize: 24 }
+                    MouseArea { id: backArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: win.sub = "" }
+                }
+                Text {
+                    text: win.sub !== "" ? win.subs[win.sub].name : win.pages[win.current].name
+                    color: Theme.text
+                    font.family: Theme.sans
+                    font.pixelSize: 26
+                    font.weight: Font.DemiBold
+                }
             }
 
             Flickable {
@@ -204,7 +225,7 @@ ApplicationWindow {
                     id: loader
                     x: 36
                     width: flick.width - 72
-                    source: win.pages[win.current].page
+                    source: win.sub !== "" ? win.sub : win.pages[win.current].page
                     onLoaded: flick.contentY = 0
                 }
             }

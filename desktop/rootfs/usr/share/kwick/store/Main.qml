@@ -118,7 +118,7 @@ ApplicationWindow {
     function confirmRemove(app) {
         removeDlg.app = app
         removeDlg.title = "Remove " + app.name + "?"
-        removeDlg.body = app.src === "flathub" ? "The app is removed for everyone on this computer. Its settings in your home folder stay." : app.src === "agent" ? "The agent and the files KwickOS installed for it are removed." : app.src === "arch" || app.src === "aur" ? "The package is removed from the Arch environment." : "The Debian package " + (app.pkg || app.id) + " is removed. Packages that only it needed stay installed."
+        removeDlg.body = app.src === "flathub" ? "The app is removed for everyone on this computer. Its settings in your home folder stay." : app.src === "agent" ? "The agent and the files KwickOS installed for it are removed." : app.src === "model" ? "The downloaded model file is deleted from this computer. You can download it again later." : app.src === "arch" || app.src === "aur" ? "The package is removed from the Arch environment." : "The Debian package " + (app.pkg || app.id) + " is removed. Packages that only it needed stay installed."
         removeDlg.open()
     }
 
@@ -178,7 +178,7 @@ ApplicationWindow {
         { id: "cat:play", label: "Play", glyph: "play" },
         { id: "cat:develop", label: "Develop", glyph: "develop" },
         { id: "categories", label: "Categories", glyph: "categories" }
-    ].concat(Store.agentsOn ? [{ id: "cat:agents", label: "AI Agents", glyph: "agents" }] : []).concat([
+    ].concat(Store.agentsOn ? [{ id: "cat:agents", label: "AI Agents", glyph: "agents" }, { id: "cat:local-ai", label: "Local AI", glyph: "agents" }] : []).concat([
         { id: "updates", label: "Updates", glyph: "updates" },
         { id: "installed", label: "Installed", glyph: "installed" }
     ])
@@ -187,12 +187,12 @@ ApplicationWindow {
         { id: "home", label: "Home", glyph: "home" },
         { id: "categories", label: "Apps", glyph: "apps" },
         { id: "cat:play", label: "Gaming", glyph: "play" }
-    ].concat(Store.agentsOn ? [{ id: "cat:agents", label: "AI Hub", glyph: "agents" }] : [])
+    ].concat(Store.agentsOn ? [{ id: "cat:agents", label: "AI Hub", glyph: "agents" }, { id: "cat:local-ai", label: "Local AI", glyph: "agents" }] : [])
 
     function pick(id) {
         if (id.indexOf("cat:") === 0) {
             var c = id.slice(4)
-            var names = { create: "Create", work: "Work", play: Look.win ? "Gaming" : "Play", develop: "Develop", agents: "AI Agents" }
+            var names = { create: "Create", work: "Work", play: Look.win ? "Gaming" : "Play", develop: "Develop", agents: "AI Agents", "local-ai": "Local AI" }
             openCategory(c, names[c] || c, true)
         } else {
             go(id)

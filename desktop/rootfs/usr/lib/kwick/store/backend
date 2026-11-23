@@ -952,8 +952,82 @@ def agent_obj(mid, title, desc, state, note, extra):
         "installed": state == "yes",
         "available": state != "na",
         "note": note,
+        "kind": extra.get("kind") or "agent",
         "shots": [],
     }
+
+
+MODEL_ID = re.compile(r"^[A-Za-z0-9._:/-]+$")
+FIT_TITLES = {"gpu": "Fits your GPU", "moe-offload": "Needs RAM offload", "cpu-split": "Needs RAM offload", "cpu": "Runs on the CPU", "no": "Does not fit this computer"}
+
+
+def inference_json(args):
+    exe = which("kwick-agents")
+    if not exe:
+        return None
+    rc, so, _ = run([exe, "inference"] + args + ["--json"], timeout=30)
+    try:
+        d = json.loads(so)
+    except ValueError:
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def gib(n):
+    return "%.1f GB" % (n / 1073741824.0) if n >= 1073741824 else "%d MB" % round(n / 1048576.0)
+
+
+def model_obj(m):
+    mid = str(m.get("id") or "")
+    if not MODEL_ID.match(mid):
+        return None
+    fit = m.get("fit") or {}
+    verdict = str(fit.get("verdict") or "")
+    need = int(fit.get("need_mb") or 0)
+    budget = int(fit.get("budget_mb") or 0)
+    if verdict in ("gpu", "cpu") and budget > 0 and need > budget:
+        verdict = "no"
+    size = int(m.get("size") or 0)
+    note = FIT_TITLES.get(verdict, "")
+    if note and need:
+        note += ": needs %.1f GB, %.1f GB available" % (need / 1024.0, budget / 1024.0)
+    lic = (m.get("license") or "") + (", no commercial use" if m.get("commercial_ok") is False else "")
+    parts = [x for x in (m.get("quant") or "", gib(size) if size else "", lic) if x]
+    return {
+        "key": "model:" + mid,
+        "src": "model",
+        "id": mid,
+        "name": m.get("title") or mid,
+        "summary": "  ·  ".join(parts),
+        "desc": "<p>" + html.escape(m.get("description") or "  ·  ".join(parts + ([note] if note else []))) + "</p>",
+        "icon": "file://" + os.path.join(DATA, "icons", "agent.svg"),
+        "cats": ["AI"],
+        "dev": m.get("repo") or "",
+        "ver": m.get("quant") or "",
+        "home": m.get("license_url") or "",
+        "installed": bool(m.get("installed")),
+        "available": verdict != "no",
+        "note": note,
+        "kind": "model",
+        "shots": [],
+    }
+
+
+def local_models_list():
+    d = inference_json(["models"])
+    res = []
+    for m in (d or {}).get("models") or []:
+        if isinstance(m, dict):
+            o = model_obj(m)
+            if o:
+                res.append(o)
+    return res
+
+
+def local_ai_items(ag=None):
+    ag = agents_list() if ag is None else ag
+    engines = [a for a in ag or [] if a.get("kind") == "local-models"]
+    return [compact(a) for a in engines + local_models_list()]
 
 
 def arch_exe():
@@ -1039,7 +1113,7 @@ def arch_installed():
 
 
 def compact(e, extra=None):
-    o = {k: e.get(k) for k in ("key", "src", "id", "pkg", "name", "summary", "icon", "dev", "verified", "cats", "installed", "available", "note", "ver", "repo", "risk", "cve", "votes", "popularity") if e.get(k) not in (None, "", [])}
+    o = {k: e.get(k) for k in ("key", "src", "id", "pkg", "name", "summary", "icon", "dev", "verified", "cats", "installed", "available", "note", "kind", "ver", "repo", "risk", "cve", "votes", "popularity") if e.get(k) not in (None, "", [])}
     if e.get("shots"):
         o["shot"] = e["shots"][0]["thumb"]
     if extra:
@@ -1173,7 +1247,10 @@ def cmd_home(args):
         cats.append({"id": c["id"], "name": c["name"], "glyph": c.get("glyph", ""), "tint": c.get("tint", ""), "count": n})
     ag = agents_list()
     if ag:
-        sections.append({"id": "agents", "title": "AI Agents", "subtitle": "Assistants and local inference, set up by KwickOS", "items": [compact(a) for a in ag]})
+        sections.append({"id": "agents", "title": "AI Agents", "subtitle": "Assistants and coding agents, set up by KwickOS", "items": [compact(a) for a in ag if a.get("kind") != "local-models"]})
+        loc = local_ai_items(ag)
+        if loc:
+            sections.append({"id": "local-ai", "title": "Local AI", "subtitle": "Run open models on this computer, with no account", "items": loc})
     out({"featured": feat, "sections": sections, "categories": cats, "count": len(ctx.apps), "sources": sources_obj(ctx)})
 
 
@@ -1199,7 +1276,10 @@ def cmd_browse(args):
     ctx = Ctx()
     pr = popular_rank()
     if cid == "agents":
-        out({"id": cid, "name": "AI Agents", "items": [compact(a) for a in (agents_list() or [])]})
+        out({"id": cid, "name": "AI Agents", "items": [compact(a) for a in (agents_list() or []) if a.get("kind") != "local-models"]})
+        return
+    if cid == "local-ai":
+        out({"id": cid, "name": "Local AI", "items": local_ai_items()})
         return
     cat = next((c for c in curated().get("categories") or [] if c["id"] == cid), None)
     if not cat:
@@ -1446,6 +1526,16 @@ def cmd_app(args):
                 return
         out({"error": "unknown agent " + ident})
         return
+    if src == "model":
+        for m in local_models_list():
+            if m["id"] == ident:
+                m["sandbox"] = {"level": 1, "rating": "Sandboxed", "text": "The model runs inside the KwickOS inference engine, which only sees the GPU and its own folders."}
+                m["security"] = {"level": "ok", "text": "KwickOS checks the download against the published SHA-256 before the model is used."}
+                m["alts"] = []
+                out(m)
+                return
+        out({"error": "unknown model " + ident})
+        return
     ctx = Ctx()
     e = ctx.by_key.get(key)
     if not e and src == "apt":
@@ -1635,6 +1725,9 @@ def cmd_installed(args):
     for a in agents_list() or []:
         if a.get("installed"):
             res.append(compact(a, {"installed": True}))
+    for m in local_models_list():
+        if m.get("installed"):
+            res.append(compact(m, {"installed": True}))
     res.sort(key=lambda o: (o.get("name") or "").lower())
     out({"items": res})
 

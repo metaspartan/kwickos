@@ -173,6 +173,11 @@ QtObject {
         }
         if (src === "apt")
             return s.elevated(s.pkg + " " + o.kind + " apt " + s.q(id))
+        if (src === "model" || (src === "agent" && id === "inference")) {
+            if (!/^[A-Za-z0-9._:\/-]+$/.test(String(id))) return "false"
+            if (src === "agent") return "kwick-agents inference " + (o.kind === "remove" ? "remove" : "install")
+            return "kwick-agents inference model " + (o.kind === "remove" ? "rm " : "pull ") + s.q(id)
+        }
         if (src === "agent")
             return s.elevated(s.pkg + " " + (o.kind === "remove" ? "remove" : "install") + " agent " + s.q(id))
         if (src === "arch" || src === "aur") {

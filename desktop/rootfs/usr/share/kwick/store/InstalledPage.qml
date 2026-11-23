@@ -45,7 +45,7 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 12
         Seg {
-            options: [{ id: "all", label: "All" }].concat(["flathub", "apt", "arch", "aur", "agent"].filter(function (s) { return page.present[s] }).map(function (s) { return { id: s, label: Look.sourceName(s) } })).concat([{ id: "system", label: "Included with KwickOS" }])
+            options: [{ id: "all", label: "All" }].concat(["flathub", "apt", "arch", "aur", "agent", "model"].filter(function (s) { return page.present[s] }).map(function (s) { return { id: s, label: Look.sourceName(s) } })).concat([{ id: "system", label: "Included with KwickOS" }])
             current: page.filter
             onPicked: function (id) { page.filter = id }
         }
