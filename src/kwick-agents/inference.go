@@ -125,10 +125,17 @@ on http://127.0.0.1:11435/v1 with an API key, model name "local".
   update [--json]                     move the engine to the pinned build
   models [--json] [--fits] [--installed] [--ctx N]
                                       curated models with size, licence and whether they fit
-  model pull ID|hf://REPO[:QUANT]     download a model, resume, verify its sha256
+  model pull ID|hf://REPO[:QUANT]     download a model, resume, verify its sha256 (uses the shared key HF_TOKEN for gated models)
+  model cancel ID                     stop a download and keep the partial file for the next pull
+  downloads [--json]                  downloads in progress: bytes done, total, rate
   model add hf://REPO[:QUANT]         pin a model from Hugging Face (commit, size and sha256)
   model rm ID | model verify [ID]
   use ID|best                         choose the model served as "local" (downloads it if needed)
+  unload [ID]                         take the model out of memory; it loads again on the next request
+  config [--json]                     idle unload and LAN access
+  config set idle-minutes N|never     minutes without requests before the model leaves memory
+  config set lan on|off               listen on all interfaces (still needs the key)
+  bench [--json]                      llama-bench on the chosen model: prompt and generation tokens per second
   fit ID [--ctx N] [--json]           weights + KV cache + overhead against the memory budget
   service enable|disable|start|stop|restart|status|logs [-n N] [-f]
   connect [AGENT...|--all]            point agents at the local endpoint (opencode, codex, goose, hermes,
@@ -178,6 +185,14 @@ func inferenceMain(a []string) int {
 		err = cmdInferModel(o, pos)
 	case "use":
 		err = cmdInferUse(o, pos)
+	case "unload":
+		err = cmdInferUnload(o, pos)
+	case "downloads":
+		err = cmdInferDownloads(o)
+	case "config":
+		err = cmdInferConfig(o, pos)
+	case "bench":
+		err = cmdInferBench(o)
 	case "fit":
 		err = cmdInferFit(o, pos)
 	case "service":
@@ -261,6 +276,7 @@ type inferConfig struct {
 	IdleSeconds int                    `json:"idle_seconds,omitempty"`
 	Enabled     bool                   `json:"enabled"`
 	Sandbox     *bool                  `json:"sandbox,omitempty"`
+	LAN         bool                   `json:"lan,omitempty"`
 	Connected   map[string]*connRecord `json:"connected,omitempty"`
 }
 
@@ -286,6 +302,9 @@ func (c *inferConfig) port() int {
 }
 
 func (c *inferConfig) idle() int {
+	if c.IdleSeconds < 0 {
+		return 0
+	}
 	if c.IdleSeconds != 0 {
 		return c.IdleSeconds
 	}
@@ -873,6 +892,9 @@ type inferStatus struct {
 	EndpointFile string         `json:"endpoint_file"`
 	Agents       []agentConn    `json:"agents"`
 	Issues       []issue        `json:"issues"`
+	Memory       *memInfo       `json:"memory"`
+	HFToken      bool           `json:"hf_token"`
+	Bench        *benchResult   `json:"bench"`
 }
 
 func buildStatus() inferStatus {
@@ -938,6 +960,7 @@ func buildStatus() inferStatus {
 				it := ModelItem{ModelEntry: *m, Size: m.size(), MoE: m.moe(), Current: true}
 				it.Shape = nil
 				it.Installed, it.Verified = installedModel(m)
+				it.trackDownload(m)
 				if sh, err := modelShape(m); err == nil {
 					f := computeFit(sh, hw, int64(cfg.ctx()))
 					it.Fit = &f
@@ -959,6 +982,16 @@ func buildStatus() inferStatus {
 	}
 	s.Models = map[string]any{"installed": n, "bytes": bytes, "dir": inferModelsDir()}
 	s.Agents = agentConnections(c, cfg)
+	s.HFToken = hfTokenSet()
+	if s.Model != nil {
+		s.Bench = lastBench()
+		if s.Bench != nil && s.Bench.Model != s.Model.ID {
+			s.Bench = nil
+		}
+	}
+	if s.Service.Running && !inferSystem {
+		s.Memory = measureMemory(s.Service.PID, len(s.Service.Loaded) > 0, hw, s.Engine.Backend)
+	}
 	if s.Service.Enabled && !s.Service.Running {
 		s.Issues = append(s.Issues, issue{"service-down", "the service is enabled but not running (kwick-agents inference service logs)"})
 	}
@@ -989,6 +1022,16 @@ func cmdInferStatus(o iopts) error {
 		}
 	}
 	fmt.Printf("Service:  %s, %s; enabled at login: %v\n", st, s.Service.URL, s.Service.Enabled)
+	if s.Service.LAN {
+		fmt.Printf("Network:  open to other devices on %s:%d, key required\n", s.Service.Host, s.Service.Port)
+	}
+	if m := s.Memory; m != nil && m.Measured {
+		what := "GPU memory"
+		if m.Kind == "ram" {
+			what = "memory"
+		}
+		fmt.Printf("In use:   %d of %d MB %s (measured by %s)\n", m.UsedMB, m.TotalMB, what, m.Source)
+	}
 	if s.Model != nil {
 		v := ""
 		if s.Model.Fit != nil {

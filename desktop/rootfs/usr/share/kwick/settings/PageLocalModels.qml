@@ -10,6 +10,10 @@ ColumnLayout {
     property var st: null
     property var models: []
     property var pulling: ({})
+    property var downloads: ({})
+    property bool pollBusy: false
+    property bool benching: false
+    property var benchRun: null
     property bool copied: false
     property string hfError: ""
     property string askCmd: ""
@@ -32,6 +36,20 @@ ColumnLayout {
     readonly property var backendOptions: ["auto"].concat(bk.available || []).map(function (id) { return { id: id, label: backendTitles[id] || id, sub: backendSubs[id] || "" } })
     readonly property var contexts: [{ id: "32768", label: "32K" }, { id: "65536", label: "64K" }, { id: "131072", label: "128K" }, { id: "262144", label: "256K" }]
     readonly property var fitTitles: ({ "gpu": "Fits GPU", "moe-offload": "Needs RAM offload", "cpu-split": "Needs RAM offload", "cpu": "Runs on CPU", "no": "Does not fit" })
+    readonly property var mem: (st && st.memory) || null
+    readonly property var loadedNames: svc.loaded || []
+    readonly property bool tokenSet: supported && !!st.hf_token
+    readonly property var bench: benchRun && page.cur && benchRun.model === page.cur.id ? benchRun : (st && st.bench) || null
+    readonly property int idleMinutes: svc.idle_seconds > 0 ? Math.round(svc.idle_seconds / 60) : 0
+    readonly property string idleCurrent: svc.idle_seconds === undefined ? "15" : idleMinutes > 0 ? String(idleMinutes) : "never"
+    readonly property var idleOptions: {
+        var o = [{ id: "never", label: "Never" }]
+        var steps = [5, 15, 30, 60]
+        if (idleMinutes > 0 && steps.indexOf(idleMinutes) < 0) steps = steps.concat([idleMinutes]).sort(function (a, b) { return a - b })
+        return o.concat(steps.map(function (n) { return { id: String(n), label: n + " min" } }))
+    }
+    readonly property bool anyDownload: Object.keys(downloads).some(function (id) { return dlActive(downloads[id]) }) || Object.keys(pulling).length > 0
+    readonly property var memSources: ({ "nvidia-smi": "nvidia-smi", "amdgpu-fdinfo": "the AMD GPU driver", "amdgpu-sysfs": "the AMD GPU driver", "process-rss": "the system" })
     readonly property var agentRows: ((st && st.agents) || []).filter(function (a) { return nameRe.test(String(a.name)) })
 
     function licenseName(l) {
@@ -99,6 +117,109 @@ ColumnLayout {
         return p.join("  •  ")
     }
 
+    function dlActive(d) {
+        return !!d && (d.state === "downloading" || d.state === "verifying")
+    }
+
+    function speed(r) {
+        if (r >= 10485760) return Math.round(r / 1048576) + " MB/s"
+        if (r >= 1048576) return (Math.round(r / 104857.6) / 10) + " MB/s"
+        return Math.round(r / 1024) + " KB/s"
+    }
+
+    function dlPercent(d) {
+        return d && d.total > 0 ? Math.min(100, Math.floor(100 * d.done / d.total)) : 0
+    }
+
+    function dlText(d) {
+        if (!d) return "Starting the download…"
+        if (d.state === "verifying") return "Checking the download against its published hash…"
+        var t = dlPercent(d) + "%  •  " + bytes(d.done) + " of " + bytes(d.total)
+        if (d.rate > 0) t += "  •  " + speed(d.rate)
+        return t
+    }
+
+    function downloadMap(list) {
+        var m = {}
+        for (var i = 0; i < list.length; i++)
+            if (list[i].download && typeof list[i].download === "object") m[list[i].id] = list[i].download
+        return m
+    }
+
+    function pollDownloads() {
+        if (page.pollBusy) return
+        page.pollBusy = true
+        Sys.run(inf("downloads --json") + " 2>/dev/null", function (out) {
+            page.pollBusy = false
+            var d
+            try { d = JSON.parse(out) } catch (e) { return }
+            var next = {}
+            var src = d.downloads || {}
+            for (var id in src)
+                if (idRe.test(id) && src[id] && typeof src[id] === "object") next[id] = src[id]
+            var finished = Object.keys(page.downloads).some(function (id) { return page.dlActive(page.downloads[id]) && !next[id] })
+            page.downloads = next
+            if (finished) page.load()
+        })
+    }
+
+    function cancel(m) {
+        if (!idRe.test(String(m.id))) return
+        var d = Object.assign({}, page.downloads)
+        delete d[m.id]
+        page.downloads = d
+        Sys.run(inf("model cancel " + q(m.id)) + " 2>&1", function () { page.setPulling(m.id, false); page.load() })
+    }
+
+    function unload() {
+        act(inf("unload"))
+    }
+
+    function setLan(on) {
+        if (on)
+            confirm("Allow other devices to use your models?", "The server will listen on every network connection of this computer. Anyone on your network who has the API key can use your GPU, and the traffic is not encrypted. Turn this on only on a network you trust.", "Allow Access", true, inf("config set lan on"))
+        else
+            act(inf("config set lan off"))
+    }
+
+    function setIdle(id) {
+        if (/^(never|[0-9]{1,4})$/.test(String(id))) act(inf("config set idle-minutes " + q(id)))
+    }
+
+    function setToken() {
+        act("kwick-agents key set shared HF_TOKEN --dialog")
+    }
+
+    function removeToken() {
+        confirm("Remove the Hugging Face token?", "The token is deleted from your keystore. Gated and private models can no longer be downloaded until you add one again.", "Remove", true, "kwick-agents key rm shared HF_TOKEN")
+    }
+
+    function runBench() {
+        if (page.benching) return
+        page.benching = true
+        Sys.run(inf("bench --json") + " 2>/dev/null", function (out) {
+            page.benching = false
+            var d
+            try { d = JSON.parse(out) } catch (e) { d = { ok: false, error: "The speed test did not finish." } }
+            page.benchRun = d
+            page.load()
+        })
+    }
+
+    function benchTitle(b) {
+        if (!b.ok) return "The speed test failed"
+        return "Prompt " + b.prompt_tps + " tokens/s  •  Generation " + b.gen_tps + " tokens/s"
+    }
+
+    function benchSub(b) {
+        if (!b.ok) return String(b.error || "")
+        var p = []
+        if (page.cur) p.push(page.cur.title || page.cur.id)
+        p.push(backendName(b.backend) + (b.engine ? " (llama.cpp " + b.engine + ")" : ""))
+        p.push(b.prompt_tokens + " prompt and " + b.gen_tokens + " generated tokens")
+        return p.join("  •  ")
+    }
+
     function load() {
         Sys.run("sh " + Sys.dir + "helpers/inference.sh", function (out) {
             var d
@@ -108,6 +229,7 @@ ColumnLayout {
             if (!page.available) return
             page.st = d.status && typeof d.status === "object" ? d.status : null
             page.models = ((d.models && d.models.models) || []).filter(function (m) { return idRe.test(String(m.id)) })
+            page.downloads = page.downloadMap(page.models)
         })
     }
 
@@ -197,6 +319,13 @@ ColumnLayout {
         onTriggered: page.load()
     }
 
+    Timer {
+        interval: 1000
+        running: page.visible && page.anyDownload
+        repeat: true
+        onTriggered: page.pollDownloads()
+    }
+
     Timer { id: copiedTimer; interval: 1600; onTriggered: page.copied = false }
 
     TextInput { id: copier; visible: false }
@@ -279,7 +408,7 @@ ColumnLayout {
         visible: page.installed
         Cell {
             title: "Local model server"
-            subtitle: page.running && page.svc.healthy ? "Running on this computer only" + (page.svc.enabled ? ", starts at login" : "") + (page.svc.idle_seconds > 0 ? ", model leaves memory after " + Math.round(page.svc.idle_seconds / 60) + " minutes idle" : "")
+            subtitle: page.running && page.svc.healthy ? (page.svc.lan ? "Running, reachable from your network" : "Running on this computer only") + (page.svc.enabled ? ", starts at login" : "") + (page.svc.idle_seconds > 0 ? ", model leaves memory after " + Math.round(page.svc.idle_seconds / 60) + " minutes idle" : "")
                     : page.running ? "Starting and loading the model…"
                     : page.svc.enabled ? "Not running. It should start at login: check the logs under Advanced."
                     : "Off. Turn it on when an agent needs a local model."
@@ -293,6 +422,17 @@ ColumnLayout {
             title: "Endpoint"
             subtitle: (page.svc.url || "http://127.0.0.1:11435/v1") + "  •  model name " + (page.svc.alias || "local")
             Btn { text: page.copied ? "Copied" : "Copy URL"; onClicked: page.copyUrl() }
+        }
+        Cell {
+            title: "Allow access from other devices"
+            subtitle: page.svc.lan ? "Other computers on your network can use the server with the API key" + (page.svc.lan_url ? " at " + page.svc.lan_url : "") + "." : "Off. Only this computer can reach the server."
+            Toggle { checked: !!page.svc.lan; onToggled: (v) => page.setLan(v) }
+        }
+        Cell {
+            visible: !!page.svc.lan
+            title: "Network access is on"
+            titleColor: Theme.warn
+            subtitle: "Anyone on your network who has the API key can use your GPU, and the traffic is not encrypted. Turn it off when you do not need it."
         }
         Cell {
             last: true
@@ -330,7 +470,11 @@ ColumnLayout {
                 id: mr
                 required property var modelData
                 required property int index
-                readonly property bool busy: !!page.pulling[modelData.id]
+                readonly property var dl: page.downloads[modelData.id] || null
+                readonly property bool active: page.dlActive(dl)
+                readonly property bool busy: active || !!page.pulling[modelData.id]
+                readonly property bool failed: !busy && !!dl && dl.state === "failed"
+                readonly property real remaining: Math.max(0, modelData.size - (modelData.partial_bytes || 0))
                 readonly property string verdict: page.verdictOf(modelData)
                 Layout.fillWidth: true
                 implicitHeight: Math.max(64, rowBody.implicitHeight + 24)
@@ -350,7 +494,7 @@ ColumnLayout {
                         Text { Layout.fillWidth: true; text: mr.modelData.title || mr.modelData.id; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
                         Text { Layout.fillWidth: true; text: page.metaText(mr.modelData); color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12; elide: Text.ElideRight }
                         Text {
-                            visible: text !== "" && !mr.busy
+                            visible: text !== "" && !mr.busy && !mr.failed
                             Layout.fillWidth: true
                             text: page.fitText(mr.modelData)
                             color: mr.verdict === "gpu" ? Theme.good : mr.verdict === "no" ? Theme.bad : mr.verdict === "" ? Theme.sub : Theme.warn
@@ -358,23 +502,39 @@ ColumnLayout {
                             font.pixelSize: 12
                             elide: Text.ElideRight
                         }
-                        RowLayout {
+                        Text {
+                            visible: mr.failed
+                            Layout.fillWidth: true
+                            text: "Download failed: " + (mr.dl ? mr.dl.error : "")
+                            color: Theme.bad
+                            font.family: Theme.sans
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
+                        Meter {
+                            visible: mr.busy
+                            Layout.topMargin: 4
+                            value: mr.active && mr.dl.state === "downloading" && mr.dl.total > 0 ? page.dlPercent(mr.dl) : -1
+                        }
+                        Text {
                             visible: mr.busy
                             Layout.fillWidth: true
-                            Layout.topMargin: 4
-                            spacing: 10
-                            Meter { value: -1 }
-                            Text { text: "Downloading and verifying " + (mr.modelData.size > 0 ? page.bytes(mr.modelData.size) : "") + "…"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12 }
+                            text: page.dlText(mr.active ? mr.dl : null)
+                            color: Theme.sub
+                            font.family: Theme.sans
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
                         }
                     }
 
                     Btn {
                         visible: !mr.modelData.installed && !mr.busy
-                        text: "Download" + (mr.modelData.size > 0 ? "  " + page.bytes(mr.modelData.size) : "")
+                        text: (mr.failed ? "Retry" : mr.modelData.partial_bytes > 0 ? "Resume" : "Download") + (mr.remaining > 0 ? "  " + page.bytes(mr.remaining) : "")
                         primary: true
                         enabled: mr.verdict !== "no"
                         onClicked: page.pull(mr.modelData)
                     }
+                    Btn { visible: mr.busy; text: "Cancel"; onClicked: page.cancel(mr.modelData) }
                     Pill { visible: mr.modelData.current && mr.modelData.installed; text: "In use"; tone: "good" }
                     Btn { visible: mr.modelData.installed && !mr.modelData.current; text: "Use"; primary: true; onClicked: page.use(mr.modelData) }
                     Btn { visible: mr.modelData.installed; text: "Remove"; danger: true; onClicked: page.removeModel(mr.modelData) }
@@ -391,22 +551,33 @@ ColumnLayout {
             }
         }
         Cell {
-            last: true
             title: "Add from Hugging Face"
             subtitle: "Any public GGUF model, as hf://owner/name or hf://owner/name:Q4_K_M. Its files are pinned and checked against the published hash after they download."
             Btn { text: "Add…"; onClicked: { page.hfError = ""; hfInput.text = ""; hfSheet.open() } }
         }
+        Cell {
+            last: true
+            title: "Hugging Face token"
+            subtitle: page.tokenSet ? "Saved in your keystore and used for gated or private models. It is never shown."
+                    : "Only needed for gated or private models. It goes straight to your keystore and is never shown."
+            Pill { visible: page.tokenSet; text: "Saved"; tone: "good" }
+            Btn { text: page.tokenSet ? "Replace…" : "Set…"; onClicked: page.setToken() }
+            Btn { visible: page.tokenSet; text: "Remove"; danger: true; onClicked: page.removeToken() }
+        }
     }
 
-    SectionTitle { text: "MEMORY"; visible: page.installed && page.running && page.cur !== null && !!page.cur.fit }
+    SectionTitle { text: "MEMORY"; visible: page.installed && page.running && page.cur !== null && (!!page.mem || !!page.cur.fit) }
     Card {
-        visible: page.installed && page.running && page.cur !== null && !!page.cur.fit
+        visible: page.installed && page.running && page.cur !== null && (!!page.mem || !!page.cur.fit)
         Item {
             id: mem
             Layout.fillWidth: true
             implicitHeight: memCol.implicitHeight + 28
-            readonly property real used: page.cur && page.cur.fit ? (page.cur.fit.gpu_mb || 0) : 0
-            readonly property real total: page.hw.memory_budget_mb || 0
+            readonly property bool measured: !!page.mem && !!page.mem.measured
+            readonly property bool idle: page.loadedNames.length === 0
+            readonly property bool ram: measured && page.mem.kind === "ram"
+            readonly property real used: measured ? page.mem.used_mb : page.cur && page.cur.fit ? (page.cur.fit.gpu_mb || 0) : 0
+            readonly property real total: measured ? page.mem.total_mb : page.hw.memory_budget_mb || 0
             ColumnLayout {
                 id: memCol
                 anchors.left: parent.left
@@ -417,16 +588,20 @@ ColumnLayout {
                 spacing: 8
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { Layout.fillWidth: true; text: page.hw.unified ? "Unified memory for the model" : "GPU memory for the model"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13 }
-                    Text { text: "about " + page.gb(mem.used) + " of " + page.gb(mem.total); color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12 }
+                    spacing: 10
+                    Text { Layout.fillWidth: true; text: mem.ram ? "Memory used by the model" : page.hw.unified ? "Unified memory for the model" : "GPU memory for the model"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13 }
+                    Text { text: mem.measured && mem.idle ? "Not loaded" : (mem.measured ? "" : "about ") + page.gb(mem.used) + " of " + page.gb(mem.total); color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12 }
+                    Btn { visible: page.loadedNames.length > 0; text: "Unload"; onClicked: page.unload() }
                 }
                 Meter {
+                    visible: !(mem.measured && mem.idle)
                     value: mem.total > 0 ? 100 * mem.used / mem.total : 0
                     tint: mem.total > 0 && mem.used / mem.total > 0.9 ? Theme.warn : Theme.accent
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: page.cur && page.cur.fit ? (page.cur.title || page.cur.id) + "  •  context " + page.ctxLabel(page.cur.fit.ctx || 0) + "  •  estimated from the model, not measured" : ""
+                    text: mem.measured ? (mem.idle ? "The model loads again on the next request" : (page.cur.title || page.cur.id) + "  •  measured by " + (page.memSources[page.mem.source] || page.mem.source) + (page.mem.process ? ", this model only" : ", everything on the GPU"))
+                        : page.cur && page.cur.fit ? (page.cur.title || page.cur.id) + "  •  context " + page.ctxLabel(page.cur.fit.ctx || 0) + "  •  estimated from the model, not measured" : ""
                     color: Theme.sub
                     font.family: Theme.sans
                     font.pixelSize: 12
@@ -481,8 +656,22 @@ ColumnLayout {
             Seg { options: page.contexts; current: String(page.cur && page.cur.fit ? page.cur.fit.ctx : 32768); onPicked: (id) => page.setContext(id) }
         }
         Cell {
-            title: "Idle unload"
-            subtitle: "The model leaves memory after " + Math.round((page.svc.idle_seconds || 900) / 60) + " minutes without requests, which frees GPU memory for games and the desktop. It loads again on the next request."
+            title: "Unload when idle"
+            subtitle: "How long the model stays in memory without requests. Unloading frees GPU memory for games and the desktop, and it loads again on the next request."
+            Seg { options: page.idleOptions; current: page.idleCurrent; onPicked: (id) => page.setIdle(id) }
+        }
+        Cell {
+            visible: page.cur !== null && !!page.cur.installed
+            title: "Speed test"
+            subtitle: page.benching ? "Measuring " + (page.cur ? page.cur.title : "") + "… The model is unloaded while it runs." : "Measures how fast " + (page.cur ? page.cur.title : "the model") + " reads prompts and writes answers on this computer."
+            Meter { visible: page.benching; Layout.preferredWidth: 90; value: -1 }
+            Btn { enabled: !page.benching; text: page.benching ? "Running…" : page.bench ? "Run Again" : "Run Bench"; onClicked: page.runBench() }
+        }
+        Cell {
+            visible: page.cur !== null && !!page.cur.installed && !page.benching && !!page.bench
+            title: page.bench ? page.benchTitle(page.bench) : ""
+            titleColor: page.bench && !page.bench.ok ? Theme.bad : Theme.text
+            subtitle: page.bench ? page.benchSub(page.bench) : ""
         }
         Cell {
             title: "Check setup"

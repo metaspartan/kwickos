@@ -245,9 +245,9 @@ func fileSHA256(p string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-var modelHTTP = &http.Client{Timeout: 0, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, TLSHandshakeTimeout: 30 * time.Second, ResponseHeaderTimeout: 90 * time.Second}}
+var modelHTTP = &http.Client{Timeout: 0, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, TLSHandshakeTimeout: 30 * time.Second, ResponseHeaderTimeout: 90 * time.Second}, CheckRedirect: dropForeignAuth}
 
-func resumeDownload(u string, want string, size int64, dest string) error {
+func resumeDownload(u string, want string, size int64, dest string, tr *pullTracker) error {
 	want = strings.ToLower(want)
 	if !sha256Re.MatchString(want) {
 		return fmt.Errorf("refusing to download %s without a pinned sha256", u)
@@ -272,7 +272,7 @@ func resumeDownload(u string, want string, size int64, dest string) error {
 		if size > 0 && off == size {
 			break
 		}
-		lastErr = downloadRange(u, part, off, size)
+		lastErr = downloadRange(u, part, off, size, tr)
 		if lastErr == nil {
 			break
 		}
@@ -286,6 +286,7 @@ func resumeDownload(u string, want string, size int64, dest string) error {
 		return lastErr
 	}
 	say("Checking sha256 of %s", path.Base(dest))
+	tr.verifying()
 	got, err := fileSHA256(part)
 	if err != nil {
 		return err
@@ -301,12 +302,13 @@ type fatalDownload struct{ msg string }
 
 func (f fatalDownload) Error() string { return f.msg }
 
-func downloadRange(u, part string, off, size int64) error {
+func downloadRange(u, part string, off, size int64, tr *pullTracker) error {
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return fatalDownload{err.Error()}
 	}
 	req.Header.Set("User-Agent", "kwick-agents/"+version)
+	hfAuth(req)
 	if off > 0 {
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", off))
 	}
@@ -325,7 +327,11 @@ func downloadRange(u, part string, off, size int64) error {
 	case 416:
 		return nil
 	case 401, 403, 404:
-		return fatalDownload{fmt.Sprintf("%s returned %s", u, resp.Status)}
+		msg := fmt.Sprintf("%s returned %s", u, resp.Status)
+		if resp.StatusCode != 404 && hfHost(req.URL.Host) && hfToken() == "" {
+			msg += " (a gated or private model needs a Hugging Face token: kwick-agents key set shared HF_TOKEN)"
+		}
+		return fatalDownload{msg}
 	default:
 		return fmt.Errorf("%s returned %s", u, resp.Status)
 	}
@@ -338,7 +344,12 @@ func downloadRange(u, part string, off, size int64) error {
 		total = off + resp.ContentLength
 	}
 	p := &progress{total: total, done: off, label: path.Base(part[:len(part)-5]), tty: isTerminal(2)}
-	_, err = io.Copy(io.MultiWriter(f, p), resp.Body)
+	var w io.Writer = io.MultiWriter(f, p)
+	if tr != nil {
+		tr.bytes(off)
+		w = io.MultiWriter(f, p, &trackWriter{t: tr, cur: off})
+	}
+	_, err = io.Copy(w, resp.Body)
 	if p.tty {
 		fmt.Fprint(os.Stderr, "\r\033[K")
 	}
@@ -354,7 +365,7 @@ func downloadRange(u, part string, off, size int64) error {
 	return nil
 }
 
-func pullModel(m *ModelEntry) error {
+func pullModel(m *ModelEntry) (rerr error) {
 	if err := m.validate(); err != nil {
 		return err
 	}
@@ -367,6 +378,14 @@ func pullModel(m *ModelEntry) error {
 		return err
 	}
 	defer unlock()
+	tr := newPullTracker(m)
+	defer func() {
+		if rerr != nil {
+			tr.fail(rerr)
+		} else {
+			tr.clear()
+		}
+	}()
 	var need int64
 	for _, f := range m.Files {
 		d := filepath.Join(dir, filepath.FromSlash(f.Name))
@@ -386,10 +405,13 @@ func pullModel(m *ModelEntry) error {
 		d := filepath.Join(dir, filepath.FromSlash(f.Name))
 		if st, err := os.Stat(d); err == nil && st.Size() == f.Size {
 			if man, ok := readManifest(m.ID); ok && man.Verified {
+				tr.finishFile(f.Size)
 				continue
 			}
+			tr.verifying()
 			got, err := fileSHA256(d)
 			if err == nil && got == f.SHA256 {
+				tr.finishFile(f.Size)
 				continue
 			}
 			os.Remove(d)
@@ -397,9 +419,10 @@ func pullModel(m *ModelEntry) error {
 		u := m.fileURL(f)
 		say("Downloading %s", u)
 		say("Expected sha256 %s", f.SHA256)
-		if err := resumeDownload(u, f.SHA256, f.Size, d); err != nil {
+		if err := resumeDownload(u, f.SHA256, f.Size, d, tr); err != nil {
 			return err
 		}
+		tr.finishFile(f.Size)
 		say("sha256 verified")
 	}
 	man := modelManifest{ModelEntry: *m, Verified: true, VerifiedAt: nowStamp(), InstalledAt: nowStamp()}
@@ -528,6 +551,19 @@ type ModelItem struct {
 	Recommended bool   `json:"recommended"`
 	Fit         *Fit   `json:"fit"`
 	FitError    string `json:"fit_error,omitempty"`
+
+	Download     *DownloadInfo `json:"download"`
+	PartialBytes int64         `json:"partial_bytes,omitempty"`
+}
+
+func (it *ModelItem) trackDownload(m *ModelEntry) {
+	if it.Installed && it.Verified {
+		return
+	}
+	it.Download = loadDownload(m.ID)
+	if !it.Installed {
+		it.PartialBytes = partialBytes(m)
+	}
 }
 
 func modelItems(mc *ModelCatalog, hw Hardware, ctx int64, cfg *inferConfig, remote bool) []ModelItem {
@@ -537,6 +573,7 @@ func modelItems(mc *ModelCatalog, hw Hardware, ctx int64, cfg *inferConfig, remo
 		it.Shape = nil
 		it.Installed, it.Verified = installedModel(m)
 		it.Current = cfg.Model == m.ID
+		it.trackDownload(m)
 		var sh ModelShape
 		var err error
 		if m.Shape != nil || remote || it.Installed {
@@ -664,7 +701,7 @@ func cmdInferModels(o iopts) error {
 
 func cmdInferModel(o iopts, pos []string) error {
 	if len(pos) == 0 {
-		return fmt.Errorf("usage: kwick-agents inference model pull ID | add hf://REPO[:QUANT] | rm ID | verify [ID]")
+		return fmt.Errorf("usage: kwick-agents inference model pull ID | cancel ID | add hf://REPO[:QUANT] | rm ID | verify [ID]")
 	}
 	sub, args := pos[0], pos[1:]
 	mc, err := loadModelCatalog()
@@ -709,6 +746,22 @@ func cmdInferModel(o iopts, pos []string) error {
 			say("added %s (%s, %s, licence %s); download it with: kwick-agents inference model pull %s", m.ID, m.Quant, humanBytes(m.size()), m.License, m.ID)
 		}
 		return nil
+	case "cancel":
+		if len(args) != 1 {
+			return fmt.Errorf("usage: kwick-agents inference model cancel ID")
+		}
+		kept, err := cancelPull(args[0])
+		if err != nil {
+			return err
+		}
+		if o.json {
+			emitJSON(map[string]any{"schema": 1, "ok": true, "id": strings.ToLower(args[0]), "kept_bytes": kept})
+		} else if kept > 0 {
+			say("download of %s cancelled; %s kept, the next pull resumes", args[0], humanBytes(kept))
+		} else {
+			say("no download of %s is running", args[0])
+		}
+		return nil
 	case "rm", "remove":
 		if len(args) == 0 {
 			return fmt.Errorf("usage: kwick-agents inference model rm ID...")
@@ -727,6 +780,7 @@ func cmdInferModel(o iopts, pos []string) error {
 			if err := os.RemoveAll(d); err != nil {
 				return err
 			}
+			os.Remove(pullPath(id))
 			if cfg.Model == id {
 				cfg.Model = ""
 				saveInferConfig(cfg)
@@ -793,7 +847,7 @@ func cmdInferModel(o iopts, pos []string) error {
 		emitJSON(map[string]any{"version": g.Version, "size": size, "tensors": len(g.Tensors), "data_offset": g.DataOffset, "kv": g.KV})
 		return nil
 	}
-	return fmt.Errorf("usage: kwick-agents inference model pull|add|rm|verify")
+	return fmt.Errorf("usage: kwick-agents inference model pull|cancel|add|rm|verify")
 }
 
 type hfSibling struct {
@@ -902,13 +956,20 @@ func addHFModel(ref string) (*ModelEntry, error) {
 	if err := json.Unmarshal([]byte(body), &hm); err != nil {
 		return nil, fmt.Errorf("Hugging Face returned an unexpected answer: %v", err)
 	}
+	gated := false
 	if g, ok := hm.Gated.(bool); (ok && g) || (!ok && hm.Gated != nil) {
-		return nil, fmt.Errorf("%s is gated on Hugging Face (accept its terms there; gated downloads are not supported)", repo)
+		gated = true
+		if hfToken() == "" {
+			return nil, fmt.Errorf("%s is gated on Hugging Face: accept its terms on the model page and give kwick-agents a token (kwick-agents key set shared HF_TOKEN)", repo)
+		}
 	}
 	if !commitRe.MatchString(hm.SHA) {
 		return nil, fmt.Errorf("%s: no commit in the API answer", repo)
 	}
 	q, files, err := hfPickFiles(hm.Siblings, quant)
+	if err != nil && gated && len(hm.Siblings) == 0 {
+		return nil, fmt.Errorf("%s is gated and the token has no access to its files: accept the terms on the model page", repo)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%s: %v", repo, err)
 	}

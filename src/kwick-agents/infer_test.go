@@ -577,7 +577,7 @@ func TestResumeDownload(t *testing.T) {
 		dir := t.TempDir()
 		dest := filepath.Join(dir, "m.gguf")
 		os.WriteFile(dest+".part", data[:len(data)/3], 0o644)
-		if err := resumeDownload(srv.URL+"/m.gguf", want, int64(len(data)), dest); err != nil {
+		if err := resumeDownload(srv.URL+"/m.gguf", want, int64(len(data)), dest, nil); err != nil {
 			t.Fatalf("range=%v: %v", honour, err)
 		}
 		got, _ := os.ReadFile(dest)
@@ -586,7 +586,7 @@ func TestResumeDownload(t *testing.T) {
 		}
 		os.WriteFile(dest+".part", []byte("garbage that does not match"), 0o644)
 		os.Remove(dest)
-		err := resumeDownload(srv.URL+"/m.gguf", want, int64(len(data)), dest)
+		err := resumeDownload(srv.URL+"/m.gguf", want, int64(len(data)), dest, nil)
 		if honour {
 			var hm hashMismatch
 			if err == nil || !strings.Contains(err.Error(), "sha256 mismatch") || exists(dest) || exists(dest+".part") {
@@ -599,7 +599,7 @@ func TestResumeDownload(t *testing.T) {
 	}
 	srv := rangeServer(t, data, true)
 	defer srv.Close()
-	if err := resumeDownload(srv.URL+"/m.gguf", "nothex", 1, filepath.Join(t.TempDir(), "x")); err == nil {
+	if err := resumeDownload(srv.URL+"/m.gguf", "nothex", 1, filepath.Join(t.TempDir(), "x"), nil); err == nil {
 		t.Fatal("download without a pinned sha256")
 	}
 }
@@ -621,7 +621,7 @@ func TestPullAndVerify(t *testing.T) {
 	}
 	d := filepath.Join(inferModelsDir(), m.ID, "dir")
 	os.MkdirAll(d, 0o755)
-	if err := resumeDownload(srv.URL+"/x", m.Files[0].SHA256, m.Files[0].Size, filepath.Join(d, "tiny.gguf")); err != nil {
+	if err := resumeDownload(srv.URL+"/x", m.Files[0].SHA256, m.Files[0].Size, filepath.Join(d, "tiny.gguf"), nil); err != nil {
 		t.Fatal(err)
 	}
 	if inst, _ := installedModel(m); inst {

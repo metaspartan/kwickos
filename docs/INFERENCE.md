@@ -29,9 +29,13 @@ kwick-agents inference gpu [--json]
 kwick-agents inference install [--backend cpu|vulkan|cuda12|cuda13|rocm] [--json]
 kwick-agents inference remove | update [--json]
 kwick-agents inference models [--json] [--fits] [--installed] [--ctx N]
-kwick-agents inference model pull ID|hf://REPO[:QUANT] | add hf://REPO[:QUANT] | rm ID | verify [ID]
+kwick-agents inference model pull ID|hf://REPO[:QUANT] | cancel ID | add hf://REPO[:QUANT] | rm ID | verify [ID]
+kwick-agents inference downloads [--json]
 kwick-agents inference use ID|best [--ctx N]
+kwick-agents inference unload [ID] [--json]
 kwick-agents inference fit ID [--ctx N] [--json]
+kwick-agents inference config [--json] | config set idle-minutes N|never | config set lan on|off
+kwick-agents inference bench [--json]
 kwick-agents inference service enable|disable|start|stop|restart|status|logs [-n N] [-f]
 kwick-agents inference connect [AGENT...|--all] | disconnect [AGENT...|--all] [--json]
 kwick-agents inference endpoint [--json]
@@ -103,8 +107,23 @@ of every file taken from the API (`/api/models/REPO?blobs=true`), the licence fr
 interruption, checks free space first, verifies the sha256 of the whole file and only then renames it. `model add hf://REPO[:QUANT]`
 reads the repository through the API, pins its current commit, the file sizes and LFS sha256 values and the licence, and adds it to
 `~/.config/kwick-inference/models.json`; without a quant it picks Q4_K_M, Q4_K_S, MXFP4, Q4_0, IQ4_XS, Q4_1, Q5_K_M or Q8_0 in that
-order. Multi-file (sharded) quants are downloaded together; projector (`mmproj`), MTP and imatrix files are skipped. Gated repositories
-are refused. `model verify` re-hashes the files.
+order. Multi-file (sharded) quants are downloaded together; projector (`mmproj`), MTP and imatrix files are skipped. `model verify`
+re-hashes the files.
+
+**Progress and cancel.** While `model pull` (or `use`, or the MCP tool) runs, it keeps `~/.local/state/kwick-agents/inference-pulls/ID.json`
+up to date twice a second: bytes done and total over all files of the model, a smoothed rate in bytes per second, the start time and
+the pid. `models --json` and `status --json` put it in each model as `download`, and `downloads --json` lists every active one without
+computing fits, which is cheap enough to poll every second. The file is removed when the download finishes or is cancelled; a pull that
+fails leaves `state: "failed"` with the error until the next pull, `model cancel` or `model rm`. A state file whose process is gone
+reads as `failed` ("the download was interrupted"). `model cancel ID` stops the pull (SIGTERM, then SIGKILL after 5 seconds) and keeps
+the `.part` file, so the next `pull` resumes from it; `partial_bytes` in `models --json` tells how much is there.
+
+**Hugging Face token.** Gated and private repositories need a token. It is the shared keystore key `HF_TOKEN`
+(`kwick-agents key set shared HF_TOKEN --dialog`, remove with `key rm shared HF_TOKEN`); the `HF_TOKEN` environment variable is used
+when no key is stored. The token goes in an `Authorization` header of requests to `huggingface.co` only, is dropped on a redirect to
+another host (the CDN), and is never logged, printed or written to `status --json` (which only has `hf_token: true|false`). Because
+it is a shared key, agents started by kwick-agents get it as an environment variable like every other shared key. Without a token a
+gated repository is refused with the instruction to set one; with one, `model add` accepts it when the token can see the files.
 
 `use ID` downloads the model when needed, makes it the model `local`, writes `endpoint.json` and restarts a running service. `use best`
 picks the highest-ranked curated model whose verdict is `gpu` (or `cpu` on a machine without a usable GPU; there only models marked
@@ -150,10 +169,26 @@ llama-server --host 127.0.0.1 --port 11435 --api-key-file RUN/api-key --models-p
              --models-memory-margin HEADROOM --sleep-idle-seconds 900 --no-webui
 ```
 
+`config set idle-minutes N|never` (1 to 1440) and `config set lan on|off` write `~/.config/kwick-inference/config.json` and restart a
+running service. `never` leaves out `--sleep-idle-seconds`. `lan on` starts `llama-server` with `--host 0.0.0.0`; the key is still
+required for every endpoint except `/health` (which only says `ok`), but the traffic is plain HTTP, so it is for a network you trust.
+`status --json` reports `host`, `lan` and, when on, `lan_url` (the first private IPv4 address of this machine). Checked from a second
+address of the machine: without a key `/v1/models`, `/models`, `/props`, `/metrics`, `/slots`, `/v1/chat/completions` and
+`/v1/messages` answer 401; with the key they work; after `lan off` the port is refused on that address.
+
+`unload [ID]` posts to the router's `POST /models/unload` for every loaded, loading or sleeping model (or the named one; the chosen
+model's id means `local`) and waits until `GET /models` shows them gone. The model loads again with the next request. It fails when the
+service is not running.
+
+`bench` runs `llama-bench` from the engine folder, in the same sandbox as the service, on the chosen model with 128 prompt tokens, 32
+generated tokens and 2 repetitions. A loaded model is unloaded first, so the numbers have the whole memory to themselves. It prints
+prompt and generation tokens per second, `--json` gives the result below, and the last good result is kept in
+`~/.local/state/kwick-agents/inference-bench.json` and shown as `bench` in `status --json` while the same model is chosen.
+
 * Router mode with one preset section `local` (the chosen model) and one per downloaded model, all with `load-on-startup = false`,
   `jinja = true`, `fit = on`, `c = 32768` (or `--ctx`), `fit-target = HEADROOM`.
 * Idle unload: after 15 minutes without requests the model leaves memory and loads again on the next request (`idle_seconds` in
-  `~/.config/kwick-inference/config.json`).
+  `~/.config/kwick-inference/config.json`; set it with `config set idle-minutes`).
 * VRAM headroom: 1536 MB stay free on a GPU that drives a display (512 MB otherwise), both for `--fit` and for the router's
   `--models-memory-margin`, so the desktop and games keep room.
 * Sandbox: bubblewrap with all namespaces unshared except the network (the port must be reachable on the host loopback), `/usr` and `/etc`
@@ -198,7 +233,7 @@ oh-my-pi 19.0.1 and 19.1.0, Cybara 1.0.2596). When Cybara's gateway is not runni
 | `inference_start`, `inference_stop`, `inference_pull` | `inference.manage` | ask |
 
 The consent text of `inference_pull` names the model, its size, the repository and the licence and whether commercial use is allowed.
-Downloads started through MCP run in the background and log to `~/.local/state/kwick-agents/inference-pull-ID.log`. No tool returns the
+Downloads started through MCP run in the background, log to `~/.local/state/kwick-agents/inference-pull-ID.log` and show their progress in `inference_models` and `kwick-agents inference downloads`. No tool returns the
 key. The resource `kwickos://docs/inference` is this document.
 
 ## Stable JSON
@@ -233,8 +268,11 @@ Schema 1. Fields are only ever added; `schema` changes if one is removed or chan
     "enabled": false, "running": true, "healthy": true, "pid": 4242,
     "url": "http://127.0.0.1:11435/v1", "anthropic_url": "http://127.0.0.1:11435", "host": "127.0.0.1", "port": 11435,
     "alias": "local", "key_env": "KWICK_INFERENCE_API_KEY", "key_set": true, "idle_seconds": 900, "vram_headroom_mb": 1536,
-    "sandbox": true, "supervisor": "kwick-agents", "loaded": ["local"], "log": "/home/u/.local/state/kwick-agents/inference.log"
+    "lan": false, "sandbox": true, "supervisor": "kwick-agents", "loaded": ["local"], "log": "/home/u/.local/state/kwick-agents/inference.log"
   },
+  "memory": {"measured": true, "source": "nvidia-smi", "kind": "gpu", "used_mb": 9168, "total_mb": 24564, "process": true},
+  "hf_token": false,
+  "bench": null,
   "model": { "...": "one entry of models --json, with current true; null when no model is chosen" },
   "models": {"installed": 2, "bytes": 19294200832, "dir": "/home/u/.local/share/kwick-inference/models"},
   "endpoint_file": "/home/u/.config/kwick-inference/endpoint.json",
@@ -250,7 +288,22 @@ Schema 1. Fields are only ever added; `schema` changes if one is removed or chan
 
 `agents` lists cybara, opencode, codex, goose, hermes, openclaw, omp, aider and claude-code in that order; `method` is `api`, `config` or
 `run --local`. Issue codes: `catalog`, `backend`, `backend-mismatch`, `engine-missing`, `model-missing`, `model-too-big`, `no-model`,
-`models-catalog`, `service-down`. `pid` is 0 and `loaded` empty when the service is stopped.
+`models-catalog`, `service-down`. `pid` is 0 and `loaded` empty when the service is stopped. `idle_seconds` is 0 when the model never
+leaves memory on its own. `host` is `0.0.0.0` and `lan_url` is set while `lan` is true.
+
+`memory` is null unless the service runs (and always for `--system`). When it is measured, `used_mb` is what the model's processes
+(the service's children, which include the router's model instances) hold, and `total_mb` is the device or memory budget it is
+compared with; `used_mb` is 0 while no model is loaded. `process` is false when only the whole device could be read.
+
+| `source` | `kind` | How |
+|---|---|---|
+| `nvidia-smi` | `gpu` | `--query-compute-apps=pid,used_memory` summed over the model's pids; when the driver lists none (Vulkan on NVIDIA) the whole GPU from `--query-gpu=memory.used,memory.total` |
+| `amdgpu-fdinfo` | `gpu` | `drm-memory-vram` and `drm-memory-gtt` of the model's DRM file descriptors in `/proc/PID/fdinfo` |
+| `amdgpu-sysfs` | `gpu` | `mem_info_vram_used` (plus `mem_info_gtt_used` on unified memory) of the AMD GPUs, whole device |
+| `process-rss` | `ram` | resident memory of the model's processes with the CPU backend |
+
+Without one of these (Intel GPUs, or a machine without `nvidia-smi`) `memory` is null and the estimate in `model.fit` is all there is; llama-server's `/metrics` has no memory figures. `hf_token` is true when the key `HF_TOKEN` (or the
+environment variable) is set; the value is never in any output. `bench` is the last good `bench` result for the chosen model.
 
 `kwick-agents inference models --json`:
 
@@ -268,7 +321,7 @@ Schema 1. Fields are only ever added; `schema` changes if one is removed or chan
       "license": "apache-2.0", "license_url": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF", "commercial_ok": true,
       "params_b": 27.32, "active_params_b": 27.32, "rank": 85, "tags": ["chat", "tools", "code"], "source": "catalog",
       "size": 16564259744, "moe": false, "context_max": 262144,
-      "installed": true, "verified": true, "current": true, "recommended": true,
+      "installed": true, "verified": true, "current": true, "recommended": true, "download": null,
       "fit": {
         "verdict": "gpu", "ctx": 32768, "max_ctx": 65536, "weights_mb": 15787, "kv_mb": 2048, "overhead_mb": 700,
         "need_mb": 18535, "budget_mb": 23028, "gpu_mb": 18535, "cpu_mb": 0, "reason": "fits in 22.5 GB of VRAM with 32K context"
@@ -278,7 +331,10 @@ Schema 1. Fields are only ever added; `schema` changes if one is removed or chan
 }
 ```
 
-`source` is `catalog` or `hf` (added with `model add`). `cpu_ok` is present for models that run well on a CPU. `fit` is null and
+`download` is null, or while a model is being pulled (or its last pull failed)
+`{"state": "downloading"|"verifying"|"failed", "done": 1182793728, "total": 16564259744, "rate": 18874368, "started": "2026-11-23T05:00:00Z", "pid": 4242, "error": "..."}`
+(`error` only for `failed`; `rate` is bytes per second and 0 unless `downloading`; `done` and `total` cover all files of the model).
+`partial_bytes` appears on a model that is not installed but has `.part` files, so a pull resumes. `source` is `catalog` or `hf` (added with `model add`). `cpu_ok` is present for models that run well on a CPU. `fit` is null and
 `fit_error` says why when the shape is unknown (a model added from Hugging Face that was never read). `cpu_moe` is true for
 `moe-offload`. `--installed` and `--fits` filter the list; `--ctx` changes the context of every fit.
 
@@ -297,6 +353,19 @@ Schema 1. Fields are only ever added; `schema` changes if one is removed or chan
 }
 ```
 
+`kwick-agents inference downloads --json`: `{"schema":1,"downloads":{"qwen3.8-27b":{"state","done","total","rate","started","pid","error"}}}`, only models with a state file.
+`model cancel ID --json`: `{"schema":1,"ok":true,"id","kept_bytes"}`. `unload --json`: `{"schema":1,"ok":true,"unloaded":["local"]}`.
+`config --json`: `{"schema":1,"config":{"idle_seconds","idle_minutes","lan","host","port","ctx","model","lan_url"}}` (`config set ... --json` adds `ok`).
+
+`kwick-agents inference bench --json`:
+
+```json
+{"schema": 1, "ok": true, "model": "qwen3.5-0.8b", "engine": "b12648", "backend": "cuda13", "devices": "CUDA: NVIDIA GeForce RTX 4090",
+ "prompt_tokens": 128, "gen_tokens": 32, "prompt_tps": 8431.2, "gen_tps": 301.4, "seconds": 6.2, "at": "2026-11-23T05:00:00Z", "error": ""}
+```
+
+`ok` is false with `error` when llama-bench fails (exit code 1); only good results are kept for `status`.
+
 Other JSON: `install --json` (`{"schema":1,"ok","engine":{"build","backend","dir","installed_at","smoke_ok","devices","smoke_error"},"error"}`),
 `update --json` (`{"schema":1,"updated":[{"name","from","to","scope","ok","backend","error"}]}`), `doctor --json` (`{"schema":1,"ok","checks":[{"name","ok","detail"}]}`),
 `connect --json` (`{"schema":1,"agents":[{"name","ok","file","error"}]}`), `service status --json` (`{"schema":1,"service":{...}}`),
@@ -309,7 +378,9 @@ Other JSON: `install --json` (`{"schema":1,"ok","engine":{"build","backend","dir
 | `~/.local/share/kwick-agents/pkgs/inference/BUILD-BACKEND/` | llama.cpp and, for CUDA, the runtime pack |
 | `~/.local/state/kwick-agents/inference.json` | installed build, backend and smoke test result |
 | `~/.local/share/kwick-inference/models/ID/` | model files and `manifest.json` (`KWICK_INFERENCE_MODELS_DIR` moves it) |
-| `~/.config/kwick-inference/config.json` | chosen model, context, backend override, port, idle time, sandbox, connected agents |
+| `~/.local/state/kwick-agents/inference-pulls/ID.json` | progress of a running or failed download |
+| `~/.local/state/kwick-agents/inference-bench.json` | last good `bench` result |
+| `~/.config/kwick-inference/config.json` | chosen model, context, backend override, port, idle time (`idle_seconds`, -1 = never), `lan`, sandbox, connected agents |
 | `~/.config/kwick-inference/models.json` | models added from Hugging Face |
 | `~/.config/kwick-inference/endpoint.json` | endpoint description for other programs |
 | `$XDG_RUNTIME_DIR/kwick-agents/inference/` | `api-key`, `models.ini`, `pid` while the service runs |
@@ -320,5 +391,5 @@ Other JSON: `install --json` (`{"schema":1,"ok","engine":{"build","backend","dir
 
 Phase 2: vLLM and SGLang for CUDA 13 and ROCm servers, a UNIX socket with a Go reverse proxy (Host check, per-request audit, network
 namespace for llama-server), tensor parallelism and a GB10 profile. Phase 3: riscv64 and Asahi builds, RPC across machines, SYCL and
-OpenVINO, embeddings and speech, sharing on the LAN or a tailnet. `bench` and `endpoint add` (external endpoints) from the design are
-not in phase 1.
+OpenVINO, embeddings and speech, sharing over a tailnet or with TLS (LAN access is plain HTTP with the key). `endpoint add` (external
+endpoints) from the design is not in phase 1.

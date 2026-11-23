@@ -995,6 +995,12 @@ def model_obj(m):
         note += ": needs %.1f GB, %.1f GB available" % (need / 1024.0, budget / 1024.0)
     lic = LICENSE_NAMES.get((m.get("license") or "").lower(), m.get("license") or "") + (", no commercial use" if m.get("commercial_ok") is False else "")
     parts = [x for x in (m.get("quant") or "", gib(size) if size else "", lic) if x]
+    dl = m.get("download") if isinstance(m.get("download"), dict) else None
+    partial = int(m.get("partial_bytes") or 0)
+    if dl and dl.get("state") == "failed":
+        note = ("Download failed: " + str(dl.get("error") or "")).strip()
+    elif partial and not m.get("installed"):
+        note = (note + ". " if note else "") + "%s already downloaded; Get resumes it" % gib(partial)
     return {
         "key": "model:" + mid,
         "src": "model",
@@ -1011,6 +1017,7 @@ def model_obj(m):
         "available": verdict != "no",
         "note": note,
         "kind": "model",
+        "download": gib(size) if size else "",
         "shots": [],
     }
 

@@ -28,6 +28,7 @@ QtObject {
     property bool installedLoading: false
     property var job: ({})
     property bool checking: false
+    property var downloads: ({})
 
     readonly property bool archOn: !!(sources.arch && sources.arch.installed && sources.arch.enabled)
     readonly property bool archInstalled: !!(sources.arch && sources.arch.installed)
@@ -37,6 +38,8 @@ QtObject {
     readonly property bool busy: active !== "" || queue.length > 0
 
     signal changed(string key)
+
+    onAgentsOnChanged: { if (s.agentsOn) s.pollDownloads() }
 
     readonly property QtObject source: P5.DataSource {
         engine: "executable"
@@ -55,6 +58,84 @@ QtObject {
         repeat: true
         running: s.active !== "" || s.checking
         onTriggered: s.call("job", function (j) { if (j) s.onJob(j) })
+    }
+
+    readonly property QtObject downloadPoll: Timer {
+        interval: Object.keys(s.downloads).length > 0 ? 1000 : 5000
+        repeat: true
+        running: s.agentsOn
+        onTriggered: s.pollDownloads()
+    }
+
+    function fmtBytes(b) {
+        if (b >= 1073741824) return (Math.round(b / 107374182.4) / 10) + " GB"
+        return Math.round(b / 1048576) + " MB"
+    }
+
+    function fmtSpeed(r) {
+        if (r >= 10485760) return Math.round(r / 1048576) + " MB/s"
+        if (r >= 1048576) return (Math.round(r / 104857.6) / 10) + " MB/s"
+        return Math.round(r / 1024) + " KB/s"
+    }
+
+    function downloadMessage(d) {
+        if (d.state === "verifying") return "Checking the download…"
+        var m = "Downloading " + s.fmtBytes(d.done) + " of " + s.fmtBytes(d.total)
+        if (d.rate > 0) m += "  ·  " + s.fmtSpeed(d.rate)
+        return m
+    }
+
+    function pollDownloads() {
+        if (s.dlBusy) return
+        s.dlBusy = true
+        s.run("kwick-agents inference downloads --json 2>/dev/null", function (out) {
+            s.dlBusy = false
+            var d
+            try { d = JSON.parse(out) } catch (e) { return }
+            var src = d.downloads || {}
+            var next = {}
+            for (var id in src)
+                if (/^[A-Za-z0-9._:\/-]+$/.test(id) && src[id] && typeof src[id] === "object") next[id] = src[id]
+            s.applyDownloads(next)
+        })
+    }
+
+    property bool dlBusy: false
+
+    function applyDownloads(next) {
+        var prev = s.downloads
+        s.downloads = next
+        for (var id in next) {
+            var d = next[id]
+            var key = "model:" + id
+            if (d.state !== "downloading" && d.state !== "verifying") continue
+            var o = s.ops[key]
+            var p = d.state === "downloading" && d.total > 0 ? Math.min(100, Math.floor(100 * d.done / d.total)) : -1
+            if (o)
+                s.setOp(key, Object.assign({}, o, { progress: p, message: s.downloadMessage(d), queued: false, auth: false }))
+            else
+                s.setOp(key, { kind: "install", app: { key: key, src: "model", id: id, name: id }, progress: p, message: s.downloadMessage(d), queued: false, auth: false, external: true })
+        }
+        for (var old in prev) {
+            if (next[old] && (next[old].state === "downloading" || next[old].state === "verifying")) continue
+            var k = "model:" + old
+            var oo = s.ops[k]
+            if (!oo || !oo.external) continue
+            s.setOp(k, null)
+            if (next[old] && next[old].state === "failed") s.say(old + ": the download failed. " + (next[old].error || ""), true)
+            s.settleModel(k)
+        }
+    }
+
+    function settleModel(key) {
+        s.call("installed", function (j) {
+            if (!j || !j.items) return
+            s.installed = j.items
+            s.installedLoaded = true
+            s.mark(key, j.items.some(function (i) { return i.key === key }))
+            s.revision++
+            s.changed(key)
+        })
     }
 
     function run(cmd, cb) {

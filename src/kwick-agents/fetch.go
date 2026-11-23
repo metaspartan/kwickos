@@ -148,6 +148,7 @@ func fetchText(url string, limit int64) (string, error) {
 		return "", err
 	}
 	req.Header.Set("User-Agent", "kwick-agents/"+version)
+	hfAuth(req)
 	c := &http.Client{Timeout: 60 * time.Second}
 	resp, err := c.Do(req)
 	if err != nil {

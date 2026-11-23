@@ -26,6 +26,8 @@ type serviceStatus struct {
 	URL          string   `json:"url"`
 	AnthropicURL string   `json:"anthropic_url"`
 	Host         string   `json:"host"`
+	LAN          bool     `json:"lan"`
+	LANURL       string   `json:"lan_url,omitempty"`
 	Port         int      `json:"port"`
 	Alias        string   `json:"alias"`
 	KeyEnv       string   `json:"key_env"`
@@ -77,9 +79,14 @@ func maxHeadroom(hw Hardware) int64 {
 }
 
 func getServiceStatus(cfg *inferConfig) serviceStatus {
-	s := serviceStatus{URL: cfg.baseURL() + "/v1", AnthropicURL: cfg.baseURL(), Host: "127.0.0.1", Port: cfg.port(), Alias: inferAlias,
+	s := serviceStatus{URL: cfg.baseURL() + "/v1", AnthropicURL: cfg.baseURL(), Host: cfg.host(), LAN: cfg.LAN, Port: cfg.port(), Alias: inferAlias,
 		KeyEnv: inferKeyEnv, KeySet: keyStored(), IdleSeconds: cfg.idle(), Sandbox: cfg.sandbox(), Loaded: []string{}, Log: inferLogPath()}
 	s.Enabled = serviceEnabled(cfg)
+	if cfg.LAN {
+		if a := lanAddress(); a != "" {
+			s.LANURL = fmt.Sprintf("http://%s:%d/v1", a, cfg.port())
+		}
+	}
 	s.Supervisor = "kwick-agents"
 	if inferSystem {
 		s.Supervisor = "kinit"
@@ -216,15 +223,17 @@ func writePreset(cfg *inferConfig) error {
 }
 
 func serverArgs(cfg *inferConfig, engine, run string, hw Hardware) []string {
-	return []string{filepath.Join(engine, "llama-server"),
-		"--host", "127.0.0.1", "--port", strconv.Itoa(cfg.port()),
+	a := []string{filepath.Join(engine, "llama-server"),
+		"--host", cfg.host(), "--port", strconv.Itoa(cfg.port()),
 		"--api-key-file", filepath.Join(run, "api-key"),
 		"--models-preset", filepath.Join(run, "models.ini"),
 		"--models-max", "1",
 		"--models-memory-margin", strconv.FormatInt(maxHeadroom(hw), 10),
-		"--sleep-idle-seconds", strconv.Itoa(cfg.idle()),
-		"--no-webui",
 	}
+	if cfg.idle() > 0 {
+		a = append(a, "--sleep-idle-seconds", strconv.Itoa(cfg.idle()))
+	}
+	return append(a, "--no-webui")
 }
 
 func sandboxEnv() []string {

@@ -494,6 +494,7 @@ func (r *rangeReader) fetch() ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "kwick-agents/"+version)
+	hfAuth(req)
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", r.off, r.off+r.chunk-1))
 	c := &http.Client{Timeout: 120 * time.Second}
 	resp, err := c.Do(req)
