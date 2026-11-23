@@ -50,7 +50,7 @@ case "$cmd" in
           case $de in hyprland|sway)
             if [ -n "$u" ] && [ "$u" != root ]; then
               h=$(getent passwd "$u" | cut -d: -f6)
-              if [ ! -f "$h/.config/hypr/kwick-layout.conf" ] || [ ! -f "$h/.config/sway/kwick-layout.conf" ]; then
+              if [ ! -f "$h/.config/hypr/kwick-layout.conf" ] || [ ! -f "$h/.config/sway/kwick-layout.conf" ] || [ ! -f "$h/.config/hypr/kwick-keys.conf" ]; then
                 su "$u" -s /bin/sh -c 'XDG_CURRENT_DESKTOP=Hyprland kwick-layout "$(kwick-layout)"' >/dev/null 2>&1 || true
               fi
             fi ;;

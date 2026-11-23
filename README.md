@@ -176,6 +176,9 @@ The everyday tools are part of the desktop. They follow the layout, the accent c
   Linux. It is in Files, Quick Look, Capture, Settings and the Control Center.
 * **Clipboard history** opens with Meta+V. The **Control Center** in the menu bar has Bluetooth, Nearby Share, network, Focus,
   Night Light, display, sound and media.
+* **Keyboard Shortcuts** opens with Meta+K (Cmd+/ in the macOS layout): every shortcut on one searchable sheet that can also
+  run them. Settings > Keyboard records new shortcuts with a click and warns about conflicts, and `kwick-keys` sets, resets,
+  checks, imports and exports them, the same on Plasma, GNOME, Hyprland and sway. [docs/KEYS.md](docs/KEYS.md)
 * **Settings** has new pages for Agents (sandboxed coding agents, a keystore and the kwick-mcp server), Shells (the desktop shell,
   the terminal shell and its prompt) and Privacy & Security (what uses the camera, microphone and screen, and app permissions).
 
@@ -282,6 +285,7 @@ Cross builds, the source tree, releases and CI: [docs/BUILDING.md](docs/BUILDING
 | [SNAPSHOTS](docs/SNAPSHOTS.md) | `kwick-snapshot` and the Snapshots page: Btrfs snapshots around every update and every hour, file restore, rollback, starting a snapshot from the boot menu |
 | [NEARBY](docs/NEARBY.md) | Nearby Share: sending files to phones and computers nearby, LocalSend compatible |
 | [SHELLS](docs/SHELLS.md) | `kwick-shell` and `kwick-desktop shell`: terminal shells, prompt presets and desktop shells |
+| [KEYS](docs/KEYS.md) | `kwick-keys`, Settings > Keyboard and the cheat sheet: one keymap for Plasma, GNOME, Hyprland and sway |
 | [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md), [ARCH](docs/ARCH.md) | optional packages |
 | [BUILDING](docs/BUILDING.md) and [VERIFICATION](docs/VERIFICATION.md) | building from source, CI, and what was tested |
 

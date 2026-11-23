@@ -19,8 +19,15 @@ export default class KwickClipboard extends Extension {
                 this._read();
         });
         this._keys = new Map();
-        this._grab('<Super>v', ['kwick-search', '--mode', 'clipboard']);
-        this._grab('<Super><Shift>s', ['kwick-capture']);
+        this._grabAll();
+        this._keysFile = Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_config_dir(), 'kwick', 'keys', 'gnome.json']));
+        this._monitor = this._keysFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
+        this._monitorId = this._monitor.connect('changed', (monitor, file, other, event) => {
+            if (event === Gio.FileMonitorEvent.CHANGES_DONE_HINT || event === Gio.FileMonitorEvent.CREATED || event === Gio.FileMonitorEvent.DELETED) {
+                this._ungrabAll();
+                this._grabAll();
+            }
+        });
         this._acceleratorId = global.display.connect('accelerator-activated', (display, action) => {
             const argv = this._keys.get(action);
             if (argv && GLib.find_program_in_path(argv[0]))
@@ -33,14 +40,45 @@ export default class KwickClipboard extends Extension {
             this._selection.disconnect(this._ownerId);
         this._ownerId = 0;
         this._selection = null;
+        if (this._monitorId)
+            this._monitor.disconnect(this._monitorId);
+        this._monitorId = 0;
+        this._monitor?.cancel();
+        this._monitor = null;
+        this._keysFile = null;
         if (this._acceleratorId)
             global.display.disconnect(this._acceleratorId);
         this._acceleratorId = 0;
+        this._ungrabAll();
+        this._keys = null;
+    }
+
+    _ungrabAll() {
         for (const action of this._keys.keys()) {
             global.display.ungrab_accelerator(action);
             Main.wm.allowKeybinding(Meta.external_binding_name_for_action(action), Shell.ActionMode.NONE);
         }
-        this._keys = null;
+        this._keys.clear();
+    }
+
+    _grabAll() {
+        const chords = {clipboard: ['<Super>v'], capture: ['<Super><Shift>s']};
+        try {
+            const path = GLib.build_filenamev([GLib.get_user_config_dir(), 'kwick', 'keys', 'gnome.json']);
+            const [ok, bytes] = GLib.file_get_contents(path);
+            if (ok) {
+                const saved = JSON.parse(new TextDecoder().decode(bytes));
+                for (const name of Object.keys(chords)) {
+                    if (Array.isArray(saved[name]))
+                        chords[name] = saved[name].filter(a => typeof a === 'string');
+                }
+            }
+        } catch (e) {
+        }
+        for (const accelerator of chords.clipboard)
+            this._grab(accelerator, ['kwick-search', '--mode', 'clipboard']);
+        for (const accelerator of chords.capture)
+            this._grab(accelerator, ['kwick-capture']);
     }
 
     _grab(accelerator, argv) {

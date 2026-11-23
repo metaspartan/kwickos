@@ -86,9 +86,18 @@ Shells, or with `kwick-desktop shell NAME`; terminal shells and prompt presets w
 
 ## KwickOS Settings
 
-`kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, Shells, GPU,
+`kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, Shells,
+Keyboard (every shortcut, recorded with a click; `kwick-settings keyboard`, see [KEYS](KEYS.md)), GPU,
 Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Software Update (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). It runs in `/usr/lib/kwick/kwick-settings-app` (built from `src/kwick-settings`), which sets the Wayland app id to `kwick-settings`, so KWin (Alt+Tab, Overview, window icons), the dock and the taskbar match `kwick-settings.desktop`; without that binary it falls back to `qml6` with the app id `org.kwickos.settings.qml`, which `kwick-settings.desktop` names in `StartupWMClass`. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
 the same KwickOS object icons.
+
+## Keyboard shortcuts
+
+One keymap drives the shortcuts of Plasma, GNOME, Hyprland and sway. Meta+K (Cmd+/ in the macOS layout, both in the tiling
+sessions) opens a searchable cheat sheet that can also run any action; Settings > Keyboard records new shortcuts with a click,
+warns about conflicts with KwickOS and with the desktop's own shortcuts, and resets, imports and exports them; `kwick-keys` does
+the same from a terminal. Hyprland and sway read their keyboard bindings from the generated `kwick-keys.conf` include. The default
+shortcuts per layout, the chord rules and how each session is written are in [KEYS](KEYS.md).
 
 ## Spotlight Search
 

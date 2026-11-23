@@ -262,6 +262,7 @@ CONF
 
 kdecapture() {
   command -v kwick-capture >/dev/null 2>&1 || return 0
+  command -v kwick-keys >/dev/null 2>&1 && return 0
   cur=$(kreadconfig6 --file kglobalshortcutsrc --group services --group kwick-capture.desktop --key _launch 2>/dev/null)
   case $cur in ""|none) ;; *) return 0 ;; esac
   kwriteconfig6 --file kglobalshortcutsrc --group services --group org.kde.spectacle.desktop --key _launch "Print"
@@ -317,6 +318,7 @@ kde() {
   dbus-send --session --type=signal /KDEPlatformTheme org.kde.KDEPlatformTheme.refreshFonts >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   snaplayouts
+  command -v kwick-keys >/dev/null 2>&1 && kwick-keys apply --session kde --quiet >/dev/null 2>&1
   js=/usr/share/kwick/plasma/$want.js
   qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(echo "var KWICK_APPEARANCE = \"$MODE\";"; [ "$want" = macos ] && kwick-dock preamble 2>/dev/null; cat "$js")" >/dev/null 2>&1 \
     || echo "plasmashell not running: panels and wallpaper apply at next login"
@@ -520,6 +522,7 @@ gnome() {
     done < "$f"
   done
   gnomeexts "$exts"
+  command -v kwick-keys >/dev/null 2>&1 && kwick-keys apply --session gnome --quiet >/dev/null 2>&1
   start=/usr/share/icons/KwickOS-Fluent/scalable/apps/kwick-start-fluent.svg
   if [ "$want" = windows ] && light && [ -f "$start" ]; then
     sed 's/#ffffff/#005fb8/g' "$start" > "$cfg/start-light.svg"
@@ -570,6 +573,11 @@ tiling() {
   [ -f "$T/$want/colors.conf" ] && sub x "$T/$want/colors.conf" >> "$C/hypr/kwick-bars.conf"
   sub sway "$T/common/sway.conf" > "$C/sway/config"
   sub sway "$T/$want/sway.conf" > "$C/sway/kwick-layout.conf"
+  if command -v kwick-keys >/dev/null 2>&1; then
+    kwick-keys apply --session hyprland --no-reload --quiet >/dev/null 2>&1
+  fi
+  [ -f "$C/hypr/kwick-keys.conf" ] || : > "$C/hypr/kwick-keys.conf"
+  [ -f "$C/sway/kwick-keys.conf" ] || : > "$C/sway/kwick-keys.conf"
   for wm in hyprland sway; do sub $wm "$T/$want/waybar.jsonc" > "$C/waybar/$wm.jsonc"; done
   sub x "$T/$want/style.css" > "$C/waybar/style.css"
   rm -rf "$C/waybar/icons"

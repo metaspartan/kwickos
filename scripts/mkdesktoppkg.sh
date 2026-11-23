@@ -13,6 +13,10 @@ cp "$T/macos/hyprland.conf" "$K/hypr/kwick-layout.conf"
 : > "$K/hypr/kwick-effects.conf"; : > "$K/hypr/kwick-bars.conf"; : > "$K/hypr/kwick-touch.conf"
 cp "$T/common/sway.conf" "$K/sway/config"
 sed 's/@UI@/Inter/g' "$T/macos/sway.conf" > "$K/sway/kwick-layout.conf"
+for wm in hyprland sway; do
+  out="$K/$([ $wm = hyprland ] && echo hypr || echo sway)/kwick-keys.conf"
+  KWICK_KEYS_DATA="$P/usr/share/kwick/keys" python3 -I "$P/usr/bin/kwick-keys" generate --session $wm --layout macos > "$out" 2>/dev/null || : > "$out"
+done
 for l in macos windows linux; do cp "$P/usr/share/kwick/plasma/$l.js" "$P/usr/share/plasma/look-and-feel/org.kwickos.$l/contents/layouts/org.kde.plasma.desktop-layout.js"; done
 chmod 755 "$P/usr/lib/kwick/fetch-fonts"
 "$P/usr/lib/kwick/fetch-fonts" "$P" all

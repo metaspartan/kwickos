@@ -24,6 +24,7 @@ ApplicationWindow {
         { name: "Desktop Session", icon: "desktop", color: "#ff9f0a", page: "PageDesktop.qml" },
         { name: "Shells", icon: "shells", color: "#3c4048", page: "PageShells.qml", keys: "terminal zsh bash fish nushell nu elvish xonsh powershell pwsh ash prompt starship powerline quickshell dux dms noctalia hyprland plasma gnome sway waybar login shell" },
         { name: "Touch & Tablet", icon: "touch", color: "#1f8f8a", page: "PageTouch.qml", keys: "touchscreen keyboard gestures rotation pen trackpad touchpad" },
+        { name: "Keyboard", icon: "keyboard", color: "#8e8e93", page: "PageKeyboard.qml", keys: "shortcuts hotkeys keybindings bindings cheat sheet keys chords spotlight" },
         { name: "GPU", icon: "gpu", color: "#30d158", page: "PageGpu.qml" },
         { name: "Gaming", icon: "gaming", color: "#ff453a", page: "PageGaming.qml" },
         { name: "Storage", icon: "storage", color: "#64d2ff", page: "PageStorage.qml" },
@@ -47,6 +48,10 @@ ApplicationWindow {
         Sys.refreshAll()
         Sys.run("printenv KWICK_SETTINGS_PAGE", function (out) {
             var want = out.trim().toLowerCase().replace(/[-_]/g, " ")
+            var exact = -1
+            for (var i = 0; i < pages.length; i++)
+                if (want !== "" && pages[i].name.toLowerCase() === want) { exact = i; break }
+            if (exact >= 0) { current = exact; return }
             for (var j = 0; j < pages.length; j++)
                 if (want !== "" && matches(pages[j], want)) { current = j; break }
             if (/^(local models?|local ai|inference)$/.test(want)) {
@@ -130,44 +135,57 @@ ApplicationWindow {
                     }
                 }
 
-                Repeater {
-                    model: win.pages
-                    delegate: Rectangle {
-                        id: item
-                        required property var modelData
-                        required property int index
-                        readonly property bool on: win.current === index
-                        Layout.fillWidth: true
-                        Layout.topMargin: index === 4 || modelData.name === "About" ? 14 : 0
-                        visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0 || win.matches(modelData, win.query)
-                        implicitHeight: 40
-                        radius: 9
-                        color: on ? Theme.accent : hover.containsMouse ? Theme.hover : "transparent"
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            spacing: 11
-                            Image {
-                                Layout.preferredWidth: 28
-                                Layout.preferredHeight: 28
-                                source: "icons/obj-" + item.modelData.icon + ".svg"
-                                sourceSize.width: 112
-                                sourceSize.height: 112
-                            }
-                            Text {
+                Flickable {
+                    id: navFlick
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    contentWidth: width
+                    contentHeight: navCol.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { policy: navFlick.contentHeight > navFlick.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
+                    ColumnLayout {
+                        id: navCol
+                        width: navFlick.width
+                        spacing: 4
+                        Repeater {
+                            model: win.pages
+                            delegate: Rectangle {
+                                id: item
+                                required property var modelData
+                                required property int index
+                                readonly property bool on: win.current === index
                                 Layout.fillWidth: true
-                                text: item.modelData.name
-                                color: item.on ? "#ffffff" : Theme.text
-                                font.family: Theme.sans
-                                font.pixelSize: 13
-                                font.weight: item.on ? Font.Medium : Font.Normal
+                                Layout.topMargin: index === 4 || modelData.name === "About" ? 14 : 0
+                                visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0 || win.matches(modelData, win.query)
+                                implicitHeight: 40
+                                radius: 9
+                                color: on ? Theme.accent : hover.containsMouse ? Theme.hover : "transparent"
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    spacing: 11
+                                    Image {
+                                        Layout.preferredWidth: 28
+                                        Layout.preferredHeight: 28
+                                        source: "icons/obj-" + item.modelData.icon + ".svg"
+                                        sourceSize.width: 112
+                                        sourceSize.height: 112
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: item.modelData.name
+                                        color: item.on ? "#ffffff" : Theme.text
+                                        font.family: Theme.sans
+                                        font.pixelSize: 13
+                                        font.weight: item.on ? Font.Medium : Font.Normal
+                                    }
+                                }
+                                MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { win.sub = ""; win.current = item.index } }
                             }
                         }
-                        MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { win.sub = ""; win.current = item.index } }
                     }
                 }
-
-                Item { Layout.fillHeight: true }
 
                 Text {
                     Layout.fillWidth: true

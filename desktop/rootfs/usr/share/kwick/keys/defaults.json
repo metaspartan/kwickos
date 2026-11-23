@@ -1,0 +1,417 @@
+{
+  "version": 1,
+  "categories": [
+    { "id": "search", "title": "Search & Apps" },
+    { "id": "capture", "title": "Screenshots & Sharing" },
+    { "id": "windows", "title": "Windows" },
+    { "id": "workspaces", "title": "Workspaces" },
+    { "id": "system", "title": "System" }
+  ],
+  "actions": [
+    {
+      "id": "spotlight",
+      "title": "Spotlight Search",
+      "subtitle": "Search apps, files, actions and the web",
+      "category": "search",
+      "keywords": "find launcher run krunner",
+      "command": "kwick-search",
+      "kde": { "component": "kwick-spotlight", "action": "toggle", "friendly": "KwickOS Spotlight" },
+      "gnome": { "schema": "org.gnome.shell.extensions.kwick-spotlight", "key": "toggle" },
+      "keys": { "*": ["Meta+Space"], "kde/windows": ["Meta+S", "Meta+Space"] }
+    },
+    {
+      "id": "clipboard",
+      "title": "Clipboard History",
+      "subtitle": "Everything you copied, searchable",
+      "category": "search",
+      "keywords": "paste copy history",
+      "command": "kwick-search --mode clipboard",
+      "kde": { "component": "kwick-spotlight", "action": "clipboard", "friendly": "KwickOS Spotlight" },
+      "gnome": { "grab": "clipboard" },
+      "keys": { "*": ["Meta+V"] }
+    },
+    {
+      "id": "keys",
+      "title": "Keyboard Shortcuts",
+      "subtitle": "Show the shortcut cheat sheet",
+      "category": "search",
+      "keywords": "cheat sheet help keys bindings",
+      "command": "kwick-keys show",
+      "keys": { "*": ["Meta+K"], "macos": ["Meta+/"], "tiling": ["Meta+K", "Meta+/"] }
+    },
+    {
+      "id": "launcher",
+      "title": "App Launcher",
+      "category": "search",
+      "keywords": "fuzzel run menu",
+      "command": "fuzzel",
+      "sessions": ["hyprland", "sway"],
+      "keys": { "tiling": ["Meta+D"] }
+    },
+    {
+      "id": "terminal",
+      "title": "Terminal",
+      "category": "search",
+      "keywords": "console shell konsole foot",
+      "command": "kwick-terminal",
+      "kde": { "service": "org.kde.konsole.desktop", "friendly": "Konsole" },
+      "gnome": { "schema": "org.gnome.settings-daemon.plugins.media-keys", "key": "terminal" },
+      "keys": { "*": ["Ctrl+Alt+T"], "tiling": ["Meta+Return"] }
+    },
+    {
+      "id": "files",
+      "title": "Files",
+      "category": "search",
+      "keywords": "file manager dolphin nautilus home folder finder explorer",
+      "command": "kwick-app files",
+      "kde": { "service": "org.kde.dolphin.desktop", "friendly": "Dolphin" },
+      "gnome": { "schema": "org.gnome.settings-daemon.plugins.media-keys", "key": "home" },
+      "keys": { "*": ["Meta+E"] }
+    },
+    {
+      "id": "browser",
+      "title": "Web Browser",
+      "category": "search",
+      "keywords": "firefox internet web",
+      "command": "firefox-esr",
+      "keys": { "tiling": ["Meta+B"] }
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "category": "search",
+      "keywords": "preferences system settings",
+      "command": "kwick-settings",
+      "keys": {}
+    },
+    {
+      "id": "controlcenter",
+      "title": "Control Center",
+      "subtitle": "Wi-Fi, Bluetooth, Focus, sound and brightness",
+      "category": "search",
+      "keywords": "quick settings wifi bluetooth volume brightness",
+      "command": "kwick-keys widget org.kwickos.controlcenter",
+      "sessions": ["kde"],
+      "keys": {}
+    },
+    {
+      "id": "capture",
+      "title": "Capture",
+      "subtitle": "Screenshots, screen recording, text and colors",
+      "category": "capture",
+      "keywords": "screenshot record screen snip",
+      "command": "kwick-capture",
+      "kde": { "service": "kwick-capture.desktop", "friendly": "Capture" },
+      "gnome": { "grab": "capture" },
+      "keys": { "*": ["Meta+Shift+S"] }
+    },
+    {
+      "id": "capture.area",
+      "title": "Capture an Area",
+      "category": "capture",
+      "keywords": "screenshot region selection print",
+      "command": "kwick-capture --area",
+      "keys": { "tiling": ["Print"] }
+    },
+    {
+      "id": "capture.screen",
+      "title": "Capture the Entire Screen",
+      "category": "capture",
+      "keywords": "screenshot full screen print",
+      "command": "kwick-capture --screen",
+      "keys": { "tiling": ["Shift+Print"] }
+    },
+    {
+      "id": "nearby",
+      "title": "Nearby Share",
+      "subtitle": "Send files to phones and computers nearby",
+      "category": "capture",
+      "keywords": "airdrop localsend quick share send",
+      "command": "kwick-nearby",
+      "keys": {}
+    },
+    {
+      "id": "window.close",
+      "title": "Close Window",
+      "category": "windows",
+      "keywords": "quit kill",
+      "kde": { "component": "kwin", "action": "Window Close", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "close" },
+      "hyprland": "killactive,",
+      "sway": "kill",
+      "keys": { "*": ["Alt+F4"], "tiling": ["Meta+W", "Meta+Q"] }
+    },
+    {
+      "id": "window.fullscreen",
+      "title": "Full Screen",
+      "category": "windows",
+      "keywords": "fullscreen",
+      "kde": { "component": "kwin", "action": "Window Fullscreen", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "toggle-fullscreen" },
+      "hyprland": "fullscreen,",
+      "sway": "fullscreen toggle",
+      "keys": { "macos": ["Meta+Ctrl+F"], "tiling": ["Meta+F"] }
+    },
+    {
+      "id": "window.snap",
+      "title": "Snap Window",
+      "subtitle": "Left and right halves, maximize and restore",
+      "category": "windows",
+      "keywords": "tile half maximize restore quick tile",
+      "each": ["Left", "Right", "Up", "Down"],
+      "eachLabel": "arrows",
+      "sessions": ["kde", "gnome"],
+      "kde": { "component": "kwin", "friendly": "KWin", "action": { "Left": "Window Quick Tile Left", "Right": "Window Quick Tile Right", "Up": "Window Quick Tile Top", "Down": "Window Quick Tile Bottom" } },
+      "kde/windows": { "component": "kwin", "friendly": "KWin", "action": { "Left": "Window Quick Tile Left", "Right": "Window Quick Tile Right", "Up": "Kwick Snap Up", "Down": "Kwick Snap Down" } },
+      "gnome": {
+        "Left": { "schema": "org.gnome.mutter.keybindings", "key": "toggle-tiled-left" },
+        "Right": { "schema": "org.gnome.mutter.keybindings", "key": "toggle-tiled-right" },
+        "Up": { "schema": "org.gnome.desktop.wm.keybindings", "key": "maximize" },
+        "Down": { "schema": "org.gnome.desktop.wm.keybindings", "key": "unmaximize" }
+      },
+      "keys": { "*": ["Meta+#"] }
+    },
+    {
+      "id": "snaplayouts",
+      "title": "Snap Layouts",
+      "subtitle": "Pick a layout for the active window",
+      "category": "windows",
+      "keywords": "tile grid zones",
+      "sessions": ["kde"],
+      "layouts": ["windows"],
+      "kde": { "component": "kwin", "action": "Kwick Snap Layouts", "friendly": "KWin" },
+      "keys": { "kde/windows": ["Meta+Z"] }
+    },
+    {
+      "id": "focus",
+      "title": "Move Focus",
+      "category": "windows",
+      "keywords": "focus direction",
+      "each": ["Left", "Right", "Up", "Down"],
+      "eachLabel": "arrows",
+      "sessions": ["hyprland", "sway"],
+      "hyprland": { "do": "movefocus, {arg}", "args": { "Left": "l", "Right": "r", "Up": "u", "Down": "d" } },
+      "sway": { "do": "focus {arg}", "args": { "Left": "left", "Right": "right", "Up": "up", "Down": "down" } },
+      "keys": { "tiling": ["Meta+#"] }
+    },
+    {
+      "id": "window.move",
+      "title": "Move Window",
+      "category": "windows",
+      "keywords": "swap direction",
+      "each": ["Left", "Right", "Up", "Down"],
+      "eachLabel": "arrows",
+      "sessions": ["hyprland", "sway"],
+      "hyprland": { "do": "swapwindow, {arg}", "args": { "Left": "l", "Right": "r", "Up": "u", "Down": "d" } },
+      "sway": { "do": "move {arg}", "args": { "Left": "left", "Right": "right", "Up": "up", "Down": "down" } },
+      "keys": { "tiling": ["Meta+Shift+#"] }
+    },
+    {
+      "id": "window.float",
+      "title": "Toggle Floating",
+      "category": "windows",
+      "keywords": "float tile",
+      "sessions": ["hyprland", "sway"],
+      "hyprland": "togglefloating,",
+      "sway": "floating toggle",
+      "keys": { "tiling": ["Meta+Shift+V"] }
+    },
+    {
+      "id": "window.split",
+      "title": "Toggle Split Direction",
+      "category": "windows",
+      "keywords": "split horizontal vertical",
+      "sessions": ["hyprland", "sway"],
+      "hyprland": "togglesplit,",
+      "sway": "layout toggle split",
+      "keys": { "tiling": ["Meta+J"] }
+    },
+    {
+      "id": "window.pseudo",
+      "title": "Pseudo-tile",
+      "category": "windows",
+      "keywords": "pseudotile",
+      "sessions": ["hyprland"],
+      "hyprland": "pseudo,",
+      "keys": { "tiling": ["Meta+P"] }
+    },
+    {
+      "id": "window.shrink",
+      "title": "Shrink Window",
+      "category": "windows",
+      "keywords": "resize narrower",
+      "sessions": ["hyprland", "sway"],
+      "hyprland": "resizeactive, -100 0",
+      "sway": "resize shrink width 100px",
+      "keys": { "tiling": ["Meta+-"] }
+    },
+    {
+      "id": "window.grow",
+      "title": "Grow Window",
+      "category": "windows",
+      "keywords": "resize wider",
+      "sessions": ["hyprland", "sway"],
+      "hyprland": "resizeactive, 100 0",
+      "sway": "resize grow width 100px",
+      "keys": { "tiling": ["Meta+="] }
+    },
+    {
+      "id": "overview",
+      "title": "Overview",
+      "subtitle": "All windows and desktops at a glance",
+      "category": "windows",
+      "keywords": "mission control expose task view activities",
+      "sessions": ["kde", "gnome"],
+      "kde": { "component": "kwin", "action": "Overview", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.shell.keybindings", "key": "toggle-overview" },
+      "keys": { "kde": ["Meta+W"], "gnome": ["Meta+W"] }
+    },
+    {
+      "id": "switcher",
+      "title": "Switch Windows",
+      "category": "windows",
+      "keywords": "alt tab task switcher",
+      "sessions": ["kde", "gnome"],
+      "kde": { "component": "kwin", "action": "Walk Through Windows", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "switch-applications" },
+      "keys": { "kde": ["Alt+Tab"], "gnome": ["Meta+Tab", "Alt+Tab"] }
+    },
+    {
+      "id": "showdesktop",
+      "title": "Show Desktop",
+      "category": "windows",
+      "keywords": "peek minimize all",
+      "sessions": ["kde"],
+      "kde": { "component": "kwin", "action": "Show Desktop", "friendly": "KWin" },
+      "keys": { "kde": ["Meta+D"] }
+    },
+    {
+      "id": "cube",
+      "title": "Desktop Cube",
+      "subtitle": "Needs the cube effect",
+      "category": "windows",
+      "keywords": "3d cube effect",
+      "sessions": ["kde"],
+      "kde": { "component": "kwin", "action": "Cube", "friendly": "KWin" },
+      "keys": { "kde": ["Meta+C"] }
+    },
+    {
+      "id": "workspace",
+      "title": "Switch to Workspace",
+      "category": "workspaces",
+      "keywords": "desktop space virtual",
+      "each": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      "eachLabel": "1–9",
+      "kde": { "component": "kwin", "action": "Switch to Desktop {key}", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "switch-to-workspace-{key}" },
+      "hyprland": "workspace, {key}",
+      "sway": "workspace number {key}",
+      "keys": { "kde": ["Meta+Ctrl+#"], "tiling": ["Meta+#"] }
+    },
+    {
+      "id": "workspace.move",
+      "title": "Move to Workspace",
+      "category": "workspaces",
+      "keywords": "desktop space send",
+      "each": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      "eachLabel": "1–9",
+      "kde": { "component": "kwin", "action": "Window to Desktop {key}", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "move-to-workspace-{key}" },
+      "hyprland": "movetoworkspace, {key}",
+      "sway": "move container to workspace number {key}",
+      "keys": { "kde": ["Meta+Ctrl+Shift+#"], "tiling": ["Meta+Shift+#"] }
+    },
+    {
+      "id": "workspace.next",
+      "title": "Next Workspace",
+      "category": "workspaces",
+      "keywords": "desktop space right",
+      "kde": { "component": "kwin", "action": "Switch One Desktop to the Right", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "switch-to-workspace-right" },
+      "hyprland": "workspace, e+1",
+      "sway": "workspace next",
+      "keys": { "kde": ["Meta+Ctrl+Right"], "gnome": ["Meta+PgDown", "Meta+Alt+Right", "Ctrl+Alt+Right"], "tiling": ["Meta+Tab"] }
+    },
+    {
+      "id": "workspace.prev",
+      "title": "Previous Workspace",
+      "category": "workspaces",
+      "keywords": "desktop space left",
+      "kde": { "component": "kwin", "action": "Switch One Desktop to the Left", "friendly": "KWin" },
+      "gnome": { "schema": "org.gnome.desktop.wm.keybindings", "key": "switch-to-workspace-left" },
+      "hyprland": "workspace, e-1",
+      "sway": "workspace prev",
+      "keys": { "kde": ["Meta+Ctrl+Left"], "gnome": ["Meta+PgUp", "Meta+Alt+Left", "Ctrl+Alt+Left"], "tiling": ["Meta+Shift+Tab"] }
+    },
+    {
+      "id": "lock",
+      "title": "Lock Screen",
+      "category": "system",
+      "keywords": "lock screensaver away",
+      "command": "swaylock -f",
+      "kde": { "component": "ksmserver", "action": "Lock Session", "friendly": "Session Management" },
+      "gnome": { "schema": "org.gnome.settings-daemon.plugins.media-keys", "key": "screensaver" },
+      "keys": { "*": ["Meta+L"], "kde": ["Meta+L", "ScreenSaver"] }
+    },
+    {
+      "id": "logout",
+      "title": "Log Out",
+      "category": "system",
+      "keywords": "exit sign out session",
+      "kde": { "component": "ksmserver", "action": "Log Out", "friendly": "Session Management" },
+      "gnome": { "schema": "org.gnome.settings-daemon.plugins.media-keys", "key": "logout" },
+      "hyprland": "exit,",
+      "sway": "exit",
+      "keys": { "*": ["Ctrl+Alt+Del"], "tiling": ["Meta+Shift+E"] }
+    },
+    {
+      "id": "reload",
+      "title": "Reload sway",
+      "category": "system",
+      "keywords": "config refresh",
+      "sessions": ["sway"],
+      "sway": "reload",
+      "keys": { "sway": ["Meta+Shift+C"] }
+    },
+    {
+      "id": "layout.next",
+      "title": "Next Desktop Layout",
+      "subtitle": "macOS, Windows and Linux in turn",
+      "category": "system",
+      "keywords": "layout macos windows linux switch",
+      "command": "kwick-keys cycle-layout",
+      "keys": {}
+    },
+    {
+      "id": "inputsource",
+      "title": "Next Keyboard Layout",
+      "subtitle": "Switch the typing language",
+      "category": "system",
+      "keywords": "input source language keyboard layout",
+      "sessions": ["kde", "hyprland", "sway"],
+      "kde": { "component": "KDE Keyboard Layout Switcher", "action": "Switch to Next Keyboard Layout", "friendly": "Keyboard Layout Switcher" },
+      "hyprland": "exec, hyprctl switchxkblayout all next",
+      "sway": "input type:keyboard xkb_switch_layout next",
+      "keys": { "kde": ["Meta+Alt+K"] }
+    },
+    {
+      "id": "osk",
+      "title": "On-Screen Keyboard",
+      "subtitle": "Show or hide the touch keyboard",
+      "category": "system",
+      "keywords": "touch virtual keyboard tablet",
+      "command": "kwick-touch keyboard toggle",
+      "keys": { "windows": ["Meta+Ctrl+O"] }
+    },
+    {
+      "id": "agents.stop",
+      "title": "Take Back Control from an AI Agent",
+      "subtitle": "Works only while an agent is controlling the computer",
+      "category": "system",
+      "keywords": "agent ai revoke stop computer use",
+      "fixed": true,
+      "sessions": ["kde", "hyprland", "sway"],
+      "keys": { "*": ["Meta+Alt+Esc"] }
+    }
+  ]
+}

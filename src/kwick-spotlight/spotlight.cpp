@@ -312,7 +312,7 @@ void Spotlight::applyShortcuts()
 {
     KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwickspotlightrc")), QStringLiteral("Shortcuts"));
     const QList<QKeySequence> keys = shortcutsFor(m_layout);
-    const bool changed = group.readEntry("Layout", QString()) != m_layout;
+    const bool changed = !group.readEntry("Managed", false) && group.readEntry("Layout", QString()) != m_layout;
     if (changed) {
         for (const QKeySequence &key : keys) {
             if (!KGlobalAccel::isGlobalShortcutAvailable(key, QCoreApplication::applicationName())) {

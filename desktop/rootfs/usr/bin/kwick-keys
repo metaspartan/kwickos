@@ -1,2 +1,1720 @@
-#!/bin/sh
-exec fuzzel --dmenu --width 56 --lines 20 --prompt "keys  " < /usr/share/kwick/tiling/common/keys.txt >/dev/null
+#!/usr/bin/python3 -I
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+HOME = os.path.expanduser("~")
+DATA = os.environ.get("KWICK_KEYS_DATA", "/usr/share/kwick/keys")
+CONFIG = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
+STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "kwick")
+APPS = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local", "share"), "applications")
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+USER_FILE = os.path.join(CONFIG, "kwick", "keys.json")
+STATE_FILE = os.path.join(STATE_DIR, "keys-applied.json")
+GNOME_GRABS = os.path.join(CONFIG, "kwick", "keys", "gnome.json")
+HYPR_FILE = os.path.join(CONFIG, "hypr", "kwick-keys.conf")
+SWAY_FILE = os.path.join(CONFIG, "sway", "kwick-keys.conf")
+KDE_RC = os.path.join(CONFIG, "kglobalshortcutsrc")
+SESSIONS = ("kde", "gnome", "hyprland", "sway")
+LAYOUTS = ("macos", "windows", "linux")
+TILING = ("hyprland", "sway")
+GNOME_CUSTOM = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/"
+GNOME_MEDIA = "org.gnome.settings-daemon.plugins.media-keys"
+GNOME_SCHEMAS = ("org.gnome.desktop.wm.keybindings", "org.gnome.shell.keybindings", "org.gnome.mutter.keybindings",
+                 "org.gnome.mutter.wayland.keybindings", GNOME_MEDIA, "org.gnome.shell.extensions.kwick-spotlight")
+GNOME_GRAB_DEFAULTS = {"clipboard": ["<Super>v"], "capture": ["<Super><Shift>s"]}
+ACCENTS = {"blue": "#0a84ff", "purple": "#bf5af2", "pink": "#ff375f", "red": "#ff453a", "orange": "#ff9f0a",
+           "yellow": "#ffd60a", "green": "#30d158", "slate": "#98989d", "teal": "#40c8e0"}
+
+MODS = ("Meta", "Ctrl", "Alt", "Shift")
+MOD_BITS = {"Meta": 0x10000000, "Ctrl": 0x04000000, "Alt": 0x08000000, "Shift": 0x02000000}
+MOD_ALIASES = {
+    "meta": "Meta", "super": "Meta", "win": "Meta", "windows": "Meta", "cmd": "Meta", "command": "Meta", "⌘": "Meta",
+    "mod4": "Meta", "logo": "Meta", "hyper": "Meta",
+    "ctrl": "Ctrl", "control": "Ctrl", "ctl": "Ctrl", "primary": "Ctrl", "⌃": "Ctrl",
+    "alt": "Alt", "option": "Alt", "opt": "Alt", "mod1": "Alt", "⌥": "Alt",
+    "shift": "Shift", "⇧": "Shift",
+}
+HYPR_MODS = {"Meta": "SUPER", "Ctrl": "CTRL", "Alt": "ALT", "Shift": "SHIFT"}
+SWAY_MODS = {"Meta": "Mod4", "Ctrl": "Ctrl", "Alt": "Mod1", "Shift": "Shift"}
+GNOME_MODS = {"Meta": "<Super>", "Ctrl": "<Control>", "Alt": "<Alt>", "Shift": "<Shift>"}
+GNOME_MOD_ALIASES = {"super": "Meta", "mod4": "Meta", "hyper": "Meta", "meta": "Meta", "control": "Ctrl", "primary": "Ctrl",
+                     "ctrl": "Ctrl", "ctl": "Ctrl", "alt": "Alt", "mod1": "Alt", "shift": "Shift"}
+HYPR_BITS = {1: "Shift", 4: "Ctrl", 8: "Alt", 64: "Meta"}
+
+KEYS = {}
+ALIASES = {}
+
+
+def key(name, qt, xkb, kind, aliases=(), mac=None, pc=None):
+    KEYS[name] = {"qt": qt, "xkb": xkb, "kind": kind, "mac": mac or name, "pc": pc or name}
+    for a in (name, xkb) + tuple(aliases):
+        ALIASES[re.sub(r"[\s_]", "", a.lower())] = name
+
+
+for _c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+    key(_c, ord(_c), _c.lower(), "char")
+for _c in "0123456789":
+    key(_c, ord(_c), _c, "char")
+for _n in range(1, 25):
+    key("F%d" % _n, 0x01000030 + _n - 1, "F%d" % _n, "fn")
+key("Space", 0x20, "space", "char", ("␣",))
+key("Return", 0x01000004, "Return", "edit", ("enter", "↩", "⏎", "ret"), mac="↩", pc="Enter")
+key("Esc", 0x01000000, "Escape", "edit", ("escape", "⎋"))
+key("Tab", 0x01000001, "Tab", "edit", ("⇥",), mac="⇥")
+key("Backspace", 0x01000003, "BackSpace", "edit", ("⌫", "bksp"), mac="⌫")
+key("Ins", 0x01000006, "Insert", "edit", ("insert",))
+key("Del", 0x01000007, "Delete", "edit", ("delete", "⌦"), mac="⌦")
+key("Print", 0x01000009, "Print", "fn", ("printscreen", "prtsc", "prtscr", "sysrq"), pc="PrtSc")
+key("Home", 0x01000010, "Home", "edit", ("↖",), mac="↖")
+key("End", 0x01000011, "End", "edit", ("↘",), mac="↘")
+key("Left", 0x01000012, "Left", "edit", ("←",), mac="←", pc="←")
+key("Up", 0x01000013, "Up", "edit", ("↑",), mac="↑", pc="↑")
+key("Right", 0x01000014, "Right", "edit", ("→",), mac="→", pc="→")
+key("Down", 0x01000015, "Down", "edit", ("↓",), mac="↓", pc="↓")
+key("PgUp", 0x01000016, "Page_Up", "edit", ("pageup", "prior", "⇞"), mac="⇞")
+key("PgDown", 0x01000017, "Page_Down", "edit", ("pagedown", "pgdn", "next", "⇟"), mac="⇟", pc="PgDn")
+key("/", 0x2f, "slash", "symbol", ("slash",))
+key(",", 0x2c, "comma", "symbol", ("comma",))
+key(".", 0x2e, "period", "symbol", ("period", "dot"))
+key(";", 0x3b, "semicolon", "symbol", ("semicolon",))
+key("'", 0x27, "apostrophe", "symbol", ("apostrophe", "quote"))
+key("[", 0x5b, "bracketleft", "symbol", ("bracketleft",))
+key("]", 0x5d, "bracketright", "symbol", ("bracketright",))
+key("\\", 0x5c, "backslash", "symbol", ("backslash",))
+key("-", 0x2d, "minus", "symbol", ("minus",))
+key("=", 0x3d, "equal", "symbol", ("equal", "equals"))
+key("`", 0x60, "grave", "symbol", ("grave", "backtick"))
+key("VolumeUp", 0x01000072, "XF86AudioRaiseVolume", "media", ("volumeup",), pc="Volume Up", mac="Volume Up")
+key("VolumeDown", 0x01000070, "XF86AudioLowerVolume", "media", ("volumedown",), pc="Volume Down", mac="Volume Down")
+key("VolumeMute", 0x01000071, "XF86AudioMute", "media", ("volumemute", "mute"), pc="Mute", mac="Mute")
+key("MediaPlay", 0x01000080, "XF86AudioPlay", "media", ("mediaplay", "play"), pc="Play", mac="Play")
+key("MediaNext", 0x01000083, "XF86AudioNext", "media", ("medianext",), pc="Next Track", mac="Next Track")
+key("MediaPrevious", 0x01000082, "XF86AudioPrev", "media", ("mediaprevious", "mediaprev"), pc="Previous Track", mac="Previous Track")
+key("BrightnessUp", 0x010000b2, "XF86MonBrightnessUp", "media", ("monitorbrightnessup", "brightnessup"), pc="Brightness Up", mac="Brightness Up")
+key("BrightnessDown", 0x010000b3, "XF86MonBrightnessDown", "media", ("monitorbrightnessdown", "brightnessdown"), pc="Brightness Down", mac="Brightness Down")
+key("ScreenSaver", 0x010000ba, "XF86ScreenSaver", "media", ("screensaver",), pc="Screensaver", mac="Screensaver")
+
+RESERVED = {("Ctrl", "Alt", "Backspace"): "Ctrl+Alt+Backspace is reserved for stopping the display server"}
+for _n in range(1, 13):
+    RESERVED[("Ctrl", "Alt", "F%d" % _n)] = "Ctrl+Alt+F1 to F12 are reserved for switching to text consoles"
+
+EACH_DIGITS = tuple("123456789")
+WROTE = []
+EACH_ARROWS = ("Left", "Right", "Up", "Down")
+
+
+class ChordError(ValueError):
+    pass
+
+
+class Chord:
+    __slots__ = ("mods", "key")
+
+    def __init__(self, mods, key):
+        self.mods = tuple(m for m in MODS if m in mods)
+        self.key = key
+
+    def __str__(self):
+        return "+".join(self.mods + (self.key,))
+
+    def __eq__(self, other):
+        return isinstance(other, Chord) and self.mods == other.mods and self.key == other.key
+
+    def __hash__(self):
+        return hash((self.mods, self.key))
+
+    def expand(self, value):
+        return Chord(self.mods, value) if self.key == "#" else self
+
+    def qt(self):
+        n = KEYS[self.key]["qt"]
+        for m in self.mods:
+            n |= MOD_BITS[m]
+        return n
+
+    def hypr(self):
+        k = KEYS[self.key]
+        name = self.key if k["kind"] == "char" else k["xkb"]
+        return " ".join(HYPR_MODS[m] for m in self.mods), name
+
+    def sway(self):
+        return "+".join([SWAY_MODS[m] for m in self.mods] + [KEYS[self.key]["xkb"]])
+
+    def gnome(self):
+        return "".join(GNOME_MODS[m] for m in self.mods) + KEYS[self.key]["xkb"]
+
+
+def split_tokens(text):
+    s = text.strip()
+    if not s:
+        raise ChordError("the shortcut is empty")
+    if s.endswith("+") and len(s) > 1:
+        raise ChordError("a shortcut can't end with +; name the key instead")
+    tokens = [t.strip() for t in s.split("+")]
+    if any(t == "" for t in tokens):
+        raise ChordError("'%s' has an empty part" % text)
+    return tokens
+
+
+def parse(text, each=None):
+    tokens = split_tokens(text)
+    mods = []
+    keys = []
+    for t in tokens:
+        low = re.sub(r"[\s_]", "", t.lower())
+        if low in MOD_ALIASES:
+            m = MOD_ALIASES[low]
+            if m in mods:
+                raise ChordError("%s appears twice in '%s'" % (m, text))
+            mods.append(m)
+        elif t == "#":
+            keys.append("#")
+        elif low in ALIASES:
+            keys.append(ALIASES[low])
+        else:
+            raise ChordError("unknown key '%s'" % t)
+    if not keys:
+        raise ChordError("'%s' has no key, only modifiers" % text)
+    if len(keys) > 1:
+        raise ChordError("'%s' has more than one key (%s)" % (text, ", ".join(keys)))
+    k = keys[0]
+    if each:
+        if k in each:
+            k = "#"
+        elif k != "#":
+            raise ChordError("this shortcut works on a set of keys (%s); use # in place of the key, as in Meta+#" % ", ".join(each))
+    elif k == "#":
+        raise ChordError("# stands for a set of keys and only fits numbered or arrow shortcuts")
+    chord = Chord(mods, k)
+    kind = "char" if k == "#" else KEYS[k]["kind"]
+    if not chord.mods and kind not in ("fn", "media"):
+        raise ChordError("'%s' needs a modifier (Ctrl, Alt, Shift or Super) so it doesn't block typing" % text)
+    if chord.mods == ("Shift",) and kind in ("char", "symbol", "edit"):
+        raise ChordError("Shift on its own only changes what you type; add Ctrl, Alt or Super")
+    if "Shift" in chord.mods and kind == "symbol":
+        raise ChordError("Shift with %s gives a different character on other keyboard layouts; pick another key" % k)
+    if chord.mods + (k,) in RESERVED:
+        raise ChordError(RESERVED[chord.mods + (k,)])
+    return chord
+
+
+def parse_loose(text):
+    try:
+        return parse(text)
+    except ChordError:
+        pass
+    try:
+        tokens = split_tokens(text)
+    except ChordError:
+        return None
+    mods = []
+    rest = []
+    for t in tokens:
+        low = re.sub(r"[\s_]", "", t.lower())
+        if low in MOD_ALIASES and MOD_ALIASES[low] not in mods:
+            mods.append(MOD_ALIASES[low])
+        elif low in ALIASES:
+            rest.append(ALIASES[low])
+        else:
+            return None
+    return Chord(mods, rest[0]) if len(rest) == 1 else None
+
+
+def parse_gnome(accel):
+    mods = []
+    s = accel.strip()
+    while s.startswith("<"):
+        end = s.find(">")
+        if end < 0:
+            return None
+        m = GNOME_MOD_ALIASES.get(s[1:end].lower())
+        if m is None:
+            return None
+        if m not in mods:
+            mods.append(m)
+        s = s[end + 1:]
+    low = re.sub(r"[\s_]", "", s.lower())
+    if low not in ALIASES:
+        return None
+    return Chord(mods, ALIASES[low])
+
+
+def each_kind(values):
+    if values and all(v in EACH_ARROWS for v in values):
+        return "arrows"
+    return "digits"
+
+
+def caps(chord, layout, each_label=None):
+    if layout == "macos":
+        order = ("Ctrl", "Alt", "Shift", "Meta")
+        names = {"Meta": "⌘", "Ctrl": "⌃", "Alt": "⌥", "Shift": "⇧"}
+    elif layout == "windows":
+        order = MODS
+        names = {"Meta": "Win", "Ctrl": "Ctrl", "Alt": "Alt", "Shift": "Shift"}
+    else:
+        order = MODS
+        names = {"Meta": "Super", "Ctrl": "Ctrl", "Alt": "Alt", "Shift": "Shift"}
+    out = [names[m] for m in order if m in chord.mods]
+    if chord.key == "#":
+        out.append(each_label or "#")
+    else:
+        out.append(KEYS[chord.key]["mac" if layout == "macos" else "pc"])
+    return out
+
+
+def caps_text(chord, layout, each_label=None):
+    return (" " if layout == "macos" else "+").join(caps(chord, layout, each_label))
+
+
+def session_group(session):
+    return "tiling" if session in TILING else session
+
+
+def resolve(table, session, layout):
+    group = session_group(session)
+    for k in (session + "/" + layout, group + "/" + layout, session, group, layout, "*"):
+        if k in table:
+            return table[k]
+    return None
+
+
+def die(msg, code=1):
+    sys.stderr.write("kwick-keys: %s\n" % msg)
+    sys.exit(code)
+
+
+def read_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def write_atomic(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".kwick-keys-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+class Action:
+    def __init__(self, raw, categories):
+        self.raw = raw
+        self.id = raw["id"]
+        self.title = raw["title"]
+        self.subtitle = raw.get("subtitle", "")
+        self.category = raw.get("category", "system")
+        if self.category not in categories:
+            raise ValueError("%s: unknown category %s" % (self.id, self.category))
+        self.keywords = raw.get("keywords", "")
+        self.command = raw.get("command", "")
+        self.each = tuple(raw.get("each", ()))
+        self.each_label = raw.get("eachLabel", "")
+        self.fixed = bool(raw.get("fixed"))
+        self.layouts = tuple(raw.get("layouts", LAYOUTS))
+        sess = []
+        for s in raw.get("sessions", SESSIONS):
+            sess.extend(TILING if s == "tiling" else (s,))
+        self.sessions = tuple(sess)
+        self.keys = raw.get("keys", {})
+        for chords in self.keys.values():
+            for c in chords:
+                parse(c, self.each or None)
+
+    def label(self, layout):
+        if not self.each:
+            return None
+        if self.each_label == "arrows":
+            return "←→" if all(v in ("Left", "Right") for v in self.each) else "Arrows"
+        return self.each_label or "#"
+
+    def available(self, session, layout):
+        if session not in self.sessions or layout not in self.layouts:
+            return False
+        return self.fixed or self.target(session, layout) is not None
+
+    def target(self, session, layout):
+        t = None
+        for k in (session + "/" + layout, session):
+            if k in self.raw:
+                t = self.raw[k]
+                break
+        if t is None and session_group(session) in self.raw:
+            t = self.raw[session_group(session)]
+        if isinstance(t, dict) and session == "kde" and "service" in t and self.command and not service_exists(t["service"]):
+            t = None
+        if t is None and self.command:
+            if session == "kde":
+                t = {"service": "kwick-keys-%s.desktop" % self.id.replace(".", "-"), "own": True}
+            elif session == "gnome":
+                t = {"custom": True}
+            elif session == "hyprland":
+                t = "exec, " + self.command
+            elif session == "sway":
+                t = "exec " + self.command
+        return t
+
+    def defaults(self, session, layout):
+        return [parse(c, self.each or None) for c in (resolve(self.keys, session, layout) or [])]
+
+    def values(self):
+        return self.each or (None,)
+
+
+class Keymap:
+    def __init__(self, data_dir=DATA, user_file=USER_FILE):
+        raw = read_json(os.path.join(data_dir, "defaults.json"), None)
+        if raw is None:
+            die("can't read %s/defaults.json" % data_dir)
+        self.categories = [(c["id"], c["title"]) for c in raw["categories"]]
+        cat_ids = {c[0] for c in self.categories}
+        self.actions = [Action(a, cat_ids) for a in raw["actions"]]
+        self.by_id = {a.id: a for a in self.actions}
+        self.user_file = user_file
+        user = read_json(user_file, {})
+        self.overrides = {}
+        for aid, chords in (user.get("bindings") or {}).items():
+            a = self.by_id.get(aid)
+            if a is None or a.fixed or not isinstance(chords, list):
+                continue
+            try:
+                self.overrides[aid] = [parse(c, a.each or None) for c in chords]
+            except ChordError:
+                continue
+
+    def action(self, aid):
+        a = self.by_id.get(aid)
+        if a is None:
+            die("unknown action '%s' (see kwick-keys list)" % aid, 2)
+        return a
+
+    def chords(self, a, session, layout):
+        if a.id in self.overrides:
+            return list(self.overrides[a.id])
+        return a.defaults(session, layout)
+
+    def custom(self, a):
+        return a.id in self.overrides
+
+    def save(self):
+        data = {"version": 1, "bindings": {k: [str(c) for c in v] for k, v in sorted(self.overrides.items())}}
+        write_atomic(self.user_file, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+    def expanded(self, session, layout):
+        out = []
+        for a in self.actions:
+            if not a.available(session, layout):
+                continue
+            for c in self.chords(a, session, layout):
+                for v in a.values():
+                    out.append((c.expand(v) if v is not None else c, a, v))
+        return out
+
+
+def detect_session():
+    if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return "hyprland"
+    if os.environ.get("SWAYSOCK"):
+        return "sway"
+    de = (os.environ.get("XDG_CURRENT_DESKTOP") or "").lower()
+    if "kde" in de or "plasma" in de:
+        return "kde"
+    if "gnome" in de:
+        return "gnome"
+    if "hyprland" in de:
+        return "hyprland"
+    if "sway" in de:
+        return "sway"
+    return "kde"
+
+
+def detect_layout():
+    try:
+        with open(os.path.join(CONFIG, "kwick", "layout"), encoding="utf-8") as f:
+            v = f.read().strip()
+            return v if v in LAYOUTS else "macos"
+    except OSError:
+        return "macos"
+
+
+def run(argv, input_text=None, timeout=10):
+    try:
+        p = subprocess.run(argv, input=input_text, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, p.stdout
+    except (OSError, subprocess.SubprocessError):
+        return 127, ""
+
+
+def have(cmd):
+    return shutil.which(cmd) is not None
+
+
+def dbus_path(name):
+    return "".join(ch if (ch.isalnum() and ord(ch) < 127) or ch == "_" else "_" for ch in name)
+
+
+def split_rc_value(value):
+    parts = []
+    cur = ""
+    i = 0
+    while i < len(value):
+        ch = value[i]
+        if ch == "\\" and i + 1 < len(value):
+            nxt = value[i + 1]
+            cur += {"t": "\t", "s": " ", "n": "\n"}.get(nxt, nxt)
+            i += 2
+            continue
+        if ch == ",":
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+        i += 1
+    parts.append(cur)
+    return parts
+
+
+def rc_chords(text):
+    out = []
+    for s in text.split("\t"):
+        s = s.strip()
+        if s and s.lower() != "none":
+            out.append(s)
+    return out
+
+
+def read_kde_rc(path=KDE_RC, text=None):
+    if text is None:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError:
+            return {}, {}
+    entries = {}
+    names = {}
+    comp = None
+    service = False
+    for line in text.splitlines():
+        line = line.rstrip("\n")
+        if line.startswith("["):
+            groups = re.findall(r"\[([^\]]*)\]", line)
+            service = len(groups) == 2 and groups[0] == "services"
+            comp = groups[1] if service else (groups[0] if len(groups) == 1 else None)
+            continue
+        if comp is None or "=" not in line or line.startswith("#"):
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        if k == "_k_friendly_name":
+            names[comp] = v
+            continue
+        if service:
+            entries[(comp, k)] = (rc_chords(split_rc_value(v)[0]), [], comp)
+        else:
+            parts = split_rc_value(v)
+            entries[(comp, k)] = (rc_chords(parts[0]), rc_chords(parts[1]) if len(parts) > 1 else [], parts[2] if len(parts) > 2 else k)
+    return entries, names
+
+
+def kde_send(method, *args):
+    return run(["dbus-send", "--session", "--print-reply", "--dest=org.kde.kglobalaccel", "/kglobalaccel",
+                "org.kde.KGlobalAccel." + method] + list(args), timeout=5)
+
+
+def kde_ids(component, action, friendly_c="", friendly_a=""):
+    friendly_c = friendly_c or component
+    friendly_a = friendly_a or action
+    for s in (component, action, friendly_c, friendly_a):
+        if "," in s:
+            die("names with commas can't be sent to kglobalaccel: %s" % s)
+    return "array:string:%s,%s,%s,%s" % (component, action, friendly_c, friendly_a)
+
+
+def kde_get(component, action):
+    code, out = run(["gdbus", "call", "--session", "--dest", "org.kde.kglobalaccel", "--object-path", "/kglobalaccel",
+                     "--method", "org.kde.KGlobalAccel.shortcutKeys", gvariant_list([component, action, "", ""])], timeout=5)
+    if code != 0:
+        return None
+    return [int(n) for n in re.findall(r"\(\[(-?\d+)", out) if int(n) != 0]
+
+
+def kde_set(component, action, ints, friendly_c="", friendly_a="", register=False):
+    WROTE.append((component, action))
+    vals = "array:int32:" + (",".join(str(n) for n in ints) if ints else "0")
+    ids = kde_ids(component, action, friendly_c, friendly_a)
+    if register:
+        kde_send("doRegister", ids)
+        code, _ = kde_send("setShortcut", ids, vals, "uint32:6")
+    else:
+        code, _ = kde_send("setForeignShortcut", ids, vals)
+    return code == 0
+
+
+def kde_invoke(component, action):
+    return run(["dbus-send", "--session", "--type=method_call", "--dest=org.kde.kglobalaccel", "/component/" + dbus_path(component),
+                "org.kde.kglobalaccel.Component.invokeShortcut", "string:" + action])[0] == 0
+
+
+def gsettings_get(schema, k):
+    code, out = run(["gsettings", "get", schema, k])
+    if code != 0:
+        return None
+    return out.strip()
+
+
+def gvariant_strings(text):
+    if text is None:
+        return []
+    return [m.replace("\\'", "'") for m in re.findall(r"'((?:[^'\\]|\\.)*)'", text)]
+
+
+def gvariant_list(items):
+    if not items:
+        return "@as []"
+    return "[" + ", ".join("'" + i.replace("\\", "\\\\").replace("'", "\\'") + "'" for i in items) + "]"
+
+
+def template(value, v, args=None):
+    if isinstance(value, str) and v is not None:
+        return value.replace("{key}", v).replace("{arg}", (args or {}).get(v, v))
+    return value
+
+
+def kde_target(t, a, v):
+    if "service" in t:
+        name = t["service"]
+        if t.get("own") and v is not None:
+            name = name[:-len(".desktop")] + "-" + v + ".desktop"
+        return name, "_launch", t.get("friendly", a.title), "Launch " + a.title, True
+    act = t["action"]
+    if isinstance(act, dict):
+        act = act.get(v)
+    else:
+        act = template(act, v)
+    if act is None:
+        return None
+    return t["component"], act, t.get("friendly", t["component"]), a.title, False
+
+
+def gnome_target(t, v):
+    if v is not None and v in t:
+        t = t[v]
+    if "schema" in t:
+        return {"schema": t["schema"], "key": template(t["key"], v)}
+    return t
+
+
+def tiling_target(t, v):
+    if isinstance(t, dict):
+        return template(t["do"], v, t.get("args"))
+    return template(t, v)
+
+
+def foreign_bindings(km, session, layout, kde_text=None, gnome_values=None, hypr_binds=None, sway_text=None):
+    mine = set()
+    for a in km.actions:
+        if not a.available(session, layout) or a.fixed:
+            continue
+        t = a.target(session, layout)
+        for v in a.values():
+            if session == "kde":
+                kt = kde_target(t, a, v)
+                if kt:
+                    mine.add((kt[0], kt[1]))
+            elif session == "gnome":
+                gt = gnome_target(t, v)
+                if "schema" in gt:
+                    mine.add((gt["schema"], gt["key"]))
+    out = []
+    if session == "kde":
+        entries, names = read_kde_rc(text=kde_text) if kde_text is not None else read_kde_rc()
+        for (comp, act), (active, _, friendly) in entries.items():
+            if (comp, act) in mine or comp.startswith("kwick-keys-"):
+                continue
+            for s in active:
+                out.append((parse_loose(s), s, "%s (%s)" % (friendly or act, names.get(comp, comp).split(",")[0]), ["kde", comp, act]))
+    elif session == "gnome":
+        values = gnome_values if gnome_values is not None else gnome_all()
+        for (schema, k), accels in values.items():
+            if (schema, k) in mine or "kwick-keys-" in schema:
+                continue
+            where = "custom" if schema.startswith("custom:") else schema.split(".")[-1]
+            for s in accels:
+                out.append((parse_gnome(s), s, "%s (%s)" % (k.replace("-", " "), where), ["gnome", schema, k]))
+    elif session == "hyprland":
+        ours = {(str(c), d) for c, d in hypr_entries(km, layout)}
+        binds = hypr_binds if hypr_binds is not None else hypr_all()
+        for b in binds:
+            low = re.sub(r"[\s_]", "", str(b.get("key", "")).lower())
+            if low not in ALIASES or b.get("mouse") or b.get("submap"):
+                continue
+            c = Chord([HYPR_BITS[bit] for bit in HYPR_BITS if b.get("modmask", 0) & bit], ALIASES[low])
+            if (str(c), hypr_sig(b.get("dispatcher", ""), b.get("arg", ""))) in ours:
+                continue
+            out.append((c, str(c), ("%s %s" % (b.get("dispatcher", ""), b.get("arg", ""))).strip(), None))
+    elif session == "sway":
+        text = sway_text if sway_text is not None else sway_config_text()
+        variables = {"$mod": "Mod4"}
+        depth = 0
+        for line in text.splitlines():
+            line = line.strip()
+            m = re.match(r"set\s+(\$\w+)\s+(\S+)", line)
+            if m:
+                variables[m.group(1)] = m.group(2)
+                continue
+            if line.endswith("{"):
+                depth += 1
+                continue
+            if line == "}":
+                depth = max(0, depth - 1)
+                continue
+            m = re.match(r"bindsym\s+((?:--\S+\s+)*)(\S+)\s+(.*)$", line)
+            if not m or depth:
+                continue
+            combo = m.group(2)
+            for var, val in variables.items():
+                combo = combo.replace(var, val)
+            out.append((parse_loose(combo), combo, m.group(3).strip(), None))
+    return [x for x in out if x[0] is not None]
+
+
+def hypr_sig(dispatcher, arg):
+    return dispatcher.strip() + "," + re.sub(r"\s+", " ", arg.strip())
+
+
+def hypr_entries(km, layout):
+    out = []
+    for a in km.actions:
+        if not a.available("hyprland", layout) or a.fixed:
+            continue
+        t = a.target("hyprland", layout)
+        for c in km.chords(a, "hyprland", layout):
+            for v in a.values():
+                d, _, arg = tiling_target(t, v).partition(",")
+                out.append((c.expand(v) if v is not None else c, hypr_sig(d, arg)))
+    return out
+
+
+def gnome_all():
+    out = {}
+    for schema in GNOME_SCHEMAS:
+        code, text = run(["gsettings", "list-recursively", schema])
+        if code != 0:
+            continue
+        for line in text.splitlines():
+            parts = line.split(" ", 2)
+            if len(parts) < 3 or parts[0] != schema:
+                continue
+            val = parts[2]
+            if val.startswith("[") or val.startswith("@as") or val.startswith("'"):
+                accels = gvariant_strings(val)
+                if accels and all("<" in s or len(s) > 1 for s in accels):
+                    out[(schema, parts[1])] = accels
+    for path in gvariant_strings(gsettings_get(GNOME_MEDIA, "custom-keybindings")):
+        if "/kwick-keys-" in path:
+            continue
+        b = gvariant_strings(gsettings_get(GNOME_MEDIA + ".custom-keybinding:" + path, "binding"))
+        name = gvariant_strings(gsettings_get(GNOME_MEDIA + ".custom-keybinding:" + path, "name"))
+        if b:
+            out[("custom:" + path, name[0] if name else path)] = b
+    return out
+
+
+def hypr_all():
+    code, out = run(["hyprctl", "binds", "-j"])
+    if code != 0:
+        return []
+    try:
+        return json.loads(out)
+    except ValueError:
+        return []
+
+
+def sway_config_text():
+    root = os.path.join(CONFIG, "sway", "config")
+    text = ""
+    seen = set()
+
+    def load(path):
+        nonlocal text
+        path = os.path.expanduser(path)
+        if path in seen or os.path.basename(path) == "kwick-keys.conf":
+            return
+        seen.add(path)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                body = f.read()
+        except OSError:
+            return
+        for line in body.splitlines():
+            m = re.match(r"\s*include\s+(\S+)", line)
+            if m:
+                load(m.group(1))
+            else:
+                text += line + "\n"
+    load(root)
+    return text
+
+
+def conflicts(km, session, layout, foreign=None, overrides=None, only=None):
+    saved = km.overrides
+    if overrides is not None:
+        km.overrides = overrides
+    try:
+        table = {}
+        for c, a, v in km.expanded(session, layout):
+            table.setdefault(c, []).append((a, v))
+        found = []
+        for c, users in table.items():
+            ids = []
+            for a, v in users:
+                if a.id not in [x.id for x, _ in ids]:
+                    ids.append((a, v))
+            if len(ids) > 1:
+                for a, v in ids:
+                    if only and a.id != only:
+                        continue
+                    for b, w in ids:
+                        if b.id != a.id:
+                            found.append({"action": a.id, "chord": str(c), "with": b.title, "withId": b.id, "kind": "kwick", "session": session, "layout": layout})
+        for fc, raw, who, target in (foreign or []):
+            for a, v in table.get(fc, []):
+                if only and a.id != only:
+                    continue
+                found.append({"action": a.id, "chord": str(fc), "with": who, "kind": session, "native": raw, "target": target, "session": session, "layout": layout})
+        return found
+    finally:
+        km.overrides = saved
+
+
+def hypr_lines(km, layout):
+    lines = []
+    for c, sig in hypr_entries(km, layout):
+        mods, k = c.hypr()
+        d, _, arg = sig.partition(",")
+        lines.append("bind = %s, %s, %s, %s" % (mods, k, d, arg) if arg else "bind = %s, %s, %s," % (mods, k, d))
+    return lines
+
+
+def hypr_conf(km, layout):
+    lines = hypr_lines(km, layout)
+    lines += ["", "submap = kwick-record", "bind = SUPER CTRL ALT SHIFT, F24, submap, reset", "submap = reset"]
+    return "\n".join(lines) + "\n"
+
+
+def sway_conf(km, layout):
+    lines = []
+    for a in km.actions:
+        if not a.available("sway", layout) or a.fixed:
+            continue
+        t = a.target("sway", layout)
+        for c in km.chords(a, "sway", layout):
+            for v in a.values():
+                cc = c.expand(v) if v is not None else c
+                lines.append("bindsym %s %s" % (cc.sway(), tiling_target(t, v)))
+    lines += ["", 'mode "kwick-record" {', "  bindsym Mod4+Ctrl+Mod1+Shift+F24 mode default", "}"]
+    return "\n".join(lines) + "\n"
+
+
+def gnome_grabs(km, layout):
+    out = {}
+    for a in km.actions:
+        t = a.raw.get("gnome")
+        if isinstance(t, dict) and "grab" in t:
+            out[t["grab"]] = [c.gnome() for c in km.chords(a, "gnome", layout)] if a.available("gnome", layout) else []
+    return out
+
+
+def load_state():
+    return read_json(STATE_FILE, {"written": {}})
+
+
+def save_state(state):
+    write_atomic(STATE_FILE, json.dumps(state, indent=1, sort_keys=True) + "\n")
+
+
+def desired_for(km, a, session, layout, v):
+    out = []
+    for c in km.chords(a, session, layout):
+        out.append(c.expand(v) if v is not None else c)
+    return out
+
+
+def should_write(state, tkey, desired_s, current_s, custom):
+    last = state["written"].get(tkey)
+    if custom:
+        return sorted(current_s) != sorted(desired_s) if current_s is not None else True
+    if last is not None:
+        return sorted(last) != sorted(desired_s) and (current_s is None or sorted(current_s) != sorted(desired_s))
+    if current_s is None:
+        return bool(desired_s)
+    return not set(desired_s) <= set(current_s)
+
+
+def apply_kde(km, layout, state, quiet, steal=()):
+    entries, _ = read_kde_rc()
+    problems = []
+    for stolen in steal:
+        comp, act = stolen["native_target"]
+        cur = kde_get(comp, act)
+        if cur:
+            kde_set(comp, act, [n for n in cur if n != stolen["qt"]])
+            state.setdefault("stolen", []).append({"session": "kde", "target": [comp, act], "chord": str(stolen["chord_obj"])})
+    for a in km.actions:
+        if a.fixed or "kde" not in a.sessions:
+            continue
+        avail = a.available("kde", layout)
+        t = a.target("kde", layout)
+        if t is None:
+            continue
+        for v in a.values():
+            kt = kde_target(t, a, v)
+            if kt is None:
+                continue
+            comp, act, fc, fa, register = kt
+            tkey = "kde:%s:%s" % (comp, act)
+            desired = desired_for(km, a, "kde", layout, v) if avail else []
+            desired_s = [str(c) for c in desired]
+            if t.get("own"):
+                path = os.path.join(APPS, comp)
+                if desired:
+                    write_desktop(path, a, v)
+                got = kde_get(comp, act)
+                cur = qt_names(got) if got is not None else []
+                if sorted(cur) != sorted(desired_s):
+                    kde_set(comp, act, [c.qt() for c in desired], a.title, fa, register=bool(desired))
+                    got = kde_get(comp, act)
+                    if desired and got is not None and sorted(got) != sorted(c.qt() for c in desired):
+                        problems.append("%s: KDE didn't take %s" % (a.title, ", ".join(desired_s)))
+                if not desired and os.path.exists(path):
+                    os.unlink(path)
+                state["written"][tkey] = desired_s
+                continue
+            entry = entries.get((comp, act))
+            if register:
+                if not service_exists(comp):
+                    continue
+                got = kde_get(comp, act)
+                current_s = qt_names(got) if got is not None else None
+            elif entry is None:
+                continue
+            else:
+                current_s = [str(c) for c in (parse_loose(s) for s in entry[0]) if c is not None]
+            if not avail and tkey not in state["written"]:
+                continue
+            if not should_write(state, tkey, desired_s, current_s, km.custom(a)):
+                continue
+            ok = kde_set(comp, act, [c.qt() for c in desired], fc, fa, register=register)
+            got = kde_get(comp, act) if ok else None
+            if got is not None and sorted(got) != sorted(c.qt() for c in desired):
+                problems.append("%s: KDE kept %s for %s" % (a.title, ", ".join(sorted(set(str(c) for c in desired) - set(qt_names(got)))) or "a different shortcut", act))
+            state["written"][tkey] = desired_s
+    ours = {str(c) for c, _, _ in km.expanded("kde", layout)}
+    keep = []
+    for st in state.get("stolen", []):
+        if st.get("session") != "kde" or st["chord"] in ours:
+            keep.append(st)
+            continue
+        comp, act = st["target"]
+        cur = kde_get(comp, act)
+        back = parse_loose(st["chord"])
+        if cur is not None and back is not None and back.qt() not in cur:
+            kde_set(comp, act, cur + [back.qt()])
+    state["stolen"] = keep
+    own = set()
+    for a in km.actions:
+        t = a.target("kde", layout) if a.command and "kde" in a.sessions else None
+        if t and t.get("own"):
+            own.update(kde_target(t, a, v)[0] for v in a.values())
+    for f in os.listdir(APPS) if os.path.isdir(APPS) else []:
+        if f.startswith("kwick-keys-") and f.endswith(".desktop") and f not in own:
+            os.unlink(os.path.join(APPS, f))
+    if have("kwriteconfig6"):
+        run(["kwriteconfig6", "--file", "kwickspotlightrc", "--group", "Shortcuts", "--key", "Managed", "true"])
+    return problems
+
+
+def service_exists(name):
+    dirs = [os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local", "share")]
+    dirs += (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return any(os.path.exists(os.path.join(d, "applications", name)) for d in dirs if d)
+
+
+def qt_names(ints):
+    rev = {v["qt"]: k for k, v in KEYS.items()}
+    out = []
+    for n in ints:
+        mods = [m for m in MODS if n & MOD_BITS[m]]
+        k = rev.get(n & ~sum(MOD_BITS.values()))
+        if k:
+            out.append(str(Chord(mods, k)))
+    return out
+
+
+def write_desktop(path, a, v):
+    body = ("[Desktop Entry]\nType=Application\nName=%s\nExec=kwick-keys run %s\nIcon=preferences-desktop-keyboard-shortcuts\n"
+            "NoDisplay=true\nX-KDE-GlobalAccel-CommandShortcut=true\n" % (a.title, a.id + (":" + v if v else "")))
+    try:
+        with open(path, encoding="utf-8") as f:
+            if f.read() == body:
+                return
+    except OSError:
+        pass
+    write_atomic(path, body)
+
+
+def apply_gnome(km, layout, state, quiet, steal=()):
+    if not have("gsettings"):
+        return ["gsettings is not installed"]
+    for stolen in steal:
+        schema, k = stolen["native_target"]
+        if schema.startswith("custom:"):
+            path = schema[len("custom:"):]
+            run(["gsettings", "set", GNOME_MEDIA + ".custom-keybinding:" + path, "binding", "''"])
+        else:
+            cur = gvariant_strings(gsettings_get(schema, k))
+            keep = [s for s in cur if parse_gnome(s) != stolen["chord_obj"]]
+            run(["gsettings", "set", schema, k, gvariant_list(keep)])
+        state.setdefault("stolen", []).append({"session": "gnome", "target": [schema, k], "chord": str(stolen["chord_obj"])})
+    ours = {str(c) for c, _, _ in km.expanded("gnome", layout)}
+    left = []
+    for st in state.get("stolen", []):
+        if st.get("session") != "gnome" or st["chord"] in ours:
+            left.append(st)
+            continue
+        schema, k = st["target"]
+        back = parse_loose(st["chord"])
+        if back is None:
+            continue
+        if schema.startswith("custom:"):
+            run(["gsettings", "set", GNOME_MEDIA + ".custom-keybinding:" + schema[len("custom:"):], "binding", gvariant_list([back.gnome()])[1:-1]])
+        else:
+            cur = gvariant_strings(gsettings_get(schema, k))
+            if back.gnome() not in cur:
+                run(["gsettings", "set", schema, k, gvariant_list(cur + [back.gnome()])])
+    state["stolen"] = left
+    custom_paths = []
+    for a in km.actions:
+        if a.fixed or "gnome" not in a.sessions:
+            continue
+        avail = a.available("gnome", layout)
+        t = a.target("gnome", layout)
+        if t is None:
+            continue
+        for v in a.values():
+            desired = desired_for(km, a, "gnome", layout, v) if avail else []
+            desired_s = [str(c) for c in desired]
+            custom = bool(t.get("custom"))
+            gt = None if custom else gnome_target(t, v)
+            raw = None
+            if gt is not None and "schema" in gt:
+                raw = gsettings_get(gt["schema"], gt["key"])
+                if raw is None and a.command:
+                    custom = True
+            if custom:
+                for i, c in enumerate(desired):
+                    name = "kwick-keys-%s%s%s" % (a.id.replace(".", "-"), "-" + v if v else "", "-%d" % i if i else "")
+                    path = GNOME_CUSTOM + name + "/"
+                    custom_paths.append(path)
+                    rel = GNOME_MEDIA + ".custom-keybinding:" + path
+                    run(["gsettings", "set", rel, "name", gvariant_list([a.title])[1:-1]])
+                    run(["gsettings", "set", rel, "command", gvariant_list(["kwick-keys run %s%s" % (a.id, ":" + v if v else "")])[1:-1]])
+                    run(["gsettings", "set", rel, "binding", gvariant_list([c.gnome()])[1:-1]])
+                continue
+            if gt is None or "schema" not in gt or raw is None:
+                continue
+            tkey = "gnome:%s:%s" % (gt["schema"], gt["key"])
+            current = [parse_gnome(s) for s in gvariant_strings(raw)]
+            current_s = [str(c) for c in current if c is not None]
+            if not avail and tkey not in state["written"]:
+                continue
+            if not should_write(state, tkey, desired_s, current_s, km.custom(a)):
+                continue
+            if not desired and not km.custom(a):
+                run(["gsettings", "reset", gt["schema"], gt["key"]])
+            else:
+                run(["gsettings", "set", gt["schema"], gt["key"], gvariant_list([c.gnome() for c in desired])])
+            state["written"][tkey] = desired_s
+    raw = gsettings_get(GNOME_MEDIA, "custom-keybindings")
+    if raw is not None:
+        cur = gvariant_strings(raw)
+        keep = [p for p in cur if "/kwick-keys-" not in p]
+        for p in cur:
+            if "/kwick-keys-" in p and p not in custom_paths:
+                run(["gsettings", "reset-recursively", GNOME_MEDIA + ".custom-keybinding:" + p])
+        new = keep + custom_paths
+        if new != cur:
+            run(["gsettings", "set", GNOME_MEDIA, "custom-keybindings", gvariant_list(new)])
+    return []
+
+
+def write_tiling(km, layout):
+    write_if_changed(HYPR_FILE, hypr_conf(km, layout))
+    write_if_changed(SWAY_FILE, sway_conf(km, layout))
+    write_if_changed(GNOME_GRABS, json.dumps(gnome_grabs(km, layout), indent=1) + "\n")
+
+
+def write_if_changed(path, text):
+    try:
+        with open(path, encoding="utf-8") as f:
+            if f.read() == text:
+                return False
+    except OSError:
+        pass
+    write_atomic(path, text)
+    return True
+
+
+def do_apply(km, session, layout, quiet=False, reload=True, steal=()):
+    write_tiling(km, layout)
+    state = load_state()
+    problems = []
+    if session == "kde" and have("dbus-send"):
+        problems = apply_kde(km, layout, state, quiet, steal)
+        if WROTE:
+            time.sleep(0.8)
+    elif session == "gnome":
+        problems = apply_gnome(km, layout, state, quiet, steal)
+    elif session == "hyprland" and reload and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") and have("hyprctl"):
+        run(["hyprctl", "reload"])
+    elif session == "sway" and reload and os.environ.get("SWAYSOCK") and have("swaymsg"):
+        run(["swaymsg", "reload"])
+    try:
+        save_state(state)
+    except OSError:
+        pass
+    for p in problems:
+        if not quiet:
+            sys.stderr.write("kwick-keys: %s\n" % p)
+    return problems
+
+
+def foreign_for(km, session, layout, chords=()):
+    try:
+        found = foreign_bindings(km, session, layout)
+    except Exception:
+        found = []
+    if session == "kde" and chords and have("gdbus"):
+        mine = {tuple(x[3][1:]) for x in found if x[3]}
+        for a in km.actions:
+            if not a.available("kde", layout) or a.fixed:
+                continue
+            t = a.target("kde", layout)
+            for v in a.values():
+                kt = kde_target(t, a, v)
+                if kt:
+                    mine.add((kt[0], kt[1]))
+        seen = {(str(x[0]), tuple(x[3][1:])) for x in found if x[3]}
+        for c in chords:
+            for comp, cname, act, aname in kde_who(c.qt()):
+                if (comp, act) in mine or comp.startswith("kwick-keys-") or (str(c), (comp, act)) in seen:
+                    continue
+                seen.add((str(c), (comp, act)))
+                found.append((c, str(c), "%s (%s)" % (aname or act, cname or comp), ["kde", comp, act]))
+    return found
+
+
+def kde_who(qt):
+    code, out = run(["gdbus", "call", "--session", "--dest", "org.kde.kglobalaccel", "--object-path", "/kglobalaccel",
+                     "--method", "org.kde.KGlobalAccel.getGlobalShortcutsByKey", str(qt)], timeout=5)
+    if code != 0:
+        return []
+    quoted = r"'((?:[^'\\]|\\.)*)'"
+    return [(m[2], m[3], m[0], m[1]) for m in re.findall(r"\(" + ", ".join([quoted] * 6), out)]
+
+
+def accent(session):
+    if session == "gnome":
+        name = gvariant_strings(gsettings_get("org.gnome.desktop.interface", "accent-color"))
+        if name:
+            return ACCENTS.get(name[0], "")
+    try:
+        with open(os.path.join(CONFIG, "kdeglobals"), encoding="utf-8", errors="replace") as f:
+            group = ""
+            for line in f:
+                line = line.strip()
+                if line.startswith("["):
+                    group = line
+                elif group == "[General]" and line.startswith("AccentColor="):
+                    rgb = [int(x) for x in line.split("=", 1)[1].split(",")[:3]]
+                    if len(rgb) == 3 and all(0 <= x <= 255 for x in rgb):
+                        return "#%02x%02x%02x" % tuple(rgb)
+    except (OSError, ValueError):
+        pass
+    return ""
+
+
+def appearance():
+    try:
+        with open(os.path.join(CONFIG, "kwick", "appearance"), encoding="utf-8") as f:
+            return "light" if f.read().strip() == "light" else "dark"
+    except OSError:
+        return "dark"
+
+
+def runnable(a, session, layout):
+    if a.fixed or not a.available(session, layout):
+        return False
+    t = a.target(session, layout)
+    if a.command:
+        return True
+    if session == "kde":
+        return "component" in t
+    return session in TILING
+
+
+def payload(km, session, layout, with_conflicts=True):
+    foreign = foreign_for(km, session, layout) if with_conflicts else []
+    found = conflicts(km, session, layout, foreign) if with_conflicts else []
+    actions = []
+    for a in km.actions:
+        if not a.available(session, layout):
+            continue
+        chords = km.chords(a, session, layout)
+        label = a.label(layout)
+        actions.append({
+            "id": a.id,
+            "title": a.title,
+            "subtitle": a.subtitle,
+            "category": a.category,
+            "keywords": a.keywords,
+            "chords": [str(c) for c in chords],
+            "defaults": [str(c) for c in a.defaults(session, layout)],
+            "caps": [caps(c, layout, label) for c in chords],
+            "custom": km.custom(a),
+            "fixed": a.fixed,
+            "each": list(a.each),
+            "eachKind": each_kind(a.each) if a.each else "",
+            "runnable": runnable(a, session, layout),
+            "conflicts": [x for x in found if x["action"] == a.id],
+        })
+    used = {x["category"] for x in actions}
+    return {
+        "session": session,
+        "layout": layout,
+        "appearance": appearance(),
+        "accent": accent(session),
+        "categories": [{"id": c, "title": t} for c, t in km.categories if c in used],
+        "actions": actions,
+    }
+
+
+def ctx(args):
+    session = None
+    layout = None
+    rest = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--session" and i + 1 < len(args):
+            session = args[i + 1]
+            i += 2
+        elif args[i] == "--layout" and i + 1 < len(args):
+            layout = args[i + 1]
+            i += 2
+        else:
+            rest.append(args[i])
+            i += 1
+    session = session or detect_session()
+    layout = layout or detect_layout()
+    if session not in SESSIONS:
+        die("unknown session '%s' (kde, gnome, hyprland or sway)" % session, 2)
+    if layout not in LAYOUTS:
+        die("unknown layout '%s' (macos, windows or linux)" % layout, 2)
+    return session, layout, rest
+
+
+def cmd_list(args):
+    session, layout, rest = ctx(args)
+    km = Keymap()
+    data = payload(km, session, layout, with_conflicts="--no-conflicts" not in rest)
+    if "--json" in rest:
+        print(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+        return 0
+    width = max(len(a["id"]) for a in data["actions"])
+    for c in data["categories"]:
+        print(c["title"])
+        for a in data["actions"]:
+            if a["category"] != c["id"]:
+                continue
+            keys = ", ".join(a["chords"]) or "-"
+            flag = " *" if a["custom"] else ""
+            flag += " !" if a["conflicts"] else ""
+            print("  %-*s  %-34s %s%s" % (width, a["id"], a["title"], keys, flag))
+        print()
+    print("* changed by you   ! conflicts (kwick-keys conflicts)")
+    return 0
+
+
+def check_chords(km, a, texts):
+    if a.fixed:
+        raise ChordError("%s is reserved and can't be changed" % a.title)
+    if len(texts) == 1 and texts[0].strip().lower() in ("none", "off", "disable", "disabled", ""):
+        return []
+    out = []
+    for t in texts:
+        c = parse(t, a.each or None)
+        if c not in out:
+            out.append(c)
+    if not out:
+        raise ChordError("no shortcut given")
+    return out
+
+
+SESSION_NAMES = {"kde": "Plasma", "gnome": "GNOME", "hyprland": "Hyprland", "sway": "sway"}
+
+
+def all_internal(km, overrides, only, session, layout):
+    out = {}
+    for s in SESSIONS:
+        for l in LAYOUTS:
+            for x in conflicts(km, s, l, None, overrides, only):
+                k = (x["chord"], x["withId"])
+                if k not in out:
+                    out[k] = dict(x, where=[])
+                if (s, l) == (session, layout):
+                    out[k]["session"], out[k]["layout"] = s, l
+                    out[k]["here"] = True
+                if SESSION_NAMES[s] not in out[k]["where"]:
+                    out[k]["where"].append(SESSION_NAMES[s])
+    return list(out.values())
+
+
+def describe(x):
+    if x.get("kind") != "kwick" or x.get("here"):
+        return "%s is used by %s" % (x["chord"], x["with"])
+    return "%s is used by %s in %s" % (x["chord"], x["with"], ", ".join(x["where"]))
+
+
+def cmd_set(args):
+    session, layout, rest = ctx(args)
+    force = "--force" in rest
+    as_json = "--json" in rest
+    rest = [r for r in rest if r not in ("--force", "--json")]
+    if len(rest) < 2:
+        die("usage: kwick-keys set ACTION CHORD [CHORD...]", 2)
+    km = Keymap()
+    a = km.action(rest[0])
+
+    def fail(msg, code, extra=None):
+        if as_json:
+            print(json.dumps(dict({"ok": False, "error": msg}, **(extra or {})), ensure_ascii=False))
+            sys.exit(code)
+        die(msg, code)
+
+    try:
+        chords = check_chords(km, a, rest[1:])
+    except ChordError as e:
+        fail(str(e), 2)
+    trial = dict(km.overrides)
+    trial[a.id] = chords
+    internal = all_internal(km, trial, a.id, session, layout)
+    probe = [c.expand(v) if v is not None else c for c in chords for v in a.values()]
+    foreign = [x for x in conflicts(km, session, layout, foreign_for(km, session, layout, probe), trial, a.id) if x["kind"] != "kwick"]
+    found = internal + foreign
+    if found and not force:
+        msg = "; ".join(describe(x) for x in found)
+        if as_json:
+            print(json.dumps({"ok": False, "error": msg, "conflicts": found}, ensure_ascii=False))
+            return 3
+        die(msg + " (use --force to take it)", 3)
+    steal = []
+    for x in internal:
+        other = km.by_id[x["withId"]]
+        hit = parse_loose(x["chord"])
+        base = trial.get(other.id)
+        if base is None:
+            base = other.defaults(x["session"], x["layout"])
+        trial[other.id] = [c for c in base if hit not in [c.expand(w) if w is not None else c for w in other.values()]]
+    for x in foreign:
+        hit = parse_loose(x["chord"])
+        if x.get("target") and x["target"][0] in ("kde", "gnome"):
+            steal.append({"native_target": tuple(x["target"][1:]), "qt": hit.qt(), "chord_obj": hit})
+    defaults = a.defaults(session, layout)
+    if sorted(map(str, chords)) == sorted(map(str, defaults)):
+        trial.pop(a.id, None)
+    km.overrides = trial
+    km.save()
+    problems = do_apply(km, session, layout, quiet=as_json, steal=steal)
+    if as_json:
+        print(json.dumps({"ok": not problems, "chords": [str(c) for c in chords], "error": "; ".join(problems), "conflicts": found}, ensure_ascii=False))
+    else:
+        print("%s: %s" % (a.id, ", ".join(str(c) for c in chords) or "none"))
+    return 0 if not problems else 1
+
+
+def cmd_check(args):
+    session, layout, rest = ctx(args)
+    if len(rest) < 2:
+        die("usage: kwick-keys check ACTION CHORD", 2)
+    km = Keymap()
+    a = km.action(rest[0])
+    try:
+        chords = check_chords(km, a, rest[1:])
+    except ChordError as e:
+        print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        return 2
+    trial = dict(km.overrides)
+    trial[a.id] = chords
+    probe = [c.expand(v) if v is not None else c for c in chords for v in a.values()]
+    found = all_internal(km, trial, a.id, session, layout) + [x for x in conflicts(km, session, layout, foreign_for(km, session, layout, probe), trial, a.id) if x["kind"] != "kwick"]
+    print(json.dumps({"ok": not found, "chords": [str(c) for c in chords], "conflicts": found}, ensure_ascii=False))
+    return 0 if not found else 3
+
+
+def cmd_reset(args):
+    session, layout, rest = ctx(args)
+    as_json = "--json" in rest
+    ids = [r for r in rest if not r.startswith("--") and r != "all"]
+    km = Keymap()
+    if ids:
+        for aid in ids:
+            km.action(aid)
+            km.overrides.pop(aid, None)
+    else:
+        km.overrides = {}
+    km.save()
+    do_apply(km, session, layout, quiet=as_json)
+    if as_json:
+        print(json.dumps({"ok": True}))
+    return 0
+
+
+def cmd_conflicts(args):
+    session, layout, rest = ctx(args)
+    km = Keymap()
+    found = conflicts(km, session, layout, foreign_for(km, session, layout))
+    if "--all" in rest:
+        for s in SESSIONS:
+            for l in LAYOUTS:
+                if (s, l) != (session, layout):
+                    found += conflicts(km, s, l)
+    if "--json" in rest:
+        print(json.dumps(found, ensure_ascii=False))
+        return 1 if found else 0
+    if not found:
+        print("no conflicts in %s (%s layout)" % (session, layout))
+        return 0
+    for x in found:
+        where = "" if (x["session"], x["layout"]) == (session, layout) else "  [%s, %s]" % (x["session"], x["layout"])
+        print("%-22s %-20s also %s%s" % (x["chord"], x["action"], x["with"], where))
+    return 1
+
+
+def cmd_apply(args):
+    session, layout, rest = ctx(args)
+    km = Keymap()
+    problems = do_apply(km, session, layout, quiet="--quiet" in rest, reload="--no-reload" not in rest)
+    return 1 if problems else 0
+
+
+def cmd_export(args):
+    km = Keymap()
+    data = {"version": 1, "kwick-keys": True, "bindings": {k: [str(c) for c in v] for k, v in sorted(km.overrides.items())}}
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    if args and args[0] != "-":
+        write_atomic(os.path.abspath(args[0]), text)
+        print("exported %d shortcut%s to %s" % (len(data["bindings"]), "" if len(data["bindings"]) == 1 else "s", args[0]))
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+def cmd_import(args):
+    session, layout, rest = ctx(args)
+    merge = "--merge" in rest
+    rest = [r for r in rest if r != "--merge"]
+    if not rest:
+        die("usage: kwick-keys import FILE [--merge]", 2)
+    try:
+        if rest[0] == "-":
+            data = json.load(sys.stdin)
+        else:
+            with open(rest[0], encoding="utf-8") as f:
+                data = json.load(f)
+    except (OSError, ValueError) as e:
+        die("can't read %s: %s" % (rest[0], e), 2)
+    if not isinstance(data, dict) or not isinstance(data.get("bindings"), dict):
+        die("%s is not a kwick-keys export (no \"bindings\" object)" % rest[0], 2)
+    km = Keymap()
+    errors = []
+    new = dict(km.overrides) if merge else {}
+    for aid, chords in data["bindings"].items():
+        a = km.by_id.get(aid)
+        if a is None:
+            errors.append("unknown action '%s'" % aid)
+            continue
+        if not isinstance(chords, list) or not all(isinstance(c, str) for c in chords):
+            errors.append("%s: expected a list of shortcuts" % aid)
+            continue
+        try:
+            new[aid] = check_chords(km, a, chords) if chords else []
+        except ChordError as e:
+            errors.append("%s: %s" % (aid, e))
+    if errors:
+        die("nothing imported:\n  " + "\n  ".join(errors), 2)
+    km.overrides = new
+    km.save()
+    do_apply(km, session, layout)
+    found = conflicts(km, session, layout)
+    print("imported %d shortcut%s" % (len(data["bindings"]), "" if len(data["bindings"]) == 1 else "s"))
+    for x in found:
+        print("  conflict: %s %s also %s" % (x["chord"], x["action"], x["with"]))
+    return 0
+
+
+def pid_alive(pidfile, needle):
+    try:
+        with open(pidfile) as f:
+            pid = int(f.read().strip())
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            if needle.encode() not in f.read():
+                return None
+        return pid
+    except (OSError, ValueError):
+        return None
+
+
+def cmd_show(args):
+    session, layout, rest = ctx(args)
+    pidfile = os.path.join(RUNTIME, "kwick-keys-show.pid")
+    pid = pid_alive(pidfile, "kwick/keys/")
+    if pid:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        try:
+            os.unlink(pidfile)
+        except OSError:
+            pass
+        return 0
+    km = Keymap()
+    data = payload(km, session, layout)
+    qml = shutil.which("qml6") or shutil.which("qml")
+    layer = session != "gnome"
+    view = os.path.join(DATA, "overlay.qml" if layer else "overlay-window.qml")
+    if "--text" not in rest and qml and os.environ.get("WAYLAND_DISPLAY") and os.path.exists(view):
+        code, fonts = run(["kwick-fonts", "names", layout], timeout=3)
+        if code == 0 and fonts.strip():
+            data["font"] = fonts.splitlines()[0].strip()
+        env = dict(os.environ)
+        env["QT_QUICK_CONTROLS_STYLE"] = "Basic"
+        env["QT_QPA_PLATFORM"] = "wayland"
+        if layer:
+            env["QT_WAYLAND_SHELL_INTEGRATION"] = "layer-shell"
+        p = subprocess.Popen([qml, view, "--", json.dumps(data, ensure_ascii=False, separators=(",", ":"))], env=env,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        try:
+            write_atomic(pidfile, "%d\n" % p.pid)
+        except OSError:
+            pass
+        return 0
+    rows = []
+    for c in data["categories"]:
+        for a in data["actions"]:
+            if a["category"] != c["id"] or not a["chords"]:
+                continue
+            act = km.by_id[a["id"]]
+            label = "  ".join(caps_text(parse(ch, act.each or None), layout, act.label(layout)) for ch in a["chords"])
+            rows.append((label, a["title"], a["id"]))
+    width = max([len(r[0]) for r in rows] + [10])
+    lines = ["%-*s  %s" % (width, r[0], r[1]) for r in rows]
+    ids = [r[2] for r in rows]
+    if session in TILING and have("fuzzel") and "--print" not in rest:
+        code, out = run(["fuzzel", "--dmenu", "--index", "--width", "60", "--lines", "20", "--prompt", "keys  "], "\n".join(lines) + "\n", timeout=600)
+        if code == 0 and out.strip().isdigit() and int(out.strip()) < len(ids):
+            a = km.by_id[ids[int(out.strip())]]
+            if runnable(a, session, layout) and not a.each:
+                return run_action(km, a, None, session, layout)
+        return 0
+    print("\n".join(lines))
+    return 0
+
+
+def run_action(km, a, v, session, layout):
+    if a.each and v is None:
+        die("%s needs a value, as in %s:%s" % (a.id, a.id, a.each[0]), 2)
+    if v is not None and v not in a.each:
+        die("%s has no '%s' (one of %s)" % (a.id, v, ", ".join(a.each)), 2)
+    t = a.target(session, layout)
+    if session == "kde" and isinstance(t, dict) and "component" in t:
+        kt = kde_target(t, a, v)
+        if kt and kde_invoke(kt[0], kt[1]):
+            return 0
+    if session == "hyprland" and t and not a.command:
+        d = tiling_target(t, v)
+        disp, _, arg = d.partition(",")
+        return subprocess.call(["hyprctl", "dispatch", disp.strip(), arg.strip()], stdout=subprocess.DEVNULL)
+    if session == "sway" and t and not a.command:
+        return subprocess.call(["swaymsg", tiling_target(t, v)], stdout=subprocess.DEVNULL)
+    if a.command:
+        cmd = template(a.command, v)
+        subprocess.Popen(["sh", "-c", cmd], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        return 0
+    die("%s can't be started from here in %s" % (a.title, session), 1)
+
+
+def cmd_run(args):
+    session, layout, rest = ctx(args)
+    if not rest:
+        die("usage: kwick-keys run ACTION[:VALUE]", 2)
+    km = Keymap()
+    aid, _, v = rest[0].partition(":")
+    a = km.action(aid)
+    if not a.available(session, layout):
+        die("%s isn't available in %s" % (a.title, session), 1)
+    return run_action(km, a, v or None, session, layout)
+
+
+def cmd_inhibit(args):
+    session, layout, rest = ctx(args)
+    pidfile = os.path.join(RUNTIME, "kwick-keys-inhibit.pid")
+    if rest and rest[0] == "--stop":
+        pid = pid_alive(pidfile, "inhibit")
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+        return 0
+    seconds = 30
+    if rest:
+        try:
+            seconds = max(1, min(120, int(rest[0])))
+        except ValueError:
+            die("usage: kwick-keys inhibit [SECONDS] | --stop", 2)
+    old = pid_alive(pidfile, "inhibit")
+    if old and old != os.getpid():
+        try:
+            os.kill(old, signal.SIGTERM)
+        except OSError:
+            pass
+        time.sleep(0.1)
+    if session == "kde":
+        start = ["dbus-send", "--session", "--print-reply", "--dest=org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel.blockGlobalShortcuts", "boolean:true"]
+        stop = start[:-1] + ["boolean:false"]
+    elif session == "hyprland":
+        start, stop = ["hyprctl", "dispatch", "submap", "kwick-record"], ["hyprctl", "dispatch", "submap", "reset"]
+    elif session == "sway":
+        start, stop = ["swaymsg", "mode", "kwick-record"], ["swaymsg", "mode", "default"]
+    else:
+        start, stop = None, None
+    done = []
+
+    def finish(*_):
+        if not done:
+            done.append(1)
+            if stop:
+                run(stop)
+            try:
+                os.unlink(pidfile)
+            except OSError:
+                pass
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, finish)
+    signal.signal(signal.SIGINT, finish)
+    signal.signal(signal.SIGHUP, finish)
+    write_atomic(pidfile, "%d\n" % os.getpid())
+    if start:
+        run(start)
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        time.sleep(0.25)
+    finish()
+    return 0
+
+
+def cmd_widget(args):
+    if not args:
+        die("usage: kwick-keys widget PLUGIN", 2)
+    path = os.path.join(CONFIG, "plasma-org.kde.plasma.desktop-appletsrc")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        die("no Plasma panel configuration", 1)
+    applet = None
+    group = None
+    for line in text.splitlines():
+        if line.startswith("["):
+            m = re.match(r"^\[Containments\]\[\d+\]\[Applets\]\[(\d+)\]$", line.strip())
+            group = m.group(1) if m else None
+        elif group and line.strip() == "plugin=" + args[0]:
+            applet = group
+            break
+    if applet is None:
+        die("%s isn't on a panel" % args[0], 1)
+    return 0 if kde_invoke("plasmashell", "activate widget " + applet) else 1
+
+
+def cmd_cycle(args):
+    order = list(LAYOUTS)
+    cur = detect_layout()
+    nxt = order[(order.index(cur) + 1) % len(order)]
+    os.execvp("kwick-layout", ["kwick-layout", nxt])
+
+
+def cmd_generate(args):
+    session, layout, rest = ctx(args)
+    km = Keymap()
+    if session == "hyprland":
+        sys.stdout.write(hypr_conf(km, layout))
+    elif session == "sway":
+        sys.stdout.write(sway_conf(km, layout))
+    else:
+        die("generate makes Hyprland and sway includes (--session hyprland|sway)", 2)
+    return 0
+
+
+USAGE = """usage: kwick-keys [show]                   the shortcut cheat sheet (again to close it)
+       kwick-keys list [--json]                every action and its shortcuts
+       kwick-keys set ACTION CHORD [CHORD...]  change a shortcut (none removes it; --force takes it from others)
+       kwick-keys reset [ACTION...]            back to the KwickOS default (all with no ACTION)
+       kwick-keys conflicts [--all] [--json]   shortcuts used twice, here or in KDE, GNOME, Hyprland or sway
+       kwick-keys apply                        write the shortcuts into this desktop and reload them
+       kwick-keys export [FILE]                your changes as JSON
+       kwick-keys import FILE [--merge]        load an export (replaces your changes unless --merge)
+       kwick-keys run ACTION[:VALUE]           do what a shortcut does
+       kwick-keys check ACTION CHORD           validate without saving
+options: --session kde|gnome|hyprland|sway  --layout macos|windows|linux
+chords: Meta+Space, Ctrl+Alt+T, Meta+Shift+S, Meta+#  (Meta = Super, Win or Cmd; Alt = Option; # = 1-9 or arrows)"""
+
+
+def main(argv):
+    if not argv:
+        return cmd_show([])
+    cmd, args = argv[0], argv[1:]
+    table = {
+        "show": cmd_show, "list": cmd_list, "set": cmd_set, "reset": cmd_reset, "conflicts": cmd_conflicts,
+        "apply": cmd_apply, "export": cmd_export, "import": cmd_import, "run": cmd_run, "check": cmd_check,
+        "inhibit": cmd_inhibit, "widget": cmd_widget, "cycle-layout": cmd_cycle, "generate": cmd_generate,
+    }
+    if cmd in ("-h", "--help", "help"):
+        print(USAGE)
+        return 0
+    if cmd not in table:
+        sys.stderr.write(USAGE + "\n")
+        return 2
+    return table[cmd](args) or 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

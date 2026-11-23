@@ -18,4 +18,4 @@ org.gnome.shell.extensions.dash-to-dock isolate-workspaces false
 org.gnome.desktop.interface clock-format '24h'
 org.gnome.desktop.wm.keybindings switch-input-source ['XF86Keyboard']
 org.gnome.desktop.wm.keybindings switch-input-source-backward ['<Shift>XF86Keyboard']
-org.gnome.shell.keybindings toggle-overview ['<Super>s']
+org.gnome.shell.keybindings toggle-overview ['<Super>w']
