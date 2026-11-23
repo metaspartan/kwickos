@@ -3,19 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KwickOS</title>
-<meta name="description" content="KwickOS: a smaller base than Alpine that installs like Debian. A 6.6 MB container image for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
+<title>KwickOS: a smaller base than Alpine that installs like Debian</title>
+<meta name="description" content="KwickOS: a smaller base than Alpine that installs like Debian. A 6.6 MB container image for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style with local AI models and sandboxed agents.">
 <meta name="theme-color" content="#070a1a">
 <meta name="color-scheme" content="dark">
-<meta property="og:title" content="KwickOS">
-<meta property="og:description" content="A smaller base than Alpine. Installs like Debian. A 6.6 MB container image for every architecture.">
-<meta property="og:image" content="img/desktop.png">
+<link rel="canonical" href="https://metaspartan.github.io/kwickos/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="KwickOS">
+<meta property="og:url" content="https://metaspartan.github.io/kwickos/">
+<meta property="og:title" content="KwickOS: a smaller base than Alpine. Installs like Debian.">
+<meta property="og:description" content="A 6.6 MB Linux base for every architecture, apt from Debian 13 and apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
+<meta property="og:image" content="https://metaspartan.github.io/kwickos/img/desktop.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta property="og:image:alt" content="KwickOS desktop in the macOS layout with Terminal and Files open">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KwickOS: a smaller base than Alpine. Installs like Debian.">
+<meta name="twitter:description" content="A 6.6 MB Linux base for every architecture, apt from Debian 13 and apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
+<meta name="twitter:image" content="https://metaspartan.github.io/kwickos/img/desktop.png">
+<meta name="twitter:image:alt" content="KwickOS desktop in the macOS layout with Terminal and Files open">
 <link rel="icon" href="img/kwickos-logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
 <link rel="stylesheet" href="style.css">
-<script>document.documentElement.classList.add("js")</script>
+<script>document.documentElement.classList.add("js");window.kwImg=function(i){var f=i.getAttribute("data-fallback");if(f){i.removeAttribute("data-fallback");i.src=f}else{i.closest("figure").classList.add("missing")}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"KwickOS","applicationCategory":"OperatingSystem","operatingSystem":"Linux","url":"https://metaspartan.github.io/kwickos/","downloadUrl":"https://github.com/metaspartan/kwickos/releases/latest","license":"https://github.com/metaspartan/kwickos/blob/main/LICENSE","image":"https://metaspartan.github.io/kwickos/img/desktop.png","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -26,9 +40,10 @@
       <img src="img/kwickos-logo.svg" alt="" width="22" height="25">
       <span>KwickOS</span>
     </a>
-    <nav aria-label="Sections">
+    <nav aria-label="Sections" id="site-nav">
       <ul class="nav-links">
         <li><a href="#desktop">Desktop</a></li>
+        <li><a href="#agents">AI</a></li>
         <li><a href="#apps">Apps</a></li>
         <li><a href="#effects">Effects</a></li>
         <li><a href="#performance">Performance</a></li>
@@ -37,17 +52,26 @@
       </ul>
     </nav>
     <a class="btn btn-sm" href="#download">Download</a>
+    <button type="button" class="menu" data-menu aria-controls="site-nav" aria-expanded="false" aria-label="Menu"><span aria-hidden="true"></span></button>
   </div>
 </header>
 
 <main id="main">
 
-<section class="hero">
-  <div class="hero-glow" aria-hidden="true"></div>
+<section class="hero" data-hero>
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="wrap hero-inner">
-    <img class="hero-logo" src="img/kwickos-logo.svg" alt="KwickOS logo" width="120" height="139">
+    <div class="hero-mark">
+      <span class="hero-halo" aria-hidden="true"></span>
+      <img class="hero-logo" src="img/kwickos-logo.svg" alt="KwickOS logo" width="120" height="139">
+      <svg class="bolt" viewBox="0 0 235 272" aria-hidden="true" focusable="false">
+        <filter id="bolt-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+        <path class="bolt-glow" pathLength="100" filter="url(#bolt-blur)" d="M156.8 9 202 10 111 113 160 114 12 262 78 147 31 146 135.8 17.5Z"/>
+        <path class="bolt-spark" pathLength="100" d="M156.8 9 202 10 111 113 160 114 12 262 78 147 31 146 135.8 17.5Z"/>
+      </svg>
+    </div>
     <h1>KwickOS</h1>
-    <p class="tagline">A smaller base than Alpine. Installs like Debian.</p>
+    <p class="tagline"><span>A smaller base than Alpine.</span> <span>Installs like Debian.</span></p>
     <p class="lede">A 6.6&nbsp;MB Linux base for every architecture. <code>apt</code> pulls straight from Debian&nbsp;13, Alpine&rsquo;s <code>apk</code> works right next to it, and an optional desktop looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso">Download desktop ISO</a>
@@ -81,7 +105,7 @@
     <header class="head reveal">
       <p class="eyebrow">The desktop</p>
       <h2>Three layouts.<br>One command.</h2>
-      <p class="sub"><code>kwick-layout macos|windows|linux</code> switches the whole look at once: window buttons, panel or dock position, fonts, icons, wallpaper and the Files sidebar. Every layout is dark.</p>
+      <p class="sub"><code>kwick-layout macos|windows|linux</code> switches the whole look at once: window buttons, panel or dock position, fonts, icons, wallpaper and the Files sidebar. Every layout comes in dark, the default, and light.</p>
     </header>
 
     <div class="switcher reveal" data-switcher>
@@ -106,7 +130,7 @@
     <div class="cards three">
       <article class="card reveal">
         <h3>macOS</h3>
-        <p>The default. A full-width menu bar with a white KwickOS mark and a compact clock, a floating dock with 48&nbsp;px icons, and traffic-light buttons at the top left of every window.</p>
+        <p>The default. A full-width menu bar with a white KwickOS mark and a compact clock, a floating dock with 48&nbsp;px icons, traffic-light buttons at the top left of every window and Apple&rsquo;s orange accent.</p>
       </article>
       <article class="card reveal">
         <h3>Windows&nbsp;11</h3>
@@ -145,7 +169,62 @@
   </div>
 </section>
 
-<section class="section" id="effects">
+<section class="section" id="agents">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">Agents and local models</p>
+      <h2>Local AI.<br>Wired in.</h2>
+      <p class="sub"><code>kwick-agents</code> installs coding agents pinned and verified, starts each one in a bubblewrap sandbox and gives it permissioned access to KwickOS through the <code>kwick-mcp</code> server. Local Models runs open models on your own GPU.</p>
+    </header>
+
+    <div class="feature reveal">
+      <figure class="shot">
+        <img src="img/local-models.png" alt="Settings, Local Models: hardware and engine, the server switch and models with fit verdicts" width="1920" height="1080" loading="lazy" onerror="kwImg(this)">
+      </figure>
+      <div class="feature-text">
+        <h3>Local Models</h3>
+        <p>llama.cpp built for the GPU in this machine, with the CUDA, Vulkan or CPU build picked for you. Curated, sha256-pinned models come with a verdict on whether they fit your GPU memory, and downloads show their progress and resume.</p>
+        <ul class="ticks">
+          <li><strong>One local endpoint.</strong> OpenAI and Anthropic compatible at <code>127.0.0.1:11435</code>, with the model name <code>local</code>.</li>
+          <li><strong>Agents wired up.</strong> <code>kwick-agents inference connect --all</code> points Cybara, opencode, Codex, Goose, Hermes, OpenClaw and oh-my-pi at it. The key stays in the keystore.</li>
+          <li><strong>Off until you ask.</strong> The server runs sandboxed and is off by default. Settings and the App Store manage it.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature rev reveal">
+      <figure class="shot">
+        <img src="img/agent-control.png" alt="An agent using the desktop, with the consent capsule and its Stop button at the top of the screen" width="1920" height="1080" loading="lazy" onerror="kwImg(this)">
+      </figure>
+      <div class="feature-text">
+        <h3>Agents that use the desktop</h3>
+        <p>Through <code>kwick-mcp</code> an agent can read and change 57 settings and use the computer like a person: pointer, keyboard, windows and clipboard. Cybara&rsquo;s own computer use goes through the same checks.</p>
+        <ul class="ticks">
+          <li><strong>Consent first.</strong> The first request asks you: Allow once, Always allow or Deny.</li>
+          <li><strong>Always visible.</strong> A capsule at the top of every screen names the agent in control with a Stop button. Meta+Alt+Escape stops every session.</li>
+          <li><strong>Kept out.</strong> Password prompts, the lock screen and KwickOS Settings stay out of reach, and every action goes to an audit log.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards three">
+      <article class="card reveal">
+        <h3>Pinned and verified</h3>
+        <p>Cybara, Claude Code, Codex, Gemini CLI, opencode, Goose, Aider and more, each pinned to a release and checked against a sha256, a lock file or a git commit.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Sandboxed</h3>
+        <p>Every agent starts in bubblewrap and sees only its own configuration and the project folder it was started in.</p>
+      </article>
+      <article class="card reveal">
+        <h3>Keys in the keystore</h3>
+        <p>API keys live in KWallet or GNOME Keyring and reach an agent only as environment variables when it starts.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="effects">
   <div class="wrap">
     <header class="head reveal">
       <p class="eyebrow">Kwick Effects</p>
@@ -218,16 +297,17 @@
   </div>
 </section>
 
-<section class="section alt" id="settings">
+<section class="section" id="settings">
   <div class="wrap">
     <div class="split">
       <header class="head left reveal">
         <p class="eyebrow">KwickOS Settings</p>
-        <h2>Everything,<br>one place.</h2>
-        <p class="sub"><code>kwick-settings</code> has pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, Shells, GPU, Gaming, Nearby Share, Agents, Privacy &amp; Security, Snapshots and Software Update. It tells you when no GPU compositor is running and offers to install <code>kwick-gpu</code>.</p>
+        <h2>Everything, one place.</h2>
+        <p class="sub"><code>kwick-settings</code> has pages for Appearance, Dock, Effects, Fonts, Keyboard, Desktop Session, Shells, GPU, Gaming, Nearby Share, Agents, Local Models, Privacy &amp; Security, Snapshots and Software Update.</p>
+        <p class="sub">Appearance picks the layout, light or dark, the window corner radius and the accent color. The macOS layout uses Apple&rsquo;s orange, and a color you choose applies to KDE, GTK, GNOME, Hyprland and sway alike.</p>
       </header>
       <figure class="shot reveal">
-        <img src="img/settings.png" alt="KwickOS Settings, Appearance page" width="1920" height="1080" loading="lazy">
+        <img src="img/appearance.png" data-fallback="img/settings.png" alt="KwickOS Settings, Appearance page with the layouts, accent colors and light or dark appearance" width="1920" height="1080" loading="lazy" onerror="kwImg(this)">
       </figure>
     </div>
     <div class="duo">
@@ -253,6 +333,26 @@
   </div>
 </section>
 
+<section class="section alt" id="keyboard">
+  <div class="wrap">
+    <header class="head reveal">
+      <p class="eyebrow">Keyboard shortcuts</p>
+      <h2>One keymap.<br>Every desktop.</h2>
+      <p class="sub">Change a shortcut in Settings &gt; Keyboard or with <code>kwick-keys set</code> and it works right away in Plasma, GNOME, Hyprland and sway. Meta+K opens a searchable cheat sheet, Cmd+/ in the macOS layout.</p>
+    </header>
+    <div class="duo">
+      <figure class="tile contain reveal">
+        <img src="img/keyboard-shortcuts.png" data-fallback="img/keys-overlay.png" alt="The searchable keyboard shortcut cheat sheet over the desktop" width="1920" height="1080" loading="lazy" onerror="kwImg(this)">
+        <figcaption><strong>Cheat sheet</strong> Grouped by category and filtered as you type. Return runs the chosen action, so it doubles as a launcher.</figcaption>
+      </figure>
+      <figure class="tile contain reveal">
+        <img src="img/keys-settings.png" alt="KwickOS Settings, Keyboard page" width="780" height="621" loading="lazy" onerror="kwImg(this)">
+        <figcaption><strong>Settings &gt; Keyboard</strong> Click a shortcut and press the new chord, with a warning when it is already taken.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="apps">
   <div class="wrap">
     <header class="head reveal">
@@ -263,7 +363,7 @@
     <div class="duo">
       <figure class="tile reveal">
         <img src="img/app-store.png" alt="The App Store Discover page with Blender, OBS Studio and essential apps" width="1920" height="1080" loading="lazy">
-        <figcaption><strong>App Store</strong> Apps from Flathub and Debian, AI agents, and Arch and the AUR once turned on, with Updates and Installed views.</figcaption>
+        <figcaption><strong>App Store</strong> Apps from Flathub and Debian, AI agents and local models, and Arch and the AUR once turned on, with Updates and Installed views.</figcaption>
       </figure>
       <figure class="tile reveal">
         <img src="img/software-update.png" alt="Software Update with the running and default kernel and the installed kernels" width="1920" height="1080" loading="lazy">
@@ -293,11 +393,11 @@
     <div class="trio">
       <figure class="tile reveal">
         <img src="img/settings-agents.png" alt="KwickOS Settings, Agents page" width="1920" height="1080" loading="lazy">
-        <figcaption><strong>Agents</strong> Coding agents and local models in bubblewrap sandboxes, a keystore and the kwick-mcp server.</figcaption>
+        <figcaption><strong>Agents</strong> Installed agents with their sandbox switches and permissions, stored keys, the audit log, and Stop for an agent using the computer.</figcaption>
       </figure>
       <figure class="tile reveal">
         <img src="img/settings-shells.png" alt="KwickOS Settings, Shells page" width="1920" height="1080" loading="lazy">
-        <figcaption><strong>Shells</strong> The desktop shell, and the terminal shell with its prompt preset.</figcaption>
+        <figcaption><strong>Shells</strong> The desktop shell, from Plasma to Hyprland and Noctalia, and the terminal shell, from zsh to fish and Nushell, with one prompt preset.</figcaption>
       </figure>
       <figure class="tile reveal">
         <img src="img/settings-privacy.png" alt="KwickOS Settings, Privacy and Security page" width="1920" height="1080" loading="lazy">
@@ -456,7 +556,7 @@
       <p class="sub">KwickOS&nbsp;0.7.0 measured against Alpine&nbsp;3.24.4, Debian&nbsp;13 slim and Ubuntu&nbsp;26.04 on one machine, amd64. Where Alpine is ahead, the table says so.</p>
     </header>
     <figure class="shot reveal">
-      <img src="img/comparison.png" alt="Bar charts comparing KwickOS with Alpine, Debian slim and Ubuntu on container image size, pull size, VM boot time, memory after boot, packages available and installed size with python3" width="3000" height="1940" loading="lazy">
+      <a href="img/comparison.png" class="zoom" aria-label="Open the comparison charts at full size"><img src="img/comparison.png" alt="Bar charts comparing KwickOS with Alpine, Debian slim and Ubuntu on container image size, pull size, VM boot time, memory after boot, packages available and installed size with python3" width="3000" height="1940" loading="lazy"></a>
     </figure>
     <div class="table reveal">
       <table>
@@ -490,7 +590,7 @@
       <p class="sub">Built and boot-tested by CI. A release ships only after its security check passes: the kernel, the Go modules and the container image are scanned, and BusyBox&rsquo;s open CVEs are reported.</p>
     </header>
     <div class="dl">
-      <article class="dl-card feature reveal">
+      <article class="dl-card feature-card reveal">
         <h3>Desktop</h3>
         <p>KDE Plasma&nbsp;6 live ISO. amd64 boots in UEFI and BIOS, arm64 in UEFI.</p>
         <div class="dl-links">
