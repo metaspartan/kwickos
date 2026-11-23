@@ -16,6 +16,7 @@
 #include <QEvent>
 #include <QGraphicsView>
 #include <QGroupBox>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
@@ -43,6 +44,8 @@
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QTimer>
+#include <QToolBar>
+#include <QToolButton>
 #include <QVariantAnimation>
 #include <QWindow>
 
@@ -79,7 +82,7 @@ struct Look {
     }
 };
 
-constexpr Look MacLook{false, 24, 11, 24, 5, 0, 12, 7, 5, 14, 14, 16, 7, 28, 16, 160, 22, 8, 165, 90, 0.78, 150};
+constexpr Look MacLook{false, 22, 11, 22, 5, 0, 10, 5, 5, 14, 14, 16, 7, 28, 16, 160, 22, 8, 165, 90, 0.78, 150};
 constexpr Look FluentLook{true, 32, 9, 28, 4, 2, 8, 4, 2, 12, 12, 16, 12, 32, 20, 200, 18, 8, 110, 0, 0.92, 300};
 
 QString labelOf(const QString &text)
@@ -184,6 +187,30 @@ bool menuHasIcon(const QWidget *widget)
         }
     }
     return false;
+}
+
+int qtShortcutColumn(const QStyleOptionMenuItem *item, const QWidget *widget)
+{
+    const auto menu = qobject_cast<const QMenu *>(widget);
+    if (!menu) {
+        return item->reservedShortcutWidth;
+    }
+    const QFontMetrics fm = menu->fontMetrics();
+    int column = 0;
+    const auto actions = menu->actions();
+    for (const QAction *action : actions) {
+        if (!action->isVisible() || action->isSeparator()) {
+            continue;
+        }
+        const QString text = action->text();
+        const int tab = text.indexOf(QLatin1Char('\t'));
+        if (tab >= 0) {
+            column = std::max(column, fm.horizontalAdvance(text.mid(tab + 1)));
+        } else if (!action->shortcut().isEmpty() && action->isShortcutVisibleInContextMenu()) {
+            column = std::max(column, fm.horizontalAdvance(action->shortcut().toString(QKeySequence::NativeText)));
+        }
+    }
+    return std::min(column, item->reservedShortcutWidth);
 }
 
 bool hasLeadColumn(const Look &look, const QStyleOptionMenuItem *item, const QWidget *widget)
@@ -566,6 +593,7 @@ constexpr int ArrowBox = 16;
 constexpr int StepperWidth = 13;
 constexpr int TabHeight = 24;
 constexpr int KnobSize = 20;
+constexpr int TipRadius = 5;
 
 QColor withAlpha(QColor color, qreal alpha)
 {
@@ -1063,6 +1091,16 @@ public:
                 int width = m_look.leftPad + (hasLeadColumn(m_look, item, widget) ? m_look.iconSize + m_look.iconGap : 0)
                     + fm.horizontalAdvance(labelOf(item->text)) + m_look.rightPad;
                 const QString shortcut = shortcutFor(m_look, item->text, item->font);
+                if (!m_look.fluent) {
+                    width += 3;
+                    if (!shortcut.isEmpty()) {
+                        width += m_look.shortcutGap + fm.horizontalAdvance(shortcut);
+                    }
+                    if (item->menuItemType == QStyleOptionMenuItem::SubMenu) {
+                        width += m_look.arrowWidth;
+                    }
+                    return QSize(std::max(width, m_look.minWidth) - qtShortcutColumn(item, widget), m_look.itemHeight);
+                }
                 if (item->reservedShortcutWidth > 0 || !shortcut.isEmpty()) {
                     width += m_look.shortcutGap + std::max(item->reservedShortcutWidth, fm.horizontalAdvance(shortcut));
                 }
@@ -1822,14 +1860,218 @@ private:
                 return true;
             }
             return false;
+        case PE_PanelTipLabel: {
+            const bool dark = darkPalette(option->palette);
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing, true);
+            painter->setCompositionMode(QPainter::CompositionMode_Source);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(option->palette.color(QPalette::ToolTipBase));
+            painter->drawPath(roundedPath(QRectF(option->rect), TipRadius));
+            painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
+            painter->setBrush(Qt::NoBrush);
+            painter->setPen(QPen(dark ? QColor(255, 255, 255, 40) : QColor(0, 0, 0, 34), 1.0));
+            painter->drawPath(roundedPath(QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5), TipRadius - 0.5));
+            painter->restore();
+            return true;
+        }
+        case PE_PanelButtonTool:
+            drawToolPill(painter, QRectF(option->rect), option, option->state & (State_Sunken | State_On), option->state & State_MouseOver);
+            return true;
+        case PE_IndicatorHeaderArrow: {
+            const auto header = qstyleoption_cast<const QStyleOptionHeader *>(option);
+            if (!header || header->sortIndicator == QStyleOptionHeader::None) {
+                return true;
+            }
+            const QColor ink = withAlpha(option->palette.color(QPalette::Active, QPalette::Text), 0.55);
+            drawChevron(painter, QRectF(option->rect).center() + QPointF(0, 0.5), 8.0, header->sortIndicator == QStyleOptionHeader::SortDown, ink, 1.5);
+            return true;
+        }
         default:
             return false;
         }
     }
 
+    void drawToolPill(QPainter *painter, const QRectF &rect, const QStyleOption *option, bool down, bool hover) const
+    {
+        const bool enabled = option->state & State_Enabled;
+        if (!enabled || (!down && !hover)) {
+            return;
+        }
+        const QColor ink = option->palette.color(QPalette::Active, QPalette::WindowText);
+        const bool dark = darkPalette(option->palette);
+        const bool pressed = option->state & State_Sunken;
+        qreal alpha = dark ? 0.1 : 0.07;
+        if (down) {
+            alpha = pressed ? (dark ? 0.2 : 0.15) : (dark ? 0.15 : 0.1);
+        }
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(withAlpha(ink, alpha));
+        const QRectF pill = rect.adjusted(1, 1, -1, -1);
+        const qreal radius = std::min(6.0, pill.height() / 2.0);
+        painter->drawRoundedRect(pill, radius, radius);
+        painter->restore();
+    }
+
+    bool drawToolButton(const QStyleOptionToolButton *button, QPainter *painter, const QWidget *widget) const
+    {
+        const bool flat = button->state & State_AutoRaise;
+        const bool enabled = button->state & State_Enabled;
+        const bool hover = enabled && (button->state & State_MouseOver);
+        const bool split = (button->features & QStyleOptionToolButton::MenuButtonPopup) && (button->features & QStyleOptionToolButton::HasMenu);
+        const QRect buttonRect = proxy()->subControlRect(CC_ToolButton, button, SC_ToolButton, widget);
+        const QRect menuRect = proxy()->subControlRect(CC_ToolButton, button, SC_ToolButtonMenu, widget);
+        const bool menuDown = split && (button->activeSubControls & SC_ToolButtonMenu) && (button->state & State_Sunken);
+        const bool buttonDown = (button->state & State_On) || ((button->state & State_Sunken) && !menuDown);
+        const QRectF whole = split ? QRectF(buttonRect.united(menuRect)) : QRectF(buttonRect);
+        if (button->subControls & SC_ToolButton) {
+            if (flat) {
+                QStyleOption pill(*button);
+                if (menuDown) {
+                    pill.state |= State_Sunken;
+                }
+                drawToolPill(painter, whole, &pill, buttonDown || menuDown, hover);
+            } else {
+                QStyleOption bezel(*button);
+                bezel.state &= ~State_On;
+                if (!buttonDown && !menuDown) {
+                    bezel.state &= ~State_Sunken;
+                }
+                drawBezel(painter, whole.adjusted(1, 1, -1, -2), &bezel, false, 5.0);
+                if (button->state & State_On) {
+                    painter->save();
+                    painter->setRenderHint(QPainter::Antialiasing, true);
+                    painter->setPen(Qt::NoPen);
+                    painter->setBrush(withAlpha(button->palette.color(QPalette::Active, QPalette::WindowText), darkPalette(button->palette) ? 0.12 : 0.08));
+                    painter->drawRoundedRect(whole.adjusted(1, 1, -1, -2), 5.0, 5.0);
+                    painter->restore();
+                }
+                if (enabled && keyboardFocus(button)) {
+                    drawRing(painter, whole.adjusted(1, 1, -1, -2), 5.0, m_accent);
+                }
+            }
+        }
+        const QColor ink = button->palette.color(QPalette::Active, flat ? QPalette::WindowText : QPalette::ButtonText);
+        const QColor arrowInk = enabled ? withAlpha(ink, 0.7) : withAlpha(ink, 0.25);
+        if (split && menuRect.isValid()) {
+            if ((hover || buttonDown || menuDown) && enabled) {
+                painter->save();
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(withAlpha(ink, 0.14));
+                const qreal x = button->direction == Qt::RightToLeft ? menuRect.right() + 1 : menuRect.left();
+                painter->drawRect(QRectF(x - 0.5, whole.top() + 5, 1.0, whole.height() - 10));
+                painter->restore();
+            }
+            drawChevron(painter, QRectF(menuRect).center() + QPointF(0, 0.5), 7.0, false, arrowInk, 1.4);
+        } else if (menuRect.isValid() && (button->features & QStyleOptionToolButton::HasMenu)) {
+            const bool small = button->features & QStyleOptionToolButton::PopupDelay;
+            QPointF c = QRectF(menuRect).center();
+            if (!small) {
+                c.rx() += button->direction == Qt::RightToLeft ? 3 : -3;
+            }
+            drawChevron(painter, c + QPointF(0, 0.5), small ? 5.0 : 7.0, false, arrowInk, small ? 1.2 : 1.4);
+        }
+        QStyleOptionToolButton label(*button);
+        label.rect = buttonRect;
+        label.state &= ~(State_HasFocus | State_MouseOver | State_Sunken);
+        if (!(button->state & State_On)) {
+            label.state &= ~State_On;
+        }
+        if (flat) {
+            label.state |= State_AutoRaise;
+        }
+        proxy()->drawControl(CE_ToolButtonLabel, &label, painter, widget);
+        return true;
+    }
+
+    void drawHeaderSection(const QStyleOptionHeader *header, QPainter *painter, const QWidget *widget, bool empty) const
+    {
+        const QRect r = header->rect;
+        const QColor ink = header->palette.color(QPalette::Active, QPalette::Text);
+        const bool dark = darkPalette(header->palette);
+        const bool corner = widget && widget->inherits("QTableCornerButton");
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, false);
+        painter->fillRect(r, header->palette.color(QPalette::Active, QPalette::Base));
+        if (!empty && !corner && (header->state & State_Sunken) && (header->state & State_Enabled)) {
+            painter->fillRect(r, withAlpha(ink, dark ? 0.08 : 0.05));
+        }
+        const QColor line = withAlpha(ink, dark ? 0.12 : 0.1);
+        const bool horizontal = header->orientation == Qt::Horizontal;
+        if (horizontal) {
+            painter->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), line);
+        } else {
+            painter->fillRect(QRect(header->direction == Qt::RightToLeft ? r.left() : r.right(), r.top(), 1, r.height()), line);
+        }
+        const bool last = header->position == QStyleOptionHeader::End || header->position == QStyleOptionHeader::OnlyOneSection;
+        if (!empty && !corner) {
+            if (horizontal && !last) {
+                const int x = header->direction == Qt::RightToLeft ? r.left() : r.right();
+                const int inset = std::max(3, r.height() / 4);
+                painter->fillRect(QRect(x, r.top() + inset, 1, r.height() - 2 * inset), line);
+            } else if (!horizontal) {
+                painter->fillRect(QRect(r.left(), r.bottom(), r.width(), 1), withAlpha(ink, dark ? 0.06 : 0.05));
+            }
+        }
+        painter->restore();
+    }
+
     bool drawMacControl(ControlElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget) const
     {
         switch (element) {
+        case CE_HeaderSection:
+        case CE_HeaderEmptyArea: {
+            const auto header = qstyleoption_cast<const QStyleOptionHeader *>(option);
+            if (header) {
+                drawHeaderSection(header, painter, widget, element == CE_HeaderEmptyArea);
+            } else {
+                QStyleOptionHeader plain;
+                plain.QStyleOption::operator=(*option);
+                plain.orientation = (option->state & State_Horizontal) ? Qt::Horizontal : Qt::Vertical;
+                if (const auto view = qobject_cast<const QHeaderView *>(widget)) {
+                    plain.orientation = view->orientation();
+                }
+                drawHeaderSection(&plain, painter, widget, true);
+            }
+            return true;
+        }
+        case CE_HeaderLabel: {
+            const auto header = qstyleoption_cast<const QStyleOptionHeader *>(option);
+            if (!header) {
+                return false;
+            }
+            QRect r = header->rect;
+            const bool enabled = header->state & State_Enabled;
+            painter->save();
+            if (!header->icon.isNull()) {
+                const int size = proxy()->pixelMetric(PM_SmallIconSize, option, widget);
+                const QRect iconRect(r.left(), r.top() + (r.height() - size) / 2, size, size);
+                header->icon.paint(painter, visualRect(header->direction, r, iconRect), Qt::AlignCenter, enabled ? QIcon::Normal : QIcon::Disabled);
+                r.setLeft(r.left() + size + 4);
+            }
+            const bool sorted = header->sortIndicator != QStyleOptionHeader::None;
+            const QColor text = header->palette.color(QPalette::Active, QPalette::Text);
+            painter->setPen(enabled ? withAlpha(text, sorted ? 0.85 : 0.6) : withAlpha(text, 0.3));
+            QFont font = painter->font();
+            if (widget) {
+                font = widget->font();
+            }
+            if (sorted) {
+                font.setWeight(QFont::DemiBold);
+            }
+            painter->setFont(font);
+            Qt::TextElideMode elide = Qt::ElideRight;
+            if (const auto v2 = qstyleoption_cast<const QStyleOptionHeaderV2 *>(option)) {
+                elide = v2->textElideMode;
+            }
+            const QFontMetrics fm(font);
+            const QString shown = fm.elidedText(header->text, elide, r.width());
+            painter->drawText(visualRect(header->direction, header->rect, r), int(header->textAlignment) | Qt::AlignVCenter | Qt::TextSingleLine, shown);
+            painter->restore();
+            return true;
+        }
         case CE_PushButtonBevel: {
             const auto button = qstyleoption_cast<const QStyleOptionButton *>(option);
             if (!button) {
@@ -2067,6 +2309,13 @@ private:
     bool drawMacComplex(ComplexControl control, const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const
     {
         switch (control) {
+        case CC_ToolButton: {
+            const auto button = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+            if (!button || (widget && widget->inherits("QDockWidgetTitleButton"))) {
+                return false;
+            }
+            return drawToolButton(button, painter, widget);
+        }
         case CC_ComboBox: {
             const auto combo = qstyleoption_cast<const QStyleOptionComboBox *>(option);
             if (!combo) {

@@ -375,7 +375,7 @@ def shadow_svg(size, alpha, oy=0):
     return f"<defs>{defs}</defs>" + "".join(pieces)
 
 
-def plasma_theme(name, title, panel, tasks, menubar=None, tabbar=None, dialog=None, tooltip=None, blur=True):
+def plasma_theme(name, title, panel, tasks, menubar=None, tabbar=None, dialog=None, tooltip=None, button=None, meter=None, blur=True):
     d = f"usr/share/plasma/desktoptheme/{name}"
     w(f"{d}/metadata.json", json.dumps({"KPlugin": {"Authors": [{"Name": "KwickOS"}], "Description": f"{title} panels for KwickOS",
                                                      "Id": name, "License": "MIT", "Name": title, "Version": "1.0"},
@@ -404,6 +404,17 @@ def plasma_theme(name, title, panel, tasks, menubar=None, tabbar=None, dialog=No
                                  margins=(4, 4, 4, 4), oy=i * 80, edge=tabbar.get("edge", 6), inset=tabbar.get("inset", 0))
                        for i, side in enumerate(("north", "south", "west", "east")))
         w(f"{d}/widgets/tabbar.svg", head + body + "</svg>\n")
+    if button:
+        tall = head.replace('height="400"', f'height="{80 * len(button) + 20}"').replace("0 0 400 400", f"0 0 400 {80 * len(button) + 20}")
+        body = "".join(frame_svg(spec.get("r", 0), spec.get("fill", "#ffffff"), spec.get("op", 0.0), spec.get("stroke"), spec.get("stroke_op", 0),
+                                 prefix=f"{state}-", margins=spec.get("margins", (5, 5, 8, 8)), oy=i * 80, edge=spec.get("edge", spec.get("r", 6)))
+                       for i, (state, spec) in enumerate(button.items()))
+        w(f"{d}/widgets/button.svg", tall + body + "</svg>\n")
+    if meter:
+        body = "".join(frame_svg(3, spec["fill"], spec["op"], prefix=f"{state}-", margins=(0, 0, 0, 0), oy=i * 80, edge=3)
+                       for i, (state, spec) in enumerate(meter.items()))
+        body += '<rect id="hint-bar-size" x="300" y="0" width="6" height="6" fill="#000" fill-opacity="0"/>'
+        w(f"{d}/widgets/bar_meter_horizontal.svg", head + body + "</svg>\n")
     wide = head.replace('width="400"', 'width="800"').replace("0 0 400 400", "0 0 800 400")
     for path, spec in (("dialogs/background", dialog), ("widgets/tooltip", tooltip)):
         if spec:
@@ -427,14 +438,28 @@ plasma_theme("kwick-glass", "KwickGlass",
              {"normal": {"mark": mac_dot}, "focus": {"mark": mac_dot}, "minimized": {"mark": mac_dot},
               "hover": {}, "attention": {"mark": dot("#ff9f0a", 1.0)}},
              {"normal": {"inset": 4}, "hover": {"r": 6, "edge": 6, "op": 0.2, "inset": 4}, "pressed": {"r": 6, "edge": 6, "op": 0.24, "inset": 4}},
-             {"r": 6, "edge": 6, "op": 0.24, "inset": 4}, blur=False)
+             {"r": 6, "edge": 6, "op": 0.24, "inset": 4},
+             dialog={"r": 12, "fill": "#2a2a2a", "op": 0.97, "stroke": "#ffffff", "stroke_op": 0.13, "margins": (6, 6, 6, 6), "shadow": (32, 0.5, 8)},
+             tooltip={"r": 6, "fill": "#2c2c2c", "op": 0.98, "stroke": "#ffffff", "stroke_op": 0.14, "margins": (6, 6, 8, 8), "shadow": (12, 0.32, 3)},
+             button={"normal": {"r": 6, "op": 0.16, "stroke": "#ffffff", "stroke_op": 0.06}, "pressed": {"r": 6, "op": 0.28, "stroke": "#ffffff", "stroke_op": 0.06},
+                     "hover": {"r": 6}, "focus": {"r": 6, "stroke": "#ffffff", "stroke_op": 0.35}, "toolbutton-hover": {"r": 6, "op": 0.1},
+                     "toolbutton-pressed": {"r": 6, "op": 0.18}},
+             meter={"bar-inactive": {"fill": "#ffffff", "op": 0.16}, "bar-active": {"fill": "#ffffff", "op": 0.9}},
+             blur=False)
 mac_dot_light = dot("#000000", 0.45)
 plasma_theme("kwick-glass-light", "KwickGlass Light",
              {"r": 18, "fill": "#f6f6f6", "op": 0.6, "edge_op": 0, "stroke": "#000000", "stroke_op": 0.12, "margins": (2, 2, 6, 6), "north_margins": (5, 5, 6, 6)},
              {"normal": {"mark": mac_dot_light}, "focus": {"mark": mac_dot_light}, "minimized": {"mark": mac_dot_light},
               "hover": {}, "attention": {"mark": dot("#ff9500", 1.0)}},
              {"normal": {"inset": 4}, "hover": {"r": 6, "edge": 6, "op": 0.2, "inset": 4}, "pressed": {"r": 6, "edge": 6, "op": 0.24, "inset": 4}},
-             {"r": 6, "edge": 6, "fill": "#000000", "op": 0.12, "inset": 4}, blur=False)
+             {"r": 6, "edge": 6, "fill": "#000000", "op": 0.12, "inset": 4},
+             dialog={"r": 12, "fill": "#f6f6f6", "op": 0.98, "stroke": "#000000", "stroke_op": 0.12, "margins": (6, 6, 6, 6), "shadow": (32, 0.24, 8)},
+             tooltip={"r": 6, "fill": "#f2f2f2", "op": 0.98, "stroke": "#000000", "stroke_op": 0.13, "margins": (6, 6, 8, 8), "shadow": (12, 0.16, 3)},
+             button={"normal": {"r": 6, "op": 1.0, "stroke": "#000000", "stroke_op": 0.12}, "pressed": {"r": 6, "fill": "#e5e5e5", "op": 1.0, "stroke": "#000000", "stroke_op": 0.12},
+                     "hover": {"r": 6}, "focus": {"r": 6, "stroke": "#000000", "stroke_op": 0.3}, "toolbutton-hover": {"r": 6, "fill": "#000000", "op": 0.06},
+                     "toolbutton-pressed": {"r": 6, "fill": "#000000", "op": 0.12}},
+             meter={"bar-inactive": {"fill": "#000000", "op": 0.1}, "bar-active": {"fill": "#000000", "op": 0.62}},
+             blur=False)
 
 
 def fluent_theme(name, title, bar, bar_op, fill, tint, hover, idle, accent, warn, flyout, stroke, stroke_op, shade):

@@ -1,0 +1,69 @@
+@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+
+menupopup:not([type="arrow"]) {
+  --panel-border-radius: 10px !important;
+  --panel-padding: 5px 0 !important;
+  --panel-background: Menu !important;
+  --panel-color: MenuText !important;
+  --menuitem-padding: 0 9px !important;
+  --menuitem-margin: 0 5px !important;
+  --menuitem-border-radius: 5px !important;
+  --menu-border-radius: 10px !important;
+  font: menu !important;
+}
+
+menupopup:not([type="arrow"]) > menuitem,
+menupopup:not([type="arrow"]) > menu,
+menupopup:not([type="arrow"]) > menugroup > menuitem {
+  appearance: none !important;
+  min-height: 22px !important;
+  padding-block: 0 !important;
+  padding-inline: 9px !important;
+  margin-inline: 5px !important;
+  border-radius: 5px !important;
+  background-color: transparent !important;
+  color: MenuText !important;
+}
+
+menupopup:not([type="arrow"]) > menuitem[_moz-menuactive]:not([disabled="true"]),
+menupopup:not([type="arrow"]) > menu[_moz-menuactive]:not([disabled="true"]),
+menupopup:not([type="arrow"]) > menu[open]:not([disabled="true"]),
+menupopup:not([type="arrow"]) > menugroup > menuitem[_moz-menuactive]:not([disabled="true"]) {
+  background-color: -moz-menuhover !important;
+  color: -moz-menuhovertext !important;
+}
+
+menupopup:not([type="arrow"]) > menuitem[disabled="true"],
+menupopup:not([type="arrow"]) > menu[disabled="true"] {
+  color: GrayText !important;
+  background-color: transparent !important;
+}
+
+menupopup:not([type="arrow"]) > menuseparator {
+  appearance: none !important;
+  padding: 0 !important;
+  margin: 5px 10px !important;
+  min-height: 0 !important;
+  border: none !important;
+  border-top: 1px solid color-mix(in srgb, MenuText 14%, transparent) !important;
+}
+
+menupopup:not([type="arrow"]) .menu-accel,
+menupopup:not([type="arrow"]) .menu-accel-container,
+menupopup:not([type="arrow"]) .menu-iconic-accel {
+  color: color-mix(in srgb, currentColor 55%, transparent) !important;
+}
+
+menupopup:not([type="arrow"]) > menuitem[_moz-menuactive]:not([disabled="true"]) .menu-accel,
+menupopup:not([type="arrow"]) > menuitem[_moz-menuactive]:not([disabled="true"]) .menu-iconic-accel {
+  color: color-mix(in srgb, -moz-menuhovertext 85%, transparent) !important;
+}
+
+tooltip {
+  appearance: none !important;
+  border-radius: 6px !important;
+  padding: 3px 7px !important;
+  background-color: InfoBackground !important;
+  color: InfoText !important;
+  border: 1px solid color-mix(in srgb, InfoText 14%, transparent) !important;
+}

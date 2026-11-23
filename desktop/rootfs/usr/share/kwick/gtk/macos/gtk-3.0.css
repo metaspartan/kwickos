@@ -362,6 +362,13 @@ radio:checked {
   color: #ffffff;
 }
 
+radio:checked {
+  -gtk-icon-source: none;
+  color: transparent;
+  background-color: #ffffff;
+  box-shadow: inset 0 0 0 4px @ACCENT@;
+}
+
 menu check,
 menu radio,
 menuitem check,
@@ -369,6 +376,11 @@ menuitem radio {
   background-color: transparent;
   box-shadow: none;
   color: inherit;
+}
+
+menu radio:checked,
+menuitem radio:checked {
+  -gtk-icon-source: -gtk-icontheme("object-select-symbolic");
 }
 
 scale trough {
@@ -428,4 +440,32 @@ tooltip.background {
 
 tooltip * {
   color: @FG@;
+}
+
+treeview.view header button,
+treeview.view header button:hover,
+treeview.view header button:active,
+filechooser treeview.view header button:not(.flat):not(.suggested-action):not(.sidebar-button),
+window.background:not(.csd) treeview.view header button:not(.flat):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.sidebar-button):not(.up):not(.down) {
+  min-height: 20px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 0;
+  background-image: none;
+  background-color: @VIEW@;
+  color: @FG_SECONDARY@;
+  font-weight: normal;
+  box-shadow: inset -1px 0 0 0 @SEPARATOR@, inset 0 -1px 0 0 @SEPARATOR@;
+  text-shadow: none;
+}
+
+treeview.view header button:last-child,
+treeview.view header button:last-child:hover,
+filechooser treeview.view header button:last-child:not(.flat):not(.suggested-action):not(.sidebar-button),
+window.background:not(.csd) treeview.view header button:last-child:not(.flat):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.sidebar-button):not(.up):not(.down) {
+  box-shadow: inset 0 -1px 0 0 @SEPARATOR@;
+}
+
+treeview.view header button:active {
+  background-color: @CARD@;
 }

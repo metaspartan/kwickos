@@ -245,3 +245,29 @@
   padding-top: 1px;
   padding-bottom: 12px;
 }
+
+.kwick-macos .quick-settings {
+  border-radius: 18px;
+  padding: 10px;
+}
+
+.kwick-macos .quick-settings .quick-toggle,
+.kwick-macos .quick-settings .quick-toggle-has-menu,
+.kwick-macos .quick-settings .quick-toggle-has-menu .quick-toggle:ltr:last-child,
+.kwick-macos .quick-settings .quick-toggle-has-menu .quick-toggle:rtl:last-child {
+  border-radius: 12px;
+}
+
+.kwick-macos .quick-settings .quick-toggle-has-menu .quick-toggle:ltr,
+.kwick-macos .quick-settings .quick-toggle-has-menu .quick-toggle-menu-button:rtl {
+  border-radius: 12px 0 0 12px;
+}
+
+.kwick-macos .quick-settings .quick-toggle-has-menu .quick-toggle:rtl,
+.kwick-macos .quick-settings .quick-toggle-has-menu .quick-toggle-menu-button:ltr {
+  border-radius: 0 12px 12px 0;
+}
+
+.kwick-macos .quick-settings .quick-toggle-menu {
+  border-radius: 14px;
+}

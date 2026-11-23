@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
+import QtQuick.Effects
 
 ApplicationWindow {
     id: win
@@ -159,15 +160,22 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     contentWidth: width
-                    contentHeight: navCol.implicitHeight
+                    contentHeight: navCol.implicitHeight + 6
                     clip: true
+                    layer.enabled: contentHeight > height
+                    layer.effect: MultiEffect {
+                        maskEnabled: true
+                        maskSource: navMask
+                        maskThresholdMin: 0.0
+                        maskSpreadAtMin: 1.0
+                    }
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { policy: navFlick.contentHeight > navFlick.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
                     function reveal(it) {
                         if (it.y < contentY)
                             contentY = it.y
                         else if (it.y + it.height > contentY + height)
-                            contentY = Math.min(it.y + it.height - height, Math.max(0, contentHeight - height))
+                            contentY = Math.min(it.y + it.height + 6 - height, Math.max(0, contentHeight - height))
                     }
                     ColumnLayout {
                         id: navCol
@@ -214,9 +222,27 @@ ApplicationWindow {
                     }
                 }
 
+                Item {
+                    id: navMask
+                    visible: false
+                    layer.enabled: true
+                    width: navFlick.width
+                    height: navFlick.height
+                    readonly property real fade: navFlick.contentY + navFlick.height < navFlick.contentHeight - 1 ? Math.min(24, height / 4) : 0
+                    Rectangle {
+                        anchors.fill: parent
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "black" }
+                            GradientStop { position: Math.max(0, 1 - navMask.fade / Math.max(1, navMask.height)); color: "black" }
+                            GradientStop { position: 1.0; color: navMask.fade > 0 ? "transparent" : "black" }
+                        }
+                    }
+                }
+
                 Text {
                     Layout.fillWidth: true
                     Layout.leftMargin: 6
+                    Layout.topMargin: 6
                     text: "Layout: " + Sys.layout + "  •  Effects: " + Sys.preset
                     color: Theme.sub
                     font.family: Theme.sans
