@@ -1,0 +1,9 @@
+model:
+  default: anthropic/claude-opus-4.1
+  provider: openrouter
+terminal:
+  backend: local
+mcp_servers:
+  kwickos:
+    command: "/usr/bin/kwick-mcp"
+    args: []

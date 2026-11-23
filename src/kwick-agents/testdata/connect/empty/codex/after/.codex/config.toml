@@ -1,0 +1,9 @@
+[model_providers.kwickos-local]
+name = "KwickOS local (llama.cpp)"
+base_url = "http://127.0.0.1:11435/v1"
+env_key = "KWICK_INFERENCE_API_KEY"
+wire_api = "responses"
+
+[profiles.kwickos-local]
+model = "local"
+model_provider = "kwickos-local"

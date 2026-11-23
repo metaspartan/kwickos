@@ -1,0 +1,12 @@
+[Unit]
+Description=KwickOS local model endpoint (llama.cpp on 127.0.0.1:11435)
+Documentation=file:///usr/share/doc/kwick-agents/INFERENCE.md
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/kwick-agents inference service run
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

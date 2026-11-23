@@ -50,6 +50,104 @@ detect_vendors() {
 
 is_desktop() { [ -e /etc/kwick-edition ] || [ -n "${KWICK_GPU_DESKTOP:-}" ]; }
 
+jstr() { printf '%s' "$1" | tr -d '"\\' | tr -c '[:print:]' ' '; }
+
+pci_name() {
+  for f in /usr/share/misc/pci.ids /usr/share/hwdata/pci.ids; do
+    [ -r "$f" ] || continue
+    awk -v v="${1#0x}" -v d="${2#0x}" '
+      /^#/ || /^$/ { next }
+      /^[0-9a-f]/ { inv = (substr($0, 1, 4) == v); next }
+      inv && /^\t[0-9a-f]/ && substr($0, 2, 4) == d { print substr($0, 8); exit }' "$f"
+    return
+  done
+}
+
+ram_mb() { awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null; }
+
+gpu_devices() {
+  idx=0
+  nvsmi=""
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvsmi=$(nvidia-smi --query-gpu=pci.bus_id,name,memory.total,compute_cap,driver_version --format=csv,noheader,nounits 2>/dev/null | tr 'A-F' 'a-f')
+  fi
+  for c in /sys/class/drm/card[0-9]*; do
+    case ${c##*/} in *-*) continue ;; esac
+    d=$c/device
+    drv=$(basename "$(readlink "$d/driver" 2>/dev/null)" 2>/dev/null)
+    vid=$(cat "$d/vendor" 2>/dev/null)
+    v=$(pci_vendor_to_name "$vid" "")
+    if [ -z "$v" ]; then
+      case $drv in
+        asahi) v=apple ;;
+        v3d) v=rpi ;;
+        "") continue ;;
+        vc4) continue ;;
+        *) v=$drv ;;
+      esac
+    fi
+    pci=$(basename "$(readlink -f "$d" 2>/dev/null)")
+    case $pci in *:*) ;; *) pci="" ;; esac
+    name=$(pci_name "$vid" "$(cat "$d/device" 2>/dev/null)")
+    vram=0; gtt=0; cc=""; dver=""; uni=false; disp=false
+    for s in "$c"-*/status; do [ "$(cat "$s" 2>/dev/null)" = connected ] && disp=true; done
+    case $v in
+      amd)
+        vram=$(( $(cat "$d/mem_info_vram_total" 2>/dev/null || echo 0) / 1048576 ))
+        gtt=$(( $(cat "$d/mem_info_gtt_total" 2>/dev/null || echo 0) / 1048576 ))
+        [ -r "$d/product_name" ] && name=$(cat "$d/product_name")
+        dver=$(cat /sys/module/amdgpu/version 2>/dev/null)
+        if [ "$vram" -gt 0 ] && { [ ! -e "$d/mem_info_vram_vendor" ] || { [ "$vram" -lt 4096 ] && [ "$gtt" -gt "$vram" ]; }; }; then uni=true; fi
+        maj=$(cat "$d/ip_discovery/die/0/GC/0/major" 2>/dev/null)
+        [ -n "$maj" ] && cc="gfx$maj$(cat "$d/ip_discovery/die/0/GC/0/minor" 2>/dev/null)$(cat "$d/ip_discovery/die/0/GC/0/revision" 2>/dev/null)" ;;
+      intel)
+        uni=true
+        case $(cat "$d/device" 2>/dev/null) in 0x56*|0xe2*) uni=false ;; esac
+        for p in tile0/vram0/size lmem_total_bytes; do [ -r "$d/$p" ] && vram=$(( $(cat "$d/$p") / 1048576 )); done ;;
+      apple|rpi) uni=true ;;
+      nvidia)
+        if [ -n "$nvsmi" ] && [ -n "$pci" ]; then
+          row=$(printf '%s\n' "$nvsmi" | grep -i "${pci#????:}" | head -1)
+          if [ -n "$row" ]; then
+            name=$(printf '%s' "$row" | cut -d, -f2 | sed 's/^ *//')
+            m=$(printf '%s' "$row" | cut -d, -f3 | tr -d ' ')
+            case $m in ''|*[!0-9]*) uni=true ;; *) vram=$m ;; esac
+            cc=$(printf '%s' "$row" | cut -d, -f4 | tr -d ' ')
+            dver=$(printf '%s' "$row" | cut -d, -f5 | tr -d ' ')
+          fi
+        fi
+        [ -z "$dver" ] && [ "$drv" = nvidia ] && dver=$(cat /sys/module/nvidia/version 2>/dev/null) ;;
+    esac
+    printf '%s %s %s %s %s %s\n' "$idx" "$v" "$vram" "$gtt" "$uni" "$disp" >> "$GPU_TMP"
+    [ "$idx" -gt 0 ] && printf ','
+    printf '{"index":%d,"vendor":"%s","name":"%s","pci":"%s","card":"%s","vram_mb":%d,"gtt_mb":%d,"compute_cap":"%s","driver":"%s","driver_version":"%s","unified":%s,"display":%s}' \
+      "$idx" "$v" "$(jstr "$name")" "$pci" "${c##*/}" "$vram" "$gtt" "$(jstr "$cc")" "$drv" "$(jstr "$dver")" "$uni" "$disp"
+    idx=$((idx + 1))
+  done
+}
+
+memory_budget() {
+  ram=$1
+  awk -v ram="$ram" '
+    { vendor[NR] = $2; vram[NR] = $3; gtt[NR] = $4; uni[NR] = $5; disp[NR] = $6
+      if ($2 == "nvidia" || $2 == "amd" || $2 == "intel" || $2 == "apple") { tot[$2] += $3 + 1; if (!($2 in seen)) { seen[$2] = 1; order[++n] = $2 } } }
+    END {
+      reserve = int(ram / 8); if (reserve < 2048) reserve = 2048
+      ramb = ram - reserve; if (ramb < 0) ramb = 0
+      best = ""; for (i = 1; i <= n; i++) if (best == "" || tot[order[i]] > tot[best]) best = order[i]
+      budget = 0; pool = 0; u = 0
+      for (i = 1; i <= NR; i++) {
+        if (vendor[i] != best) continue
+        if (uni[i] == "true") { u = 1; p = vram[i] + gtt[i]; if (best == "apple" || best == "nvidia" || p == 0) p = ram; if (p > pool) pool = p; continue }
+        if (vram[i] <= 0) continue
+        b = vram[i] - (disp[i] == "true" ? 1536 : 512); if (b > 0) budget += b
+      }
+      if (budget > 0) { print budget; exit }
+      if (u) { lim = ram - reserve; if (pool > 0 && pool < lim) lim = pool; if (lim < 0) lim = 0; print lim; exit }
+      print ramb
+    }' "$GPU_TMP"
+}
+
 arch=$(dpkg --print-architecture 2>/dev/null || echo amd64)
 want_i386=""
 want_rocm=""
@@ -210,7 +308,13 @@ case $cmd in
         printf '%s{"card":"%s","vendor":"%s","driver":"%s"}' "$sep" "$(basename "$c")" "$(cat "$c/device/vendor")" "$drv"
         sep=,
       done
-      printf '],"arch":"%s","packages":"%s","i386":%s,"uinput":%s}\n' "$arch" "$(echo $pkgs)" "$i386" "$uinput"
+      GPU_TMP=$(mktemp)
+      printf '],"devices":['
+      gpu_devices
+      ram=$(ram_mb); ram=${ram:-0}
+      printf '],"ram_mb":%d,"memory_budget_mb":%d' "$ram" "$(memory_budget "$ram")"
+      rm -f "$GPU_TMP"
+      printf ',"arch":"%s","packages":"%s","i386":%s,"uinput":%s}\n' "$arch" "$(echo $pkgs)" "$i386" "$uinput"
       exit 0
     fi
     echo "Detected: ${vendors:-none (headless VM or no GPU)}"

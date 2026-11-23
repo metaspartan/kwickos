@@ -22,9 +22,11 @@ for arch in ${ARCHES:-amd64 arm64 riscv64}; do
   install -m 755 "$B/kwick-agents-$arch" "$P/usr/bin/kwick-agents"
   ln -sf kwick-agents "$P/usr/bin/kwick-mcp"
   ln -sf kwick-agents "$P/usr/bin/kwick-cua-driver"
+  ln -sf kwick-agents "$P/usr/bin/kwick-inference"
   chmod 755 "$P/usr/lib/kwick/agents/kwick-agents-priv"
   sed 's/\r$//' "$SRC/rootfs/usr/share/doc/kwickos/AGENTS.md" > "$P/usr/share/doc/kwick-agents/AGENTS.md"
   sed 's/\r$//' "$SRC/docs/AGENTS.md" > "$P/usr/share/doc/kwick-agents/README.md"
+  sed 's/\r$//' "$SRC/docs/INFERENCE.md" > "$P/usr/share/doc/kwick-agents/INFERENCE.md"
   deb_control "$P" kwick-agents "$VER" "$arch" utils <<EOF
 Depends: bubblewrap, ca-certificates, libstdc++6, libgomp1
 Recommends: libsecret-tools, sudo, qml-qt6, qml6-module-org-kde-layershell
@@ -33,7 +35,8 @@ Description: KwickOS AI agents: catalog, sandbox, keys and MCP server
  kwick-agents installs AI agents (Claude Code, Codex, Gemini CLI, opencode,
  oh-my-pi, OpenClaw, Hermes, Aider, Goose, Cybara) and local model runtimes
  (Ollama, llama.cpp) per user, each pinned to a release and verified against
- a sha256, a lock file or a git commit. Agents run in bubblewrap sandboxes
+ a sha256, a lock file or a git commit, and serves local models on one
+ key-protected endpoint (kwick-agents inference). Agents run in bubblewrap sandboxes
  with their API keys taken from the Secret Service or a mode 600 keystore.
  kwick-mcp is a Model Context Protocol server that gives agents permissioned
  access to KwickOS (system, packages, snapshots, files, settings, apps,
@@ -44,6 +47,7 @@ EOF
 [ "$1" = configure ] || exit 0
 mkdir -p /var/lib/kwick-agents
 chmod 755 /var/lib/kwick-agents
+command -v systemd-sysusers >/dev/null 2>&1 && systemd-sysusers kwick-inference.conf >/dev/null 2>&1 || true
 exit 0
 EOF
   deb_build "$P" kwick-agents "$VER" "$arch"

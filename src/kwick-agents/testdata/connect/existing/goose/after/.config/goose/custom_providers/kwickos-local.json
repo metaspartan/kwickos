@@ -1,0 +1,15 @@
+{
+  "api_key_env": "KWICK_INFERENCE_API_KEY",
+  "base_url": "http://127.0.0.1:11435/v1",
+  "description": "Local models served by kwick-agents inference",
+  "display_name": "KwickOS local (llama.cpp)",
+  "engine": "openai",
+  "models": [
+    {
+      "context_limit": 32768,
+      "name": "local"
+    }
+  ],
+  "name": "kwickos-local",
+  "supports_streaming": true
+}

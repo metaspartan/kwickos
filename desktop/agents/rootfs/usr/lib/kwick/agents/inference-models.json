@@ -1,0 +1,520 @@
+{
+  "schema": 1,
+  "updated": "2026-11-23",
+  "models": [
+    {
+      "id": "qwen3.5-0.8b",
+      "title": "Qwen3.5 0.8B",
+      "family": "qwen3.5",
+      "class": "tiny",
+      "description": "Smallest Qwen3.5: for tests and very old machines",
+      "repo": "unsloth/Qwen3.5-0.8B-GGUF",
+      "commit": "6ab461498e2023f6e3c1baea90a8f0fe38ab64d0",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3.5-0.8B-Q4_K_M.gguf",
+          "size": 532517120,
+          "sha256": "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3.5-0.8B/blob/main/LICENSE",
+      "commercial_ok": true,
+      "rank": 10,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools"
+      ],
+      "params_b": 0.75,
+      "active_params_b": 0.75,
+      "shape": {
+        "arch": "qwen35",
+        "layers": 24,
+        "context_max": 262144,
+        "kv_bytes_per_token": 12288,
+        "weights_bytes": 521555200,
+        "params_b": 0.75
+      }
+    },
+    {
+      "id": "qwen3.5-2b",
+      "title": "Qwen3.5 2B",
+      "family": "qwen3.5",
+      "class": "tiny",
+      "description": "Small and fast on any CPU; simple chat and edits",
+      "repo": "unsloth/Qwen3.5-2B-GGUF",
+      "commit": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3.5-2B-Q4_K_M.gguf",
+          "size": 1280835840,
+          "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3.5-2B/blob/main/LICENSE",
+      "commercial_ok": true,
+      "rank": 20,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools"
+      ],
+      "params_b": 1.88,
+      "active_params_b": 1.88,
+      "shape": {
+        "arch": "qwen35",
+        "layers": 24,
+        "context_max": 262144,
+        "kv_bytes_per_token": 12288,
+        "weights_bytes": 1269873920,
+        "params_b": 1.88
+      }
+    },
+    {
+      "id": "gemma-4-e2b",
+      "title": "Gemma 4 E2B",
+      "family": "gemma-4",
+      "class": "4gb",
+      "description": "Google's on-device model (2B effective parameters)",
+      "repo": "unsloth/gemma-4-E2B-it-GGUF",
+      "commit": "0314792d7f1f7e229411f620751375812bb9faf2",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "gemma-4-E2B-it-Q4_K_M.gguf",
+          "size": 3106738272,
+          "sha256": "740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+      "commercial_ok": true,
+      "rank": 25,
+      "cpu_ok": true,
+      "tags": [
+        "chat"
+      ],
+      "params_b": 4.65,
+      "active_params_b": 4.65,
+      "shape": {
+        "arch": "gemma4",
+        "layers": 35,
+        "context_max": 131072,
+        "kv_bytes_per_token": 14336,
+        "swa_kv_bytes_per_token": 28672,
+        "sliding_window": 512,
+        "weights_bytes": 3090918496,
+        "params_b": 4.65
+      }
+    },
+    {
+      "id": "gemma-4-e4b",
+      "title": "Gemma 4 E4B",
+      "family": "gemma-4",
+      "class": "4gb",
+      "description": "Google's on-device model (4B effective parameters)",
+      "repo": "unsloth/gemma-4-E4B-it-GGUF",
+      "commit": "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "gemma-4-E4B-it-Q4_K_M.gguf",
+          "size": 4977171584,
+          "sha256": "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+      "commercial_ok": true,
+      "rank": 38,
+      "cpu_ok": true,
+      "tags": [
+        "chat"
+      ],
+      "params_b": 7.52,
+      "active_params_b": 7.52,
+      "shape": {
+        "arch": "gemma4",
+        "layers": 42,
+        "context_max": 131072,
+        "kv_bytes_per_token": 28672,
+        "swa_kv_bytes_per_token": 71680,
+        "sliding_window": 512,
+        "weights_bytes": 4961344832,
+        "params_b": 7.52
+      }
+    },
+    {
+      "id": "qwen3.5-4b",
+      "title": "Qwen3.5 4B",
+      "family": "qwen3.5",
+      "class": "4gb",
+      "description": "Best small model for 4 GB GPUs and CPUs; tool calling",
+      "repo": "unsloth/Qwen3.5-4B-GGUF",
+      "commit": "e87f176479d0855a907a41277aca2f8ee7a09523",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3.5-4B-Q4_K_M.gguf",
+          "size": 2740937888,
+          "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3.5-4B/blob/main/LICENSE",
+      "commercial_ok": true,
+      "rank": 40,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools",
+        "code"
+      ],
+      "params_b": 4.21,
+      "active_params_b": 4.21,
+      "shape": {
+        "arch": "qwen35",
+        "layers": 32,
+        "context_max": 262144,
+        "kv_bytes_per_token": 32768,
+        "weights_bytes": 2729969664,
+        "params_b": 4.21
+      }
+    },
+    {
+      "id": "qwen3.5-9b",
+      "title": "Qwen3.5 9B",
+      "family": "qwen3.5",
+      "class": "8gb",
+      "description": "Strong all-rounder for 8 GB GPUs",
+      "repo": "unsloth/Qwen3.5-9B-GGUF",
+      "commit": "3885219b6810b007914f3a7950a8d1b469d598a5",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3.5-9B-Q4_K_M.gguf",
+          "size": 5680522464,
+          "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3.5-9B/blob/main/LICENSE",
+      "commercial_ok": true,
+      "rank": 60,
+      "cpu_ok": false,
+      "tags": [
+        "chat",
+        "tools",
+        "code"
+      ],
+      "params_b": 8.95,
+      "active_params_b": 8.95,
+      "shape": {
+        "arch": "qwen35",
+        "layers": 32,
+        "context_max": 262144,
+        "kv_bytes_per_token": 32768,
+        "weights_bytes": 5669554176,
+        "params_b": 8.95
+      }
+    },
+    {
+      "id": "gemma-4-12b",
+      "title": "Gemma 4 12B (QAT)",
+      "family": "gemma-4",
+      "class": "8gb",
+      "description": "Google's quantisation-aware 4-bit build; good writing and languages",
+      "repo": "google/gemma-4-12B-it-qat-q4_0-gguf",
+      "commit": "29d097773436b69ff9feafd636ab4cf873786537",
+      "quant": "Q4_0",
+      "files": [
+        {
+          "name": "gemma-4-12b-it-qat-q4_0.gguf",
+          "size": 6975879296,
+          "sha256": "93567e57a8fe10b23569b9d9ec38cd005deedf71e29477c421a4b83f418a538b"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+      "commercial_ok": true,
+      "rank": 62,
+      "cpu_ok": false,
+      "tags": [
+        "chat"
+      ],
+      "params_b": 11.91,
+      "active_params_b": 11.91,
+      "shape": {
+        "arch": "gemma4",
+        "layers": 48,
+        "context_max": 262144,
+        "kv_bytes_per_token": 16384,
+        "swa_kv_bytes_per_token": 327680,
+        "sliding_window": 1024,
+        "weights_bytes": 6960055808,
+        "params_b": 11.91
+      }
+    },
+    {
+      "id": "gpt-oss-20b",
+      "title": "gpt-oss 20B",
+      "family": "gpt-oss",
+      "class": "16gb",
+      "description": "OpenAI's open-weight mixture of experts (3.6B active); fast reasoning and tools",
+      "repo": "ggml-org/gpt-oss-20b-GGUF",
+      "commit": "41e8a94d15d62070b36cf4553a0250717ecf46b8",
+      "quant": "MXFP4",
+      "files": [
+        {
+          "name": "gpt-oss-20b-MXFP4.gguf",
+          "size": 12109566624,
+          "sha256": "27cd6c432c7672cb812a92f611cf3ba7bbc35928262bb1e1253ff4ee6ae35901"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF",
+      "commercial_ok": true,
+      "rank": 70,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools",
+        "reasoning"
+      ],
+      "params_b": 20.91,
+      "active_params_b": 3.6,
+      "shape": {
+        "arch": "gpt-oss",
+        "layers": 24,
+        "context_max": 131072,
+        "kv_bytes_per_token": 24576,
+        "swa_kv_bytes_per_token": 24576,
+        "sliding_window": 128,
+        "experts": 32,
+        "experts_used": 4,
+        "weights_bytes": 12096558336,
+        "expert_bytes": 10178887680,
+        "params_b": 20.91
+      }
+    },
+    {
+      "id": "gemma-4-26b-a4b",
+      "title": "Gemma 4 26B A4B",
+      "family": "gemma-4",
+      "class": "24gb",
+      "description": "Gemma mixture of experts (4B active)",
+      "repo": "unsloth/gemma-4-26B-A4B-it-GGUF",
+      "commit": "c099eb48e663fd284577b04978a94ffccb261841",
+      "quant": "MXFP4_MOE",
+      "files": [
+        {
+          "name": "gemma-4-26B-A4B-it-MXFP4_MOE.gguf",
+          "size": 16551048928,
+          "sha256": "a8908250f2a72a5824382d488158f12b65effa24e6c6b1244e5b4818ac0a1459"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+      "commercial_ok": true,
+      "rank": 75,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools"
+      ],
+      "params_b": 25.23,
+      "active_params_b": 3.8,
+      "shape": {
+        "arch": "gemma4",
+        "layers": 30,
+        "context_max": 262144,
+        "kv_bytes_per_token": 20480,
+        "swa_kv_bytes_per_token": 204800,
+        "sliding_window": 1024,
+        "experts": 128,
+        "experts_used": 8,
+        "weights_bytes": 16535224256,
+        "expert_bytes": 13956561920,
+        "params_b": 25.23
+      }
+    },
+    {
+      "id": "qwen3.5-35b-a3b",
+      "title": "Qwen3.5 35B A3B",
+      "family": "qwen3.5",
+      "class": "24gb",
+      "description": "Qwen mixture of experts (3B active): fast with experts in RAM",
+      "repo": "unsloth/Qwen3.5-35B-A3B-GGUF",
+      "commit": "bc014a17be43adabd7066b7a86075ff935c6a4e2",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3.5-35B-A3B-Q4_K_M.gguf",
+          "size": 22016023168,
+          "sha256": "3b46d1066bc91cc2d613e3bc22ce691dd77e6f0d33c9060690d24ce6de494375"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3.5-35B-A3B/blob/main/LICENSE",
+      "commercial_ok": true,
+      "rank": 78,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools",
+        "code"
+      ],
+      "params_b": 34.66,
+      "active_params_b": 3.0,
+      "shape": {
+        "arch": "qwen35moe",
+        "layers": 40,
+        "context_max": 262144,
+        "kv_bytes_per_token": 20480,
+        "experts": 256,
+        "experts_used": 8,
+        "weights_bytes": 22005033472,
+        "expert_bytes": 19461570560,
+        "params_b": 34.66
+      }
+    },
+    {
+      "id": "qwen3.8-27b",
+      "title": "Qwen3.8 27B",
+      "family": "qwen3.8",
+      "class": "24gb",
+      "description": "Dense 27B: the best model for one 24 GB GPU",
+      "repo": "unsloth/Qwen3.8-27B-GGUF",
+      "commit": "4af51b3542f775b0a8e4b310bfb3f17e01c306c9",
+      "quant": "UD-Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+          "size": 16564259744,
+          "sha256": "1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF",
+      "commercial_ok": true,
+      "rank": 85,
+      "cpu_ok": false,
+      "tags": [
+        "chat",
+        "tools",
+        "code"
+      ],
+      "params_b": 27.32,
+      "active_params_b": 27.32,
+      "shape": {
+        "arch": "qwen35",
+        "layers": 65,
+        "context_max": 262144,
+        "kv_bytes_per_token": 65536,
+        "weights_bytes": 16553263104,
+        "params_b": 27.32
+      }
+    },
+    {
+      "id": "qwen3-coder-next",
+      "title": "Qwen3 Coder Next",
+      "family": "qwen3",
+      "class": "64gb",
+      "description": "Coding agent model (80B mixture of experts, 3B active) for 48-64 GB",
+      "repo": "Qwen/Qwen3-Coder-Next-GGUF",
+      "commit": "b82fb7382639d97b38fa7672e526c760c2fb358e",
+      "quant": "Q4_K_M",
+      "files": [
+        {
+          "name": "Qwen3-Coder-Next-Q4_K_M/Qwen3-Coder-Next-Q4_K_M-00001-of-00004.gguf",
+          "size": 15524827040,
+          "sha256": "6bcfc9f9c37901eeb92172e2ab871224dab36a453d263bcb2547f737409534da"
+        },
+        {
+          "name": "Qwen3-Coder-Next-Q4_K_M/Qwen3-Coder-Next-Q4_K_M-00002-of-00004.gguf",
+          "size": 14872168352,
+          "sha256": "817def0691ee9d08bf3dc4444be7aed29c9e52091e8fa9d97901ce7e7f6f01d3"
+        },
+        {
+          "name": "Qwen3-Coder-Next-Q4_K_M/Qwen3-Coder-Next-Q4_K_M-00003-of-00004.gguf",
+          "size": 14503294496,
+          "sha256": "23aa634d47dca9b4ca3ea249384e6f01951b24c83cdc076f37f6f43d6c99883f"
+        },
+        {
+          "name": "Qwen3-Coder-Next-Q4_K_M/Qwen3-Coder-Next-Q4_K_M-00004-of-00004.gguf",
+          "size": 3510702144,
+          "sha256": "249c768cc5f130dc731567d6edcbdacc48e14dec9e02c5dbe2b2185d2c5bdb2b"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3-Coder-Next-GGUF/blob/main/LICENSE",
+      "commercial_ok": true,
+      "rank": 90,
+      "cpu_ok": true,
+      "tags": [
+        "code",
+        "tools"
+      ],
+      "params_b": 79.67,
+      "active_params_b": 3.0,
+      "shape": {
+        "arch": "qwen3next",
+        "layers": 48,
+        "context_max": 262144,
+        "kv_bytes_per_token": 24576,
+        "experts": 512,
+        "experts_used": 10,
+        "weights_bytes": 48405005312,
+        "expert_bytes": 46808432640,
+        "params_b": 79.67
+      }
+    },
+    {
+      "id": "gpt-oss-120b",
+      "title": "gpt-oss 120B",
+      "family": "gpt-oss",
+      "class": "128gb",
+      "description": "OpenAI's large open-weight model (5.1B active) for 128 GB unified memory or GPU plus RAM",
+      "repo": "ggml-org/gpt-oss-120b-GGUF",
+      "commit": "f59990363fbbb67f01bce03e5e7bf0929e3e320b",
+      "quant": "MXFP4",
+      "files": [
+        {
+          "name": "gpt-oss-120b-MXFP4.gguf",
+          "size": 63387346208,
+          "sha256": "582bd40f6886200101f4c4ed9f25f3fe80cc14c86e9e2b37746cd8904a0c622d"
+        }
+      ],
+      "license": "apache-2.0",
+      "license_url": "https://huggingface.co/ggml-org/gpt-oss-120b-GGUF",
+      "commercial_ok": true,
+      "rank": 95,
+      "cpu_ok": true,
+      "tags": [
+        "chat",
+        "tools",
+        "reasoning",
+        "code"
+      ],
+      "params_b": 116.83,
+      "active_params_b": 5.1,
+      "shape": {
+        "arch": "gpt-oss",
+        "layers": 36,
+        "context_max": 131072,
+        "kv_bytes_per_token": 36864,
+        "swa_kv_bytes_per_token": 36864,
+        "sliding_window": 128,
+        "experts": 128,
+        "experts_used": 4,
+        "weights_bytes": 63374323968,
+        "expert_bytes": 61073326080,
+        "params_b": 116.83
+      }
+    }
+  ]
+}

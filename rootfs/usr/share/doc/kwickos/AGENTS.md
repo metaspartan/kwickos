@@ -125,13 +125,30 @@ Limits you will hit, by design:
 | `kwick-kernel status --json`, `kwick-kernel list --json` | boot path, running/default/previous kernel, trial state |
 | `kwick-layout status --json` | desktop layout, appearance, corner radius, session |
 | `kwick-desktop list --json` | installed desktop sessions and the default one |
-| `kwick-gpu status --json` | detected GPUs and drivers |
+| `kwick-gpu status --json` | detected GPUs and drivers; `devices[]` with VRAM, GTT, compute capability; `ram_mb`, `memory_budget_mb` |
+| `kwick-agents inference status --json`, `models --json`, `fit ID --json` | the local model endpoint, models and whether they fit |
 | `kwick-vpn list --json`, `kwick-vpn status --json` | VPN profiles and connections |
 | `kwick-storage status --json` | storage modules |
 | `kwick-bluetooth json` | Bluetooth adapter and devices |
 
 Commands that change the system (`kwick-update upgrade`, `kwick-kernel try`, `apt install`) need root. Do not use `sudo` yourself
 unless the user asked you to; use the MCP tools so the user sees a prompt.
+
+## Local models
+
+KwickOS can serve open models on this machine (llama.cpp) behind one endpoint that speaks both APIs:
+
+* OpenAI-compatible `http://127.0.0.1:11435/v1`, Anthropic-compatible `http://127.0.0.1:11435/v1/messages`;
+* model name `local`; the key is in your environment as `$KWICK_INFERENCE_API_KEY` (send it as `Authorization: Bearer` or
+  `x-api-key`). Never print, log or write the key into files;
+* `~/.config/kwick-inference/endpoint.json` describes the endpoint (URL, model, key variable name, context), never the key.
+
+Use it for cheap or private sub-tasks (summaries, classification, drafts, private data) when the user wants local
+inference. Check first: the MCP tool `inference_status` (or `kwick-agents inference status --json`) says whether the service runs, which
+model is `local` and how much context it has; `inference_models` lists the curated models with size, licence and a fit verdict
+(`gpu`, `moe-offload`, `cpu-split`, `cpu`, `no`) for this machine. `inference_start`, `inference_stop` and `inference_pull` need the
+`inference.manage` permission and ask the user; a pull shows the size and licence and runs in the background. A small local model is
+much weaker than you: give it short, self-contained prompts and check its output. Details: the resource `kwickos://docs/inference`.
 
 ## Installing software for a task
 

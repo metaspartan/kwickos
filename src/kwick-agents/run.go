@@ -203,6 +203,7 @@ func agentEnv(e *Entry, in *Installed, rt *Installed, prof Profile, sandboxed bo
 	for k, v := range loadSecretsFor(e.Name) {
 		m[k] = v
 	}
+	applyLocalRun(e, m)
 	out := make([]string, 0, len(m))
 	for k, v := range m {
 		out = append(out, k+"="+v)

@@ -57,6 +57,13 @@ type Entry struct {
 	FirstRun    string            `json:"first_run,omitempty"`
 	Notes       string            `json:"notes,omitempty"`
 	Hidden      bool              `json:"hidden,omitempty"`
+
+	Backends map[string]map[string]BackendAsset `json:"backends,omitempty"`
+}
+
+type BackendAsset struct {
+	Asset
+	Runtime *Asset `json:"runtime,omitempty"`
 }
 
 type Catalog struct {

@@ -180,6 +180,11 @@ MCP:
   cua-driver mcp                    cua-driver compatible computer use server (also: kwick-cua-driver),
                                     routed through kwick-mcp; Cybara uses it for its computer use
 
+Local models (also: kwick-inference):
+  inference status|doctor|install|models|use|service|connect ...
+                                    llama.cpp on http://127.0.0.1:11435/v1 (see: kwick-agents inference help)
+  run --local NAME                  start Aider or Claude Code against the local endpoint
+
   doctor [--json]                   check bubblewrap, user namespaces, keystore and dialogs
   catalog                           the raw catalog as JSON
   version
@@ -197,6 +202,9 @@ func main() {
 	}
 	if base == "kwick-cua-driver" {
 		os.Exit(cuaMain(os.Args[1:]))
+	}
+	if base == "kwick-inference" {
+		os.Exit(inferenceMain(os.Args[1:]))
 	}
 	os.Exit(cli(os.Args[1:]))
 }
@@ -224,6 +232,10 @@ type exitErr struct{ code int }
 func (e exitErr) Error() string { return "exit " + strconv.Itoa(e.code) }
 
 func cli(a []string) int {
+	if len(a) > 0 && a[0] == "inference" {
+		return inferenceMain(a[1:])
+	}
+	a = takeLocalFlag(a)
 	o, err := parseOpts(a)
 	if err != nil {
 		warnf("%v", err)

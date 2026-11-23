@@ -38,7 +38,14 @@ kwick-agents audit [--json] [-n N] [--agent NAME]
 kwick-agents control [list|stop [ID|NAME]] [--json]
 kwick-agents mcp serve [--agent NAME] | mcp enable NAME | mcp disable NAME | mcp status [--json] | mcp tools [--json]
 kwick-agents doctor [--json]
+kwick-agents inference status|doctor|gpu|install|remove|update|models|model|use|fit|service|connect|disconnect|endpoint|key ...
+kwick-agents run --local aider|claude-code [-- ARGS]
 ```
+
+`kwick-agents inference` (also `kwick-inference`) serves local models: llama.cpp for the GPU of this machine on
+`http://127.0.0.1:11435/v1` (and `/v1/messages`) with a key and the model name `local`, curated sha256-pinned models with fit verdicts,
+a sandboxed service that is off by default, and `connect` for Cybara, opencode, Codex, Goose, Hermes, OpenClaw and oh-my-pi. See
+[INFERENCE.md](INFERENCE.md).
 
 `install` writes a small launcher for each command of the agent into `~/.local/bin` (`/usr/local/bin` with `--system`), so `claude`,
 `codex`, `gemini` and so on start the agent through `kwick-agents run`. An existing file that kwick-agents did not write is never
@@ -73,7 +80,7 @@ KwickOS repository key.
 | `goose` | Goose, Agentic AI Foundation | 1.60.2 | `goose-*-unknown-linux-gnu.tar.bz2` from GitHub, sha256 equal to the release digest | yes | yes | no build |
 | `ollama` | Ollama | 0.40.16 | `ollama-linux-*.tar.zst` from GitHub (about 1.5 GB), sha256 equal to the vendor `sha256sum.txt`; no service, no extra user | yes | yes | no build |
 | `llama-cpp` | llama.cpp, ggml-org | b12600 | `llama-b12600-bin-ubuntu-*.tar.gz` (CPU) from GitHub, sha256 equal to the release digest | yes | yes | no build |
-| `inference` | KwickOS inference engine | - | placeholder, "not available yet" | - | - | - |
+| `inference` | Local models: llama.cpp, ggml-org | b12648 | one archive per backend (`cpu`, `vulkan`, `cuda12`, `cuda13` with NVIDIA's cudart and cuBLAS runtime pack, `rocm`) from GitHub, sha256 equal to the release digest; only the backend this machine needs is downloaded; managed with `kwick-agents inference` ([INFERENCE.md](INFERENCE.md)) | all five | cpu, vulkan, cuda13 | no build |
 
 Runtimes, installed automatically when an agent needs them and private to kwick-agents:
 
@@ -125,6 +132,10 @@ new pins.
 | `~/.config/kwick-agents/secrets.json` | values, mode 600, only when there is no Secret Service |
 | `/opt/kwick-agents`, `/var/lib/kwick-agents`, `/etc/kwick-agents` | the same for `--system` installs; `/etc/kwick-agents/grants.json` can force `deny` for an agent or `*` |
 | `/var/log/kwick-agents-priv.log` | privileged actions done for agents |
+| `/usr/bin/kwick-inference` | symlink to kwick-agents: the `inference` commands |
+| `/usr/lib/kwick/agents/inference-models.json` | curated local models (sha256 and commit pinned) |
+| `~/.local/share/kwick-inference/models/`, `~/.config/kwick-inference/` | local models; endpoint, chosen model and connected agents |
+| `/usr/lib/systemd/system/kwick-inference.service`, `/usr/lib/systemd/user/kwick-inference.service`, `/usr/lib/sysusers.d/kwick-inference.conf` | the machine-wide and per-user service units (disabled by default) |
 
 ## Sandbox
 
@@ -222,6 +233,10 @@ Tools and the capability each needs:
 | `screen_info`, `pointer_move`, `pointer_click`, `pointer_drag`, `scroll`, `key_press`, `type_text`, `windows_list`, `window_focus`, `window_close`, `window_move_resize`, `clipboard_get`, `clipboard_set`, `computer_release` | `computer.control` | ask (once per session) |
 | `packages_install`, `system_upgrade` | `packages.manage` | ask |
 | `snapshots_create` | `snapshots.manage` | ask |
+| `inference_status`, `inference_models` | `system.read` | allow |
+| `inference_start`, `inference_stop`, `inference_pull` | `inference.manage` | ask |
+
+The resource `kwickos://docs/inference` serves [INFERENCE.md](INFERENCE.md).
 
 File tools work only below the folder the agent was started in and folders granted with `kwick-agents folders NAME add PATH`. Paths
 are resolved through symlinks before the check, and the file is then opened beneath the granted folder with `os.Root` (openat
@@ -366,7 +381,8 @@ Other JSON outputs: `grants --json` (`capabilities` and `agents.NAME.caps/folder
 | `kwick-bluetooth json`, `kwick-bluetooth status --json` | `json` existing, `status --json` new (same output) |
 | `kwick-layout status [--json]` | new: `{"layout","appearance","radius","desktop"}` |
 | `kwick-desktop list --json` | new: `{"desktops":[{"name","session","installed","default"}]}` |
-| `kwick-gpu status --json` (or `kwick-gpu --json`) | new: `{"vendors","cards":[{"card","vendor","driver"}],"arch","packages","i386","uinput"}` |
+| `kwick-gpu status --json` (or `kwick-gpu --json`) | new: `{"vendors","cards":[{"card","vendor","driver"}],"devices":[{"index","vendor","name","pci","card","vram_mb","gtt_mb","compute_cap","driver","driver_version","unified","display"}],"ram_mb","memory_budget_mb","arch","packages","i386","uinput"}` |
+| `kwick-agents inference status --json`, `models --json`, `fit ID --json`, `gpu --json` | new, schema 1, see [INFERENCE.md](INFERENCE.md) |
 | `kwick-vpn list --json`, `kwick-vpn status --json` | new: `{"profiles":[...]}`, `{"connected":[...],"other_tunnels":[...]}` |
 | `kwick-storage status --json` | new: `{"modules":[{"name","state","description","note"}]}`; `--machine` unchanged |
 

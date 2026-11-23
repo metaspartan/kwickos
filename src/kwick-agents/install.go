@@ -68,6 +68,9 @@ func installEntry(c *Catalog, sc Scope, st *State, e *Entry, o opts) error {
 	if e.Method == "placeholder" {
 		return fmt.Errorf("%s: %s", e.Name, e.Notes)
 	}
+	if e.Method == "inference" {
+		return inferInstallEntry(c, sc, e, o)
+	}
 	for _, n := range e.Needs {
 		if lookPath(n) == "" {
 			return fmt.Errorf("%s needs '%s' (sudo apt install %s)", e.Name, n, n)

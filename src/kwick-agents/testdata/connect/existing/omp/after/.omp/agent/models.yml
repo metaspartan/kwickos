@@ -1,0 +1,14 @@
+providers:
+  openrouter:
+    baseUrl: https://openrouter.ai/api/v1
+    api: openai-completions
+    apiKey: OPENROUTER_API_KEY
+  kwickos-local:
+    baseUrl: http://127.0.0.1:11435/v1
+    api: openai-completions
+    apiKey: KWICK_INFERENCE_API_KEY
+    models:
+      - id: local
+        name: local
+        contextWindow: 32768
+        maxTokens: 8192

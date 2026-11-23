@@ -1,0 +1,18 @@
+[Unit]
+Description=KwickOS local model endpoint (llama.cpp on 127.0.0.1:11435)
+Documentation=file:///usr/share/doc/kwick-agents/INFERENCE.md
+After=network.target
+
+[Service]
+Type=simple
+User=kwick-inference
+Group=kwick-inference
+RuntimeDirectory=kwick-inference
+StateDirectory=kwick-inference
+Environment=HOME=/var/lib/kwick-inference
+ExecStart=/usr/bin/kwick-agents inference service run --system
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+model = "gpt-5.5"
+approval_policy = "on-request"
+
+[mcp_servers.kwickos]
+command = "/usr/bin/kwick-mcp"
+args = []

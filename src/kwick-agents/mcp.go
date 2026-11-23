@@ -164,6 +164,7 @@ func (s *Server) handle(raw []byte) {
 	case "resources/list":
 		s.reply(m.ID, map[string]any{"resources": []map[string]any{
 			{"uri": "kwickos://docs/agents", "name": "agents", "title": "How an AI agent should operate KwickOS", "mimeType": "text/markdown"},
+			{"uri": inferenceDocURI, "name": "inference", "title": "Local models: the inference endpoint on KwickOS", "mimeType": "text/markdown"},
 		}})
 	case "resources/templates/list":
 		s.reply(m.ID, map[string]any{"resourceTemplates": []any{}})
@@ -172,6 +173,10 @@ func (s *Server) handle(raw []byte) {
 			URI string `json:"uri"`
 		}
 		json.Unmarshal(m.Params, &p)
+		if p.URI == inferenceDocURI {
+			s.reply(m.ID, inferenceDocResource())
+			return
+		}
 		if p.URI != "kwickos://docs/agents" {
 			s.replyErr(m.ID, -32002, "resource not found")
 			return

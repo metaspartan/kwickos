@@ -228,6 +228,7 @@ func toolTable() []tool {
 			fn:          toolAgentsList},
 	}
 	toolsOnce = append(toolsOnce, computerTools()...)
+	toolsOnce = append(toolsOnce, inferenceTools()...)
 	return toolsOnce
 }
 

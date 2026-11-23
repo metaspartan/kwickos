@@ -1,0 +1,10 @@
+GOOSE_PROVIDER: kwickos-local
+GOOSE_MODEL: local
+extensions:
+  kwickos:
+    name: KwickOS
+    cmd: /usr/bin/kwick-mcp
+    args: []
+    enabled: true
+    type: stdio
+    timeout: 300

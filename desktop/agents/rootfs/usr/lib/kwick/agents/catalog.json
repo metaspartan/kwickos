@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20",
+  "updated": "2026-11-23",
   "entries": [
     {
       "name": "cybara",
@@ -333,19 +333,122 @@
     },
     {
       "name": "inference",
-      "title": "KwickOS inference engine",
+      "title": "Local models (llama.cpp)",
       "kind": "local-models",
-      "vendor": "KwickOS",
-      "description": "KwickOS multi-GPU inference engine (coming later)",
-      "homepage": "https://kwickos.org",
-      "source": "",
-      "license": "",
-      "version": "0",
-      "method": "placeholder",
+      "vendor": "ggml-org; packaged by KwickOS",
+      "description": "Local AI models on one OpenAI- and Anthropic-compatible endpoint (127.0.0.1:11435) for every agent: llama.cpp for CUDA, ROCm, Vulkan or CPU, curated models that fit this machine",
+      "homepage": "https://github.com/ggml-org/llama.cpp",
+      "source": "https://github.com/ggml-org/llama.cpp",
+      "license": "MIT",
+      "version": "b12648",
+      "released": "2026-11-23",
+      "method": "inference",
+      "arch": [
+        "amd64",
+        "arm64"
+      ],
+      "backends": {
+        "cpu": {
+          "amd64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-x64.tar.gz",
+            "sha256": "646653127f3638e979b08eb6711b73dd005f253901ce5b2268d05aedc307d8e1",
+            "size": 23297271,
+            "format": "tar.gz",
+            "strip": 1
+          },
+          "arm64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-arm64.tar.gz",
+            "sha256": "cc646b1a1a03787ffa881695f78bdaea8c4031567042f37654e2fa8d7213ec65",
+            "size": 18812635,
+            "format": "tar.gz",
+            "strip": 1
+          }
+        },
+        "vulkan": {
+          "amd64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-vulkan-x64.tar.gz",
+            "sha256": "c6e237732c4772d3a7222d123169fd3c1c9c1e21d4250c7d5a50b25ee58612cd",
+            "size": 36973949,
+            "format": "tar.gz",
+            "strip": 1
+          },
+          "arm64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-vulkan-arm64.tar.gz",
+            "sha256": "dbd98bda6f90709dd34af5874cfb7952ec3a45f5c8670ec01638069fe6ff329b",
+            "size": 29930764,
+            "format": "tar.gz",
+            "strip": 1
+          }
+        },
+        "cuda12": {
+          "amd64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-cuda-12.8-x64.tar.gz",
+            "sha256": "6b801ba0f920448edb87015d6f34e674f31d738cf2eb43769190315b646028e3",
+            "size": 220193637,
+            "format": "tar.gz",
+            "strip": 1,
+            "runtime": {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/cudart-llama-b12648-bin-ubuntu-cuda-12.8-x64.tar.gz",
+              "sha256": "9a882bed2dfe05df7e6f4e50b41d4fba605b48a8df2283a8010bcc8dbc74196c",
+              "size": 594371482,
+              "format": "tar.gz",
+              "strip": 1
+            }
+          }
+        },
+        "cuda13": {
+          "amd64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-cuda-13.5-x64.tar.gz",
+            "sha256": "3c7f8f671362dffd876dd649d9aa06b24a0c585cac8f21ec3a774ed15702e775",
+            "size": 224478991,
+            "format": "tar.gz",
+            "strip": 1,
+            "runtime": {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/cudart-llama-b12648-bin-ubuntu-cuda-13.5-x64.tar.gz",
+              "sha256": "aaf32dd662f284b881e259a3b1924b6014774dad90189187982428d1ee256fe1",
+              "size": 444078937,
+              "format": "tar.gz",
+              "strip": 1
+            }
+          },
+          "arm64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+            "sha256": "2bed9e5025d0309060839bad4d4a26c3903e15e6052ca08a6a25434047eec97a",
+            "size": 219393291,
+            "format": "tar.gz",
+            "strip": 1,
+            "runtime": {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/cudart-llama-b12648-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+              "sha256": "40043c7b07a35c47d9f6caf38b9e95bd180c3220361bb0df1498ae92bb69d952",
+              "size": 559873237,
+              "format": "tar.gz",
+              "strip": 1
+            }
+          }
+        },
+        "rocm": {
+          "amd64": {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12648/llama-b12648-bin-ubuntu-rocm-10.0-x64.tar.gz",
+            "sha256": "abcb8284053dab504f01fb3158c16f87d4f8a2aae478a070a38c3a0d3259d988",
+            "size": 275567421,
+            "format": "tar.gz",
+            "strip": 1
+          }
+        }
+      },
+      "gpu": true,
       "network": false,
-      "unsupported": {"all": "not available yet"},
-      "verify": "",
-      "notes": "not available yet"
+      "mcp": "none",
+      "ports": [
+        11435
+      ],
+      "unsupported": {
+        "riscv64": "llama.cpp publishes no riscv64 build; build it from source"
+      },
+      "verify": "sha256 pinned by KwickOS for each backend archive and CUDA runtime pack; equal to the GitHub release asset digests (tools/pin-llama.sh)",
+      "upstream_install": "download a release archive from GitHub; no install script",
+      "first_run": "kwick-agents inference use best, then kwick-agents inference service start",
+      "notes": "Only the backend this machine needs is downloaded: CUDA 13 or 12 for NVIDIA (with NVIDIA's cudart and cuBLAS runtime pack), Vulkan for AMD and Intel, CPU otherwise; ROCm (needs the ROCm 7 runtime) is opt-in. Managed with kwick-agents inference."
     },
     {
       "name": "node",

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "kwickos-local/local",
+  "provider": {
+    "kwickos-local": {
+      "models": {
+        "local": {
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          },
+          "name": "Local model (qwen3.5-4b)"
+        }
+      },
+      "name": "KwickOS local (llama.cpp)",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "{env:KWICK_INFERENCE_API_KEY}",
+        "baseURL": "http://127.0.0.1:11435/v1"
+      }
+    }
+  }
+}

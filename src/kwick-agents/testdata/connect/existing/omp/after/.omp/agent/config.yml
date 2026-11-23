@@ -1,0 +1,4 @@
+modelRoles:
+  default: kwickos-local/local
+  smol: anthropic/claude-haiku-4-5
+theme: dark

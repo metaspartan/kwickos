@@ -1,0 +1,12 @@
+model:
+  # kwickos-local: written by kwick-agents inference connect; undo with disconnect
+  provider: custom
+  default: local
+  base_url: http://127.0.0.1:11435/v1
+  api_key: ${KWICK_INFERENCE_API_KEY}
+terminal:
+  backend: local
+mcp_servers:
+  kwickos:
+    command: "/usr/bin/kwick-mcp"
+    args: []

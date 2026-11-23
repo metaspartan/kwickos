@@ -1,0 +1,27 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "kwickos-local/local"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "kwickos-local": {
+        "api": "openai-completions",
+        "apiKey": "${KWICK_INFERENCE_API_KEY}",
+        "baseUrl": "http://127.0.0.1:11435/v1",
+        "models": [
+          {
+            "contextWindow": 32768,
+            "id": "local",
+            "maxTokens": 8192,
+            "name": "Local model (qwen3.5-4b)"
+          }
+        ]
+      }
+    }
+  }
+}

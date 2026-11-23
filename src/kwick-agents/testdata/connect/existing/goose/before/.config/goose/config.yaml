@@ -1,0 +1,10 @@
+GOOSE_PROVIDER: anthropic
+GOOSE_MODEL: claude-sonnet-4-5
+extensions:
+  kwickos:
+    name: KwickOS
+    cmd: /usr/bin/kwick-mcp
+    args: []
+    enabled: true
+    type: stdio
+    timeout: 300
