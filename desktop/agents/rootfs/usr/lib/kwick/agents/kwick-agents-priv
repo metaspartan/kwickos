@@ -15,7 +15,7 @@ case $op in
   install)
     if [ $# -lt 1 ] || [ $# -gt 20 ]; then echo "usage: install PKG..." >&2; exit 2; fi
     for p; do
-      case $p in -*|*[!a-z0-9+.:=~-]*) echo "kwick-agents-priv: invalid package name: $p" >&2; exit 2 ;; esac
+      case $p in -*|*-|*[!a-z0-9+.:=~-]*) echo "kwick-agents-priv: invalid package name: $p" >&2; exit 2 ;; esac
     done
     log "install $*"
     DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
@@ -34,7 +34,7 @@ case $op in
     command -v kwick-snapshot >/dev/null 2>&1 || { echo "kwick-snapshot is not installed" >&2; exit 1; }
     d=$(printf '%s' "${1:-snapshot by an AI agent}" | tr -cd '[:print:]' | cut -c1-200)
     log "snapshot $d"
-    kwick-snapshot create "$d"
+    kwick-snapshot create -d "$d"
     rc=$?
     log "snapshot exit=$rc"
     exit $rc ;;

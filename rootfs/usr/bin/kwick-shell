@@ -323,11 +323,6 @@ prepare() {
 		wire_zsh
 		compile_zsh
 	fi
-	case $1 in
-	zsh | elvish)
-		awk -F: '$3 >= 1000 && $3 < 60000 { print $1 }' /etc/passwd | while read -r u; do seed "$u" "$1"; done
-		;;
-	esac
 	return 0
 }
 
@@ -354,15 +349,12 @@ seed() {
 	elvish) src=/etc/skel/.config/elvish/rc.elv dst=.config/elvish/rc.elv ;;
 	*) return 0 ;;
 	esac
-	[ -r "$src" ] && [ ! -e "$home/$dst" ] || return 0
-	og="$(pw_field "$1" 3):$(pw_field "$1" 4)"
-	d=${dst%/*}
-	if [ "$d" != "$dst" ]; then
-		mkdir -p "$home/$d"
-		chown "$og" "$home/.config" "$home/$d" 2>/dev/null
+	[ -r "$src" ] || return 0
+	if [ "$(id -u)" -eq 0 ]; then
+		su -s /bin/sh "$1" -c 'cd "$1" && d=${2%/*} && { [ "$d" = "$2" ] || mkdir -p "$d"; } && [ ! -e "$2" ] && [ ! -L "$2" ] && cp "$3" "$2"' kwick-seed "$home" "$dst" "$src" >/dev/null 2>&1
+	elif [ "$(id -un)" = "$1" ]; then
+		(cd "$home" && d=${dst%/*} && { [ "$d" = "$dst" ] || mkdir -p "$d"; } && [ ! -e "$dst" ] && [ ! -L "$dst" ] && cp "$src" "$dst") >/dev/null 2>&1
 	fi
-	cp "$src" "$home/$dst"
-	chown "$og" "$home/$dst" 2>/dev/null
 	return 0
 }
 

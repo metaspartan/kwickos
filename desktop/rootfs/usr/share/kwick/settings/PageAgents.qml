@@ -95,16 +95,16 @@ ColumnLayout {
     Card {
         visible: page.pending.length > 0
         Repeater {
-            model: page.pending
+            model: page.pending.filter(function (r) { return /^[0-9a-f]{8,64}$/.test(String(r.id)) })
             delegate: Cell {
                 required property var modelData
                 required property int index
                 last: index === page.pending.length - 1
                 title: page.titleOf(modelData.agent) + " asks: " + modelData.detail
                 subtitle: (page.capTitles[modelData.capability] || modelData.capability) + "  •  " + page.ago(modelData.time)
-                Btn { text: "Deny"; onClicked: page.act("kwick-agents consent deny " + modelData.id) }
-                Btn { text: "Always"; onClicked: page.act("kwick-agents consent always " + modelData.id) }
-                Btn { text: "Allow once"; primary: true; onClicked: page.act("kwick-agents consent allow " + modelData.id) }
+                Btn { text: "Deny"; onClicked: page.act("kwick-agents consent deny " + page.q(modelData.id)) }
+                Btn { text: "Always"; onClicked: page.act("kwick-agents consent always " + page.q(modelData.id)) }
+                Btn { text: "Allow once"; primary: true; onClicked: page.act("kwick-agents consent allow " + page.q(modelData.id)) }
             }
         }
     }

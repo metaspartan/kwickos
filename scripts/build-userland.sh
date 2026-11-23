@@ -2,6 +2,7 @@
 set -eu
 ARCH=${1:?arch}
 BB_VER=${BB_VER:-1.38.0}
+BB_SHA256=${BB_SHA256:-34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2}
 SRC=/src
 OUT=/out/$ARCH/userland
 CACHE=/cache
@@ -17,7 +18,14 @@ rm -rf /tmp/bb/busybox-*
 echo "kinit: $(stat -c %s "$OUT/kinit") bytes"
 
 TB="$CACHE/busybox-$BB_VER.tar.bz2"
-[ -f "$TB" ] || wget -q -O "$TB" "https://busybox.net/downloads/busybox-$BB_VER.tar.bz2"
+if ! printf '%s  %s
+' "$BB_SHA256" "$TB" | sha256sum -c - >/dev/null 2>&1; then
+	rm -f "$TB"
+	wget -q -O "$TB.part" "https://busybox.net/downloads/busybox-$BB_VER.tar.bz2"
+	printf '%s  %s
+' "$BB_SHA256" "$TB.part" | sha256sum -c - >/dev/null || { rm -f "$TB.part"; echo "busybox-$BB_VER.tar.bz2: checksum mismatch" >&2; exit 1; }
+	mv "$TB.part" "$TB"
+fi
 cd /tmp/bb
 tar xjf "$TB"
 cd "busybox-$BB_VER"

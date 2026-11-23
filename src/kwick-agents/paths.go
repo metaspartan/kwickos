@@ -92,6 +92,9 @@ func runtimeDir() string {
 			return filepath.Join(d, "kwick-agents")
 		}
 	}
+	if d, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(d, "kwick-agents", "run")
+	}
 	return filepath.Join(os.TempDir(), fmt.Sprintf("kwick-agents-%d", os.Getuid()))
 }
 

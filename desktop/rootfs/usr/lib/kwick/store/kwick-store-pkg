@@ -28,7 +28,7 @@ now() { date +%s; }
 
 valid() {
 	case $1 in
-	pkg) printf '%s' "$2" | grep -Eq '^[a-z0-9][a-z0-9+.-]{0,99}$' ;;
+	pkg) printf '%s' "$2" | grep -Eq '^[a-z0-9][a-z0-9+.-]{0,98}[a-z0-9+]$' ;;
 	app) printf '%s' "$2" | grep -Eq '^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+){2,}$' ;;
 	remote) printf '%s' "$2" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' ;;
 	module) printf '%s' "$2" | grep -Eq '^[a-z0-9][a-z0-9_-]{0,63}$' ;;

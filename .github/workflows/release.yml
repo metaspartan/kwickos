@@ -46,6 +46,10 @@ jobs:
           gpg --batch --yes --pinentry-mode loopback --passphrase "${KWICK_SIGNING_PASSPHRASE:-}" --clearsign t.txt
           gpg --batch --list-secret-keys --keyid-format long | grep -E '^(sec|uid)' | sed 's/^\(sec *\)\([^ ]*\)/\1[key]/'
 
+  security:
+    needs: plan
+    uses: ./.github/workflows/security.yml
+
   build:
     needs: [plan, preflight]
     uses: ./.github/workflows/build.yml
@@ -121,8 +125,8 @@ jobs:
           path: shells-out/repo/pool/main/kwick-*.deb
 
   publish:
-    needs: [plan, build, desktop, hyprland, shells, rpi]
-    if: ${{ always() && needs.build.result == 'success' }}
+    needs: [plan, security, build, desktop, hyprland, shells, rpi]
+    if: ${{ always() && needs.build.result == 'success' && needs.security.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
       TAG: ${{ needs.plan.outputs.tag }}
