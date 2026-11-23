@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       xorriso isolinux syslinux-common mtools dosfstools e2fsprogs fdisk erofs-utils squashfs-tools binutils systemd-boot-efi \
       qemu-system-x86 qemu-system-arm qemu-system-misc qemu-utils \
       ovmf qemu-efi-aarch64 opensbi \
-      dpkg-dev gnupg golang-go autoconf automake libtool patch device-tree-compiler \
+      dpkg-dev gnupg gpgv golang-go autoconf automake libtool patch device-tree-compiler \
     && rm -rf /var/lib/apt/lists/*
 RUN if [ "$(dpkg --print-architecture)" = amd64 ]; then \
       apt-get update && apt-get install -y --no-install-recommends grub-common grub-efi-amd64-bin grub-pc-bin \

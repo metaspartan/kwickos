@@ -3,21 +3,16 @@ set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?flavor}; KVER=${3:-${KVER:-}}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
 mkdir -p "$BUILD" "$CACHE"
+. "$SRC/scripts/kernel-fetch.sh"
 
 if [ -z "$KVER" ]; then
   KVER=$(curl -fsSL https://www.kernel.org/releases.json | jq -r '[.releases[]|select(.moniker=="stable" and .iseol==false)][0].version')
 fi
-MAJOR=${KVER%%.*}
 echo ">> kernel $KVER ($ARCH/$FLAVOR)"
 
 TARBALL="$CACHE/linux-$KVER.tar.xz"
 if [ ! -f "$TARBALL" ]; then
-  curl -fL --retry 3 -o "$TARBALL.part" "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/linux-$KVER.tar.xz"
-  curl -fsSL "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/sha256sums.asc" -o "$CACHE/sha256sums-v$MAJOR.asc"
-  want=$(grep " linux-$KVER.tar.xz\$" "$CACHE/sha256sums-v$MAJOR.asc" | awk '{print $1}')
-  got=$(sha256sum "$TARBALL.part" | awk '{print $1}')
-  [ -n "$want" ] && [ "$want" = "$got" ] || { echo "sha256 mismatch for linux-$KVER ($got vs $want)"; exit 1; }
-  mv "$TARBALL.part" "$TARBALL"
+  kernel_fetch_verified "$KVER" "$TARBALL" || exit 1
 fi
 KSRC="$BUILD/src/linux-$KVER"
 if [ ! -f "$KSRC/Makefile" ]; then

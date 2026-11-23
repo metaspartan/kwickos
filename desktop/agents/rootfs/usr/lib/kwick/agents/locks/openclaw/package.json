@@ -3,5 +3,8 @@
   "private": true,
   "dependencies": {
     "openclaw": "2026.11.6"
+  },
+  "overrides": {
+    "npm": "12.2.3"
   }
 }

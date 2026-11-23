@@ -763,11 +763,75 @@ copy_back() {
 	tmp="$parent/.kwick-restore.$$"
 	rm -rf "$tmp"
 	cp -a "$src" "$tmp" || { rm -rf "$tmp"; return 1; }
-	if [ -d "$dst" ] && [ ! -L "$dst" ]; then rm -rf "$dst" || return 1; fi
+	if [ -L "$dst" ]; then rm -f "$dst" || { rm -rf "$tmp"; return 1; }; fi
+	if [ -d "$dst" ]; then rm -rf "$dst" || { rm -rf "$tmp"; return 1; }; fi
 	mv -f "$tmp" "$dst" || { rm -rf "$tmp"; return 1; }
 	RESTORED="$RESTORED$dst
 "
 	return 0
+}
+
+path_owner() {
+	base=$1
+	rel=${2#/}
+	cur=$base
+	[ -n "$cur" ] || cur=/
+	ifs=$IFS
+	IFS=/
+	set -f
+	set -- $rel
+	set +f
+	IFS=$ifs
+	for c in "$@"; do
+		[ -n "$c" ] || continue
+		case $c in . | ..) echo unsafe; return 0 ;; esac
+		cur=${cur%/}/$c
+		[ -e "$cur" ] || [ -L "$cur" ] || break
+		if [ -L "$cur" ]; then
+			lu=$(stat -c %u "$cur" 2>/dev/null) || { echo unsafe; return 0; }
+			[ "$lu" = 0 ] || { echo "$lu"; return 0; }
+		fi
+		[ -d "$cur" ] || { echo unsafe; return 0; }
+		set -- $(stat -L -c '%u %a' "$cur" 2>/dev/null)
+		[ $# = 2 ] || { echo unsafe; return 0; }
+		[ "$1" = 0 ] || { echo "$1"; return 0; }
+		m=$2
+		o=${m#"${m%?}"}
+		g=${m%?}
+		g=${g#"${g%?}"}
+		case $o$g in *[2367]*) echo unsafe; return 0 ;; esac
+	done
+	echo 0
+}
+
+restore_as() {
+	a=$(path_owner "$1" "$(dirname "$2")")
+	b=$(path_owner "$3" "$(dirname "$4")")
+	case $a$b in *unsafe*) echo unsafe; return 0 ;; esac
+	if [ "$a" = 0 ]; then echo "$b"; elif [ "$b" = 0 ] || [ "$a" = "$b" ]; then echo "$a"; else echo unsafe; fi
+}
+
+copy_back_as() {
+	u=$1
+	if [ "$u" = 0 ]; then
+		copy_back "$2" "$3"
+		return
+	fi
+	name=$(awk -F: -v u="$u" '$3 == u { print $1; exit }' /etc/passwd)
+	[ -n "$name" ] || { warn "$3 belongs to user id $u, which has no account here; restore it with --to DIR"; return 1; }
+	out=$(su -s /bin/sh "$name" -c 'exec "$0" copy-back "$@"' "$SELF" "$2" "$3" "$KEEPBOTH") || return 1
+	[ -n "$out" ] || return 1
+	RESTORED="$RESTORED$out
+"
+}
+
+cmd_copy_back() {
+	[ $# = 3 ] || exit 1
+	KEEPBOTH=$3
+	RESTORED=""
+	copy_back "$1" "$2" || exit 1
+	printf '%s' "$RESTORED"
+	exit 0
 }
 
 cmd_restore() {
@@ -800,13 +864,21 @@ cmd_restore() {
 		[ -e "$src" ] || [ -L "$src" ] || { warn "$p does not exist in snapshot $id"; fails=$((fails + 1)); continue; }
 		if [ -n "$TO" ]; then
 			dst=$TO/${p##*/}
+			as=0
 		elif [ -n "$DEVICE" ]; then
 			[ "$CFG" = root ] || die "restoring home files with --device needs --to DIR"
 			dst=$TOP/$ROOTSV$p
+			as=$(restore_as "$sp" "$rel" "$TOP/$ROOTSV" "$p")
 		else
 			dst=$p
+			as=$(restore_as "$sp" "$rel" "" "$p")
 		fi
-		copy_back "$src" "$dst" || { warn "could not restore $p"; fails=$((fails + 1)); }
+		if [ "$as" = unsafe ]; then
+			warn "$p is in a folder other users can change; restore it with --to DIR"
+			fails=$((fails + 1))
+			continue
+		fi
+		copy_back_as "$as" "$src" "$dst" || { warn "could not restore $p"; fails=$((fails + 1)); }
 	done
 	if [ "$JSON" = 1 ]; then
 		printf '{"ok":%s,"restored":[%s]}\n' "$([ $fails = 0 ] && echo true || echo false)" "$(printf '%s' "$RESTORED" | sed '/^$/d' | while IFS= read -r l; do printf '"%s",' "$(jstr "$l")"; done | sed 's/,$//')"
@@ -1395,6 +1467,7 @@ done
 case $CMD in
 apt-pre) cmd_apt_pre ;;
 apt-post) cmd_apt_post ;;
+copy-back) cmd_copy_back "$@" ;;
 timeline) cmd_timeline ;;
 boot) cmd_boot ;;
 help | -h | --help) usage ;;

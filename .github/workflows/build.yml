@@ -11,11 +11,12 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:
+    permissions:
+      contents: read
     name: ${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -32,8 +33,9 @@ jobs:
     env:
       ARCH: ${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Enable KVM
         run: |
           if [ -e /dev/kvm ]; then
@@ -43,7 +45,7 @@ jobs:
 
       - name: Set up QEMU user emulation
         if: matrix.arch != 'amd64'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
           platforms: arm64,riscv64
 
@@ -52,7 +54,7 @@ jobs:
         run: echo "kver=$(cat KERNEL_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache downloads (kernel tarball, busybox, Go modules)
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: cache
           key: dl-${{ matrix.arch }}-${{ steps.kver.outputs.kver }}-${{ hashFiles('src/kpkg/go.sum') }}
@@ -76,8 +78,8 @@ jobs:
       - name: Kernel (generic)
         if: matrix.arch != 'riscv64' || inputs.release
         run: make kernel-generic ARCH=$ARCH KVER=${{ steps.kver.outputs.kver }}
-      - name: Kernel (k1, SpacemiT vendor BSP for the Banana Pi BPI-F3)
-        if: matrix.arch == 'riscv64' && inputs.release
+      - name: Kernel (k1, unsupported SpacemiT vendor BSP, only when KWICK_BUILD_K1_VENDOR is true)
+        if: matrix.arch == 'riscv64' && inputs.release && vars.KWICK_BUILD_K1_VENDOR == 'true'
         run: docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" -v kwick-build:/build -v kwick-cache:/cache kwick-builder bash /src/scripts/build-kernel-variant.sh riscv64 k1
       - name: Kernel (k1mainline, kernel.org kernel for the Banana Pi BPI-F3)
         if: matrix.arch == 'riscv64' && inputs.release
@@ -133,7 +135,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"; cat sizes.txt >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
           [ -f compat.md ] && cat compat.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kwickos-${{ matrix.arch }}
           path: |
@@ -149,7 +151,7 @@ jobs:
             out/${{ matrix.arch }}/kernel-*/uboot.txt
           retention-days: 14
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.zfs.outcome == 'success'
         with:
           name: kwickos-zfs-${{ matrix.arch }}

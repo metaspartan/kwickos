@@ -452,6 +452,7 @@ struct svc {
 	int want;
 	int state;
 	pid_t pid;
+	pid_t sid;
 	int forking_wait;
 	long restart_at;
 	int fails;
@@ -877,6 +878,7 @@ static void svc_start(struct svc *s)
 	if (p == 0) svc_child(s);
 	s->restart_at = 0;
 	s->pid = p;
+	s->sid = p;
 	s->state = S_STARTING;
 	s->forking_wait = s->type == T_FORKING;
 	s->since = time(NULL);
@@ -886,12 +888,43 @@ static void svc_start(struct svc *s)
 	for (int i = 0; i < s->npost; i++) sh_run(s->post[i] + strspn(s->post[i], "-@+!:"));
 }
 
-static pid_t read_pidfile(const char *pf)
+static int proc_uid_is(pid_t p, uid_t uid)
+{
+	char path[64], b[2048];
+	snprintf(path, sizeof path, "/proc/%d/status", (int)p);
+	if (read_file(path, b, sizeof b) <= 0) return 0;
+	char *u = strstr(b, "\nUid:");
+	if (!u) return 0;
+	unsigned long id[4];
+	if (sscanf(u + 5, "%lu %lu %lu %lu", &id[0], &id[1], &id[2], &id[3]) != 4) return 0;
+	for (int i = 0; i < 4; i++) if (id[i] != (unsigned long)uid) return 0;
+	return 1;
+}
+
+static pid_t read_pidfile(struct svc *s)
 {
 	char b[32];
-	if (!pf[0] || read_file(pf, b, sizeof b) <= 0) return 0;
-	pid_t p = (pid_t)atoi(b);
-	return p > 1 ? p : 0;
+	if (!s->pidfile[0]) return 0;
+	int fd = open(s->pidfile, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+	if (fd < 0) return 0;
+	struct stat st;
+	ssize_t n = -1;
+	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) n = read(fd, b, sizeof b - 1);
+	close(fd);
+	if (n <= 0) return 0;
+	b[n] = 0;
+	char *end;
+	long v = strtol(b, &end, 10);
+	while (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r') end++;
+	if (*end || v <= 1 || v > INT_MAX) return 0;
+	pid_t p = (pid_t)v;
+	if (kill(p, 0) < 0 && errno == ESRCH) return 0;
+	int trusted = st.st_uid == 0 && !(st.st_mode & (S_IWGRP | S_IWOTH));
+	if (trusted) return p;
+	if (s->sid > 0 && (getsid(p) == s->sid || getpgid(p) == s->sid)) return p;
+	if (st.st_uid != 0 && !(st.st_mode & (S_IWGRP | S_IWOTH)) && proc_uid_is(p, st.st_uid)) return p;
+	say("%s: ignoring PID file %s, pid %d is not part of the service", s->name, s->pidfile, (int)p);
+	return -1;
 }
 
 static void svc_stopped(struct svc *s)
@@ -949,8 +982,8 @@ static void svc_exited(struct svc *s, int st)
 		s->forking_wait = 0;
 		if (code == 0) {
 			pid_t mp = 0;
-			for (int i = 0; i < 40 && !(mp = read_pidfile(s->pidfile)); i++) usleep(25000);
-			s->pid = mp;
+			for (int i = 0; i < 40 && !(mp = read_pidfile(s)); i++) usleep(25000);
+			s->pid = mp > 0 ? mp : 0;
 			s->state = S_RUNNING;
 			return;
 		}
@@ -1107,8 +1140,12 @@ static int cal_field(const char *s, int lo, int hi, int dow, uint64_t *mask)
 			b = sl ? hi : a;
 			if (dd && cal_value(dd + 2, lo, hi, dow, &b)) return -1;
 		}
-		if (b < a) return -1;
-		for (int v = a; v <= b; v += step) *mask |= 1ULL << v;
+		if (b < a && !dow) return -1;
+		if (b < a) {
+			for (int i = 0; i <= b + 7 - a; i += step) *mask |= 1ULL << ((a + i) % 7);
+		} else {
+			for (int v = a; v <= b; v += step) *mask |= 1ULL << v;
+		}
 	}
 	return *mask ? 0 : -1;
 }
@@ -1160,21 +1197,86 @@ static int parse_cal(const char *v, struct cal *c)
 	return stage ? 0 : -1;
 }
 
-static time_t next_cal(const struct cal *c, time_t after)
+#define PLAUSIBLE_TIME 1577836800
+
+static time_t naive_of(time_t t)
 {
-	time_t t = after + 1;
+	struct tm tm;
+	if (!localtime_r(&t, &tm)) return (time_t)-1;
+	return timegm(&tm);
+}
+
+static time_t naive_next(const struct cal *c, time_t from)
+{
+	time_t t = from;
 	struct tm tm;
 	for (int i = 0; i < 20000; i++) {
-		if (!localtime_r(&t, &tm)) return 0;
+		if (!gmtime_r(&t, &tm)) return (time_t)-1;
 		if (!(c->mon >> (tm.tm_mon + 1) & 1)) { tm.tm_mon++; tm.tm_mday = 1; tm.tm_hour = tm.tm_min = tm.tm_sec = 0; }
 		else if (!(c->day >> tm.tm_mday & 1) || !(c->dow >> tm.tm_wday & 1)) { tm.tm_mday++; tm.tm_hour = tm.tm_min = tm.tm_sec = 0; }
 		else if (!(c->hour >> tm.tm_hour & 1)) { tm.tm_hour++; tm.tm_min = tm.tm_sec = 0; }
 		else if (!(c->min >> tm.tm_min & 1)) { tm.tm_min++; tm.tm_sec = 0; }
 		else if (!(c->sec >> tm.tm_sec & 1)) tm.tm_sec++;
 		else return t;
-		tm.tm_isdst = -1;
-		time_t n = mktime(&tm);
+		time_t n = timegm(&tm);
 		t = n > t ? n : t + 1;
+	}
+	return (time_t)-1;
+}
+
+static int local_occurrences(time_t n, time_t occ[2])
+{
+	int k = 0;
+	for (int d = 0; d < 2; d++) {
+		struct tm tm;
+		gmtime_r(&n, &tm);
+		tm.tm_isdst = d;
+		time_t v = mktime(&tm);
+		if (v == (time_t)-1 || naive_of(v) != n) continue;
+		if (k && occ[0] == v) continue;
+		occ[k++] = v;
+	}
+	if (k == 2 && occ[1] < occ[0]) { time_t x = occ[0]; occ[0] = occ[1]; occ[1] = x; }
+	return k;
+}
+
+static time_t gap_end(time_t n)
+{
+	struct tm tm;
+	time_t v[2];
+	for (int d = 0; d < 2; d++) {
+		gmtime_r(&n, &tm);
+		tm.tm_isdst = d;
+		v[d] = mktime(&tm);
+	}
+	time_t lo = v[0] < v[1] ? v[0] : v[1], hi = v[0] < v[1] ? v[1] : v[0];
+	if (lo == (time_t)-1 || naive_of(hi) <= n) return (time_t)-1;
+	if (naive_of(lo) > n) return lo;
+	while (hi - lo > 1) {
+		time_t mid = lo + (hi - lo) / 2;
+		if (naive_of(mid) > n) hi = mid; else lo = mid;
+	}
+	return hi;
+}
+
+static time_t next_cal(const struct cal *c, time_t after)
+{
+	time_t from = naive_of(after);
+	if (from == (time_t)-1) return 0;
+	int every_hour = (c->hour & 0xffffff) == 0xffffff;
+	for (int i = 0; i < 2000; i++) {
+		time_t n = naive_next(c, from);
+		if (n == (time_t)-1) return 0;
+		time_t occ[2];
+		int k = local_occurrences(n, occ);
+		if (!k) {
+			time_t g = gap_end(n);
+			if (g != (time_t)-1 && g > after) return g;
+		} else {
+			if (occ[0] > after) return occ[0];
+			if (k == 2 && every_hour && occ[1] > after) return occ[1];
+		}
+		from = n + 1;
 	}
 	return 0;
 }
@@ -1249,7 +1351,8 @@ static struct tmr *timer_load(const char *name)
 static void timer_schedule(struct tmr *t)
 {
 	t->cal_next = 0;
-	time_t base = t->persistent && t->last ? t->last : time(NULL);
+	time_t now = time(NULL);
+	time_t base = t->persistent && t->last >= PLAUSIBLE_TIME && t->last < now ? t->last : now;
 	for (int i = 0; i < t->ncal; i++) {
 		time_t n = next_cal(&t->cal[i], base);
 		if (n && (!t->cal_next || n < t->cal_next)) t->cal_next = n;
@@ -1263,8 +1366,11 @@ static void timer_activate(struct tmr *t)
 		char p[PATH_MAX];
 		struct stat st;
 		snprintf(p, sizeof p, TIMER_DIR "/%s", t->name);
-		if (stat(p, &st) == 0) t->last = st.st_mtime;
-		else { mkdir_p(TIMER_DIR, 0755); write_file(p, ""); }
+		time_t now = time(NULL);
+		if (stat(p, &st) == 0) {
+			t->last = st.st_mtime;
+			if (now >= PLAUSIBLE_TIME && t->last > now) { t->last = now; utimensat(AT_FDCWD, p, NULL, 0); }
+		} else { mkdir_p(TIMER_DIR, 0755); write_file(p, ""); }
 	}
 	timer_schedule(t);
 }
@@ -1307,11 +1413,49 @@ static void timer_fire(struct tmr *t, long bt)
 	svc_start(s);
 }
 
+static int tz_refresh(void)
+{
+	static struct stat seen;
+	static int known;
+	struct stat st;
+	if (stat("/etc/localtime", &st) != 0) memset(&st, 0, sizeof st);
+	if (known && st.st_dev == seen.st_dev && st.st_ino == seen.st_ino && st.st_size == seen.st_size &&
+		st.st_mtime == seen.st_mtime && st.st_ctime == seen.st_ctime) return 0;
+	int first = !known;
+	seen = st;
+	known = 1;
+	char *tz = getenv("TZ");
+	char keep[256] = "";
+	if (tz) snprintf(keep, sizeof keep, "%s", tz);
+	setenv("TZ", "UTC0", 1);
+	tzset();
+	if (tz) setenv("TZ", keep, 1); else unsetenv("TZ");
+	tzset();
+	return !first;
+}
+
+static void timers_reschedule(void)
+{
+	time_t now = time(NULL);
+	for (int i = 0; i < ntmr; i++) {
+		if (now >= PLAUSIBLE_TIME && tmrs[i]->last > now) tmrs[i]->last = now;
+		timer_schedule(tmrs[i]);
+	}
+}
+
 static long timers_tick(void)
 {
+	static long rt_bt = LONG_MIN;
 	long wait = 60000;
 	if (shutdown_req) return wait;
 	long bt = now_ms(CLOCK_BOOTTIME), rt = now_ms(CLOCK_REALTIME);
+	int changed = tz_refresh();
+	if (rt_bt != LONG_MIN && labs(rt - bt - rt_bt) > 2000) {
+		if (verbose) say("clock stepped by %lds, rescheduling timers", (rt - bt - rt_bt) / 1000);
+		changed = 1;
+	}
+	rt_bt = rt - bt;
+	if (changed) timers_reschedule();
 	for (int i = 0; i < ntmr; i++) {
 		struct tmr *t = tmrs[i];
 		long due = timer_mono_due(t), cal = timer_cal_due(t);
@@ -1354,6 +1498,7 @@ static void timer_reload(int i)
 
 static void timers_scan(void)
 {
+	if (tz_refresh()) timers_reschedule();
 	for (int i = 0; i < ntmr; i++) tmrs[i]->seen = 0;
 	for (int w = 0; boot_wants[w]; w++) {
 		for (int i = 0; unit_dirs[i]; i++) {

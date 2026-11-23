@@ -4,12 +4,12 @@ export LC_ALL=C.UTF-8
 DEST=${1:?destdir}
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/kwin-plugin.sh"
-VER=${PLASMA_KEYBOARD_VERSION:-6.6.0}
-SUM=${PLASMA_KEYBOARD_SHA256:-cc2ee9154e55e1a49c934aa8b2d4146a7209859de58057d96d297561652b76dc}
+VER=${PLASMA_KEYBOARD_VERSION:-6.6.7}
+SUM=${PLASMA_KEYBOARD_SHA256:-5e536ad0622ca741555071fe4a53b727eafbc64b0652b48971920d0f407ab1f2}
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y --no-install-recommends ca-certificates curl xz-utils patch binutils $KWIN_PLUGIN_DEPS \
-  qt6-virtualkeyboard-dev qt6-wayland-dev qt6-wayland-private-dev qt6-wayland-dev-tools qt6-declarative-private-dev libkf6i18n-dev wayland-protocols gettext
+  qt6-virtualkeyboard-dev qt6-wayland-dev qt6-wayland-private-dev qt6-wayland-dev-tools qt6-declarative-private-dev libkf6i18n-dev libkf6crash-dev wayland-protocols gettext
 S=$(mktemp -d)
 curl -fsSL "https://download.kde.org/stable/plasma/$VER/plasma-keyboard-$VER.tar.xz" -o "$S/src.tar.xz"
 echo "$SUM  $S/src.tar.xz" | sha256sum -c - >/dev/null

@@ -1,7 +1,11 @@
 #!/bin/sh
 PREFIX=/home/linuxbrew/.linuxbrew
-INSTALL_URL=https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
-UNINSTALL_URL=https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh
+INSTALL_REV=c9c975046f78e6e6d662deb801bd461ebd6a54ed
+INSTALL_URL=https://raw.githubusercontent.com/Homebrew/install/$INSTALL_REV/install.sh
+INSTALL_SHA256=8fd2f1a5287a7c2e3d7362924c677edcc04c5a0e16448c77132d056bc88cf1ed
+UNINSTALL_URL=https://raw.githubusercontent.com/Homebrew/install/$INSTALL_REV/uninstall.sh
+UNINSTALL_SHA256=7e5576d1200bdf4fbd1fe38513f129139473ec39f04890ff5c7f1d05480af78a
+STALE_GRANT=/etc/sudoers.d/zz-kwick-brew
 DEPS="build-essential procps curl file git ca-certificates"
 
 say() { printf 'kwick-brew: %s\n' "$*"; }
@@ -78,7 +82,13 @@ run_as() {
 }
 
 fetch() {
-	curl -fsSL --retry 3 -o "$2" "$1" || die "could not download $1"
+	curl -fsSL --proto '=https' --retry 3 -o "$2" "$1" || die "could not download $1"
+	printf '%s  %s\n' "$3" "$2" | sha256sum -c - >/dev/null 2>&1 || die "$1 does not match its pinned sha256"
+}
+
+drop_stale_grant() {
+	[ "$(id -u)" -eq 0 ] || return 0
+	if [ -f "$STALE_GRANT" ] || [ -L "$STALE_GRANT" ]; then rm -f "$STALE_GRANT"; fi
 }
 
 cmd_install() {
@@ -89,6 +99,7 @@ cmd_install() {
 		cmd_next
 		return 0
 	fi
+	drop_stale_grant
 	ensure_pkgs $(missing_deps)
 	if ! real_bash; then
 		ensure_pkgs bash
@@ -106,7 +117,7 @@ cmd_install() {
 	tmp=$(mktemp -d)
 	trap 'rm -rf "$tmp"' EXIT INT TERM
 	chmod 755 "$tmp"
-	fetch "$INSTALL_URL" "$tmp/install.sh"
+	fetch "$INSTALL_URL" "$tmp/install.sh" "$INSTALL_SHA256"
 	chmod 644 "$tmp/install.sh"
 	say "running the official Homebrew installer as $u"
 	run_as "$u" env NONINTERACTIVE=1 HOME="$(getent passwd "$u" | cut -d: -f6)" /usr/bin/bash "$tmp/install.sh" ||
@@ -153,21 +164,14 @@ cmd_uninstall() {
 	[ -x "$PREFIX/bin/brew" ] || die "Homebrew is not installed at $PREFIX"
 	u=$(stat -c %U "$PREFIX")
 	tmp=$(mktemp -d)
-	grant=
-	trap 'rm -rf "$tmp"; [ -z "$grant" ] || rm -f "$grant"' EXIT INT TERM
-	if [ "$(id -u)" -eq 0 ] && [ "$u" != root ]; then
-		command -v sudo >/dev/null 2>&1 || ensure_pkgs sudo
-		grant=/etc/sudoers.d/zz-kwick-brew
-		mkdir -p /etc/sudoers.d
-		printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$u" >"$grant"
-		chmod 440 "$grant"
-	fi
+	trap 'rm -rf "$tmp"' EXIT INT TERM
+	drop_stale_grant
 	chmod 755 "$tmp"
-	fetch "$UNINSTALL_URL" "$tmp/uninstall.sh"
+	fetch "$UNINSTALL_URL" "$tmp/uninstall.sh" "$UNINSTALL_SHA256"
 	chmod 644 "$tmp/uninstall.sh"
 	say "running the official Homebrew uninstaller as $u"
-	run_as "$u" env NONINTERACTIVE=1 HOME="$(getent passwd "$u" | cut -d: -f6)" /usr/bin/bash "$tmp/uninstall.sh" --force --path="$PREFIX" ||
-		die "the Homebrew uninstaller failed"
+	run_as "$u" env NONINTERACTIVE=1 SUDO_ASKPASS=/bin/false HOME="$(getent passwd "$u" | cut -d: -f6)" /usr/bin/bash "$tmp/uninstall.sh" --force --path="$PREFIX"
+	[ ! -x "$PREFIX/bin/brew" ] || die "the Homebrew uninstaller failed"
 	$SUDO rm -f "$PREFIX/lib/ld.so"
 	$SUDO rmdir "$PREFIX/lib" "$PREFIX" /home/linuxbrew 2>/dev/null || true
 	say "Homebrew removed"

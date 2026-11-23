@@ -16,11 +16,12 @@ on:
       - 'scripts/fetch-pinned.sh'
       - '.github/workflows/nvidia.yml'
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   nvidia:
+    permissions:
+      contents: read
     name: nvidia-${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -38,8 +39,9 @@ jobs:
       ARCH: ${{ matrix.arch }}
       FLAVOR: ${{ matrix.flavor }}
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
@@ -95,7 +97,7 @@ jobs:
             grep -E "^CONFIG_$o=[ym]" out/arm64/kernel-gb10/config
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kwickos-nvidia-${{ matrix.arch }}
           path: |

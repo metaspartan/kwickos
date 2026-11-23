@@ -10,15 +10,16 @@ on:
         description: release tag
         required: true
 
-permissions:
-  contents: write
-  actions: read
+permissions: {}
 
 jobs:
   attach:
+    permissions:
+      contents: write
+      actions: read
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: kwickos-desktop-*
           path: dl
@@ -29,12 +30,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
+          set -euo pipefail
+          [[ $TAG =~ ^v[0-9A-Za-z.+-]+$ ]] || { echo "::error::invalid tag"; exit 1; }
           mkdir -p up
           find dl -name '*-desktop.iso' -exec cp {} up/ \;
           ls -lh up
+          n=$(find up -type f | wc -l)
+          [ "$n" -gt 0 ] || { echo "::error::no desktop ISOs in the downloaded artifacts"; exit 1; }
           gh release upload "$TAG" up/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name != "SHA256SUMS") | "\(.name) \(.size)"' | sort > want.txt
+          [ -s want.txt ] || { echo "::error::release $TAG has no assets"; exit 1; }
           mkdir -p all && cd all
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*' --skip-existing --dir . --clobber 2>/dev/null || true
-          rm -f SHA256SUMS; sha256sum * > SHA256SUMS
+          while read -r name size; do
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$name" --dir . --clobber
+            [ -f "$name" ] || { echo "::error::$name did not download"; exit 1; }
+            [ "$(stat -c %s "$name")" = "$size" ] || { echo "::error::$name is $(stat -c %s "$name") bytes, the release says $size"; exit 1; }
+          done < ../want.txt
+          [ "$(find . -maxdepth 1 -type f | wc -l)" = "$(wc -l < ../want.txt)" ] || { echo "::error::downloaded files do not match the release assets"; exit 1; }
+          cut -d' ' -f1 ../want.txt | xargs -d '\n' sha256sum -- > ../SHA256SUMS
+          cd ..
           gh release upload "$TAG" SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
           cat SHA256SUMS

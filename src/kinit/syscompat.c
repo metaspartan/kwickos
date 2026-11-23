@@ -207,6 +207,99 @@ static void owner_of(const char *u, const char *g, uid_t *uid, gid_t *gid)
 	if (g && strcmp(g, "-")) { struct group *gr = getgrnam(g); if (gr) *gid = gr->gr_gid; else if (isdigit((unsigned char)g[0])) *gid = atoi(g); }
 }
 
+static int tf_safe_link(int dfd, const char *name)
+{
+	struct stat ls, ds;
+	return fstatat(dfd, name, &ls, AT_SYMLINK_NOFOLLOW) == 0 && S_ISLNK(ls.st_mode) && ls.st_uid == 0 &&
+		fstat(dfd, &ds) == 0 && ds.st_uid == 0 && (!(ds.st_mode & (S_IWGRP | S_IWOTH)) || (ds.st_mode & S_ISVTX));
+}
+
+static int tf_splice(int *fd, const char *name, const char *rest, char *work, size_t wlen)
+{
+	char t[PATH_MAX], nw[PATH_MAX];
+	ssize_t n = readlinkat(*fd, name, t, sizeof t - 1);
+	if (n <= 0) return -1;
+	t[n] = 0;
+	if ((size_t)snprintf(nw, sizeof nw, "%s%s%s", t, rest ? "/" : "", rest ? rest : "") >= sizeof nw) return -1;
+	if (t[0] == '/') {
+		int r = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+		if (r < 0) return -1;
+		close(*fd);
+		*fd = r;
+	}
+	snprintf(work, wlen, "%s", nw);
+	return 0;
+}
+
+static int tf_walk(const char *path, int create, int follow_last, char *name, size_t nlen)
+{
+	char work[PATH_MAX];
+	if (path[0] != '/' || strlen(path) >= sizeof work) return -1;
+	snprintf(work, sizeof work, "%s", path);
+	int fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (fd < 0) return -1;
+	char *p = work;
+	int links = 0;
+	for (;;) {
+		while (*p == '/') p++;
+		char *e = strchr(p, '/');
+		char *q = e;
+		while (q && *q == '/') q++;
+		if (!e || !*q) {
+			if (e) *e = 0;
+			if (!*p || !strcmp(p, ".") || !strcmp(p, "..")) break;
+			if (follow_last && tf_safe_link(fd, p) && ++links <= 32) {
+				char nm[NAME_MAX + 1];
+				snprintf(nm, sizeof nm, "%s", p);
+				if (tf_splice(&fd, nm, NULL, work, sizeof work)) break;
+				p = work;
+				continue;
+			}
+			snprintf(name, nlen, "%s", p);
+			return fd;
+		}
+		*e = 0;
+		int nfd = openat(fd, p, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+		if (nfd < 0 && errno == ENOENT && create && (mkdirat(fd, p, 0755) == 0 || errno == EEXIST))
+			nfd = openat(fd, p, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+		if (nfd < 0) {
+			if (!tf_safe_link(fd, p) || ++links > 32) break;
+			char nm[NAME_MAX + 1], rest[PATH_MAX];
+			snprintf(nm, sizeof nm, "%s", p);
+			snprintf(rest, sizeof rest, "%s", q);
+			if (tf_splice(&fd, nm, rest, work, sizeof work)) break;
+			p = work;
+			continue;
+		}
+		close(fd);
+		fd = nfd;
+		p = q;
+	}
+	close(fd);
+	return -1;
+}
+
+static void tf_meta(int dfd, const char *name, int have_mode, mode_t mode, uid_t uid, gid_t gid)
+{
+	int fd = openat(dfd, name, O_PATH | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0) return;
+	struct stat st;
+	if (fstat(fd, &st) == 0 && !S_ISLNK(st.st_mode)) {
+		if (uid != (uid_t)-1 || gid != (gid_t)-1) (void)!fchownat(fd, "", uid, gid, AT_EMPTY_PATH);
+		if (have_mode && (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode))) {
+			int rfd = openat(dfd, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_NOCTTY | O_CLOEXEC);
+			struct stat rs;
+			if (rfd >= 0 && fstat(rfd, &rs) == 0 && rs.st_dev == st.st_dev && rs.st_ino == st.st_ino) (void)!fchmod(rfd, mode & 07777);
+			if (rfd >= 0) close(rfd);
+		} else if (have_mode) {
+			char pp[64];
+			snprintf(pp, sizeof pp, "/proc/self/fd/%d", fd);
+			(void)!chmod(pp, mode & 07777);
+		}
+	}
+	close(fd);
+}
+
 static void tmpfiles_line(char *line)
 {
 	char *t[7];
@@ -222,39 +315,51 @@ static void tmpfiles_line(char *line)
 	mode_t mode = 0;
 	int have_mode = mode_s[0] != '-';
 	if (have_mode) mode = (mode_t)strtol(mode_s + (mode_s[0] == '~'), NULL, 8);
+	int create = strchr("dDvqQfFL", type) != NULL;
+	char nm[NAME_MAX + 1];
+	int dfd = tf_walk(path, create, type == 'w', nm, sizeof nm);
+	if (dfd < 0) { free(path); return; }
+	struct stat st;
+	int exists = fstatat(dfd, nm, &st, AT_SYMLINK_NOFOLLOW) == 0;
 	switch (type) {
 	case 'd': case 'D': case 'v': case 'q': case 'Q':
-		mkdir_p(path, have_mode ? mode : 0755);
-		if (have_mode) chmod(path, mode);
-		if (uid != (uid_t)-1 || gid != (gid_t)-1) (void)!chown(path, uid, gid);
+		if (!exists) mkdirat(dfd, nm, have_mode ? mode : 0755);
+		else if (!S_ISDIR(st.st_mode)) break;
+		tf_meta(dfd, nm, have_mode, mode, uid, gid);
 		break;
 	case 'f': case 'F': {
-		int exists = access(path, F_OK) == 0;
-		if (!exists || type == 'F' || plus) {
-			int fd = open(path, O_WRONLY | O_CREAT | O_CLOEXEC | ((type == 'F' || plus) ? O_TRUNC : 0), have_mode ? mode : 0644);
-			if (fd >= 0) { if (arg && (!exists || type == 'F' || plus)) (void)!write(fd, arg, strlen(arg)); close(fd); }
+		if (exists && !S_ISREG(st.st_mode)) break;
+		int trunc = type == 'F' || plus;
+		if (!exists || trunc) {
+			int fd = openat(dfd, nm, O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | (trunc ? O_TRUNC : 0), have_mode ? mode : 0644);
+			if (fd >= 0) {
+				if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && arg) (void)!write(fd, arg, strlen(arg));
+				close(fd);
+			}
 		}
-		if (have_mode) chmod(path, mode);
-		if (uid != (uid_t)-1 || gid != (gid_t)-1) (void)!chown(path, uid, gid);
+		tf_meta(dfd, nm, have_mode, mode, uid, gid);
 		break;
 	}
 	case 'w':
-		if (arg && access(path, W_OK) == 0) { int fd = open(path, O_WRONLY | O_CLOEXEC | (plus ? O_APPEND : 0)); if (fd >= 0) { (void)!write(fd, arg, strlen(arg)); close(fd); } }
+		if (arg && exists && !S_ISLNK(st.st_mode)) {
+			int fd = openat(dfd, nm, O_WRONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | (plus ? O_APPEND : 0));
+			if (fd >= 0) { (void)!write(fd, arg, strlen(arg)); close(fd); }
+		}
 		break;
 	case 'L':
-		if (plus) unlink(path);
-		if (arg) { char dir[PATH_MAX]; snprintf(dir, sizeof dir, "%s", path); char *s = strrchr(dir, '/'); if (s && s != dir) { *s = 0; mkdir_p(dir, 0755); } (void)!symlink(arg, path); }
+		if (plus && exists && !S_ISDIR(st.st_mode)) unlinkat(dfd, nm, 0);
+		if (arg) (void)!symlinkat(arg, dfd, nm);
 		break;
 	case 'z': case 'Z':
-		if (have_mode) chmod(path, mode);
-		if (uid != (uid_t)-1 || gid != (gid_t)-1) (void)!chown(path, uid, gid);
+		if (exists) tf_meta(dfd, nm, have_mode, mode, uid, gid);
 		break;
 	case 'r':
-		unlink(path); rmdir(path);
+		if (exists) unlinkat(dfd, nm, S_ISDIR(st.st_mode) ? AT_REMOVEDIR : 0);
 		break;
 	default:
 		break;
 	}
+	close(dfd);
 	free(path);
 }
 

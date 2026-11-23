@@ -149,12 +149,12 @@
       "homepage": "https://omp.sh",
       "source": "https://github.com/can1357/oh-my-pi",
       "license": "MIT",
-      "version": "19.0.1",
-      "released": "2026-11-19",
+      "version": "19.1.0",
+      "released": "2026-11-21",
       "method": "binary",
       "assets": {
-        "amd64": {"url": "https://github.com/can1357/oh-my-pi/releases/download/v19.0.1/omp-linux-x64", "sha256": "6ceef04430851bb1050c6fda3af467412eb44a11df0a6ff8121fe601013c5415", "size": 296482992, "format": "raw"},
-        "arm64": {"url": "https://github.com/can1357/oh-my-pi/releases/download/v19.0.1/omp-linux-arm64", "sha256": "237ede0f4994d61f523802c4cf562d4e48bae74c188add792d06d051b907cecf", "size": 250137592, "format": "raw"}
+        "amd64": {"url": "https://github.com/can1357/oh-my-pi/releases/download/v19.1.0/omp-linux-x64", "sha256": "be2b45c437b623e15c29b1f8c98aacb842f92118196454b5e9eed884359e9a01", "size": 304097456, "format": "raw"},
+        "arm64": {"url": "https://github.com/can1357/oh-my-pi/releases/download/v19.1.0/omp-linux-arm64", "sha256": "785e8e519acb55852a85e5495271d768a221ca92c095c043cd3eb0d7f8d3eafc", "size": 257674232, "format": "raw"}
       },
       "bin": {"omp": "bin/omp"},
       "keys": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY"],
@@ -245,7 +245,7 @@
       "network": true,
       "mcp": "none",
       "unsupported": {"riscv64": "several dependencies publish no riscv64 wheels"},
-      "verify": "uv pip install --require-hashes with a hash-locked requirements file that KwickOS ships (109 packages); Python 3.12 checked by uv",
+      "verify": "uv pip install --require-hashes with a hash-locked requirements file that KwickOS ships (118 packages); Python 3.12 checked by uv",
       "upstream_install": "uv tool install --python python3.12 aider-chat@latest, or curl -LsSf https://aider.chat/install.sh | sh",
       "first_run": "store a key (kwick-agents key set aider ANTHROPIC_API_KEY) and run 'aider' in a git repository",
       "notes": "Aider has no MCP client."
@@ -286,12 +286,12 @@
       "homepage": "https://ollama.com",
       "source": "https://github.com/ollama/ollama",
       "license": "MIT",
-      "version": "0.40.16",
-      "released": "2026-11-09",
+      "version": "0.40.17",
+      "released": "2026-11-10",
       "method": "archive",
       "assets": {
-        "amd64": {"url": "https://github.com/ollama/ollama/releases/download/v0.40.16/ollama-linux-amd64.tar.zst", "sha256": "87bfafb2acbc89b2e6a1be0a9043de6aa75fb450696f86bc426e65fc448f788d", "size": 1545767640, "format": "tar.zst"},
-        "arm64": {"url": "https://github.com/ollama/ollama/releases/download/v0.40.16/ollama-linux-arm64.tar.zst", "sha256": "e45b8e6dcb86cb9f3057396351655079c9a4879b4ced2678c9350d375dcbc224", "size": 1600610073, "format": "tar.zst"}
+        "amd64": {"url": "https://github.com/ollama/ollama/releases/download/v0.40.17/ollama-linux-amd64.tar.zst", "sha256": "1df9d6228bac5a22e420b242708c0d10e5b886db97bab99d446a41760f4e79af", "size": 1545470208, "format": "tar.zst"},
+        "arm64": {"url": "https://github.com/ollama/ollama/releases/download/v0.40.17/ollama-linux-arm64.tar.zst", "sha256": "0ec632480057cef6300459d1fa7dbbb3fc188b9a7d56cd0b0a72d05927d90ecc", "size": 1601174092, "format": "tar.zst"}
       },
       "bin": {"ollama": "bin/ollama"},
       "home": [".ollama/"],

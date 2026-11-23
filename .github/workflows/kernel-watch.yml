@@ -5,31 +5,48 @@ on:
     - cron: '17 */6 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: write
-  actions: write
+permissions: {}
 
 jobs:
   check:
+    permissions:
+      contents: write
+      actions: write
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Latest stable
         id: k
         run: |
-          latest=$(curl -fsSL https://www.kernel.org/releases.json | jq -r '[.releases[]|select(.moniker=="stable" and .iseol==false)][0].version')
-          current=$(cat KERNEL_VERSION)
-          echo "latest=$latest current=$current"
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          echo "current=$current" >> "$GITHUB_OUTPUT"
-          [ "$latest" != "$current" ] && echo "$latest" > KERNEL_VERSION || true
+          latest=$(curl -fsSL --proto '=https' https://www.kernel.org/releases.json | jq -r '[.releases[]|select(.moniker=="stable" and .iseol==false)][0].version')
+          current=$(tr -d ' \r\n' < KERNEL_VERSION)
+          re='^[1-9][0-9]?\.[0-9]{1,3}(\.[0-9]{1,4})?$'
+          [[ $latest =~ $re ]] || { echo "::error::kernel.org returned an invalid version"; exit 1; }
+          [[ $current =~ $re ]] || { echo "::error::KERNEL_VERSION is not a version"; exit 1; }
+          bump=false
+          if [ "$latest" != "$current" ] && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n 1)" = "$latest" ]; then
+            bump=true
+            echo "$latest" > KERNEL_VERSION
+          fi
+          echo "latest=$latest current=$current bump=$bump"
+          {
+            echo "latest=$latest"
+            echo "current=$current"
+            echo "bump=$bump"
+          } >> "$GITHUB_OUTPUT"
       - name: Commit bump to main and release
-        if: steps.k.outputs.latest != steps.k.outputs.current
+        if: steps.k.outputs.bump == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ steps.k.outputs.current }}
+          LATEST: ${{ steps.k.outputs.latest }}
         run: |
+          re='^[1-9][0-9]?\.[0-9]{1,3}(\.[0-9]{1,4})?$'
+          [[ $LATEST =~ $re && $CURRENT =~ $re ]] || exit 1
+          [ "$(tr -d ' \r\n' < KERNEL_VERSION)" = "$LATEST" ] || exit 1
+          [ "$(git status --porcelain)" = " M KERNEL_VERSION" ] || { git status --porcelain; exit 1; }
           git config user.name "kwickos-bot"; git config user.email "bot@users.noreply.github.com"
           git add KERNEL_VERSION
-          git commit -m "kernel: bump ${{ steps.k.outputs.current }} -> ${{ steps.k.outputs.latest }}"
+          git commit -m "kernel: bump $CURRENT -> $LATEST"
           git push origin HEAD:main
           gh workflow run release.yml --ref main

@@ -9,16 +9,19 @@ on:
   workflow_dispatch:
   workflow_call:
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   cve:
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: stable
       - name: Build kwickos container image (amd64)
@@ -30,4 +33,5 @@ jobs:
       - name: CVE gate
         env:
           GOTOOLCHAIN: auto
+          KWICK_BUILD_K1_VENDOR: ${{ vars.KWICK_BUILD_K1_VENDOR }}
         run: bash scripts/cve-check.sh docker:kwickos:$(cat VERSION)-amd64

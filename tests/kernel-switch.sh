@@ -23,7 +23,7 @@ mkdir -p "$W/pkg/repo/pool/main"
 if [ "$MODE" = efistub ]; then
   ( cd "$W/pkg/repo/pool/main" && apt-get update -qq >/dev/null 2>&1 && apt-get download -qq $(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances efibootmgr | grep '^[a-z0-9]' | sort -u) )
 fi
-OUT=$W/pkg bash "$SRC/scripts/mkrepo.sh" stable >/dev/null 2>&1
+OUT=$W/pkg bash "$SRC/scripts/mkrepo.sh" --dev-key stable >/dev/null 2>&1
 ls "$W/pkg/repo/pool/main"
 OLDV=$(cat "$OLD/version"); NEWV=$(cat "$D/kernel-virt/version")
 echo "old kernel $OLDV, new kernel $NEWV"

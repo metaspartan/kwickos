@@ -3,6 +3,7 @@ set -euo pipefail
 ARCH=${1:?arch}; FLAVOR=${2:?variant}; KVER=${3:-${KVER:-}}
 SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cache}
 mkdir -p "$BUILD" "$CACHE"
+. "$SRC/scripts/kernel-fetch.sh"
 [ -f "$SRC/config/kernel/$FLAVOR.config" ] || { echo "no config/kernel/$FLAVOR.config"; exit 1; }
 GIT=; COMMIT=; DEFCONFIG=defconfig; DTBS=; FIT_STUB_DTB=; DTB_OVERLAYS=
 if [ -f "$SRC/config/kernel/$FLAVOR.source" ]; then
@@ -10,7 +11,6 @@ if [ -f "$SRC/config/kernel/$FLAVOR.source" ]; then
   [ -z "$GIT" ] || KVER=${COMMIT:0:12}
 fi
 [ -n "$KVER" ] || KVER=$(tr -d '\r\n' < "$SRC/KERNEL_VERSION")
-MAJOR=${KVER%%.*}
 echo ">> kernel $KVER ($ARCH/$FLAVOR)"
 
 TARBALL="$CACHE/linux-$KVER.tar.xz"
@@ -25,12 +25,7 @@ if [ -n "$GIT" ]; then
     rm -rf "$KSRC.part/.git"; mv "$KSRC.part" "$KSRC"
   fi
 elif [ ! -f "$TARBALL" ]; then
-  curl -fL --retry 3 -o "$TARBALL.part" "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/linux-$KVER.tar.xz"
-  curl -fsSL "https://cdn.kernel.org/pub/linux/kernel/v$MAJOR.x/sha256sums.asc" -o "$CACHE/sha256sums-v$MAJOR.asc"
-  want=$(grep " linux-$KVER.tar.xz\$" "$CACHE/sha256sums-v$MAJOR.asc" | awk '{print $1}')
-  got=$(sha256sum "$TARBALL.part" | awk '{print $1}')
-  [ -n "$want" ] && [ "$want" = "$got" ] || { echo "sha256 mismatch for linux-$KVER"; exit 1; }
-  mv "$TARBALL.part" "$TARBALL"
+  kernel_fetch_verified "$KVER" "$TARBALL" || exit 1
 fi
 [ -n "$GIT" ] || KSRC="$BUILD/src/linux-$KVER"
 if [ ! -f "$KSRC/Makefile" ]; then

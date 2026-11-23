@@ -4,7 +4,7 @@ OUT=${OUT:-/out}; D="$OUT/amd64"; SRC=${SRC:-/src}
 W=$(mktemp -d)
 rm -rf "$OUT/repo"
 bash "$SRC/scripts/mkkernelpkg.sh" amd64 generic
-bash "$SRC/scripts/mkrepo.sh" stable >/dev/null
+bash "$SRC/scripts/mkrepo.sh" --dev-key stable >/dev/null
 cp "$OUT/repo/kwickos-archive-keyring.asc" "$W/"
 ( cd "$OUT/repo" && python3 -m http.server 8080 >/dev/null 2>&1 ) & HTTP=$!
 cp --sparse=always "$D/kwickos-amd64.img" "$W/disk.img"

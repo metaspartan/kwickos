@@ -8,11 +8,12 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   desktop:
+    permissions:
+      contents: read
     name: desktop-${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -27,8 +28,9 @@ jobs:
     env:
       ARCH: ${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Free disk space (desktop rootfs is ~4 GB unpacked)
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
@@ -81,7 +83,7 @@ jobs:
           docker run --rm $( [ -w /dev/kvm ] && echo --device /dev/kvm ) -v "$PWD:/src" -v "$PWD/out:/out" \
             kwick-builder bash /src/tests/desktop-boot.sh /out/$ARCH/kwickos-$ARCH-desktop.iso /out/desktop-shot.png
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kwickos-desktop-${{ matrix.arch }}
           path: |

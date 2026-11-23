@@ -55,7 +55,7 @@ container:
 	  $(ROOTFS_TAR) kwickos:$(VERSION)-$(ARCH)
 
 repo:
-	$(RUN_BUILDER) bash -c 'for f in virt generic; do [ -f /out/$(ARCH)/kernel-$$f/version ] && bash /src/scripts/mkkernelpkg.sh $(ARCH) $$f; done; bash /src/scripts/mkrepo.sh'
+	$(RUN_BUILDER) bash -c 'for f in virt generic; do [ -f /out/$(ARCH)/kernel-$$f/version ] && bash /src/scripts/mkkernelpkg.sh $(ARCH) $$f; done; bash /src/scripts/mkrepo.sh --dev-key'
 
 boot-test:
 	docker run --rm $(KVM) -v $(CURDIR):/src -v $(OUT):/out $(BUILDER) bash /src/tests/boot-matrix.sh $(ARCH)
