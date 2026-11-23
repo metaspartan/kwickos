@@ -82,7 +82,7 @@ func TestParseRFC1123(t *testing.T) {
 	if got, ok := parseRFC1123("Thu, 1 Feb 2029 00:00:00 UTC"); !ok || !got.Equal(time.Date(2029, 2, 1, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("single-digit day: %v %v", got, ok)
 	}
-	for _, s := range []string{"", "Sat, 07 Dec 2024 08:15 UTC", "Sat 07 Dec 2024 08:15:02 UTC", "Sat, 07 Dex 2024 08:15:02 UTC", "Sat, 07 Dec 2024 25:15:02 UTC", "Sat, 07 Dec 2024 08:15:02 +0000", "Sat, 32 Dec 2024 08:15:02 UTC"} {
+	for _, s := range []string{"", "Sat, 07 Dec 2024 08:15 UTC", "Sat 07 Dec 2024 08:15:02 UTC", "Sat, 07 Dex 2024 08:15:02 UTC", "Sat, 07 Dec 2024 25:15:02 UTC", "Sat, 07 Dec 2024 08:15:02 PST", "Sat, 07 Dec 2024 08:15:02 +0100", "Sat, 32 Dec 2024 08:15:02 UTC"} {
 		if _, ok := parseRFC1123(s); ok {
 			t.Errorf("%q accepted", s)
 		}

@@ -1,0 +1,7 @@
+go test fuzz v1
+byte('S')
+byte('\r')
+byte('\t')
+[]byte("0")
+byte('1')
+[]byte("0")

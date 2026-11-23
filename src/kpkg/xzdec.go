@@ -252,7 +252,7 @@ func (z *xzReader) block() error {
 		return errXZData
 	}
 	d := b[i]
-	if d > 37 {
+	if d > 32 {
 		return errors.New("xz: dictionary too large")
 	}
 	for _, v := range b[i+1:] {

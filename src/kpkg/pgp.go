@@ -23,11 +23,14 @@ type rsaKey struct {
 
 func newRSAKey(n, e []byte) *rsaKey {
 	e = trimZeros(e)
-	var x uint64
-	for _, c := range e[max(0, len(e)-8):] {
-		x = x<<8 | uint64(c)
+	x := 0
+	for _, c := range e {
+		x = x<<8 | int(c)
 	}
-	return &rsaKey{N: trimZeros(n), E: int(x)}
+	if len(e) > 4 {
+		x = 0
+	}
+	return &rsaKey{N: trimZeros(n), E: x}
 }
 
 func trimZeros(b []byte) []byte {
@@ -54,7 +57,8 @@ var digestInfoPrefix = map[crypto.Hash][]byte{
 func rsaVerifyPKCS1v15(k *rsaKey, h crypto.Hash, digest, sig []byte) bool {
 	size := len(k.N)
 	prefix, ok := digestInfoPrefix[h]
-	if !ok || size == 0 || k.N[size-1]&1 == 0 || len(sig) != size || k.E < 3 || bytes.Compare(sig, k.N) >= 0 {
+	if !ok || size == 0 || (size-1)*8+bits.Len8(k.N[0]) < 1024 || k.N[size-1]&1 == 0 || len(sig) != size || len(digest) != h.Size() ||
+		k.E < 3 || k.E&1 == 0 || k.E > 1<<31-1 || bytes.Compare(sig, k.N) >= 0 {
 		return false
 	}
 	em := modExp(sig, uint64(k.E), k.N)

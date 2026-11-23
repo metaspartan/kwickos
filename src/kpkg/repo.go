@@ -288,7 +288,11 @@ func updateSuite(ss []*Source, pr *progress) (int64, error) {
 		return fetched, fmt.Errorf("suite mismatch for %s: expected '%s' but the Release file is for Suite '%s', Codename '%s' (refusing a possible downgrade or replay)", s0.label(), s0.Suite, rel.Get("Suite"), rel.Get("Codename"))
 	}
 	if vu := rel.Get("Valid-Until"); vu != "" {
-		if t, ok := parseRFC1123(vu); ok && time.Now().After(t) {
+		t, ok := parseRFC1123(vu)
+		if !ok {
+			return fetched, fmt.Errorf("Release file for %s has an invalid Valid-Until entry %q", s0.label(), vu)
+		}
+		if time.Now().After(t) {
 			return fetched, fmt.Errorf("Release file for %s is expired (invalid since %s)", s0.label(), vu)
 		}
 	}
@@ -543,7 +547,7 @@ func parseRFC1123(s string) (time.Time, bool) {
 	}
 	mon := strings.Index("JanFebMarAprMayJunJulAugSepOctNovDec", f[2])
 	hms := strings.Split(f[4], ":")
-	if mon < 0 || mon%3 != 0 || len(hms) != 3 || len(f[5]) < 3 || strings.Trim(f[5], "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "" {
+	if mon < 0 || mon%3 != 0 || len(hms) != 3 || (f[5] != "UTC" && f[5] != "GMT" && f[5] != "Z" && f[5] != "+0000") {
 		return time.Time{}, false
 	}
 	var v [5]int
@@ -557,5 +561,6 @@ func parseRFC1123(s string) (time.Time, bool) {
 	if v[0] < 1 || v[0] > 31 || v[2] > 23 || v[3] > 59 || v[4] > 59 {
 		return time.Time{}, false
 	}
-	return time.Date(v[1], time.Month(mon/3+1), v[0], v[2], v[3], v[4], 0, time.UTC), true
+	t := time.Date(v[1], time.Month(mon/3+1), v[0], v[2], v[3], v[4], 0, time.UTC)
+	return t, t.Day() == v[0]
 }

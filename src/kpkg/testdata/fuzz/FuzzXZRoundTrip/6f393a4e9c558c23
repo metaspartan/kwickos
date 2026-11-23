@@ -1,0 +1,4 @@
+go test fuzz v1
+[]byte("helo helo helo ")
+byte('P')
+uint16(46)

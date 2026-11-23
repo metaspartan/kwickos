@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -268,7 +269,10 @@ type dnsConf struct {
 	attempts int
 	timeout  time.Duration
 	tcp      bool
+	rotate   bool
 }
+
+var dnsRotation atomic.Uint32
 
 func fqdn(s string) string {
 	if strings.HasSuffix(s, ".") {
@@ -315,6 +319,8 @@ func readDNSConf() *dnsConf {
 					c.attempts = min(max(n, 1), 5)
 				case "use-vc", "usevc", "tcp":
 					c.tcp = true
+				case "rotate":
+					c.rotate = true
 				}
 			}
 		}
@@ -435,8 +441,13 @@ func (c *dnsConf) query(name string, qtype uint16) ([]ipAddr, error) {
 		return nil, errors.New("invalid host name")
 	}
 	var lastErr error
+	off := 0
+	if c.rotate {
+		off = int(dnsRotation.Add(1))
+	}
 	for a := 0; a < c.attempts; a++ {
-		for _, s := range c.servers {
+		for i := range c.servers {
+			s := c.servers[(i+off)%len(c.servers)]
 			var idb [2]byte
 			rand.Read(idb[:])
 			q[0], q[1] = idb[0], idb[1]
@@ -500,7 +511,7 @@ func dnsExchange(s ipAddr, q []byte, timeout time.Duration, tcp bool) ([]byte, e
 		if _, err := io.ReadFull(f, resp); err != nil {
 			return nil, err
 		}
-		if len(resp) < 12 || resp[0] != q[0] || resp[1] != q[1] {
+		if !dnsMatches(resp, q) {
 			return nil, errors.New("malformed DNS response")
 		}
 		return resp, nil
@@ -514,10 +525,29 @@ func dnsExchange(s ipAddr, q []byte, timeout time.Duration, tcp bool) ([]byte, e
 		if err != nil {
 			return nil, err
 		}
-		if n >= 12 && buf[0] == q[0] && buf[1] == q[1] && buf[2]&0x80 != 0 {
+		if dnsMatches(buf[:n], q) {
 			return buf[:n], nil
 		}
 	}
+}
+
+func dnsMatches(msg, q []byte) bool {
+	if len(msg) < len(q) || msg[0] != q[0] || msg[1] != q[1] || msg[2]&0x80 == 0 || msg[4] != 0 || msg[5] != 1 {
+		return false
+	}
+	for i := 12; i < len(q); i++ {
+		if dnsLowerByte(msg[i]) != dnsLowerByte(q[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func dnsLowerByte(c byte) byte {
+	if 'A' <= c && c <= 'Z' {
+		return c + 'a' - 'A'
+	}
+	return c
 }
 
 func dnsName(msg []byte, off int) (string, int, bool) {
@@ -547,10 +577,12 @@ func dnsName(msg []byte, off int) (string, int, bool) {
 			off = (c&0x3f)<<8 | int(msg[off+1])
 			jumps++
 		case c&0xc0 == 0:
-			if off+1+c > len(msg) {
+			if off+1+c > len(msg) || sb.Len()+c+1 > 255 {
 				return "", 0, false
 			}
-			sb.WriteString(strings.ToLower(string(msg[off+1 : off+1+c])))
+			for _, b := range msg[off+1 : off+1+c] {
+				sb.WriteByte(dnsLowerByte(b))
+			}
 			sb.WriteByte('.')
 			off += 1 + c
 		default:
@@ -560,20 +592,21 @@ func dnsName(msg []byte, off int) (string, int, bool) {
 }
 
 func dnsParse(msg, q []byte, name string, qtype uint16) ([]ipAddr, int, bool) {
-	if len(msg) < 12 || msg[0] != q[0] || msg[1] != q[1] || msg[2]&0x80 == 0 {
+	if !dnsMatches(msg, q) {
 		return nil, 0, false
 	}
 	rcode := int(msg[3] & 0xf)
-	qd, an := int(binary.BigEndian.Uint16(msg[4:])), int(binary.BigEndian.Uint16(msg[6:]))
-	name = strings.ToLower(fqdn(name))
-	off := 12
-	for i := 0; i < qd; i++ {
-		n, o, ok := dnsName(msg, off)
-		if !ok || o+4 > len(msg) || (i == 0 && (n != name || binary.BigEndian.Uint16(msg[o:]) != qtype)) {
-			return nil, 0, false
-		}
-		off = o + 4
+	an := int(binary.BigEndian.Uint16(msg[6:]))
+	n, off, ok := dnsName(msg, 12)
+	lname := []byte(fqdn(name))
+	for i, c := range lname {
+		lname[i] = dnsLowerByte(c)
 	}
+	name = string(lname)
+	if !ok || off+4 > len(msg) || n != name || binary.BigEndian.Uint16(msg[off:]) != qtype || binary.BigEndian.Uint16(msg[off+2:]) != 1 {
+		return nil, 0, false
+	}
+	off += 4
 	type rr struct {
 		name, target string
 		typ          uint16
@@ -590,7 +623,10 @@ func dnsParse(msg, q []byte, name string, qtype uint16) ([]ipAddr, int, bool) {
 			return nil, 0, false
 		}
 		r := rr{name: n, typ: typ, data: msg[o+10 : o+10+l]}
-		if typ == 5 {
+		if binary.BigEndian.Uint16(msg[o+2:]) != 1 {
+			r.typ = 0
+		}
+		if r.typ == 5 {
 			if r.target, _, ok = dnsName(msg, o+10); !ok {
 				return nil, 0, false
 			}

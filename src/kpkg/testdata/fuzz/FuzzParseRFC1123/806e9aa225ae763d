@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Mon, 01 JAn 0000 0:00:00 GMT")

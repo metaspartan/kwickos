@@ -1,0 +1,4 @@
+go test fuzz v1
+[]byte("ll0001llo0010011")
+byte('B')
+uint16(8)
