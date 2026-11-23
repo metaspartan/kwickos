@@ -8,13 +8,17 @@ Item {
     property string mode: "off"
     property int minutesLeft: 0
     property int known: 0
+    property bool watching: false
     readonly property bool on: mode !== "off"
     readonly property string subtitle: !available ? "" : mode === "everyone" ? "Everyone · " + minutesLeft + " min" : mode === "contacts" ? "Known Devices" : "Receiving Off"
     readonly property string statusCommand: "kwick-nearby --status"
+    property string statusSource: ""
 
     function refresh() {
-        status.disconnectSource(statusCommand)
-        status.connectSource(statusCommand)
+        if (statusSource)
+            status.disconnectSource(statusSource)
+        statusSource = statusCommand + " #" + Date.now()
+        status.connectSource(statusSource)
     }
 
     function setMode(m) {
@@ -31,8 +35,10 @@ Item {
     P5Support.DataSource {
         id: status
         engine: "executable"
-        interval: 15000
+        interval: source.watching ? 15000 : 0
         onNewData: (src, data) => {
+            if (src !== source.statusSource)
+                return
             const out = String(data["stdout"] || "").trim()
             if (data["exit code"] !== 0 || out === "") {
                 source.available = false
@@ -59,5 +65,11 @@ Item {
         }
     }
 
+    onWatchingChanged: {
+        if (!watching && statusSource) {
+            status.disconnectSource(statusSource)
+            statusSource = ""
+        }
+    }
     Component.onCompleted: refresh()
 }

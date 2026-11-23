@@ -6,4 +6,5 @@ size=$((kb * 1024 / 2))
 echo zstd >/sys/block/zram0/comp_algorithm 2>/dev/null
 echo "$size" >/sys/block/zram0/disksize || exit 0
 mkswap /dev/zram0 >/dev/null 2>&1 || exit 0
-swapon -p 100 /dev/zram0
+swapon -p 100 /dev/zram0 || exit 1
+echo 180 >/proc/sys/vm/swappiness 2>/dev/null || echo 100 >/proc/sys/vm/swappiness

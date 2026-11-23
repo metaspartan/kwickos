@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.plasma5support as P5Support
 import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.workspace.calendar as PlasmaCalendar
 import org.kde.kirigami as Kirigami
@@ -18,12 +19,12 @@ PlasmoidItem {
     toolTipMainText: Qt.formatDate(now, "dddd, MMMM d, yyyy")
     toolTipSubText: ""
 
-    Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: root.now = new Date()
+    P5Support.DataSource {
+        engine: "time"
+        connectedSources: ["Local"]
+        interval: 60000
+        intervalAlignment: P5Support.Types.AlignToMinute
+        onNewData: root.now = new Date()
     }
 
     compactRepresentation: MouseArea {

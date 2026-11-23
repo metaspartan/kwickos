@@ -76,7 +76,7 @@ PlasmoidItem {
     Loader { id: displaySource; source: "DisplaySource.qml" }
     Loader { id: soundSource; source: "SoundSource.qml" }
     Loader { id: playerSource; source: "PlayerSource.qml" }
-    Loader { id: nearbySource; source: "NearbySource.qml" }
+    Loader { id: nearbySource; source: "NearbySource.qml"; onLoaded: item.watching = Qt.binding(() => root.expanded) }
 
     Connections {
         target: root.display

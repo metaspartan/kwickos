@@ -292,7 +292,10 @@ ingest() {
 	scan_package | while IFS='|' read -r id fl ver rel dir origin; do
 		d=$KS/$id
 		img=$(image_of "$dir")
-		if [ -f "$d/.complete" ] && [ -n "$img" ] && cmp -s "$img" "$(image_of "$d")" 2>/dev/null; then continue; fi
+		if [ -f "$d/.complete" ] && [ -n "$img" ]; then
+			have=$(image_of "$d")
+			if [ "$img" -ef "$have" ] || cmp -s "$img" "$have" 2>/dev/null; then continue; fi
+		fi
 		rm -rf "$d.new"
 		copy_tree "$dir" "$d.new"
 		if [ -d "$MDIR/$rel" ] && [ ! -e "$MDIR/$rel/$MARK" ]; then copy_tree "$MDIR/$rel" "$d.new/modules"; fi

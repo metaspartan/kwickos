@@ -3,8 +3,11 @@ me=$(id -u)
 for p in $(pgrep -x pipewire 2>/dev/null); do
   [ "$(stat -c %u "/proc/$p" 2>/dev/null)" = "$me" ] && exit 0
 done
+s=${XDG_RUNTIME_DIR:-/run/user/$me}/pipewire-0
+rm -f "$s"
 pipewire &
-sleep 0.3
+i=0
+while [ ! -S "$s" ] && [ $i -lt 100 ] && kill -0 $! 2>/dev/null; do sleep 0.02; i=$((i + 1)); done
 wireplumber &
 pipewire-pulse &
 wait

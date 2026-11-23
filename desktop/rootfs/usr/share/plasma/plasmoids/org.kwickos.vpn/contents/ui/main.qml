@@ -144,7 +144,15 @@ PlasmoidItem {
     }
 
     onProfilesChanged: track()
-    onExpandedChanged: if (!expanded && !noticeBad) notice = ""
+    onExpandedChanged: {
+        if (expanded) {
+            nmCheck.restart()
+            if (!useNm)
+                shell.refresh()
+        } else if (!noticeBad) {
+            notice = ""
+        }
+    }
 
     Plasmoid.status: profiles.length > 0 ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.HiddenStatus
     Plasmoid.icon: iconName
@@ -180,10 +188,12 @@ PlasmoidItem {
         id: shell
         exec: exec
         active: !root.useNm
+        watching: root.expanded
     }
 
     Timer {
-        interval: root.nmRunning ? 30000 : 4000
+        id: nmCheck
+        interval: root.expanded ? (root.nmRunning ? 30000 : 4000) : 60000
         running: true
         repeat: true
         triggeredOnStart: true

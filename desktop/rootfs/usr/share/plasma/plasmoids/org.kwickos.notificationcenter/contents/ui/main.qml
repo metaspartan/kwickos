@@ -35,12 +35,12 @@ PlasmoidItem {
     toolTipMainText: flyout.visible ? "" : Qt.formatDate(now, "dddd, MMMM d, yyyy")
     toolTipSubText: history.unreadNotificationsCount > 0 ? history.unreadNotificationsCount + " new notifications" : ""
 
-    Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: root.now = new Date()
+    P5Support.DataSource {
+        engine: "time"
+        connectedSources: ["Local"]
+        interval: 60000
+        intervalAlignment: P5Support.Types.AlignToMinute
+        onNewData: root.now = new Date()
     }
 
     P5Support.DataSource {

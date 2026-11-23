@@ -57,8 +57,9 @@ case ${XDG_CURRENT_DESKTOP:-} in
       sleep 3
       pin_kde
       last=$(stamp)
-      while :; do
-        sleep 4
+      sock=${XDG_RUNTIME_DIR:-/tmp}/${WAYLAND_DISPLAY:-}
+      while [ -z "${WAYLAND_DISPLAY:-}" ] || [ -S "$sock" ]; do
+        sleep 30
         now=$(stamp)
         if [ "$now" != "$last" ]; then
           sleep 2

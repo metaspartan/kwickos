@@ -131,17 +131,39 @@ do_action() {
   esac
 }
 
+touchpads() {
+  for s in /sys/class/input/event*; do
+    n=$(cat "$s/dev" 2>/dev/null) || continue
+    grep -qs '^E:ID_INPUT_TOUCHPAD=1' "/run/udev/data/c$n" && [ -r "/dev/input/${s##*/}" ] && echo "--device /dev/input/${s##*/}"
+  done
+}
+
 gestured() {
   echo $$ > "$(pidf gestured)"
   command -v libinput >/dev/null 2>&1 || exit 0
   set -- $(pad_actions)
   [ "$*" = "- - - -" ] && exit 0
-  d=
-  for d in /dev/input/event*; do [ -r "$d" ] && break; done
-  [ -r "$d" ] || exit 0
   watch_session
-  stdbuf -oL libinput debug-events 2>/dev/null |
-    awk -v up="$1" -v down="$2" -v pin="$3" -v pout="$4" -v me="$0" '
+  { echo " add /event0"; command -v udevadm >/dev/null 2>&1 && exec udevadm monitor --udev --subsystem-match=input 2>/dev/null; } | {
+    w=
+    while read -r l; do
+      case " $l" in *" add "*/event[0-9]*|*" remove "*/event[0-9]*) ;; *) continue ;; esac
+      [ -n "$w" ] && { pkill -TERM -P "$w"; kill -TERM "$w"; } 2>/dev/null
+      w=
+      pads=$(touchpads)
+      [ -n "$pads" ] || continue
+      padwatch "$@" $pads &
+      w=$!
+    done
+    [ -n "$w" ] && wait "$w"
+  }
+}
+
+padwatch() {
+  up=$1 down=$2 pin=$3 pout=$4
+  shift 4
+  stdbuf -oL libinput debug-events "$@" 2>/dev/null |
+    awk -v up="$up" -v down="$down" -v pin="$pin" -v pout="$pout" -v me="$0" '
       function fire(a) { if (a != "-") system("(sleep 0.3; " me " do " a ") >/dev/null 2>&1 &") }
       !/GESTURE_(SWIPE|PINCH)_/ { next }
       /_BEGIN/ { n = $NF; dx = 0; dy = 0; sc = 1; next }
@@ -223,27 +245,37 @@ kde_rotation() {
   f=$cfg/kwinoutputconfig.json
   [ -f "$f" ] || return 0
   if [ "$rotation" = locked ]; then a=InTabletMode b=Never; else a=Never b=InTabletMode; fi
-  grep -q "\"autoRotation\": \"$a\"" "$f" && sed -i "s/\"autoRotation\": \"$a\"/\"autoRotation\": \"$b\"/" "$f"
-  true
+  grep -q "\"autoRotation\": \"$a\"" "$f" || return 1
+  sed -i "s/\"autoRotation\": \"$a\"/\"autoRotation\": \"$b\"/" "$f"
 }
 
 apply_kde() {
-  kw Input TabletMode "$tablet"
-  if [ "$osk" = on ] && [ -f "$osk_desktop" ] && { hasdev TOUCHSCREEN || [ "$tablet" = on ]; }; then
-    kw Wayland InputMethod "$osk_desktop"; kw Wayland VirtualKeyboardEnabled true; vk=true
-  else
-    kw Wayland InputMethod ""; kw Wayland VirtualKeyboardEnabled false; vk=false
+  vk=false
+  [ "$osk" = on ] && [ -f "$osk_desktop" ] && { hasdev TOUCHSCREEN || [ "$tablet" = on ]; } && vk=true
+  stamp=$cfg/kwick/kde-touch.applied
+  state="$tablet $vk $layout $(edges)"
+  changed=
+  if [ "${1:-}" != session ] || [ "$(cat "$stamp" 2>/dev/null)" != "$state" ] || ! grep -qs '^\[TouchEdges\]' "$cfg/kwinrc" ||
+    { [ "$vk" = false ] && ! grep -qsx 'InputMethod=' "$cfg/kwinrc"; }; then
+    kw Input TabletMode "$tablet"
+    if [ "$vk" = true ]; then
+      kw Wayland InputMethod "$osk_desktop"; kw Wayland VirtualKeyboardEnabled true
+    else
+      kw Wayland InputMethod ""; kw Wayland VirtualKeyboardEnabled false
+    fi
+    kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled "$vk"
+    set -- $(edges)
+    kw Effect-overview TouchBorderActivate "$1"
+    kw TouchEdges Left "$2"
+    kw TouchEdges Top "$3"
+    kw TouchEdges Bottom "$4"
+    kw TouchEdges Right None
+    changed=1
   fi
-  kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled "$vk"
-  set -- $(edges)
-  kw Effect-overview TouchBorderActivate "$1"
-  kw TouchEdges Left "$2"
-  kw TouchEdges Top "$3"
-  kw TouchEdges Bottom "$4"
-  kw TouchEdges Right None
-  kde_rotation
-  kwq org.kde.KWin /KWin reconfigure
-  daemon gestured
+  kde_rotation && changed=1
+  [ -n "$changed" ] && kwq org.kde.KWin /KWin reconfigure
+  [ -n "$changed" ] && { mkdir -p "${stamp%/*}"; echo "$state" > "$stamp"; }
+  daemon gestured "$(hasdev TOUCHPAD && echo on || echo off)"
 }
 
 apply_gnome() {
@@ -274,7 +306,7 @@ CONF
 
 apply() {
   case $de in
-    kde) apply_kde ;; gnome) apply_gnome ;; hyprland|sway) apply_tiling ;;
+    kde) apply_kde "${1:-}" ;; gnome) apply_gnome ;; hyprland|sway) apply_tiling ;;
   esac
 }
 
@@ -304,7 +336,8 @@ case ${1:-status} in
   osk) case ${2:-} in on|off) put osk "$2"; osk=$2; apply ;; *) usage >&2; exit 1 ;; esac ;;
   rotation) case ${2:-} in auto|locked) put rotation "$2"; rotation=$2; apply ;; *) usage >&2; exit 1 ;; esac ;;
   keyboard) case ${2:-} in show|hide|toggle) keyboard "$2" ;; *) usage >&2; exit 1 ;; esac ;;
-  apply|session) apply ;;
+  apply) apply ;;
+  session) apply session ;;
   do) do_action "${2:-}" ;;
   gestured) gestured ;;
   rotated) rotated ;;

@@ -5,6 +5,7 @@ Item {
 
     required property var exec
     property bool active: false
+    property bool watching: false
     property var profiles: []
 
     function refresh() {
@@ -17,7 +18,7 @@ Item {
     }
 
     Timer {
-        interval: 3000
+        interval: shell.watching ? 3000 : 60000
         running: shell.active
         repeat: true
         triggeredOnStart: true
