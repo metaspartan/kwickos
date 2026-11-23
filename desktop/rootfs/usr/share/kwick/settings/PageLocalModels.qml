@@ -34,6 +34,12 @@ ColumnLayout {
     readonly property var fitTitles: ({ "gpu": "Fits GPU", "moe-offload": "Needs RAM offload", "cpu-split": "Needs RAM offload", "cpu": "Runs on CPU", "no": "Does not fit" })
     readonly property var agentRows: ((st && st.agents) || []).filter(function (a) { return nameRe.test(String(a.name)) })
 
+    function licenseName(l) {
+        var k = String(l).toLowerCase()
+        var known = { "apache-2.0": "Apache 2.0", "mit": "MIT", "bsd-3-clause": "BSD 3-Clause", "cc-by-4.0": "CC BY 4.0", "gemma": "Gemma terms", "llama3.3": "Llama 3.3 licence", "llama3.1": "Llama 3.1 licence", "other": "Custom licence" }
+        return known[k] || String(l)
+    }
+
     function q(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
     function inf(args) { return "kwick-agents inference " + args }
 
@@ -89,7 +95,7 @@ ColumnLayout {
         var p = []
         if (m.quant) p.push(m.quant)
         if (m.size > 0) p.push(bytes(m.size))
-        if (m.license) p.push(m.license + (m.commercial_ok === false ? ", no commercial use" : ""))
+        if (m.license) p.push(page.licenseName(m.license) + (m.commercial_ok === false ? ", no commercial use" : ""))
         return p.join("  •  ")
     }
 
