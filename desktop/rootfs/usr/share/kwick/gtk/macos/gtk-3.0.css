@@ -220,3 +220,193 @@ button:link > label,
 button:visited > label {
   color: @LINK@;
 }
+
+window.background:not(.csd) button:not(.flat):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.sidebar-button):not(.up):not(.down),
+dialog button:not(.flat):not(.titlebutton):not(.suggested-action):not(.destructive-action),
+.dialog-action-area button:not(.suggested-action):not(.destructive-action),
+combobox > box > button,
+filechooser button:not(.flat):not(.suggested-action):not(.sidebar-button) {
+  min-height: 20px;
+  padding: 2px 12px;
+  border-radius: 6px;
+  border: none;
+  background-image: none;
+  background-color: @BEZEL@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @BEZEL_EDGE@, 0 1px 1px @SHADE@;
+  text-shadow: none;
+}
+
+dialog button:not(.flat):not(.titlebutton):not(.suggested-action):not(.destructive-action):active,
+.dialog-action-area button:not(.suggested-action):not(.destructive-action):active,
+combobox > box > button:active {
+  background-color: @BEZEL_PRESS@;
+}
+
+button.suggested-action,
+button.default {
+  border: none;
+  border-radius: 6px;
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
+  background-color: @ACCENT@;
+  color: #ffffff;
+  box-shadow: 0 1px 1px @SHADE@;
+  text-shadow: none;
+}
+
+button.suggested-action:backdrop:not(:disabled) {
+  background-image: none;
+  background-color: @BEZEL@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @BEZEL_EDGE@;
+}
+
+button.suggested-action:disabled {
+  background-image: none;
+  background-color: alpha(@BEZEL@, 0.6);
+  color: @FG_DISABLED@;
+}
+
+entry {
+  min-height: 22px;
+  border-radius: 5px;
+  border: none;
+  background-image: none;
+  background-color: @FIELD@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @FIELD_EDGE@;
+}
+
+entry:focus {
+  box-shadow: inset 0 0 0 1px alpha(@ACCENT@, 0.6), 0 0 0 3px alpha(@ACCENT@, 0.5);
+}
+
+entry selection,
+label selection,
+textview text selection {
+  background-color: alpha(@ACCENT@, 0.35);
+  color: @FG@;
+}
+
+switch {
+  min-width: 32px;
+  min-height: 18px;
+  border: none;
+  border-radius: 9px;
+  padding: 0;
+  background-image: none;
+  background-color: @TRACK@;
+  box-shadow: none;
+  font-size: 0;
+}
+
+switch:checked {
+  background-color: @ACCENT@;
+}
+
+switch slider {
+  min-width: 16px;
+  min-height: 16px;
+  margin: 1px;
+  border: none;
+  border-radius: 9999px;
+  background-image: none;
+  background-color: @KNOB@;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+check,
+radio {
+  min-width: 14px;
+  min-height: 14px;
+  border: none;
+  background-image: none;
+  background-color: @FIELD@;
+  box-shadow: inset 0 0 0 1px @FIELD_EDGE@;
+  color: transparent;
+  -gtk-icon-shadow: none;
+}
+
+check {
+  border-radius: 4px;
+}
+
+radio {
+  border-radius: 9999px;
+}
+
+check:checked,
+check:indeterminate,
+radio:checked {
+  background-color: @ACCENT@;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+menu check,
+menu radio,
+menuitem check,
+menuitem radio {
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+scale trough {
+  min-height: 4px;
+  min-width: 4px;
+  border: none;
+  border-radius: 2px;
+  background-color: @TRACK@;
+}
+
+scale highlight {
+  border: none;
+  border-radius: 2px;
+  background-image: none;
+  background-color: @ACCENT@;
+}
+
+scale slider {
+  min-width: 20px;
+  min-height: 20px;
+  margin: -8px;
+  border: none;
+  border-radius: 9999px;
+  background-image: none;
+  background-color: @KNOB@;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+progressbar trough {
+  min-height: 6px;
+  border: none;
+  border-radius: 3px;
+  background-color: @TRACK@;
+}
+
+progressbar progress {
+  min-height: 6px;
+  border: none;
+  border-radius: 3px;
+  background-image: none;
+  background-color: @ACCENT@;
+}
+
+placessidebar row,
+.sidebar row {
+  min-height: 26px;
+  margin: 0 8px 1px 8px;
+  border-radius: 6px;
+}
+
+tooltip.background {
+  border-radius: 6px;
+  background-color: @MENU@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @BORDER@;
+}
+
+tooltip * {
+  color: @FG@;
+}

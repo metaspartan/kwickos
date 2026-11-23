@@ -24,3 +24,10 @@
 @RED@ #ff3b30
 @ORANGE@ #ff9500
 @GREEN@ #28cd41
+@BEZEL@ #ffffff
+@BEZEL_PRESS@ #e5e5e5
+@BEZEL_EDGE@ rgba(0, 0, 0, 0.13)
+@FIELD@ #ffffff
+@FIELD_EDGE@ rgba(0, 0, 0, 0.18)
+@TRACK@ rgba(0, 0, 0, 0.1)
+@KNOB@ #ffffff

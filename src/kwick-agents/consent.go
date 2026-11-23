@@ -274,7 +274,10 @@ func requestConsent(agent, client, cap, detail string) (bool, string) {
 		who = who + " (" + client + ")"
 	}
 	text := fmt.Sprintf("The AI agent %s asks to: %s.\n\n%s\n\nCapability: %s", who, strings.ToLower(c.Description[:1])+c.Description[1:], detail, cap)
-	ans, ok := askDialog("KwickOS: allow an AI agent?", text)
+	ans, ok := askNative(consentTitle, who, cap, c.Description, detail)
+	if !ok {
+		ans, ok = askDialog(consentTitle, text)
+	}
 	if !ok {
 		wait := 90 * time.Second
 		if os.Getenv("KWICK_AGENTS_CONSENT_WAIT") != "" {

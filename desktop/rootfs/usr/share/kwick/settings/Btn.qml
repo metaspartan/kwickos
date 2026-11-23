@@ -10,10 +10,12 @@ Rectangle {
     implicitWidth: label.implicitWidth + 28
     implicitHeight: 30
     radius: 8
-    opacity: enabled ? 1 : 0.4
-    color: primary ? (area.pressed ? Qt.darker(Theme.accent, 1.2) : area.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent)
-                   : (area.pressed ? Theme.controlPressed : area.containsMouse ? Theme.controlHover : Theme.control)
-    border.width: Theme.light && !primary ? 1 : 0
+    readonly property bool filled: primary && enabled
+    readonly property color ink: !enabled ? Theme.faint : danger ? Theme.bad : filled ? "#ffffff" : Theme.controlText
+    color: !enabled ? Theme.control
+                    : filled ? (area.pressed ? Qt.darker(Theme.accent, 1.2) : area.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent)
+                    : (area.pressed ? Theme.controlPressed : area.containsMouse ? Theme.controlHover : Theme.control)
+    border.width: Theme.light && !filled ? 1 : 0
     border.color: Theme.lineStrong
 
     property string chevron: ""
@@ -24,7 +26,7 @@ Rectangle {
         anchors.centerIn: parent
         width: 12
         height: 12
-        property color ink: b.danger ? Theme.bad : b.primary ? "#ffffff" : Theme.controlText
+        property color ink: b.ink
         onInkChanged: requestPaint()
         onPaint: {
             const ctx = getContext("2d");
@@ -52,7 +54,7 @@ Rectangle {
         visible: b.chevron === ""
         anchors.centerIn: parent
         text: b.text
-        color: b.danger ? Theme.bad : b.primary ? "#ffffff" : Theme.controlText
+        color: b.ink
         font.family: Theme.sans
         font.pixelSize: 13
         font.weight: Font.Medium

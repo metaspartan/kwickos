@@ -171,3 +171,311 @@ button.link:visited,
 button.link > label {
   color: @LINK@;
 }
+
+button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down),
+dropdown > button,
+combobox > box > button,
+menubutton:not(.flat) > button {
+  min-height: 22px;
+  padding: 1px 12px;
+  border-radius: 6px;
+  font-weight: normal;
+  background-color: @BEZEL@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @BEZEL_EDGE@, 0 1px 1px @SHADE@;
+}
+
+button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):active,
+button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):checked,
+dropdown > button:active,
+menubutton:not(.flat) > button:active {
+  background-color: @BEZEL_PRESS@;
+}
+
+button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):disabled {
+  background-color: alpha(@BEZEL@, 0.6);
+  color: @FG_DISABLED@;
+  box-shadow: inset 0 0 0 1px alpha(@BEZEL_EDGE@, 0.6);
+}
+
+headerbar button:not(.suggested-action):not(.destructive-action),
+.toolbar button:not(.suggested-action):not(.destructive-action),
+searchbar button,
+.linked > button,
+splitbutton > button,
+splitbutton > menubutton > button,
+tabbar button,
+actionbar button:not(.suggested-action):not(.destructive-action) {
+  box-shadow: none;
+}
+
+headerbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down),
+.toolbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down),
+headerbar menubutton > button,
+headerbar dropdown > button {
+  min-height: 24px;
+  padding: 2px 6px;
+  box-shadow: none;
+  background-color: transparent;
+}
+
+headerbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):hover,
+.toolbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):hover,
+headerbar menubutton > button:hover {
+  background-color: alpha(currentColor, 0.08);
+}
+
+headerbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):active,
+headerbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):checked,
+.toolbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):active,
+.toolbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):checked,
+headerbar menubutton > button:active,
+headerbar menubutton > button:checked {
+  background-color: alpha(currentColor, 0.14);
+}
+
+button.suggested-action,
+button.default {
+  min-height: 22px;
+  padding: 1px 12px;
+  border-radius: 6px;
+  font-weight: normal;
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
+  background-color: @ACCENT@;
+  color: #ffffff;
+  box-shadow: 0 1px 1px @SHADE@;
+}
+
+button.suggested-action:active {
+  background-image: none;
+  background-color: shade(@ACCENT@, 0.88);
+}
+
+button.suggested-action:disabled,
+button.default:disabled {
+  background-image: none;
+  background-color: alpha(@BEZEL@, 0.6);
+  color: @FG_DISABLED@;
+  box-shadow: inset 0 0 0 1px alpha(@BEZEL_EDGE@, 0.6);
+}
+
+button.suggested-action:backdrop:not(:disabled) {
+  background-image: none;
+  background-color: @BEZEL@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @BEZEL_EDGE@, 0 1px 1px @SHADE@;
+}
+
+button.destructive-action {
+  font-weight: normal;
+  border-radius: 6px;
+}
+
+button.pill {
+  font-weight: normal;
+}
+
+button:focus-visible,
+dropdown > button:focus-visible,
+check:focus-visible,
+radio:focus-visible,
+switch:focus-visible,
+scale:focus-visible slider {
+  outline: 3px solid alpha(@ACCENT@, 0.5);
+  outline-offset: 0;
+}
+
+entry,
+spinbutton,
+.entry {
+  min-height: 22px;
+  border-radius: 5px;
+  background-color: @FIELD@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @FIELD_EDGE@;
+}
+
+entry:focus-within,
+spinbutton:focus-within {
+  outline: 3px solid alpha(@ACCENT@, 0.5);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 1px alpha(@ACCENT@, 0.6);
+}
+
+entry:disabled,
+spinbutton:disabled {
+  background-color: alpha(@FIELD@, 0.5);
+  color: @FG_DISABLED@;
+}
+
+entry > text > selection,
+text > selection,
+label > selection {
+  background-color: alpha(@ACCENT@, 0.35);
+  color: @FG@;
+}
+
+searchbar entry,
+headerbar entry {
+  border-radius: 7px;
+}
+
+spinbutton > button {
+  box-shadow: none;
+  background-color: transparent;
+}
+
+switch {
+  min-width: 32px;
+  min-height: 18px;
+  padding: 0;
+  border-radius: 9px;
+  border: none;
+  background-color: @TRACK@;
+  box-shadow: inset 0 0 0 1px @RIM@;
+}
+
+switch:checked {
+  background-color: @ACCENT@;
+  box-shadow: none;
+}
+
+switch > slider {
+  min-width: 16px;
+  min-height: 16px;
+  margin: 1px;
+  border-radius: 9999px;
+  background-color: @KNOB@;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+switch:disabled {
+  opacity: 0.45;
+}
+
+check,
+radio {
+  min-width: 14px;
+  min-height: 14px;
+  margin: 0 6px 0 0;
+  padding: 0;
+  background-color: @FIELD@;
+  box-shadow: inset 0 0 0 1px @FIELD_EDGE@;
+  color: transparent;
+}
+
+check {
+  border-radius: 4px;
+}
+
+radio {
+  min-width: 16px;
+  min-height: 16px;
+  border-radius: 9999px;
+}
+
+check:checked,
+check:indeterminate,
+radio:checked {
+  background-color: @ACCENT@;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+check:disabled,
+radio:disabled {
+  opacity: 0.45;
+}
+
+scale > trough {
+  min-height: 4px;
+  min-width: 4px;
+  border-radius: 2px;
+  background-color: @TRACK@;
+}
+
+scale > trough > highlight {
+  border-radius: 2px;
+  background-color: @ACCENT@;
+}
+
+scale > trough > slider {
+  min-width: 20px;
+  min-height: 20px;
+  margin: -8px;
+  border-radius: 9999px;
+  background-color: @KNOB@;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+progressbar > trough {
+  min-height: 6px;
+  border-radius: 3px;
+  background-color: @TRACK@;
+}
+
+progressbar > trough > progress {
+  min-height: 6px;
+  border-radius: 3px;
+  background-color: @ACCENT@;
+}
+
+.navigation-sidebar > row,
+.sidebar-pane .navigation-sidebar > row,
+placessidebar row {
+  min-height: 28px;
+  margin: 0 8px 1px 8px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+.boxed-list,
+.boxed-list-separate > row,
+list.content,
+.card {
+  border-radius: 10px;
+}
+
+.boxed-list > row,
+list.content > row {
+  min-height: 38px;
+}
+
+preferencesgroup > box > label.heading,
+preferencesgroup .header .heading {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+popover > contents,
+popover.background > contents {
+  border-radius: 12px;
+}
+
+dialog.alert .heading,
+.message-dialog .heading {
+  font-weight: bold;
+}
+
+tooltip.background {
+  border-radius: 6px;
+  background-color: @MENU@;
+  color: @FG@;
+  box-shadow: inset 0 0 0 1px @BORDER@;
+}
+
+row.action-row > box.header,
+row.combo > box.header,
+row.switch > box.header {
+  min-height: 38px;
+}
+
+radio:checked {
+  -gtk-icon-size: 6px;
+}
+
+headerbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):disabled,
+.toolbar button:not(.flat):not(.circular):not(.osd):not(.titlebutton):not(.suggested-action):not(.destructive-action):not(.opaque):not(.pill):not(.close):not(.minimize):not(.maximize):not(.restore):not(.up):not(.down):disabled {
+  background-color: transparent;
+  box-shadow: none;
+}

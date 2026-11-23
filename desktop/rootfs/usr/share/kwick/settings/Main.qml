@@ -145,10 +145,16 @@ ApplicationWindow {
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { policy: navFlick.contentHeight > navFlick.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
+                    function reveal(it) {
+                        if (it.y < contentY)
+                            contentY = it.y
+                        else if (it.y + it.height > contentY + height)
+                            contentY = Math.min(it.y + it.height - height, Math.max(0, contentHeight - height))
+                    }
                     ColumnLayout {
                         id: navCol
                         width: navFlick.width
-                        spacing: 4
+                        spacing: 2
                         Repeater {
                             model: win.pages
                             delegate: Rectangle {
@@ -157,21 +163,23 @@ ApplicationWindow {
                                 required property int index
                                 readonly property bool on: win.current === index
                                 Layout.fillWidth: true
-                                Layout.topMargin: index === 4 || modelData.name === "About" ? 14 : 0
+                                Layout.topMargin: index === 4 || modelData.name === "About" ? 10 : 0
                                 visible: win.query === "" || modelData.name.toLowerCase().indexOf(win.query) >= 0 || win.matches(modelData, win.query)
-                                implicitHeight: 40
-                                radius: 9
+                                implicitHeight: 30
+                                radius: 6
                                 color: on ? Theme.selection : hover.containsMouse ? Theme.hover : "transparent"
+                                onOnChanged: if (on) Qt.callLater(navFlick.reveal, item)
+                                Component.onCompleted: if (on) Qt.callLater(navFlick.reveal, item)
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 8
-                                    spacing: 11
+                                    anchors.leftMargin: 6
+                                    spacing: 8
                                     Image {
-                                        Layout.preferredWidth: 28
-                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: 20
+                                        Layout.preferredHeight: 20
                                         source: "icons/obj-" + item.modelData.icon + ".svg"
-                                        sourceSize.width: 112
-                                        sourceSize.height: 112
+                                        sourceSize.width: 64
+                                        sourceSize.height: 64
                                     }
                                     Text {
                                         Layout.fillWidth: true
@@ -179,10 +187,10 @@ ApplicationWindow {
                                         color: item.on ? "#ffffff" : Theme.text
                                         font.family: Theme.sans
                                         font.pixelSize: 13
-                                        font.weight: item.on ? Font.Medium : Font.Normal
+                                        elide: Text.ElideRight
                                     }
                                 }
-                                MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { win.sub = ""; win.current = item.index } }
+                                MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true; onClicked: { win.sub = ""; win.current = item.index } }
                             }
                         }
                     }

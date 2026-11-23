@@ -24,3 +24,10 @@
 @RED@ #ff453a
 @ORANGE@ #ff9f0a
 @GREEN@ #32d74b
+@BEZEL@ rgba(255, 255, 255, 0.25)
+@BEZEL_PRESS@ rgba(255, 255, 255, 0.36)
+@BEZEL_EDGE@ rgba(255, 255, 255, 0.06)
+@FIELD@ rgba(255, 255, 255, 0.05)
+@FIELD_EDGE@ rgba(255, 255, 255, 0.14)
+@TRACK@ rgba(255, 255, 255, 0.16)
+@KNOB@ #ececec
