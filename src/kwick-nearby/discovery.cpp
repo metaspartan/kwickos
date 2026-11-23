@@ -24,6 +24,23 @@ QString peerFingerprint(QNetworkReply *reply)
     return Identity::fingerprintOf(reply->sslConfiguration().peerCertificate());
 }
 
+void pin(QNetworkReply *reply, const QString &expected)
+{
+    QPointer<QNetworkReply> guard(reply);
+    QObject::connect(reply, &QNetworkReply::encrypted, reply, [guard, expected]() {
+        if (guard && peerFingerprint(guard).compare(expected, Qt::CaseInsensitive) != 0) {
+            qWarning("kwick-nearby: certificate of %s does not match its fingerprint", qPrintable(guard->url().host()));
+            guard->setProperty("kwickPinFailed", true);
+            guard->abort();
+        }
+    });
+}
+
+bool pinFailed(QNetworkReply *reply)
+{
+    return reply->property("kwickPinFailed").toBool();
+}
+
 QNetworkReply *post(QNetworkAccessManager *nam, const QSslConfiguration &tls, const QString &target, const QByteArray &body, const QString &expected, int timeoutMs)
 {
     QNetworkRequest request{QUrl(target)};
@@ -36,13 +53,7 @@ QNetworkReply *post(QNetworkAccessManager *nam, const QSslConfiguration &tls, co
     }
     QNetworkReply *reply = nam->post(request, body);
     if (!expected.isEmpty() && target.startsWith(QLatin1String("https:"))) {
-        QPointer<QNetworkReply> guard(reply);
-        QObject::connect(reply, &QNetworkReply::encrypted, reply, [guard, expected]() {
-            if (guard && peerFingerprint(guard).compare(expected, Qt::CaseInsensitive) != 0) {
-                qWarning("kwick-nearby: certificate of %s does not match its fingerprint", qPrintable(guard->url().host()));
-                guard->abort();
-            }
-        });
+        pin(reply, expected);
     }
     return reply;
 }
@@ -180,7 +191,7 @@ void Discovery::readPending()
         }
         const bool isAnnounce = o.value(QLatin1String("announce")).toBool(o.value(QLatin1String("announcement")).toBool());
         if (isAnnounce) {
-            if (shouldAnswer && shouldAnswer(d.fingerprint)) {
+            if (shouldAnswer && shouldAnswer(d)) {
                 registerWith(ip, d.port, d.protocol, d.protocol == QLatin1String("https") ? d.fingerprint : QString(), true);
             }
         } else {
@@ -217,6 +228,7 @@ void Discovery::registerWith(const QString &ip, quint16 port, const QString &pro
                     return;
                 }
                 d.fingerprint = cert;
+                d.verified = true;
             }
             if (!d.fingerprint.isEmpty() && d.fingerprint.compare(m_self.fingerprint, Qt::CaseInsensitive) != 0) {
                 Q_EMIT found(d);
@@ -288,6 +300,7 @@ void Discovery::pumpScan()
                 d.port = Protocol::Port;
                 d.protocol = QStringLiteral("https");
                 d.fingerprint = Http::peerFingerprint(reply);
+                d.verified = true;
                 if (!d.fingerprint.isEmpty() && d.fingerprint.compare(m_self.fingerprint, Qt::CaseInsensitive) != 0) {
                     Q_EMIT found(d);
                 }

@@ -44,6 +44,7 @@ public:
     qint64 total = 0;
     int filesDone = 0;
     int filesTotal = 0;
+    bool contact = false;
 
 Q_SIGNALS:
     void changed();

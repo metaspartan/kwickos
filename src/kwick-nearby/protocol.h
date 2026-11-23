@@ -24,6 +24,7 @@ struct Device
     quint16 port = Protocol::Port;
     QString protocol = QStringLiteral("https");
     bool download = false;
+    bool verified = false;
     qint64 seen = 0;
 
     static Device fromJson(const QJsonObject &o, const QString &ip);

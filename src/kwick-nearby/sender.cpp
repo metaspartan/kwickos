@@ -145,6 +145,11 @@ void Transfer::start(const QString &pin)
         q.addQueryItem(QStringLiteral("pin"), pin);
         url += QLatin1Char('?') + q.toString(QUrl::FullyEncoded);
     }
+    if (target.protocol != QLatin1String("https") && contact) {
+        qWarning("kwick-nearby: refusing to send to known device %s over unencrypted HTTP", qPrintable(target.ip));
+        setState(QStringLiteral("failed"), QStringLiteral("Not verified"));
+        return;
+    }
     setState(QStringLiteral("waiting"));
     const QString expected = target.protocol == QLatin1String("https") ? target.fingerprint : QString();
     m_reply = Http::post(m_nam, m_tls, url, prepareBody(), expected, 150000);
@@ -155,6 +160,10 @@ void Transfer::start(const QString &pin)
             m_reply = nullptr;
         }
         if (state == QLatin1String("cancelled")) {
+            return;
+        }
+        if (Http::pinFailed(reply)) {
+            setState(QStringLiteral("failed"), QStringLiteral("Certificate mismatch"));
             return;
         }
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -190,7 +199,8 @@ void Transfer::start(const QString &pin)
         if (status == 401) {
             setState(QStringLiteral("pin"), m_pin.isEmpty() ? QString() : QStringLiteral("Wrong PIN"));
         } else if (status == 403) {
-            setState(QStringLiteral("declined"));
+            const QString reason = QJsonDocument::fromJson(reply->readAll()).object().value(QLatin1String("message")).toString();
+            setState(QStringLiteral("declined"), reason.startsWith(QLatin1String("Known devices only")) ? QStringLiteral("Known devices only") : QString());
         } else if (status == 409) {
             setState(QStringLiteral("busy"));
         } else if (status == 429) {
@@ -255,12 +265,7 @@ void Transfer::uploadNext()
     m_reply = reply;
     const qint64 itemSize = item.size;
     if (target.protocol == QLatin1String("https") && !target.fingerprint.isEmpty()) {
-        const QString expected = target.fingerprint;
-        connect(reply, &QNetworkReply::encrypted, reply, [reply, expected]() {
-            if (Http::peerFingerprint(reply).compare(expected, Qt::CaseInsensitive) != 0) {
-                reply->abort();
-            }
-        });
+        Http::pin(reply, target.fingerprint);
     }
     connect(reply, &QNetworkReply::uploadProgress, this, [this](qint64 bytes, qint64) {
         sent = m_doneBytes + bytes;
@@ -272,6 +277,10 @@ void Transfer::uploadNext()
             m_reply = nullptr;
         }
         if (state != QLatin1String("sending")) {
+            return;
+        }
+        if (Http::pinFailed(reply)) {
+            setState(QStringLiteral("failed"), QStringLiteral("Certificate mismatch"));
             return;
         }
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -295,6 +304,9 @@ void Transfer::cancel()
     setState(QStringLiteral("cancelled"));
     if (m_reply) {
         m_reply->abort();
+    }
+    if (target.protocol != QLatin1String("https") && contact) {
+        return;
     }
     QString url = Http::url(target, QStringLiteral("cancel"));
     if (hadSession) {

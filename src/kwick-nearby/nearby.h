@@ -103,7 +103,7 @@ private:
     SelfInfo selfInfo() const;
     QString effectiveVisibility() const;
     bool visibleTo(const QString &fingerprint) const;
-    int uploadPolicy(const Device &sender, const QString &certFingerprint) const;
+    QString uploadRefusal(const QString &certFingerprint) const;
     void addDevice(const Device &device);
     void openSheet(const QStringList &paths, const QString &text, bool compose);
     void setItems(const QStringList &paths);

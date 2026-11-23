@@ -536,7 +536,8 @@ void Server::handle(Connection *c)
     if (route == QLatin1String("register") && c->method == QLatin1String("POST")) {
         const QJsonObject o = QJsonDocument::fromJson(c->body).object();
         Device d = Device::fromJson(o, c->ip);
-        if (!c->certFingerprint.isEmpty()) {
+        d.verified = !c->certFingerprint.isEmpty();
+        if (d.verified) {
             d.fingerprint = c->certFingerprint;
         }
         if (d.fingerprint.isEmpty()) {
@@ -547,7 +548,7 @@ void Server::handle(Connection *c)
             respondJson(c, 412, message(QStringLiteral("Self-discovered")));
             return;
         }
-        if (allowRegister && !allowRegister(d.fingerprint)) {
+        if (allowRegister && !allowRegister(c->certFingerprint)) {
             respondJson(c, 403, message(QStringLiteral("Not visible")));
             return;
         }
@@ -605,13 +606,12 @@ void Server::prepareUpload(Connection *c)
         return;
     }
     Device sender = Device::fromJson(info, c->ip);
-    if (!c->certFingerprint.isEmpty()) {
-        sender.fingerprint = c->certFingerprint;
-    }
-    if (allowUpload) {
-        const int status = allowUpload(sender, c->certFingerprint);
-        if (status != 0) {
-            respondJson(c, status, message(QStringLiteral("Rejected")));
+    sender.verified = !c->certFingerprint.isEmpty();
+    sender.fingerprint = c->certFingerprint;
+    if (refuseUpload) {
+        const QString refusal = refuseUpload(c->certFingerprint);
+        if (!refusal.isEmpty()) {
+            respondJson(c, 403, message(refusal));
             return;
         }
     }

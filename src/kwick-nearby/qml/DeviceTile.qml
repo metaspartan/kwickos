@@ -16,7 +16,7 @@ Item {
         case "waiting": return "Waiting…"
         case "sending": return "Sending " + device.detail
         case "done": return "Sent"
-        case "declined": return "Declined"
+        case "declined": return device.detail !== "" ? device.detail : "Declined"
         case "busy": return "Busy"
         case "failed": return device.detail !== "" ? device.detail : "Failed"
         case "cancelled": return "Cancelled"

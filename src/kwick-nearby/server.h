@@ -73,7 +73,7 @@ public:
     void cancelIncoming(const QString &sessionId);
 
     std::function<bool(const QString &fingerprint)> allowRegister;
-    std::function<int(const Device &sender, const QString &certFingerprint)> allowUpload;
+    std::function<QString(const QString &certFingerprint)> refuseUpload;
 
     void handle(Connection *connection);
     int beginUpload(Connection *connection);

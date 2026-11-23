@@ -38,8 +38,17 @@ Wi-Fi access points do this), the sheet scans the local /24 over HTTPS after a f
   open), started per session from XDG autostart (KDE, GNOME) or `exec-once` (Hyprland, sway).
 * Each user has a self-signed RSA-2048 certificate in `~/.local/share/kwick/nearby/` (key mode 0600). Its SHA-256
   fingerprint is the device identity, as in LocalSend. When sending, the receiver's certificate must match the
-  fingerprint it announced, otherwise the connection is dropped. Senders that present a TLS client certificate are
-  identified by it, so a known device cannot be impersonated by copying its announced fingerprint.
+  fingerprint it announced, otherwise the transfer fails with *Certificate mismatch*. A known device is only ever sent
+  to over HTTPS; one that announces `"protocol":"http"` fails with *Not verified*.
+* Fingerprints are broadcast in the clear, so a fingerprint in a JSON body or announcement proves nothing. A device is
+  marked known only after its own certificate was checked: its server certificate when Nearby Share connects to it
+  over HTTPS, or the TLS client certificate it presents when it connects. Devices seen only through an announcement,
+  or over plain HTTP, are listed as new devices.
+* **Known Devices Only** accepts a request only when the sender's TLS client certificate matches a known device.
+  Senders without a client certificate get `403` with *Known devices only: the sender presented no TLS client
+  certificate*, unknown certificates get `403` with *Known devices only: the sender's certificate is not a known
+  device*. A sender is remembered after **Accept** only when it presented a client certificate, so LocalSend apps
+  that don't present one can send in **Everyone** mode but never become known devices.
 * Uploads are accepted only with the per-file token from an accepted session and only from the sender's address.
   File names are reduced to safe relative paths inside the receive folder (no `..`, no absolute paths, no hidden
   names), existing files are never overwritten, partial files are deleted on failure, and the free space is checked

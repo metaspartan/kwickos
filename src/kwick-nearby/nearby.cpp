@@ -101,8 +101,8 @@ Nearby::Nearby(QObject *parent)
     m_discovery = new Discovery(m_nam, this);
 
     m_server->allowRegister = [this](const QString &fp) { return visibleTo(fp); };
-    m_server->allowUpload = [this](const Device &sender, const QString &cert) { return uploadPolicy(sender, cert); };
-    m_discovery->shouldAnswer = [this](const QString &fp) { return visibleTo(fp); };
+    m_server->refuseUpload = [this](const QString &cert) { return uploadRefusal(cert); };
+    m_discovery->shouldAnswer = [this](const Device &d) { return m_sheet || effectiveVisibility() == QLatin1String("everyone") || (d.protocol == QLatin1String("https") && visibleTo(d.fingerprint)); };
 
     connect(m_server, &Server::registered, this, &Nearby::addDevice);
     connect(m_discovery, &Discovery::found, this, &Nearby::addDevice);
@@ -307,17 +307,19 @@ bool Nearby::visibleTo(const QString &fingerprint) const
     return false;
 }
 
-int Nearby::uploadPolicy(const Device &sender, const QString &certFingerprint) const
+QString Nearby::uploadRefusal(const QString &certFingerprint) const
 {
     const QString v = effectiveVisibility();
     if (v == QLatin1String("everyone")) {
-        return 0;
+        return {};
     }
     if (v == QLatin1String("contacts")) {
-        const QString fp = certFingerprint.isEmpty() ? sender.fingerprint : certFingerprint;
-        return m_settings.isKnown(fp) ? 0 : 403;
+        if (certFingerprint.isEmpty()) {
+            return QStringLiteral("Known devices only: the sender presented no TLS client certificate");
+        }
+        return m_settings.isKnown(certFingerprint) ? QString() : QStringLiteral("Known devices only: the sender's certificate is not a known device");
     }
-    return 403;
+    return QStringLiteral("Not receiving");
 }
 
 bool Nearby::wantNetwork() const
@@ -648,6 +650,18 @@ void Nearby::addDevice(const Device &device)
     d.seen = QDateTime::currentMSecsSinceEpoch();
     const bool fresh = !m_devices.contains(key);
     const Device old = m_devices.value(key);
+    if (!d.verified) {
+        const bool moved = old.ip != d.ip || old.port != d.port || old.protocol != d.protocol;
+        if (d.protocol == QLatin1String("https") && m_settings.isKnown(key) && (fresh || !old.verified || moved)) {
+            m_discovery->registerWith(d.ip, d.port, d.protocol, key, false);
+        }
+        if (!fresh && old.verified) {
+            if (moved) {
+                return;
+            }
+            d.verified = true;
+        }
+    }
     m_devices.insert(key, d);
     if (fresh || old.alias != d.alias || old.ip != d.ip || old.model != d.model) {
         Q_EMIT devicesChanged();
@@ -677,7 +691,7 @@ QVariantList Nearby::devices() const
         m.insert(QStringLiteral("model"), model);
         m.insert(QStringLiteral("type"), d.type);
         m.insert(QStringLiteral("ip"), d.ip);
-        m.insert(QStringLiteral("known"), m_settings.isKnown(key));
+        m.insert(QStringLiteral("known"), d.verified && d.protocol == QLatin1String("https") && m_settings.isKnown(key));
         const Transfer *t = m_transfers.value(key);
         QString state = QStringLiteral("idle");
         QString detail;
@@ -719,6 +733,7 @@ void Nearby::send(const QString &id)
         return;
     }
     auto *t = new Transfer(m_nam, m_identity.clientConfiguration(), selfInfo(), m_devices.value(id), items, this);
+    t->contact = m_settings.isKnown(id);
     m_transfers.insert(id, t);
     QPointer<Transfer> guard(t);
     connect(t, &Transfer::changed, this, [this, guard]() {
@@ -844,7 +859,7 @@ void Nearby::openSettings()
 void Nearby::onRequest(const QString &sessionId, const Device &sender, const QString &certFingerprint, const QJsonArray &files, qint64 total, bool message)
 {
     refreshTheme();
-    const QString fp = certFingerprint.isEmpty() ? sender.fingerprint : certFingerprint;
+    const QString fp = certFingerprint;
     QVariantList names;
     QStringList kinds;
     static QMimeDatabase db;
@@ -887,7 +902,7 @@ void Nearby::onRequest(const QString &sessionId, const Device &sender, const QSt
     map.insert(QStringLiteral("type"), sender.type);
     map.insert(QStringLiteral("fingerprint"), fp);
     map.insert(QStringLiteral("ip"), sender.ip);
-    map.insert(QStringLiteral("known"), m_settings.isKnown(fp));
+    map.insert(QStringLiteral("known"), !fp.isEmpty() && m_settings.isKnown(fp));
     map.insert(QStringLiteral("count"), count);
     map.insert(QStringLiteral("total"), double(total));
     map.insert(QStringLiteral("title"), title);
@@ -987,9 +1002,11 @@ void Nearby::accept()
     k.type = m_incoming.value(QStringLiteral("type")).toString();
     k.seen = QDateTime::currentMSecsSinceEpoch();
     m_settings.load();
-    m_settings.remember(k);
-    m_settings.save();
-    patchIncoming({{QStringLiteral("state"), QStringLiteral("receiving")}, {QStringLiteral("detail"), QStringLiteral("Waiting for %1…").arg(k.alias)}, {QStringLiteral("known"), true}});
+    if (!fp.isEmpty()) {
+        m_settings.remember(k);
+        m_settings.save();
+    }
+    patchIncoming({{QStringLiteral("state"), QStringLiteral("receiving")}, {QStringLiteral("detail"), QStringLiteral("Waiting for %1…").arg(k.alias)}, {QStringLiteral("known"), !fp.isEmpty()}});
     m_server->accept(id, m_settings.folder);
 }
 
