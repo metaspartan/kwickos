@@ -119,10 +119,60 @@ PlasmoidItem {
         tasksModel.requestActivate(idx);
     }
 
+    readonly property real menuItemHeight: 22
+    readonly property real menuSeparatorHeight: 13
+    readonly property real menuPadding: 5.5
+    readonly property real menuTextMargin: 42
+
+    function menuWidth(menu) {
+        let widest = 0;
+        for (let i = 0; i < menu.content.length; ++i) {
+            const entry = menu.content[i];
+            if (entry.visible && !entry.separator) {
+                menuMetrics.text = entry.text;
+                widest = Math.max(widest, menuMetrics.advanceWidth);
+            }
+        }
+        return Math.ceil(widest + menuTextMargin);
+    }
+
+    function menuHeight(menu) {
+        let h = 2 * menuPadding;
+        for (let i = 0; i < menu.content.length; ++i) {
+            const entry = menu.content[i];
+            if (entry.visible) {
+                h += entry.separator ? menuSeparatorHeight : menuItemHeight;
+            }
+        }
+        return h;
+    }
+
+    function popupMenu(menu, item) {
+        const w = menuWidth(menu);
+        const p = item.mapToItem(root, 0, 0);
+        menu.minimumWidth = w;
+        menu.maximumWidth = w;
+        if (vertical) {
+            const h = menuHeight(menu);
+            menuAnchor.x = p.x;
+            menuAnchor.y = p.y + item.height / 2 - h / 2;
+            menuAnchor.width = item.width;
+            menuAnchor.height = h;
+            menu.placement = edge === PlasmaCore.Types.LeftEdge ? PlasmaExtras.Menu.RightPosedTopAlignedPopup : PlasmaExtras.Menu.LeftPosedTopAlignedPopup;
+        } else {
+            menuAnchor.x = p.x + item.width / 2 - w / 2;
+            menuAnchor.y = p.y;
+            menuAnchor.width = w;
+            menuAnchor.height = item.height;
+            menu.placement = edge === PlasmaCore.Types.TopEdge ? PlasmaExtras.Menu.BottomPosedLeftAlignedPopup : PlasmaExtras.Menu.TopPosedLeftAlignedPopup;
+        }
+        menu.visualParent = menuAnchor;
+        menu.openRelative();
+    }
+
     function openMenu(task) {
         menuTask = task;
-        taskMenu.visualParent = task;
-        taskMenu.openRelative();
+        popupMenu(taskMenu, task);
     }
 
     property Item panelRoot: null
@@ -283,6 +333,15 @@ PlasmoidItem {
             rightPadding: 4
             font.weight: Font.Medium
         }
+    }
+
+    Item {
+        id: menuAnchor
+    }
+
+    TextMetrics {
+        id: menuMetrics
+        font: Qt.application.font
     }
 
     PlasmaExtras.Menu {
@@ -563,8 +622,7 @@ PlasmoidItem {
                 onExited: root.clearHover(trash)
                 onClicked: mouseEvent => {
                     if (mouseEvent.button === Qt.RightButton) {
-                        trashMenu.visualParent = trash;
-                        trashMenu.openRelative();
+                        root.popupMenu(trashMenu, trash);
                     } else {
                         Qt.openUrlExternally("trash:/");
                     }
