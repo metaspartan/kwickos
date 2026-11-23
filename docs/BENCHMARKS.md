@@ -2,128 +2,166 @@
 
 ![comparison](img/comparison.png)
 
-## Current summary
+Every figure on this page, in the README and on the website comes from one file,
+[`bench/results/summary.json`](../bench/results/summary.json). Each figure there names the raw output file in
+[`bench/results/`](../bench/results) it was read from, and those files are the unedited output of the scripts in `bench/`.
 
-The latest measurements against Alpine 3.24.4. These are the numbers the README and the site quote.
+## Summary
 
-| | Alpine 3.24.4 | **KwickOS** |
-|---|---:|---:|
-| container image (uncompressed / gzip) | 8.43 / 3.72 MB | **6.21 / 2.91 MB** |
-| memory of a `sh` in a container (anon + page tables) | 84-88 KiB | **56-60 KiB** |
-| VM boot to shell prompt (QEMU/KVM, live ISO, wall time) | 3.23 s | **1.04 s** |
-| guest boot time at shell (`/proc/uptime`) | 2.81 s | **0.66 s** (0.20 s as microVM) |
-| memory in use after boot | 66.1 MiB | **37.8 MiB** |
-| live ISO | 70 MB | **53 MB** (generic kernel and modules) |
-| packages available | ~20k (musl) | **~69k (Debian 13, glibc)** |
+KwickOS 0.7.0 (release `v0.7.0-k7.3.5`, kernel 7.3.5) against Alpine 3.24.4, measured on 2026-11-23. The better result of each
+row is in bold.
 
-The detailed tables below are from the first full run with KwickOS 0.1.0. The base has grown since (the container image went from
-5.53 MB to 6.21 MB), so their absolute numbers are older than the summary above; the method is unchanged.
+<!-- bench:summary -->
+| | Alpine 3.24.4 | KwickOS 0.7.0 | conditions | raw output |
+|---|---:|---:|---|---|
+| container image, uncompressed / gzip | 8.43 / 3.72 MB | **6.63 / 3.06 MB** | `docker image inspect` and `docker save \| gzip`, amd64. Alpine's image includes OpenSSL and a CA bundle; the KwickOS base has neither | [2026-11-23-container.txt](../bench/results/2026-11-23-container.txt) |
+| live ISO boot to shell prompt | 4.0 s (3.6-6.4) | **1.7 s (1.5-2.4)** | median (range) of 10 runs, wall time from QEMU start; QEMU/KVM q35, 2 vCPU, 512 MiB; each release ISO with its own kernel (KwickOS `generic`, Alpine `virt`) | [2026-11-23-vm-1.txt](../bench/results/2026-11-23-vm-1.txt), [2026-11-23-vm-2.txt](../bench/results/2026-11-23-vm-2.txt) |
+| guest boot time at the shell prompt | 3.4 s (3.1-5.4) | **1.3 s (1.0-1.7)** | `/proc/uptime` at the prompt, same runs | [2026-11-23-vm-1.txt](../bench/results/2026-11-23-vm-1.txt), [2026-11-23-vm-2.txt](../bench/results/2026-11-23-vm-2.txt) |
+| microVM boot (`virt` kernel, whole OS in RAM) | no microVM image | 0.32 s guest, 0.67 s wall | QEMU `microvm`, release `kwickos-amd64.efi` and initramfs, median of 10 (guest 0.23-0.69 s, wall 0.47-1.02 s) | [2026-11-23-vm-1.txt](../bench/results/2026-11-23-vm-1.txt), [2026-11-23-vm-2.txt](../bench/results/2026-11-23-vm-2.txt) |
+| memory in use after boot (live ISO) | 62-71 MiB | **50-52 MiB** | `MemTotal - MemAvailable` at the prompt, range of 10 runs. 15 MiB of Alpine's is its root file system held in RAM (shmem); KwickOS reads its root from the ISO (4 MiB shmem). Without shmem the two are about even (Alpine about 49, KwickOS about 47 MiB) | [2026-11-23-vm-1.txt](../bench/results/2026-11-23-vm-1.txt), [2026-11-23-vm-2.txt](../bench/results/2026-11-23-vm-2.txt) |
+| packages available (amd64) | 28,661 (musl) | **68,946 (Debian 13, glibc)** | unique package names in Alpine main + community and in Debian trixie, trixie-updates and trixie-security main, the sources KwickOS's apt uses | [2026-11-23-container.txt](../bench/results/2026-11-23-container.txt) |
+| installed size with curl | **14 MB** | 67 MB (Debian slim: 97 MB) | `du -smx /` after installing, package indexes and caches removed | [2026-11-23-container.txt](../bench/results/2026-11-23-container.txt) |
+| installed size with python3 | **52 MB** | 93 MB (Debian slim: 120 MB) | same | [2026-11-23-container.txt](../bench/results/2026-11-23-container.txt) |
+| live ISO download, amd64 / arm64 / riscv64 | 70.3 / 93.5 / 58.3 MB | 69.0 / 125.9 / 85.6 MB | release file sizes. Alpine `virt` ISOs; riscv64 has only the `standard` ISO. KwickOS ISOs carry the `generic` kernel and its modules | [2026-11-23-artifacts.txt](../bench/results/2026-11-23-artifacts.txt) |
+| memory of a `sh` in a container | 84-92 KiB | **56 KiB** | anon + page tables from the container's `memory.stat`, 5 runs. A real but trivial difference | [2026-11-23-container.txt](../bench/results/2026-11-23-container.txt) |
+<!-- /bench:summary -->
 
-## Method and first full run
+## Reading it honestly
 
-All numbers below were measured on 2026-11-12 with KwickOS 0.1.0 (Linux 7.3.4) on one
-machine: Windows 11 host, Docker Desktop 29.9 on WSL2 (kernel 6.6), 32 threads, and
-QEMU 10.0 with KVM inside a Debian 13 container. Comparison systems are the latest releases
-on that date: **Alpine 3.24.4**, **Debian 13 (trixie-slim)**, and **Ubuntu 24.04**.
+Where KwickOS is ahead:
 
-Reproduce:
+* **The smallest base image.** 21% smaller than Alpine uncompressed and 18% smaller as a pull. Part of that is that the KwickOS
+  base has no TLS library and no CA bundle (kpkg checks packages by their signatures; BusyBox has a small built-in TLS client),
+  while Alpine's image includes OpenSSL and `ca-certificates`. kpkg itself is 4.9 MB of the 6.6 MB.
+* **Faster boot.** The live ISO reaches a shell about 2.3 times sooner than Alpine's `virt` ISO in the same VM. As a microVM
+  (QEMU `microvm`, module-free `virt` kernel, whole OS in RAM) the guest is at a shell in about 0.3 s. Alpine has no microVM
+  image, so that row has no Alpine number.
+* **Less memory after boot, mostly for one reason.** 15 MiB of Alpine's figure is its root file system, which Alpine's live
+  ISO keeps in RAM. Leave shmem out and the two are about even.
+* **The whole Debian archive with glibc.** About 2.4 times as many packages as Alpine main + community, and they are Debian's
+  own binaries: vendor software built for glibc, CUDA, Steam and Electron apps run, and the systemd units Debian packages ship
+  are started by kinit. Alpine's `apk` also works on KwickOS, but its packages are not counted here.
+
+Where Alpine is ahead:
+
+* **Installed footprint.** Debian's packages are built with more features than Alpine's (Debian's curl also links
+  Kerberos, LDAP and RTMP libraries), so with the same software installed Alpine is 1.8 times (python3) to 4.8 times (curl)
+  smaller. KwickOS stays 23 to 31% smaller than Debian slim with the same packages.
+* **ISO size off amd64.** The amd64 ISOs are about the same size; on arm64 and riscv64 Alpine's are 26% and 32% smaller.
+  KwickOS ISOs carry the `generic` kernel and its modules for real hardware.
+* **Security maintenance of the base.** Alpine's base has a dedicated security team. KwickOS's Debian packages get Debian's
+  security updates, but the base (kernel, BusyBox, kinit, kpkg) is maintained by this project. A release is published only after
+  its security check passes: the kernel must be the newest release of its stable branch, `govulncheck` must find nothing
+  reachable in the Go modules, and `grype` must find no fixable High or Critical CVE in the container image. BusyBox's open CVEs
+  are reported, not blocked.
+* **Real hardware.** KwickOS is VM- and container-first. Physical hardware tested so far is one Banana Pi BPI-F3 (riscv64);
+  see [HARDWARE.md](HARDWARE.md).
+
+Not measured: Debian and Ubuntu were compared as containers only, never booted. `docker run` start latency is dominated by
+Docker on this machine and is not claimed. Boot times on real hardware are not claimed.
+
+## Setup
+
+One machine: Windows 11 host, Docker Desktop 29.9 on WSL2 (kernel 6.6), 32 threads, QEMU 10.0.13 with KVM inside the
+`kwick-builder` container. Containers were limited to 6 CPUs, the QEMU processes ran under `nice -n 19`, and only one VM ran at a
+time. Other work was running on the host at the same time, which shows in the spread of the boot times (one Alpine run took
+6.4 s); the medians and ranges below include every run.
+
+Reproduce, then update the published numbers:
 
 ```sh
-bash bench/container.sh kwickos:<tag>                          # needs docker
-docker run --rm --device /dev/kvm -v $PWD:/src -v $PWD/out:/out kwick-builder bash /src/bench/vm.sh 5
+make bench                                         # writes bench/results/DATE-{artifacts,container,vm}.txt
+$EDITOR bench/results/summary.json                 # copy the new figures, point "source" at the new files
+uv run --with matplotlib bench/publish.py          # rewrites the tables in README.md, site/index.html, this page and the chart
 ```
 
-## 1. Virtual machines: boot time and memory
+## 1. Virtual machines
 
-Method (`bench/vm.sh`): each system boots under QEMU/KVM with identical settings
-(q35, 2 vCPU, 512 MiB, virtio-net) and its kernel+initramfs loaded directly by QEMU. The
-script then logs in on the serial console, exactly as a user would. Live systems use their
-ISO as the root medium over virtio-scsi. Measured: wall time from QEMU start to the shell prompt;
-`/proc/uptime` at that prompt; `MemTotal − MemAvailable`; and the number of userspace
-processes. For Alpine, the 1.5 s the script waits after typing `root` is subtracted from uptime.
-Values are the median of 5 runs.
+[`bench/vm.sh`](../bench/vm.sh) boots each system under QEMU/KVM with the same settings (2 vCPU, 512 MiB, virtio-net, serial
+console) and logs in as a user would. The release files are used unchanged:
 
-| system | QEMU start → shell prompt | guest boot time (uptime at shell) | memory in use | user processes |
-|---|---:|---:|---:|---:|
-| Alpine 3.24.4 `virt` (live ISO) | 3730 ms | 3.10 s | 69.7 MiB | 13 |
-| **KwickOS live ISO** (erofs + overlay) | **1169 ms** | **0.75 s** | **38.3 MiB** | 6 |
-| **KwickOS installed** (ext4 on virtio-blk) | **1003 ms** | **0.60 s** | **34.7 MiB** | 9 |
-| **KwickOS microVM** (QEMU `microvm`, whole OS in RAM) | **472 ms** | **0.22 s** | 41.4 MiB* | 9 |
+* **KwickOS live ISO**: `kwickos-amd64.iso` on virtio-scsi, q35, with the `generic` kernel taken from the ISO (`/kwick/vmlinuz`)
+  and loaded by QEMU. That kernel has modules and is the one the ISO boots on real hardware.
+* **Alpine live ISO**: `alpine-virt-3.24.4-x86_64.iso` the same way, with its `virt` kernel and initramfs. The 1.5 s the script
+  waits after typing `root` is subtracted from its uptime.
+* **KwickOS microVM**: QEMU `microvm` (no firmware, no PCI) with `kwickos-amd64.efi` (the `virt` kernel) and
+  `kwickos-amd64-initramfs.cpio.zst`, so the whole OS runs from RAM.
 
-\* includes the root filesystem itself, which lives in RAM in this mode.
+Measured at the prompt: wall time from QEMU start, `/proc/uptime`, `MemTotal - MemAvailable`, `Shmem`, and the number of user
+processes. Two sets of 5 runs: [vm-1](../bench/results/2026-11-23-vm-1.txt) and [vm-2](../bench/results/2026-11-23-vm-2.txt)
+(the kernel column of vm-1 is empty because of a script bug fixed before vm-2; the kernels are the same files).
 
-Like for like (live ISO vs live ISO), KwickOS reaches a shell **3.2× faster** (4.1× by
-guest boot time) and uses **45% less memory**. The q35 machines spend most of their wall
-time in SeaBIOS/iPXE; the `microvm` machine has no firmware or PCI, which is why it is the
-recommended target for agent sandboxes.
+| system (10 runs) | QEMU start to shell prompt | guest uptime at prompt | memory in use | of which shmem | user processes |
+|---|---:|---:|---:|---:|---:|
+| Alpine 3.24.4 live ISO (`virt` 6.18.60) | 4.00 s (3.63-6.35) | 3.45 s (3.09-5.41) | 64.3 MiB (61.9-71.1) | 15.3 MiB | 13 |
+| **KwickOS live ISO** (`generic` 7.3.5) | **1.74 s** (1.54-2.44) | **1.26 s** (1.02-1.68) | **51.0 MiB** (49.5-52.1) | 4.1 MiB | 10-11 |
+| **KwickOS microVM** (`virt` 7.3.5, in RAM) | **0.67 s** (0.47-1.02) | **0.32 s** (0.23-0.69) | 43.2 MiB (37.6-44.8) | 7.0 MiB | 8-11 |
 
-Boot-test harness results (`tests/boot-matrix.sh`; "ready" is when kinit has started all
-services, measured from kernel start):
-
-| arch | accel | microvm | RAM (q35/virt) | disk | UEFI disk | UEFI ISO |
-|---|---|---:|---:|---:|---:|---:|
-| amd64 | KVM | 196 ms | 587 ms | 719 ms | 578 ms | 1362 ms (generic kernel) |
-| arm64 | TCG (emulated) | – | 3.2 s | 5.7 s | 5.4 s | 5.3 s |
-| riscv64 | TCG (emulated) | – | 2.6 s | 3.1 s | – | – |
-
-A full microVM cycle (QEMU start, boot, run a command, clean poweroff) takes **0.95 s** of wall time.
+Values are medians with the range in brackets. The q35 machines spend part of their wall time in SeaBIOS and option ROMs;
+`microvm` has neither, which is why it is the recommended target for agent sandboxes.
 
 ## 2. Containers
 
-`docker image inspect` size, `docker save | gzip` size (≈ registry pull size), files in
-the image, and the anonymous memory plus page tables of a `sh` process (from the container's
-`memory.stat`, median of 5).
+[`bench/container.sh`](../bench/container.sh), raw output in [container](../bench/results/2026-11-23-container.txt). Image size is
+`docker image inspect`, pull size is `docker save | gzip`, and `sh` memory is anon + page tables from the container's
+`memory.stat` (5 runs).
 
-| image | uncompressed | gzip (pull size) | files | `sh` memory (anon+pagetables) |
+| image | uncompressed | gzip (pull size) | files | `sh` memory |
 |---|---:|---:|---:|---:|
-| **KwickOS 0.1.0** | **5.53 MB** | **2.60 MB** | **492** | **56 KiB** |
-| Alpine 3.24.4 | 8.43 MB | 3.72 MB | 518 | 88 KiB |
-| Debian 13 slim | 78.86 MB | 30.04 MB | 3274 | 324 KiB |
-| Ubuntu 24.04 | 78.20 MB | 29.97 MB | 3445 | 320 KiB |
+| **KwickOS 0.7.0** | **6.63 MB** | **3.06 MB** | 601 | **56 KiB** |
+| Alpine 3.24.4 | 8.43 MB | 3.72 MB | 518 | 84-92 KiB |
+| Debian 13 slim | 78.86 MB | 30.04 MB | 3274 | 324-336 KiB |
+| Ubuntu 26.04 | 101.54 MB | 39.54 MB | 6662 | 308-320 KiB |
 
-KwickOS is **34% smaller than Alpine** uncompressed, **30% smaller** compressed, and its
-shell uses **~36% less memory** (static binaries: no dynamic loader and no relocations).
-`docker run --rm IMAGE true` latency was 0.7–1.1 s for **every** image and varied more
-between runs than between images. On Docker Desktop it is dominated by Docker itself, so we
-don't claim a difference.
+What is in the 6.63 MB: kpkg 4.94 MB, BusyBox 1.12 MB, kinit 129 KB, kfetch 9.9 KB, plus configuration. No shared libraries,
+no TLS library, no CA bundle.
 
 ### Installing software
 
-Fresh container per row. Times include `update` and downloads from the public mirrors
-(network variance applies).
+A fresh container per row, one run each. Times include `update` and downloads from the public mirrors, so they mostly measure
+the network.
 
-| image | task | wall time | rootfs after | after removing package indexes/caches |
+| image | task | wall time | rootfs after | after removing package indexes and caches |
 |---|---|---:|---:|---:|
-| **KwickOS** (Debian packages) | install curl | 9.8 s | 61 MB | 50 MB |
-| Alpine 3.24 | install curl | 2.2 s | 14 MB | 14 MB |
-| Debian 13 slim | install curl | 10.5 s | 117 MB | 97 MB |
-| Ubuntu 24.04 | install curl | 17.5 s | 143 MB | 90 MB |
-| **KwickOS** (Debian packages) | install python3 | 16.7 s | 98 MB | 87 MB |
-| Alpine 3.24 | install python3 | 4.8 s | 52 MB | 52 MB |
-| Debian 13 slim | install python3 | 17.9 s | 141 MB | 120 MB |
-| Ubuntu 24.04 | install python3 | 26.7 s | 178 MB | 125 MB |
+| KwickOS 0.7.0 (Debian packages) | install curl | 9.7 s | 77 MB | 67 MB |
+| **Alpine 3.24.4** | install curl | 3.5 s | 14 MB | **14 MB** |
+| Debian 13 slim | install curl | 10.3 s | 117 MB | 97 MB |
+| Ubuntu 26.04 | install curl | 15.1 s | 168 MB | 125 MB |
+| KwickOS 0.7.0 (Debian packages) | install python3 | 11.1 s | 104 MB | 93 MB |
+| **Alpine 3.24.4** | install python3 | 5.0 s | 52 MB | **52 MB** |
+| Debian 13 slim | install python3 | 14.3 s | 141 MB | 120 MB |
+| Ubuntu 26.04 | install python3 | 16.7 s | 198 MB | 156 MB |
 
-Reading this honestly:
+### Packages available
 
-* With the same Debian packages, KwickOS ends up **~45–50% smaller than Debian slim**
-  (50 vs 97 MB with curl, 87 vs 120 MB with python3) and installs as fast or faster.
-* Alpine remains smaller and faster *for the same software* because its packages are
-  built differently: Alpine's curl has far fewer optional features, while Debian's curl
-  links GnuTLS, Kerberos, LDAP and RTMP libraries. That is the price of binary compatibility
-  with Debian's ~69,000 packages. KwickOS's *base* is the smallest, and what you add costs
-  what Debian's packages cost.
-* kpkg decompresses packages in parallel. On this machine that cut a python3 install
-  from 25 s to 8 s (excluding `apt update`).
+Unique package names for amd64, counted in the containers above: Alpine 3.24 main + community (`apk search`) **28,661**;
+Debian 13 trixie, trixie-updates and trixie-security `main` (`apt-cache dumpavail`), the same sources KwickOS's apt uses,
+**68,946**.
 
-## 3. Artifact sizes (amd64)
+## 3. Release files
 
-| artifact | KwickOS | Alpine 3.24.4 equivalent |
-|---|---:|---:|
-| rootfs tarball (gzip) | 2.6 MB | 3.7 MB (minirootfs) |
-| live ISO | 23.6 MB (generic kernel + modules) | 70.3 MB (`virt` ISO) |
-| VM disk (qcow2, compressed) | 10.0 MB | – |
-| kernel (`virt`, EFI app incl. kinit) | 6.8 MB | – |
-| whole OS as initramfs | 2.2 MB | – |
+From [artifacts](../bench/results/2026-11-23-artifacts.txt) ([`bench/artifacts.sh`](../bench/artifacts.sh)): the sizes listed by
+the GitHub release and by Alpine's `latest-releases.yaml`.
 
-arm64: EFI kernel 5.0 MB, ISO 9.5 MB, qcow2 8.1 MB. riscv64: EFI kernel 4.7 MB, ISO 9.1 MB,
-qcow2 7.9 MB. (Those ISOs use the `virt` kernel; release CI builds `generic` ISOs.)
+| file | amd64 | arm64 | riscv64 |
+|---|---:|---:|---:|
+| KwickOS live ISO (`generic` kernel and modules) | 69.0 MB | 125.9 MB | 85.6 MB |
+| Alpine live ISO (`virt`; riscv64: `standard`) | 70.3 MB | 93.5 MB | 58.3 MB |
+| KwickOS rootfs tarball (gzip) | 3.0 MB | 2.9 MB | 3.0 MB |
+| Alpine minirootfs (gzip) | 3.7 MB | 4.0 MB | 3.5 MB |
+| KwickOS VM disk (qcow2) | 17.4 MB | 19.9 MB | 18.7 MB |
+| KwickOS kernel as a UEFI app (`virt`, kinit embedded) | 6.8 MB | 5.1 MB | 4.7 MB |
+| KwickOS whole OS as initramfs (zstd) | 2.6 MB | 2.4 MB | 2.6 MB |
+
+## Withdrawn figures
+
+Earlier versions of this page, the README and the site quoted numbers that no longer hold or have no raw output:
+
+* VM boot 1.04 s vs 3.23 s, guest 0.66 s vs 2.81 s, and memory 37.8 vs 66.1 MiB: measured with the module-free `virt` kernel
+  booting the ISO, not the `generic` kernel the ISO ships, and the raw output was not kept. Replaced by the runs above.
+* Live ISO 53 MB (and 23.6 MB, 24 MB in the chart) vs 70 MB: the 0.7.0 ISOs are 69.0, 125.9 and 85.6 MB.
+* qcow2 10.0 MB: the 0.7.0 amd64 qcow2 is 17.4 MB.
+* Alpine "~20k packages": Alpine 3.24 main + community has 28,661 for x86_64. "~69k plus apk" counted Alpine's packages on the
+  KwickOS side as well.
+* "45-50% smaller than Debian slim" once software is installed: now 31% (curl) and 23% (python3).
+* The 0.1.0 tables (5.53 MB image, 1169 ms boot) and the Ubuntu 24.04 comparison: replaced by 0.7.0 and Ubuntu 26.04.

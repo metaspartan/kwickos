@@ -1,0 +1,30 @@
+# bench/vm.sh 2026-11-23T00:57Z runs=5 mem=512MiB smp=2
+# host: 6.6.87.2-microsoft-standard-WSL2 32 threads; QEMU emulator version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+# ba29ca824a690956b6ccda8c11c5368d69d478baf68ff7fb1709ead7d9567a87  /rel/kwickos-amd64.iso
+# 329f83e1296cc812aeefd6f975e22463c018cc74cf0e64205018b4621536bf66  /rel/kwickos-amd64.efi
+# a13232fe89384d5ec967034558f484b488f6613beaa46e51743430095a0329f5  /rel/kwickos-amd64-initramfs.cpio.zst
+# 157d353f8e54252cad2d9812a0d56bb7fa2231fc154a110e1d180d7480ef8b4f  /cache/alpine-virt-3.24.4-x86_64.iso
+# columns: system wall_ms_to_prompt guest_uptime_s mem_in_use_KiB shmem_KiB user_processes kernel
+run kwickos-iso-generic 1537 1.07 52352 4264 10 $(uname
+run alpine-3.24.4-iso-virt 3860 3.45 66744 15672 13 $(uname
+run kwickos-microvm-virt 466 0.23 41332 7176 11 $(uname
+run kwickos-iso-generic 1802 1.27 50700 4264 10 $(uname
+run alpine-3.24.4-iso-virt 3887 3.44 66024 15672 13 $(uname
+run kwickos-microvm-virt 723 0.41 38452 7176 9 $(uname
+run kwickos-iso-generic 1668 1.20 52820 4264 10 $(uname
+run alpine-3.24.4-iso-virt 4113 3.54 65600 15672 13 $(uname
+run kwickos-microvm-virt 486 0.28 44936 7176 8 $(uname
+run kwickos-iso-generic 1647 1.25 53068 4264 10 $(uname
+run alpine-3.24.4-iso-virt 4171 3.71 63392 15672 13 $(uname
+run kwickos-microvm-virt 658 0.30 45076 7176 8 $(uname
+run kwickos-iso-generic 2050 1.45 53372 4212 10 $(uname
+run alpine-3.24.4-iso-virt 4506 3.96 65040 15672 13 $(uname
+run kwickos-microvm-virt 583 0.29 45880 7124 9 $(uname
+
+## Boot to login shell + memory (QEMU/KVM, 2 vCPU, 512 MiB, 5 runs: median [min-max])
+
+| system | QEMU start -> shell prompt | guest uptime at shell | memory in use | of which shmem (RAM-resident files) | user processes |
+|---|---|---|---|---|---|
+| alpine-3.24.4-iso-virt | 4113 [3860-4506] ms | 3.54 [3.44-3.96] s | 64.1 [61.9-65.2] MiB | 15.3 [15.3-15.3] MiB | 13 |
+| kwickos-iso-generic | 1668 [1537-2050] ms | 1.25 [1.07-1.45] s | 51.6 [49.5-52.1] MiB | 4.2 [4.1-4.2] MiB | 10 |
+| kwickos-microvm-virt | 583 [466-723] ms | 0.29 [0.23-0.41] s | 43.9 [37.6-44.8] MiB | 7.0 [7.0-7.0] MiB | 9 |

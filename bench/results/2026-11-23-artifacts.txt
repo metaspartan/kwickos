@@ -1,0 +1,42 @@
+# bench/artifacts.sh 2026-11-23T00:59Z
+
+## KwickOS v0.7.0-k7.3.5 release files
+
+| file | bytes | MB |
+|---|---:|---:|
+| SHA256SUMS | 1801 | 0.0 |
+| kwickos-amd64-initramfs.cpio.zst | 2631508 | 2.6 |
+| kwickos-amd64.efi | 6833152 | 6.8 |
+| kwickos-amd64.img.zst | 16117001 | 16.1 |
+| kwickos-amd64.iso | 69017600 | 69.0 |
+| kwickos-amd64.qcow2 | 17367040 | 17.4 |
+| kwickos-arm64-desktop.iso | 1445386240 | 1445.4 |
+| kwickos-arm64-initramfs.cpio.zst | 2436431 | 2.4 |
+| kwickos-arm64-rpi.img.zst | 46975729 | 47.0 |
+| kwickos-arm64.efi | 5050880 | 5.1 |
+| kwickos-arm64.img.zst | 17344622 | 17.3 |
+| kwickos-arm64.iso | 125939712 | 125.9 |
+| kwickos-arm64.qcow2 | 19922944 | 19.9 |
+| kwickos-riscv64-initramfs.cpio.zst | 2568685 | 2.6 |
+| kwickos-riscv64.efi | 4690432 | 4.7 |
+| kwickos-riscv64.img.zst | 16429522 | 16.4 |
+| kwickos-riscv64.iso | 85561344 | 85.6 |
+| kwickos-riscv64.qcow2 | 18677760 | 18.7 |
+| kwickos-rootfs-amd64.tar.gz | 3047362 | 3.0 |
+| kwickos-rootfs-arm64.tar.gz | 2866192 | 2.9 |
+| kwickos-rootfs-riscv64.tar.gz | 2952543 | 3.0 |
+
+## Alpine v3.24 ISOs and minirootfs (latest-releases.yaml; riscv64 has no virt ISO)
+
+| file | bytes | MB |
+|---|---:|---:|
+| alpine-minirootfs-3.24.4-x86_64.tar.gz | 3704088 | 3.7 |
+| alpine-standard-3.24.4-x86_64.iso | 370147328 | 370.1 |
+| alpine-extended-3.24.4-x86_64.iso | 1458192384 | 1458.2 |
+| alpine-virt-3.24.4-x86_64.iso | 70254592 | 70.3 |
+| alpine-xen-3.24.4-x86_64.iso | 1529937920 | 1529.9 |
+| alpine-minirootfs-3.24.4-aarch64.tar.gz | 4029843 | 4.0 |
+| alpine-standard-3.24.4-aarch64.iso | 394668032 | 394.7 |
+| alpine-virt-3.24.4-aarch64.iso | 93464576 | 93.5 |
+| alpine-minirootfs-3.24.4-riscv64.tar.gz | 3451625 | 3.5 |
+| alpine-standard-3.24.4-riscv64.iso | 58312704 | 58.3 |

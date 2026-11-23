@@ -5,9 +5,9 @@ KwickOS is built from three small programs plus the upstream Linux kernel:
 | component | language | size (amd64, static) | role |
 |---|---|---|---|
 | **BusyBox 1.38** (+ KwickOS patches) | C / musl | ~1.1 MB | 340+ POSIX/Linux commands, shell (`sh`, `bash`→ash), networking (`ip`, `udhcpc`, `ifup`), syslog, cron, ntpd |
-| **kinit** | C / musl | ~120 KB | initramfs root finder, PID 1, service manager, `systemctl`/`service`/`journalctl`, Debian helpers, `systemd-sysusers`/`systemd-tmpfiles` |
-| **kpkg** | Go | ~4.2 MB | `apt`, `apt-get`, `apt-cache`, `apt-mark`, `dpkg`, `dpkg-query`, `dpkg-deb`, `update-alternatives`, ... on real Debian repositories |
-| **Linux 7.3.x** | C | 6.4 MB (virt, EFI) | `virt` (monolithic, module-free) and `generic` (defconfig + modules) flavors |
+| **kinit** | C / musl | ~130 KB | initramfs root finder, PID 1, service manager, `systemctl`/`service`/`journalctl`, Debian helpers, `systemd-sysusers`/`systemd-tmpfiles` |
+| **kpkg** | Go | ~4.9 MB | `apt`, `apt-get`, `apt-cache`, `apt-mark`, `dpkg`, `dpkg-query`, `dpkg-deb`, `update-alternatives`, ... on real Debian repositories |
+| **Linux 7.3.x** | C | 6.8 MB (virt, EFI, kinit embedded) | `virt` (monolithic, module-free) and `generic` (defconfig + modules) flavors |
 
 Nothing in the base image is dynamically linked, so the base contains no libc
 `.so` at all. glibc arrives only when you install a Debian package that needs it.
@@ -15,7 +15,7 @@ Nothing in the base image is dynamically linked, so the base contains no libc
 ```mermaid
 flowchart LR
   FW[UEFI firmware / hypervisor] -->|loads| K["Linux kernel = EFI app\n(EFI stub + built-in cmdline)"]
-  K -->|embedded initramfs| S0["kinit stage 0\n(/init, ~120 KB)"]
+  K -->|embedded initramfs| S0["kinit stage 0\n(/init, ~130 KB)"]
   S0 -->|root=, PARTLABEL=kwick-root,\nor live ISO LABEL=KWICKOS| R[(root fs:\next4 / erofs+overlay / RAM)]
   R --> S1["kinit stage 1 = PID 1"]
   S1 --> U["systemd-style units\n(/usr/lib/systemd/system, *.wants)"]
@@ -31,7 +31,7 @@ flowchart LR
 
 Every KwickOS kernel is built with `CONFIG_EFI_STUB`, which makes the kernel image a
 valid UEFI application, and with an **embedded initramfs** that contains only
-`kinit` (about 120 KB). The resulting single file boots on:
+`kinit` (about 130 KB). The resulting single file boots on:
 
 * UEFI firmware, from the ESP removable path `EFI/BOOT/BOOTX64.EFI`
   (`BOOTAA64.EFI`, `BOOTRISCV64.EFI` on the other architectures);
@@ -166,12 +166,12 @@ build and boot matrix then tests.
 | base userland | BusyBox + musl `.so` | GNU coreutils + glibc | BusyBox + **static** kinit/kpkg (no libc `.so` at all) |
 | package manager | apk (Alpine packages, musl) | apt/dpkg | **kpkg**: `apt`/`dpkg`-compatible, uses Debian's own repos |
 | software compatibility | musl rebuilds | everything | everything in Debian (glibc arrives on demand) |
-| init | OpenRC | systemd | **kinit**: 120 KB PID 1 that runs systemd unit files |
-| boot chain | bootloader + initramfs | GRUB + initramfs-tools | **none**: the kernel is a UEFI app with a 120 KB embedded root finder |
+| init | OpenRC | systemd | **kinit**: 130 KB PID 1 that runs systemd unit files |
+| boot chain | bootloader + initramfs | GRUB + initramfs-tools | **none**: the kernel is a UEFI app with a 130 KB embedded root finder |
 | kernel updates | apk | apt + update-grub + initramfs rebuild | `apt upgrade` copies one EFI file (and keeps the previous one for rollback) |
 
 * **Essential set provided virtually.** The base declares the Debian Essential packages (`coreutils`, `bash`, `dpkg`, ...) as
-  satisfied by BusyBox, so real Debian packages install unmodified on a 5 MB system.
+  satisfied by BusyBox, so real Debian packages install unmodified on a 6.6 MB base.
 * **Self-healing compatibility.** If a maintainer script trips over a BusyBox difference, kpkg installs the GNU tool from Debian
   and retries. GNU tools exist only where software needs them.
 * **systemd compatibility without systemd.** `.service` units, `deb-systemd-helper`, `systemd-sysusers` and `systemd-tmpfiles`

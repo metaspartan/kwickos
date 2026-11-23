@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KwickOS</title>
-<meta name="description" content="KwickOS: smaller than Alpine, installs like Debian. A 6.2 MB Linux for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
+<meta name="description" content="KwickOS: a smaller base than Alpine that installs like Debian. A 6.6 MB container image for every architecture with apt from Debian 13, apk from Alpine, and an optional desktop in macOS, Windows or Linux style.">
 <meta name="theme-color" content="#070a1a">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="KwickOS">
-<meta property="og:description" content="Smaller than Alpine. Installs like Debian. A 6.2 MB Linux for every architecture.">
+<meta property="og:description" content="A smaller base than Alpine. Installs like Debian. A 6.6 MB container image for every architecture.">
 <meta property="og:image" content="img/desktop.png">
 <link rel="icon" href="img/kwickos-logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,8 +47,8 @@
   <div class="wrap hero-inner">
     <img class="hero-logo" src="img/kwickos-logo.svg" alt="KwickOS logo" width="120" height="139">
     <h1>KwickOS</h1>
-    <p class="tagline">Smaller than Alpine. Installs like Debian.</p>
-    <p class="lede">A 6.2&nbsp;MB Linux for every architecture. <code>apt</code> pulls straight from Debian&nbsp;13, Alpine&rsquo;s <code>apk</code> works right next to it, and an optional desktop looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
+    <p class="tagline">A smaller base than Alpine. Installs like Debian.</p>
+    <p class="lede">A 6.6&nbsp;MB Linux base for every architecture. <code>apt</code> pulls straight from Debian&nbsp;13, Alpine&rsquo;s <code>apk</code> works right next to it, and an optional desktop looks like macOS, Windows&nbsp;11 or a Linux shell at the flip of a switch.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/metaspartan/kwickos/releases/latest/download/kwickos-amd64-desktop.iso">Download desktop ISO</a>
       <a class="btn btn-ghost" href="#download">All downloads <span aria-hidden="true">&rarr;</span></a>
@@ -65,11 +65,13 @@
 <section class="stats" aria-label="Key numbers">
   <div class="wrap">
     <ul class="stat-grid">
-      <li class="reveal"><strong>6.2<small>&nbsp;MB</small></strong><span>base system</span></li>
-      <li class="reveal"><strong>1.04<small>&nbsp;s</small></strong><span>VM boot to shell</span></li>
-      <li class="reveal"><strong>37.8<small>&nbsp;MiB</small></strong><span>memory after boot</span></li>
-      <li class="reveal"><strong>53<small>&nbsp;MB</small></strong><span>live ISO</span></li>
-      <li class="reveal"><strong>~69k</strong><span>Debian 13 packages, plus Alpine apk</span></li>
+      <!-- bench:stats -->
+      <li class="reveal"><strong>6.6<small>&nbsp;MB</small></strong><span>container image (Alpine: 8.4 MB)</span></li>
+      <li class="reveal"><strong>1.7<small>&nbsp;s</small></strong><span>live ISO boot to shell (Alpine: 4.0 s)</span></li>
+      <li class="reveal"><strong>0.3<small>&nbsp;s</small></strong><span>microVM guest boot (virt kernel)</span></li>
+      <li class="reveal"><strong>50&ndash;52<small>&nbsp;MiB</small></strong><span>memory after boot (Alpine: 62-71 MiB)</span></li>
+      <li class="reveal"><strong>~69k</strong><span>Debian 13 packages, glibc</span></li>
+      <!-- /bench:stats -->
     </ul>
   </div>
 </section>
@@ -381,7 +383,7 @@
       </article>
       <article class="card reveal">
         <h3>kinit</h3>
-        <p>A 120&nbsp;KB PID&nbsp;1 that runs systemd unit files, so <code>apt install nginx</code> gets you a running, enabled, supervised service.</p>
+        <p>A 130&nbsp;KB PID&nbsp;1 that runs systemd unit files, so <code>apt install nginx</code> gets you a running, enabled, supervised service.</p>
       </article>
       <article class="card reveal">
         <h3>No boot chain</h3>
@@ -389,7 +391,7 @@
       </article>
       <article class="card reveal">
         <h3>Essential, virtually</h3>
-        <p>BusyBox satisfies the Debian Essential packages, so real Debian packages install unmodified on a 5&nbsp;MB system.</p>
+        <p>BusyBox satisfies the Debian Essential packages, so real Debian packages install unmodified on a 6.6&nbsp;MB base.</p>
       </article>
       <article class="card reveal">
         <h3>Self-healing</h3>
@@ -409,7 +411,7 @@
       </article>
       <article class="card reveal">
         <h3>kfetch</h3>
-        <p>A 6&nbsp;KB system summary in plain shell on both editions, with the K logo, GPU, packages, init, disk and IP. <code>kfetch --json</code> and <code>--small</code> included, about 15&nbsp;ms.</p>
+        <p>A 10&nbsp;KB system summary in plain shell on both editions, with the K logo, GPU, packages, init, disk and IP. <code>kfetch --json</code> and <code>--small</code> included, about 15&nbsp;ms.</p>
       </article>
     </div>
   </div>
@@ -433,7 +435,7 @@
       </article>
       <article class="card reveal">
         <h3>riscv64</h3>
-        <p>Headless images for QEMU virt with OpenSBI and UEFI, boot-tested in CI under emulation.</p>
+        <p>Headless images for QEMU virt with OpenSBI and UEFI, boot-tested in CI under emulation, and installed on a Banana&nbsp;Pi BPI-F3 with eMMC, Ethernet, NVMe and USB working.</p>
       </article>
     </div>
     <div class="arch reveal">
@@ -450,28 +452,32 @@
   <div class="wrap">
     <header class="head reveal">
       <p class="eyebrow">Size and speed</p>
-      <h2>Smaller than Alpine.<br>Faster to boot.</h2>
-      <p class="sub">Measured against Alpine&nbsp;3.24.4, Debian&nbsp;13 slim and Ubuntu&nbsp;24.04. Lower is better.</p>
+      <h2>Smaller base than Alpine.<br>Boots faster than Alpine.</h2>
+      <p class="sub">KwickOS&nbsp;0.7.0 measured against Alpine&nbsp;3.24.4, Debian&nbsp;13 slim and Ubuntu&nbsp;26.04 on one machine, amd64. Where Alpine is ahead, the table says so.</p>
     </header>
     <figure class="shot reveal">
-      <img src="img/comparison.png" alt="Bar charts comparing KwickOS with Alpine, Debian slim and Ubuntu on image size, pull size, shell memory, VM boot time, memory after boot and ISO size" width="3000" height="1720" loading="lazy">
+      <img src="img/comparison.png" alt="Bar charts comparing KwickOS with Alpine, Debian slim and Ubuntu on container image size, pull size, VM boot time, memory after boot, packages available and installed size with python3" width="3000" height="1940" loading="lazy">
     </figure>
     <div class="table reveal">
       <table>
         <caption>KwickOS against Alpine 3.24.4</caption>
         <thead><tr><th scope="col"></th><th scope="col">Alpine</th><th scope="col">KwickOS</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Container image, uncompressed / gzip</th><td>8.43 / 3.72 MB</td><td>6.21 / 2.91 MB</td></tr>
-          <tr><th scope="row">Memory of a <code>sh</code> in a container</th><td>84-88 KiB</td><td>56-60 KiB</td></tr>
-          <tr><th scope="row">VM boot to shell prompt</th><td>3.23 s</td><td>1.04 s</td></tr>
-          <tr><th scope="row">Guest boot time at shell</th><td>2.81 s</td><td>0.66 s <small>(0.20 s as microVM)</small></td></tr>
-          <tr><th scope="row">Memory in use after boot</th><td>66.1 MiB</td><td>37.8 MiB</td></tr>
-          <tr><th scope="row">Live ISO</th><td>70 MB</td><td>53 MB</td></tr>
-          <tr><th scope="row">Packages available</th><td>~20k (musl)</td><td>~69k (Debian 13, glibc)</td></tr>
+          <!-- bench:table -->
+          <tr><th scope="row">Container image, uncompressed / gzip</th><td>8.43 / 3.72 MB</td><td><strong>6.63 / 3.06 MB</strong></td></tr>
+          <tr><th scope="row">Live ISO boot to shell prompt</th><td>4.0 s (3.6-6.4)</td><td><strong>1.7 s (1.5-2.4)</strong></td></tr>
+          <tr><th scope="row">Guest boot time at the shell prompt</th><td>3.4 s (3.1-5.4)</td><td><strong>1.3 s (1.0-1.7)</strong></td></tr>
+          <tr><th scope="row">MicroVM boot (<code>virt</code> kernel, whole OS in RAM)</th><td>no microVM image</td><td>0.32 s guest, 0.67 s wall</td></tr>
+          <tr><th scope="row">Memory in use after boot (live ISO)</th><td>62-71 MiB</td><td><strong>50-52 MiB</strong></td></tr>
+          <tr><th scope="row">Packages available (amd64)</th><td>28,661 (musl)</td><td><strong>68,946 (Debian 13, glibc)</strong></td></tr>
+          <tr><th scope="row">Installed size with curl</th><td><strong>14 MB</strong></td><td>67 MB (Debian slim: 97 MB)</td></tr>
+          <tr><th scope="row">Installed size with python3</th><td><strong>52 MB</strong></td><td>93 MB (Debian slim: 120 MB)</td></tr>
+          <tr><th scope="row">Live ISO download, amd64 / arm64 / riscv64</th><td>70.3 / 93.5 / 58.3 MB</td><td>69.0 / 125.9 / 85.6 MB</td></tr>
+          <!-- /bench:table -->
         </tbody>
       </table>
     </div>
-    <p class="note reveal">Method and full results in <a href="https://github.com/metaspartan/kwickos/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a>.</p>
+    <p class="note reveal">KwickOS wins on the base: image size, boot time, memory, and the whole Debian archive with glibc. Alpine wins once software is installed, because its musl packages are built leaner than Debian&rsquo;s, and its base gets dedicated security maintenance. The KwickOS base ships no TLS library; Alpine&rsquo;s includes OpenSSL and CA certificates. KwickOS is VM- and container-first, with limited real-hardware testing so far. Method, raw output and the full results are in <a href="https://github.com/metaspartan/kwickos/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a>.</p>
   </div>
 </section>
 
@@ -480,7 +486,7 @@
     <header class="head reveal">
       <p class="eyebrow">Download</p>
       <h2>Get KwickOS.</h2>
-      <p class="sub">Built, boot-tested and CVE-scanned by CI for every release.</p>
+      <p class="sub">Built and boot-tested by CI. A release ships only after its security check passes: the kernel, the Go modules and the container image are scanned, and BusyBox&rsquo;s open CVEs are reported.</p>
     </header>
     <div class="dl">
       <article class="dl-card feature reveal">

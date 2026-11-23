@@ -1,0 +1,30 @@
+# bench/vm.sh 2026-11-23T01:07Z runs=5 mem=512MiB smp=2
+# host: 6.6.87.2-microsoft-standard-WSL2 32 threads; QEMU emulator version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+# ba29ca824a690956b6ccda8c11c5368d69d478baf68ff7fb1709ead7d9567a87  /rel/kwickos-amd64.iso
+# 329f83e1296cc812aeefd6f975e22463c018cc74cf0e64205018b4621536bf66  /rel/kwickos-amd64.efi
+# a13232fe89384d5ec967034558f484b488f6613beaa46e51743430095a0329f5  /rel/kwickos-amd64-initramfs.cpio.zst
+# 157d353f8e54252cad2d9812a0d56bb7fa2231fc154a110e1d180d7480ef8b4f  /cache/alpine-virt-3.24.4-x86_64.iso
+# columns: system wall_ms_to_prompt guest_uptime_s mem_in_use_KiB shmem_KiB user_processes kernel
+run kwickos-iso-generic 1643 1.18 52160 4212 11 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3625 3.09 72820 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 1010 0.69 42400 7176 9 7.3.5-kwick-virt
+run kwickos-iso-generic 1551 1.02 51532 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3630 3.22 67304 15676 13 6.18.60-0-virt
+run kwickos-microvm-virt 883 0.43 43504 7124 8 7.3.5-kwick-virt
+run kwickos-iso-generic 2437 1.68 52224 4212 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 4172 3.34 63508 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 636 0.46 45376 7176 9 7.3.5-kwick-virt
+run kwickos-iso-generic 2164 1.48 51368 4264 10 7.3.5-kwick
+run alpine-3.24.4-iso-virt 3721 3.22 70144 15676 13 6.18.60-0-virt
+run kwickos-microvm-virt 686 0.27 45832 7176 8 7.3.5-kwick-virt
+run kwickos-iso-generic 1977 1.44 51096 4212 11 7.3.5-kwick
+run alpine-3.24.4-iso-virt 6351 5.41 65516 15672 13 6.18.60-0-virt
+run kwickos-microvm-virt 1018 0.33 43304 7176 8 7.3.5-kwick-virt
+
+## Boot to login shell + memory (QEMU/KVM, 2 vCPU, 512 MiB, 5 runs: median [min-max])
+
+| system | QEMU start -> shell prompt | guest uptime at shell | memory in use | of which shmem (RAM-resident files) | user processes |
+|---|---|---|---|---|---|
+| alpine-3.24.4-iso-virt | 3721 [3625-6351] ms | 3.22 [3.09-5.41] s | 65.7 [62.0-71.1] MiB | 15.3 [15.3-15.3] MiB | 13 |
+| kwickos-iso-generic | 1977 [1551-2437] ms | 1.44 [1.02-1.68] s | 50.3 [49.9-51.0] MiB | 4.1 [4.1-4.2] MiB | 10 |
+| kwickos-microvm-virt | 883 [636-1018] ms | 0.43 [0.27-0.69] s | 42.5 [41.4-44.8] MiB | 7.0 [7.0-7.0] MiB | 8 |

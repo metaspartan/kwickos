@@ -15,7 +15,7 @@ make builder                       # build container with cross toolchains + QEM
 make ARCH=amd64                    # busybox, kinit, kpkg, kernels (virt+generic), rootfs, images
 make boot-test ARCH=amd64          # boots microvm, ram, disk, UEFI disk, UEFI ISO
 make container compat ARCH=amd64   # real-world Debian package compatibility matrix
-bash bench/container.sh kwickos:0.1.0-amd64   # container benchmarks vs Alpine/Debian/Ubuntu
+make bench                         # benchmarks vs Alpine/Debian/Ubuntu, raw output in bench/results (docs/BENCHMARKS.md)
 make headless-iso ARCH=amd64       # kwickos-amd64-headless.iso, UEFI and BIOS
 make headless-iso-grub             # the same with a GRUB menu (live, safe graphics, install)
 ```

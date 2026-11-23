@@ -1,7 +1,7 @@
 # Storage and NAS
 
 KwickOS ships no NAS software in the base image. `kwick-storage` (package `kwick-storage`, architecture `all`) adds it module by
-module, so a 5 MB headless system can grow into a file server, a ZFS box or an Unraid-style parity array, and shrink back again.
+module, so a 6.6 MB base image can grow into a file server, a ZFS box or an Unraid-style parity array, and shrink back again.
 
 ```
 kwick-storage list | status | install <module...> | remove <module...> | all
@@ -184,7 +184,7 @@ LSI/Broadcom `mpt3sas` and `megaraid_sas` and Microchip `smartpqi` HBAs; `drivet
 
 | Feature | Unraid 7 | TrueNAS 25 | KwickOS |
 | --- | --- | --- | --- |
-| Base | Slackware, USB boot, paid | Debian, appliance | Debian 13 compatible, 5 MB headless base, free |
+| Base | Slackware, USB boot, paid | Debian, appliance | Debian 13 compatible, 6.6 MB base image, free |
 | ZFS | yes (plugin, now built in) | yes, the core of the system | yes: prebuilt modules per kernel, Debian userland, `pool` helper, ZFS root in the installer |
 | Parity array of mixed disks | yes, the core of the system | no | yes: mergerfs + SnapRAID; parity is computed on a schedule, not in real time like Unraid |
 | mdadm / LVM | no | no | yes |

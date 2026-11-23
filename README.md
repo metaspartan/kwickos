@@ -4,7 +4,7 @@
 
 <h1 align="center">KwickOS</h1>
 
-<p align="center"><b>Smaller than Alpine. Installs like Debian.</b></p>
+<p align="center"><b>A smaller base than Alpine. Installs like Debian.</b></p>
 
 <p align="center">
   <a href="https://github.com/metaspartan/kwickos/releases/latest">Download</a> ·
@@ -34,9 +34,10 @@
 
 ## What is KwickOS
 
-* **A tiny base.** 6.2 MB, built from scratch on the latest stable kernel (7.3.x). BusyBox, a 120 KB init (kinit) and an
-  apt-compatible package manager (kpkg), all static.
-* **Debian's packages, Alpine's too.** `apt install` uses the unmodified Debian 13 "trixie" archive (about 69,000 packages).
+* **A tiny base.** A 6.6 MB container image, built from scratch on the latest stable kernel (7.3.x). BusyBox, a 130 KB init
+  (kinit) and an apt-compatible package manager (kpkg), all static.
+* **Debian's packages, Alpine's too.** `apt install` uses the unmodified Debian 13 "trixie" archive (about 69,000 packages for
+  amd64), so glibc software runs as is: vendor binaries, CUDA, Steam, Electron apps, and the systemd units Debian packages ship.
   glibc arrives only when something needs it. `apk add` works alongside it.
 * **Every architecture.** The same base boots as a container, a microVM, a VM or cloud disk, or a live ISO on amd64, arm64 and
   riscv64.
@@ -89,15 +90,45 @@ Daily use of the base system (apt, services, networking, what is in the base and
 
 ## Size and speed
 
-| | Alpine 3.24.4 | **KwickOS** |
-|---|---:|---:|
-| container image (uncompressed / gzip) | 8.43 / 3.72 MB | **6.21 / 2.91 MB** |
-| VM boot to shell prompt (QEMU/KVM, live ISO) | 3.23 s | **1.04 s** |
-| memory in use after boot | 66.1 MiB | **37.8 MiB** |
-| live ISO | 70 MB | **53 MB** |
-| packages available | ~20k (musl) | **~69k (Debian 13, glibc)** |
+Measured on amd64 with QEMU/KVM and Docker on one machine; the conditions and the raw output of every number are in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
-Method, more rows and the Debian and Ubuntu comparison: [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Real Debian software
+<!-- bench:summary -->
+| | Alpine 3.24.4 | KwickOS 0.7.0 |
+|---|---:|---:|
+| container image, uncompressed / gzip | 8.43 / 3.72 MB | **6.63 / 3.06 MB** |
+| live ISO boot to shell prompt | 4.0 s (3.6-6.4) | **1.7 s (1.5-2.4)** |
+| guest boot time at the shell prompt | 3.4 s (3.1-5.4) | **1.3 s (1.0-1.7)** |
+| microVM boot (`virt` kernel, whole OS in RAM) | no microVM image | 0.32 s guest, 0.67 s wall |
+| memory in use after boot (live ISO) | 62-71 MiB | **50-52 MiB** |
+| packages available (amd64) | 28,661 (musl) | **68,946 (Debian 13, glibc)** |
+| installed size with curl | **14 MB** | 67 MB (Debian slim: 97 MB) |
+| installed size with python3 | **52 MB** | 93 MB (Debian slim: 120 MB) |
+| live ISO download, amd64 / arm64 / riscv64 | 70.3 / 93.5 / 58.3 MB | 69.0 / 125.9 / 85.6 MB |
+
+The better result of each row is in bold. Measured 2026-11-23.
+<!-- /bench:summary -->
+
+KwickOS leads on the base: a smaller image, a live ISO that reaches a shell in less than half Alpine's time, a microVM mode
+Alpine has no equivalent for, less memory after boot (mostly because Alpine's live ISO keeps its root in RAM), and the whole
+Debian archive with glibc, so vendor binaries, CUDA, Steam and Electron apps run unmodified.
+
+Where Alpine is still ahead:
+
+* **Installed footprint.** The base is smaller, but Debian's packages are built with more features than Alpine's (Debian's
+  curl also links Kerberos, LDAP and RTMP libraries), so once software is installed Alpine is about 2 to 5 times smaller (the
+  "installed size" rows). With the same packages KwickOS still ends up 23 to 31% smaller than Debian slim.
+* **ISO size off amd64.** The amd64 live ISOs are about the same size; on arm64 and riscv64 Alpine's are smaller.
+* **TLS in the base.** Alpine's image includes OpenSSL and a CA bundle, which is part of its size. The KwickOS base has no TLS
+  library and no CA bundle: kpkg checks packages by their signatures, and BusyBox has only its small built-in TLS client.
+  `apt install ca-certificates curl` adds both.
+* **Security maintenance of the base.** Alpine's base has a dedicated security team. KwickOS's Debian packages get Debian's
+  security updates, but its own base (kernel, BusyBox, kinit, kpkg) is maintained by this project; every release waits for a
+  security check of the kernel, the Go modules and the container image, and BusyBox's open CVEs are reported.
+* **Real hardware.** KwickOS is VM- and container-first and has been tested on little physical hardware so far
+  ([Hardware support](#hardware-support)).
+
+The Debian and Ubuntu container comparison is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Real Debian software
 (PostgreSQL, MariaDB, Docker, OpenJDK, Node.js and more) passes a 31-package matrix: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 How it gets this small: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -215,9 +246,10 @@ Details, flags and all downloads: [docs/INSTALL.md](docs/INSTALL.md).
 | NVIDIA Turing and newer | built, not run on a GPU |
 | Apple Silicon M1 and M2 (Asahi kernel) | built, not yet booted on a Mac |
 | NVIDIA DGX Spark (GB10 kernel flavor) | built, not yet booted |
-| Banana Pi BPI-F3 (SpacemiT K1, riscv64) | built, not yet booted |
+| Banana Pi BPI-F3 (SpacemiT K1, riscv64) | verified on one board: eMMC install, both Ethernet ports, NVMe, USB (mainline 7.3.4 and vendor 6.1.15 kernels) |
 
-The project has no hardware lab, so "built" means it compiles and passes static checks only. Per-device detail:
+KwickOS is VM- and container-first. Apart from that one BPI-F3, the project has no hardware lab, so "built" means it compiles and
+passes static checks only. Per-device detail:
 [docs/HARDWARE.md](docs/HARDWARE.md).
 
 ## Building from source
