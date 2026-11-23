@@ -63,7 +63,13 @@ scriptlets through `chroot`), all of them valid only inside the namespace, with 
 create device nodes, load modules, change sysctls or gain capabilities through setuid or file capabilities, and a setuid file it
 creates belongs to an unprivileged host id. Every transaction that runs hooks or install scripts (`-S`, `-Su`, `-U`, `-R`) is done
 in two steps: `--downloadonly` with network, then the transaction itself in a network namespace of its own, so scriptlets have no
-network either. pacman 7's download sandbox (`DownloadUser = alpm`, Landlock) stays enabled.
+network either. pacman 7's download sandbox (`DownloadUser = alpm`, Landlock) stays enabled. Nested user namespaces are
+refused inside: before it starts `bwrap`, `nsexec.py` sets `user.max_user_namespaces` to 1 in the outer namespace and then enters
+a second one for the sandbox, so a scriptlet's `unshare -U -r` fails with `ENOSPC` instead of handing it capabilities in a fresh
+namespace (a kernel attack surface). Everything the host does as root with paths the sandbox controls (`/build/out`, the files
+under the root such as `etc/pacman.d/mirrorlist`) goes through `safefs.py`: directory file descriptors opened one component at a
+time with `O_NOFOLLOW`, regular files only, written to a temporary name and renamed into place, so a symlink planted by a scriptlet
+or a PKGBUILD can neither leak a host file into the environment nor make root truncate or `chmod` one.
 
 **Running apps.** `kwick-arch run -- CMD` starts `bwrap` as the calling user (an unprivileged user namespace, no setuid helper):
 the Arch `/usr`, `/etc`, `/var` and `/opt` read-only, the host `/dev` (GPU render nodes, input, sound), `/sys` read-only, `/tmp`

@@ -1,0 +1,157 @@
+--- a/networking/wget.c
++++ b/networking/wget.c
+@@ -676,8 +676,35 @@
+ 	/* ftruncate(G.output_fd, 0); */
+ }
+ 
++#if SSL_SUPPORTED
++static int host_has_port(const char *host)
++{
++	if (host[0] == '[') {
++		host = strchr(host, ']');
++		return host && host[1] == ':';
++	}
++	return strchr(host, ':') != NULL;
++}
++
++static char *bare_hostname(const char *host)
++{
++	char *name = xstrdup(host);
++	char *p;
++
++	if (host_has_port(host))
++		strrchr(name, ':')[0] = '\0';
++	if (name[0] == '[') {
++		p = strchr(name, ']');
++		if (p)
++			*p = '\0';
++		memmove(name, name + 1, strlen(name));
++	}
++	return name;
++}
++#endif
++
+ #if ENABLE_FEATURE_WGET_OPENSSL
+-static int spawn_https_helper_openssl(const char *host, unsigned port)
++static int spawn_https_helper_openssl(const char *host, unsigned port, const char *proxy)
+ {
+ 	char *allocated = NULL;
+ 	char *servername;
+@@ -690,10 +717,9 @@
+ 		/* Kernel can have AF_UNIX support disabled */
+ 		bb_simple_perror_msg_and_die("socketpair");
+ 
+-	if (!strchr(host, ':'))
++	if (!host_has_port(host))
+ 		host = allocated = xasprintf("%s:%u", host, port);
+-	servername = xstrdup(host);
+-	strrchr(servername, ':')[0] = '\0';
++	servername = bare_hostname(host);
+ 
+ 	if (!(option_mask32 & WGET_OPT_NO_CHECK_CERT) && executable_exists("openssl")) {
+ 		cafile = getenv("SSL_CERT_FILE");
+@@ -708,7 +734,7 @@
+ 	pid = xvfork();
+ 	if (pid == 0) {
+ 		/* Child */
+-		char *argv[15];
++		char *argv[17];
+ 		char **argp;
+ 
+ 		close(sp[0]);
+@@ -733,6 +759,10 @@
+ 		 * IPv4 and IPv6 addresses, port numbers are not allowed.
+ 		 */
+ 		argp = &argv[5];
++		if (proxy) {
++			*argp++ = (char*)"-proxy";
++			*argp++ = (char*)proxy;
++		}
+ 		if (!is_ip_address(servername)) {
+ 			*argp++ = (char*)"-servername"; //[5]
+ 			*argp++ = (char*)servername;    //[6]
+@@ -786,14 +816,12 @@
+ {
+ 	int sp[2];
+ 	int pid;
+-	char *servername, *p;
++	char *servername;
+ 
+ 	if (!(option_mask32 & WGET_OPT_NO_CHECK_CERT))
+ 		bb_error_msg_and_die("can't verify the TLS certificate of %s: openssl is not installed. Run 'apt install curl' and use curl, or 'apt install ca-certificates openssl' so wget can verify it", host);
+ 
+-	servername = xstrdup(host);
+-	p = strrchr(servername, ':');
+-	if (p) *p = '\0';
++	servername = bare_hostname(host);
+ 
+ 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp) != 0)
+ 		/* Kernel can have AF_UNIX support disabled */
+@@ -1119,6 +1147,7 @@
+ 	char *redirected_path = NULL;
+ 	struct host_info server;
+ 	struct host_info target;
++	IF_FEATURE_WGET_OPENSSL(char *proxy_hostport = NULL;)
+ 
+ 	server.allocated = NULL;
+ 	target.allocated = NULL;
+@@ -1133,8 +1162,10 @@
+ 		char *proxy = getenv(target.protocol[0] == 'f' ? "ftp_proxy" : "http_proxy");
+ //FIXME: what if protocol is https? Ok to use http_proxy?
+ 		use_proxy = (proxy && proxy[0]);
+-		if (use_proxy)
++		if (use_proxy) {
+ 			parse_url(proxy, &server);
++			IF_FEATURE_WGET_OPENSSL(proxy_hostport = host_has_port(server.host) ? xstrdup(server.host) : xasprintf("%s:%u", server.host, server.port);)
++		}
+ 	}
+ 	if (!use_proxy) {
+ 		server.protocol = target.protocol;
+@@ -1200,17 +1231,27 @@
+ 		 */
+ 		char *str;
+ 		int status;
++		bool tunnel = 0;
+ 
++#if ENABLE_FEATURE_WGET_OPENSSL
++		tunnel = use_proxy && target.protocol == P_HTTPS;
++		if (tunnel && (server.user || server.protocol == P_HTTPS))
++			bb_simple_error_msg_and_die("https through a proxy that needs a password or speaks TLS is not supported");
++#endif
+ 		/* Open socket to http(s) server */
+ #if ENABLE_FEATURE_WGET_OPENSSL
+ 		/* openssl (and maybe internal TLS) support is configured */
+-		if (server.protocol == P_HTTPS) {
++		if (tunnel || server.protocol == P_HTTPS) {
+ 			/* openssl-based helper
+ 			 * Inconvenient API since we can't give it an open fd
+ 			 */
+-			int fd = spawn_https_helper_openssl(server.host, server.port);
++			int fd = tunnel
++				? spawn_https_helper_openssl(target.host, target.port, proxy_hostport)
++				: spawn_https_helper_openssl(server.host, server.port, NULL);
+ # if ENABLE_FEATURE_WGET_HTTPS
+ 			if (fd < 0) { /* no openssl? try internal */
++				if (tunnel)
++					bb_simple_error_msg_and_die("https through a proxy needs openssl: run 'apt install openssl'");
+ 				sfp = open_socket(lsa);
+ 				spawn_ssl_client(server.host, fileno(sfp), /*flags*/ 0);
+ 				goto socket_opened;
+@@ -1235,7 +1276,7 @@
+ 		sfp = open_socket(lsa);
+ #endif
+ 		/* Send HTTP request */
+-		if (use_proxy) {
++		if (use_proxy && !tunnel) {
+ 			SENDFMT(sfp, "GET %s://%s/%s HTTP/1.1\r\n",
+ 				target.protocol, target.host,
+ 				target.path);
+@@ -1259,7 +1300,7 @@
+ 			SENDFMT(sfp, "Proxy-Authorization: Basic %s\r\n"+6,
+ 				base64enc(target.user));
+ 		}
+-		if (use_proxy && server.user && !USR_HEADER_PROXY_AUTH) {
++		if (use_proxy && !tunnel && server.user && !USR_HEADER_PROXY_AUTH) {
+ 			SENDFMT(sfp, "Proxy-Authorization: Basic %s\r\n",
+ 				base64enc(server.user));
+ 		}

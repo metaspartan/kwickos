@@ -4,7 +4,7 @@ import os
 import subprocess
 import tarfile
 
-from . import util
+from . import safefs, util
 from .vercmp import satisfies, split_dep
 
 LIST_KEYS = {"DEPENDS", "OPTDEPENDS", "MAKEDEPENDS", "CHECKDEPENDS", "PROVIDES", "CONFLICTS", "REPLACES", "GROUPS", "LICENSE", "FILES", "BACKUP", "VALIDATION", "XDATA"}
@@ -33,15 +33,14 @@ def parse_desc(text):
     return out
 
 
-def _open_db(path):
-    with open(path, "rb") as f:
-        head = f.read(6)
+def _open_db(data):
+    head = data[:6]
     if head[:4] == b"\x28\xb5\x2f\xfd":
-        data = subprocess.run(["zstd", "-dcq", path], stdout=subprocess.PIPE, check=True).stdout
+        data = subprocess.run(["zstd", "-dcq"], input=data, stdout=subprocess.PIPE, check=True).stdout
         return tarfile.open(fileobj=io.BytesIO(data), mode="r:")
     if head[:6] == b"\xfd7zXZ\x00":
-        return tarfile.open(fileobj=io.BytesIO(lzma.open(path).read()), mode="r:")
-    return tarfile.open(path, mode="r:*")
+        return tarfile.open(fileobj=io.BytesIO(lzma.decompress(data)), mode="r:")
+    return tarfile.open(fileobj=io.BytesIO(data), mode="r:*")
 
 
 def _pkg(d, repo):
@@ -66,19 +65,19 @@ def _pkg(d, repo):
     }
 
 
-def _read_sync(repo, dbpath, temp):
-    path = os.path.join(dbpath, "sync", repo + ".db")
+def _read_sync(repo, base, rel, temp):
     try:
-        mtime = os.stat(path).st_mtime_ns
+        data, st = safefs.read_bytes(base, rel + "/sync/" + repo + ".db")
     except OSError:
         return []
+    mtime = st.st_mtime_ns
     idx = os.path.join(util.CACHE, "index-%s.json" % repo)
     if not temp:
         cached = util.read_json(idx)
         if cached and cached.get("mtime") == mtime:
             return cached["packages"]
     pkgs = []
-    with _open_db(path) as t:
+    with _open_db(data) as t:
         for m in t:
             if not m.isfile() or not m.name.endswith("/desc"):
                 continue
@@ -96,6 +95,7 @@ class DB:
         self.root = root or util.ROOT
         self.dbpath = dbpath or os.path.join(self.root, "var/lib/pacman")
         self.temp = dbpath is not None
+        self.dbbase, self.dbrel = (dbpath, "") if self.temp else (self.root, "var/lib/pacman")
         self._sync = None
         self._local = None
         self._byname = None
@@ -107,7 +107,7 @@ class DB:
         if self._sync is None:
             self._sync = []
             for r in self.repos():
-                self._sync.extend(_read_sync(r, self.dbpath, self.temp))
+                self._sync.extend(_read_sync(r, self.dbbase, self.dbrel, self.temp))
         return self._sync
 
     def sync_by_name(self):
@@ -120,16 +120,9 @@ class DB:
     def local(self):
         if self._local is None:
             self._local = {}
-            d = os.path.join(self.root, "var/lib/pacman/local")
-            try:
-                entries = os.listdir(d)
-            except OSError:
-                entries = []
-            for e in entries:
-                fp = os.path.join(d, e, "desc")
+            for e in safefs.listdir(self.root, "var/lib/pacman/local"):
                 try:
-                    with open(fp, encoding="utf-8", errors="replace") as f:
-                        desc = parse_desc(f.read())
+                    desc = parse_desc(safefs.read_text(self.root, "var/lib/pacman/local/%s/desc" % e, "replace"))
                 except OSError:
                     continue
                 p = _pkg(desc, "local")
@@ -144,8 +137,7 @@ class DB:
         if not p:
             return []
         try:
-            with open(os.path.join(self.root, "var/lib/pacman/local", p["dir"], "files"), encoding="utf-8", errors="replace") as f:
-                return parse_desc(f.read()).get("FILES", [])
+            return parse_desc(safefs.read_text(self.root, "var/lib/pacman/local/%s/files" % p["dir"], "replace")).get("FILES", [])
         except OSError:
             return []
 

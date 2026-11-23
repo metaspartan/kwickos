@@ -275,7 +275,10 @@ apply_kde() {
   kde_rotation && changed=1
   [ -n "$changed" ] && kwq org.kde.KWin /KWin reconfigure
   [ -n "$changed" ] && { mkdir -p "${stamp%/*}"; echo "$state" > "$stamp"; }
-  daemon gestured "$(hasdev TOUCHPAD && echo on || echo off)"
+  g=on
+  [ "$(pad_actions)" = "- - - -" ] && g=off
+  command -v libinput >/dev/null 2>&1 || g=off
+  daemon gestured "$g"
 }
 
 apply_gnome() {

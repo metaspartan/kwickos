@@ -1,4 +1,3 @@
-import glob
 import os
 import re
 import shutil
@@ -7,7 +6,7 @@ import sys
 import tempfile
 import time
 
-from . import aur, container, exports, tracker, util
+from . import aur, container, exports, safefs, tracker, util
 from .pacdb import DB
 from .vercmp import split_dep, vercmp
 
@@ -25,12 +24,7 @@ def require_enabled():
 def clean_cache():
     if util.conf("KEEP_CACHE") == "1":
         return
-    for p in glob.glob(os.path.join(util.ROOT, "var/cache/pacman/pkg/*")):
-        try:
-            if os.path.isfile(p):
-                os.unlink(p)
-        except OSError:
-            pass
+    safefs.clear_dir(util.ROOT, "var/cache/pacman/pkg")
 
 
 def plan(targets, upgrade=True, asdeps=False):
@@ -248,8 +242,12 @@ def temp_sync():
     os.chmod(td, 0o755)
     os.symlink("/var/lib/pacman/local", os.path.join(td, "local"))
     os.makedirs(os.path.join(td, "sync"))
-    for f in glob.glob(os.path.join(util.ROOT, "var/lib/pacman/sync/*.db")):
-        shutil.copy2(f, os.path.join(td, "sync"))
+    for f in sorted(safefs.listdir(util.ROOT, "var/lib/pacman/sync")):
+        if f.endswith(".db"):
+            try:
+                safefs.copy_out(util.ROOT, "var/lib/pacman/sync/" + f, os.path.join(td, "sync", f))
+            except OSError:
+                pass
     if util.is_root():
         container.adopt(td)
         argv = container.root_argv(["pacman", "-Sy", "--dbpath", "/check", "--logfile", "/dev/null", "--noconfirm", "--color", "never", "--noprogressbar"],
@@ -348,7 +346,7 @@ def build_one(r, names, asdeps, network):
     os.makedirs(util.BUILD, mode=0o700, exist_ok=True)
     os.chmod(util.BUILD, 0o700)
     os.chown(util.BUILD, container.host_id(0), container.host_id(0))
-    os.makedirs(os.path.join(util.ROOT, "build"), mode=0o755, exist_ok=True)
+    safefs.makedirs(util.ROOT, "build")
     bdir = os.path.join(util.BUILD, "%s-%s" % (pkgbase, r["commit"][:12]))
     if os.path.exists(bdir):
         shutil.rmtree(bdir)
@@ -374,28 +372,30 @@ def build_one(r, names, asdeps, network):
     if r2.returncode != 0:
         raise util.Fail("build-failed", "makepkg failed for %s (exit %d)%s" % (pkgbase, r2.returncode,
                         "" if network else "; if the build needs the network, re-run with --build-network after reviewing why"))
-    built = sorted(glob.glob(os.path.join(bdir, "out", "*.pkg.tar.*")))
-    built = [b for b in built if not b.endswith(".sig")]
+    built = sorted(f for f in safefs.listdir(bdir, "out") if ".pkg.tar." in f and not f.endswith(".sig"))
     pick = []
-    for b in built:
-        fn = os.path.basename(b)
+    for fn in built:
         for n in names:
             if re.match(re.escape(n) + r"-[^-]+-[^-]+-[^-]+\.pkg\.tar\.", fn):
-                pick.append(b)
+                pick.append(fn)
     if not pick:
         raise util.Fail("build-failed", "makepkg produced no package named %s" % ", ".join(names))
     staged = []
-    os.makedirs(os.path.join(util.ROOT, "var/cache/kwick-aur"), exist_ok=True)
-    for b in pick:
-        dst = os.path.join(util.ROOT, "var/cache/kwick-aur", os.path.basename(b))
-        shutil.copyfile(b, dst)
-        staged.append("/var/cache/kwick-aur/" + os.path.basename(b))
-    container.transaction(["-U"] + (["--asdeps"] if asdeps else []) + staged)
-    for s in staged:
-        try:
-            os.unlink(os.path.join(util.ROOT, s.lstrip("/")))
-        except OSError:
-            pass
+    try:
+        safefs.makedirs(util.ROOT, "var/cache/kwick-aur")
+        for fn in pick:
+            staged.append("/var/cache/kwick-aur/" + fn)
+            try:
+                safefs.copy_in(bdir, "out/" + fn, util.ROOT, "var/cache/kwick-aur/" + fn)
+            except OSError as e:
+                raise util.Fail("build-failed", "makepkg produced %s, which is not a regular file (%s)" % (fn, e.strerror or e))
+        container.transaction(["-U"] + (["--asdeps"] if asdeps else []) + staged)
+    finally:
+        for st in staged:
+            try:
+                safefs.unlink(util.ROOT, st.lstrip("/"))
+            except OSError:
+                pass
     shutil.rmtree(bdir, ignore_errors=True)
 
 

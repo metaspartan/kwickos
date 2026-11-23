@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 import time
 
-from . import util
+from . import safefs, util
 
 PASSTHROUGH_ENV = (
     "WAYLAND_DISPLAY", "DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "XDG_SESSION_TYPE",
@@ -54,20 +54,44 @@ def adopt(top):
     base = util.ID_BASE
     n = util.ID_COUNT
 
-    def fix(p):
-        st = os.lstat(p)
+    def ids(st):
         uid = st.st_uid + base if st.st_uid < n else -1
         gid = st.st_gid + base if st.st_gid < n else -1
+        return uid, gid
+
+    def fix(name, dfd):
+        st = os.stat(name, dir_fd=dfd, follow_symlinks=False)
+        uid, gid = ids(st)
         if uid == -1 and gid == -1:
             return
-        os.lchown(p, uid, gid)
-        if not stat.S_ISLNK(st.st_mode) and st.st_mode & 0o6000:
-            os.chmod(p, stat.S_IMODE(st.st_mode))
+        if stat.S_ISREG(st.st_mode) or stat.S_ISDIR(st.st_mode):
+            flags = safefs.DIR_FLAGS if stat.S_ISDIR(st.st_mode) else safefs.FILE_FLAGS
+            fd = os.open(name, flags, dir_fd=dfd)
+            try:
+                cur = os.fstat(fd)
+                if (cur.st_dev, cur.st_ino) != (st.st_dev, st.st_ino):
+                    return
+                os.fchown(fd, uid, gid)
+                if st.st_mode & 0o6000:
+                    os.fchmod(fd, stat.S_IMODE(st.st_mode))
+            finally:
+                os.close(fd)
+        else:
+            os.chown(name, uid, gid, dir_fd=dfd, follow_symlinks=False)
 
-    for dp, dn, fn in os.walk(top):
+    st = os.lstat(top)
+    uid, gid = ids(st)
+    if (uid != -1 or gid != -1) and not stat.S_ISLNK(st.st_mode):
+        tfd = os.open(top, safefs.DIR_FLAGS)
+        try:
+            os.fchown(tfd, uid, gid)
+            if st.st_mode & 0o6000:
+                os.fchmod(tfd, stat.S_IMODE(st.st_mode))
+        finally:
+            os.close(tfd)
+    for dp, dn, fn, dfd in os.fwalk(top, follow_symlinks=False):
         for name in dn + fn:
-            fix(os.path.join(dp, name))
-    fix(top)
+            fix(name, dfd)
 
 
 def adopt_root():
@@ -115,9 +139,7 @@ def in_root(cmd, check=True, capture=False, **kw):
 
 
 def pacman_conf_ok():
-    path = os.path.join(util.ROOT, "etc/pacman.conf")
-    with open(path) as f:
-        text = f.read()
+    text = safefs.read_text(util.ROOT, "etc/pacman.conf", "replace")
     bad = []
     weak = {"Never", "PackageNever", "Optional", "PackageOptional", "TrustAll", "PackageTrustAll"}
     for m in re.finditer(r"(?m)^\s*(SigLevel|RemoteFileSigLevel)\s*=\s*(.*)$", text):
@@ -262,30 +284,33 @@ def write(path, text, mode=0o644):
     os.chmod(path, mode)
 
 
+def write_root(rel, text, mode=0o644):
+    safefs.write_text(util.ROOT, rel, text, mode)
+
+
 def configure_root():
     r = util.ROOT
     servers = "".join("Server = %s\n" % m for m in util.conf_list("MIRRORS"))
-    write(os.path.join(r, "etc/pacman.d/mirrorlist"), servers)
-    pc = os.path.join(r, "etc/pacman.conf")
-    with open(pc) as f:
-        text = f.read()
+    write_root("etc/pacman.d/mirrorlist", servers)
+    text = safefs.read_text(r, "etc/pacman.conf", "replace")
     if "multilib" in util.conf_list("REPOS") and not re.search(r"(?m)^\[multilib\]", text):
         text = re.sub(r"(?m)^#\[multilib\]\n#Include = /etc/pacman.d/mirrorlist\n", "", text)
         text += "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n"
     text = re.sub(r"(?m)^#?\s*ParallelDownloads\s*=.*$", "ParallelDownloads = 5", text)
-    write(pc, text)
+    write_root("etc/pacman.conf", text)
     for rel in ("etc/localtime", "etc/machine-id", "etc/hostname", "etc/resolv.conf"):
-        p = os.path.join(r, rel)
-        if os.path.islink(p):
-            os.unlink(p)
-        if not os.path.exists(p):
-            write(p, "")
+        st = safefs.lstat(r, rel)
+        if st is not None and stat.S_ISLNK(st.st_mode):
+            safefs.unlink(r, rel)
+            st = None
+        if st is None:
+            write_root(rel, "")
     for _, rel in HOST_SHARES:
-        os.makedirs(os.path.join(r, rel), exist_ok=True)
-    os.makedirs(os.path.join(r, "build"), mode=0o755, exist_ok=True)
-    os.makedirs(os.path.join(r, "check"), mode=0o755, exist_ok=True)
-    os.makedirs(os.path.join(r, "usr/local/bin"), exist_ok=True)
-    write(os.path.join(r, "usr/local/bin/xdg-open"), XDG_OPEN, 0o755)
+        safefs.makedirs(r, rel)
+    safefs.makedirs(r, "build")
+    safefs.makedirs(r, "check")
+    safefs.makedirs(r, "usr/local/bin")
+    write_root("usr/local/bin/xdg-open", XDG_OPEN, 0o755)
     lang = os.environ.get("LANG", "en_US.UTF-8")
     gen = {"en_US.UTF-8 UTF-8"}
     try:
@@ -297,8 +322,8 @@ def configure_root():
         pass
     if re.fullmatch(r"[a-zA-Z_@]+\.UTF-8", lang):
         gen.add("%s UTF-8" % lang)
-    write(os.path.join(r, "etc/locale.gen"), "".join(sorted(x + "\n" for x in gen)))
-    write(os.path.join(r, "etc/locale.conf"), "LANG=%s\n" % (lang if lang.endswith("UTF-8") else "en_US.UTF-8"))
+    write_root("etc/locale.gen", "".join(sorted(x + "\n" for x in gen)))
+    write_root("etc/locale.conf", "LANG=%s\n" % (lang if lang.endswith("UTF-8") else "en_US.UTF-8"))
     adopt(r)
 
 
@@ -315,10 +340,8 @@ done
 
 
 def ensure_builder():
-    pw = os.path.join(util.ROOT, "etc/passwd")
-    with open(pw) as f:
-        if re.search(r"(?m)^%s:" % util.BUILDER, f.read()):
-            return
+    if re.search(r"(?m)^%s:" % util.BUILDER, safefs.read_text(util.ROOT, "etc/passwd", "replace")):
+        return
     in_root(["groupadd", "-g", str(util.BUILDER_UID), util.BUILDER], net=False)
     in_root(["useradd", "-u", str(util.BUILDER_UID), "-g", str(util.BUILDER_UID), "-d", "/build/home", "-M", "-s", "/usr/bin/nologin", util.BUILDER], net=False)
 
@@ -363,16 +386,16 @@ def host_user_files(rt):
         return None
     d = os.path.join(rt, "kwick-arch")
     os.makedirs(d, mode=0o700, exist_ok=True)
-    with open(os.path.join(util.ROOT, "etc/passwd")) as f:
-        lines = [ln for ln in f.read().splitlines() if ln and not ln.startswith(pw.pw_name + ":") and ln.split(":")[2:3] != [str(uid)]]
+    passwd = safefs.read_text(util.ROOT, "etc/passwd", "replace")
+    group = safefs.read_text(util.ROOT, "etc/group", "replace")
+    lines = [ln for ln in passwd.splitlines() if ln and not ln.startswith(pw.pw_name + ":") and ln.split(":")[2:3] != [str(uid)]]
     lines.append("%s:x:%d:%d:%s:%s:/bin/bash" % (pw.pw_name, uid, gid, pw.pw_gecos, pw.pw_dir))
     write(os.path.join(d, "passwd"), "\n".join(lines) + "\n")
     try:
         gname = grp.getgrgid(gid).gr_name
     except KeyError:
         gname = pw.pw_name
-    with open(os.path.join(util.ROOT, "etc/group")) as f:
-        glines = [ln for ln in f.read().splitlines() if ln and ln.split(":")[2:3] != [str(gid)] and not ln.startswith(gname + ":")]
+    glines = [ln for ln in group.splitlines() if ln and ln.split(":")[2:3] != [str(gid)] and not ln.startswith(gname + ":")]
     glines.append("%s:x:%d:" % (gname, gid))
     write(os.path.join(d, "group"), "\n".join(glines) + "\n")
     return os.path.join(d, "passwd"), os.path.join(d, "group")

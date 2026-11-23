@@ -169,7 +169,8 @@ root_run() {
 }
 
 fetch() {
-	if have curl; then curl -fsSL --retry 3 -o "$2" "$1"; else wget -q -O "$2" "$1"; fi
+	have curl || die "curl is required to download packages (run: apt install curl)"
+	curl -fsSL --retry 3 -o "$2" "$1"
 }
 
 install_system() {

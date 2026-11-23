@@ -652,14 +652,16 @@ void Nearby::addDevice(const Device &device)
     const Device old = m_devices.value(key);
     if (!d.verified) {
         const bool moved = old.ip != d.ip || old.port != d.port || old.protocol != d.protocol;
-        if (d.protocol == QLatin1String("https") && m_settings.isKnown(key) && (fresh || !old.verified || moved)) {
+        const bool changed = old.alias != d.alias || old.model != d.model;
+        if (d.protocol == QLatin1String("https") && m_settings.isKnown(key) && (fresh || !old.verified || moved || changed)) {
             m_discovery->registerWith(d.ip, d.port, d.protocol, key, false);
         }
         if (!fresh && old.verified) {
             if (moved) {
                 return;
             }
-            d.verified = true;
+            d = old;
+            d.seen = QDateTime::currentMSecsSinceEpoch();
         }
     }
     m_devices.insert(key, d);

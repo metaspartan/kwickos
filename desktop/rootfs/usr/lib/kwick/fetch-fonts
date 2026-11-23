@@ -20,7 +20,8 @@ T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 
 get() {
-  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 3 -o "$T/$3" "$1"; else wget -q -O "$T/$3" "$1"; fi
+  command -v curl >/dev/null 2>&1 || { echo "fetch-fonts: curl is required to download $3 (run: apt install curl)" >&2; exit 1; }
+  curl -fsSL --retry 3 -o "$T/$3" "$1"
   echo "$2  $T/$3" | sha256sum -c - >/dev/null
 }
 

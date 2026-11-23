@@ -3,7 +3,7 @@ import re
 import shutil
 import subprocess
 
-from . import util
+from . import safefs, util
 
 SAFE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+@-]*$")
 SIZES = ("scalable", "512x512", "256x256", "192x192", "128x128", "96x96", "64x64", "48x48", "32x32", "24x24", "16x16")
@@ -86,16 +86,15 @@ def export_pkg(db, pkg, st):
     made = {"desktop": [], "bin": []}
     for f in files:
         if f.startswith("usr/share/applications/") and f.endswith(".desktop") and f.count("/") == 3:
-            src = os.path.join(util.ROOT, f)
-            if not os.path.isfile(src):
-                continue
             base = os.path.basename(f)
             if not SAFE.match(base):
                 continue
+            try:
+                text = safefs.read_text(util.ROOT, f, "replace")
+            except OSError:
+                continue
             rename = host_has(base, ours)
             target = os.path.join(util.EXPORT_APPS, ("kwick-arch-" + base) if rename else base)
-            with open(src, encoding="utf-8", errors="replace") as fh:
-                text = fh.read()
             os.makedirs(util.EXPORT_APPS, exist_ok=True)
             tmp = target + ".kwick-arch.new"
             with open(tmp, "w", encoding="utf-8") as fh:
@@ -107,8 +106,10 @@ def export_pkg(db, pkg, st):
             name = os.path.basename(f)
             if not SAFE.match(name):
                 continue
-            src = os.path.join(util.ROOT, f)
-            if not (os.path.isfile(src) or os.path.islink(src)):
+            try:
+                if safefs.lstat(util.ROOT, f) is None:
+                    continue
+            except OSError:
                 continue
             os.makedirs(util.EXPORT_BIN, exist_ok=True)
             target = os.path.join(util.EXPORT_BIN, name)

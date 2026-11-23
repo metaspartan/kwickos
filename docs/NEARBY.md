@@ -43,7 +43,9 @@ Wi-Fi access points do this), the sheet scans the local /24 over HTTPS after a f
 * Fingerprints are broadcast in the clear, so a fingerprint in a JSON body or announcement proves nothing. A device is
   marked known only after its own certificate was checked: its server certificate when Nearby Share connects to it
   over HTTPS, or the TLS client certificate it presents when it connects. Devices seen only through an announcement,
-  or over plain HTTP, are listed as new devices.
+  or over plain HTTP, are listed as new devices. An unverified announcement never changes a verified entry: from the
+  same address it only keeps the device alive (the alias and model change after the device re-registers over HTTPS), and
+  from another address it is ignored.
 * **Known Devices Only** accepts a request only when the sender's TLS client certificate matches a known device.
   Senders without a client certificate get `403` with *Known devices only: the sender presented no TLS client
   certificate*, unknown certificates get `403` with *Known devices only: the sender's certificate is not a known
