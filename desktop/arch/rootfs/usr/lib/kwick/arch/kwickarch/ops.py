@@ -143,7 +143,7 @@ def transact(targets, yes, allow, asdeps=False, what="install", refresh=True):
     if not util.confirm("Proceed with %d package(s)?" % len(entries), yes):
         raise util.Fail("confirm", "confirmation required (pass --yes)", util.EXIT_CONFIRM, transaction=[entry_out(e) for e in entries])
     args = ["-Su", "--needed"] + (["--asdeps"] if asdeps else []) + list(targets)
-    container.pacman(args)
+    container.transaction(args)
     return entries, warnings, db
 
 
@@ -163,7 +163,7 @@ def enable(yes):
         tracker.Tracker().load()
         refresh_db()
         util.say("Updating archlinux-keyring first ...")
-        container.pacman(["-S", "--needed", "archlinux-keyring"])
+        container.transaction(["-S", "--needed", "archlinux-keyring"])
         util.say("Bringing the bootstrap up to date ...")
         transact([], True, True, what="upgrade", refresh=False)
         extra = [p for p in util.conf_list("ENABLE_PACKAGES") if p]
@@ -225,7 +225,7 @@ def remove(targets, yes):
         missing = [t for t in targets if t not in db.local()]
         if missing:
             raise util.Fail("not-installed", "not installed in the Arch environment: " + ", ".join(missing), util.EXIT_NOTFOUND)
-        r = container.pacman(["-Rns"] + list(targets), check=False, capture=True)
+        r = container.pacman(["-Rns"] + list(targets), check=False, capture=True, net=False)
         if r.returncode != 0:
             err = [ln for ln in (r.stderr or "").splitlines() if ln.startswith(("error:", ":: "))]
             raise util.Fail("remove-failed", "pacman could not remove %s: %s" % (", ".join(targets), " ".join(err) or r.stderr.strip()))
@@ -251,6 +251,7 @@ def temp_sync():
     for f in glob.glob(os.path.join(util.ROOT, "var/lib/pacman/sync/*.db")):
         shutil.copy2(f, os.path.join(td, "sync"))
     if util.is_root():
+        container.adopt(td)
         argv = container.root_argv(["pacman", "-Sy", "--dbpath", "/check", "--logfile", "/dev/null", "--noconfirm", "--color", "never", "--noprogressbar"],
                                    binds=[(td, "/check", True)])
     else:
@@ -343,9 +344,10 @@ def upgrade(yes, allow):
 
 def build_one(r, names, asdeps, network):
     pkgbase = r["pkgbase"]
-    uid = util.BUILDER_UID
+    uid = container.host_id(util.BUILDER_UID)
     os.makedirs(util.BUILD, mode=0o700, exist_ok=True)
     os.chmod(util.BUILD, 0o700)
+    os.chown(util.BUILD, container.host_id(0), container.host_id(0))
     os.makedirs(os.path.join(util.ROOT, "build"), mode=0o755, exist_ok=True)
     bdir = os.path.join(util.BUILD, "%s-%s" % (pkgbase, r["commit"][:12]))
     if os.path.exists(bdir):
@@ -388,7 +390,7 @@ def build_one(r, names, asdeps, network):
         dst = os.path.join(util.ROOT, "var/cache/kwick-aur", os.path.basename(b))
         shutil.copyfile(b, dst)
         staged.append("/var/cache/kwick-aur/" + os.path.basename(b))
-    container.pacman(["-U"] + (["--asdeps"] if asdeps else []) + staged)
+    container.transaction(["-U"] + (["--asdeps"] if asdeps else []) + staged)
     for s in staged:
         try:
             os.unlink(os.path.join(util.ROOT, s.lstrip("/")))
@@ -523,7 +525,7 @@ def install_aur(targets, yes, allow, commit, network):
             after = DB().local()
             orphans = [n for n in make_deps if n in after and n not in before and not after[n]["explicit"] and n not in TOOLCHAIN]
             if orphans:
-                container.pacman(["-Rns"] + orphans, check=False)
+                container.pacman(["-Rns"] + orphans, check=False, net=False)
         st = util.state()
         db = DB()
         add_requested(st, [t for t in targets if t in db.local()])

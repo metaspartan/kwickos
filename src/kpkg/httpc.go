@@ -323,7 +323,7 @@ func externalGet(u string) (*httpResp, string, error) {
 	if p, err := exec.LookPath("curl"); err == nil {
 		cmd = exec.Command(p, "-fsSL", "--retry", "2", u)
 	} else if p, err := exec.LookPath("wget"); err == nil {
-		cmd = exec.Command(p, "-q", "-O", "-", u)
+		cmd = exec.Command(p, "-q", "--no-check-certificate", "-O", "-", u)
 	} else {
 		return nil, "", errors.New("https:// sources need curl or wget (apt install curl, or use http:// mirrors — packages are signature-verified either way)")
 	}

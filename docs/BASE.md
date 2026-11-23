@@ -34,7 +34,7 @@ build-essential and similar) in one step.
 |---|---|---|
 | network | DHCP and static IPv4 (`/etc/network/interfaces`, `ip`, `ifconfig`, `route`), IPv6 SLAAC and `udhcpc6`, DNS (`nslookup`, `/etc/resolv.conf`), `ping`, `ping6`, `traceroute`, `nc`, `telnet`, `netstat`, `brctl`, `rfkill`, NTP client (`ntpd`, `systemctl enable --now ntpd`) | `dnsutils` (`dig`, 44 MB), `iproute2` (`ss`), `tcpdump` (54 MB) |
 | Wi-Fi | `cfg80211`, `mac80211` and `iwlwifi` modules in the generic kernel, `rfkill` | `wpasupplicant` or `iwd` (20 MB), plus the card's firmware package (Debian's `non-free-firmware` component, which is not enabled by default) |
-| HTTPS downloads | `wget` with TLS (no certificate validation, see below) | `ca-certificates` (42 MB with its dependencies) and `curl` (60 MB) for validated TLS |
+| HTTPS downloads | none: `wget` refuses `https://` until it can verify certificates (see below) | `curl` (60 MB with `ca-certificates`), or `ca-certificates` and `openssl` so `wget` verifies |
 | remote access | `nc`, `telnet`, `ssl_client` | `openssh-client` (61 MB), `openssh-server` (89 MB), `rsync` (28 MB) |
 | time zones and keymaps | `TZ=` with POSIX rules (`TZ=CET-1CEST,M3.5.0,M10.5.0/3`), clock via `hwclock` | `tzdata` (31 MB), `kbd` (18 MB) for `loadkeys` |
 | editors, pager, shell | `vi`, `less`, `ash` (history, line editing, coloured `user@host:dir$` prompt), `watch`, `kwick-shell` | `nano` (21 MB), `bash` (fetched when something needs it) and `bash-completion`, `zsh` (about 19 MB installed, 5 MB download), `fish` |
@@ -46,9 +46,13 @@ build-essential and similar) in one step.
 | containers | `unshare`, `nsenter`, `chroot` and a kernel with namespaces and cgroups | `podman` (197 MB), `docker.io` (see the compatibility matrix) |
 | installer | `kwick-install`, `kwick-installer` | fetches `fdisk`, `e2fsprogs`, GRUB and so on when needed |
 
-`wget` in the base uses BusyBox's built-in TLS client, which encrypts but does not validate certificates. Install `ca-certificates`
-and `curl` when that matters. The base has no `sudo`: log in as root or install it. Enabling anything at boot is left to you, so the
-base starts only `networking` and `syslog`.
+BusyBox `wget` in the base cannot verify TLS certificates on its own (the base carries no TLS library and no CA bundle), so it
+refuses `https://` URLs and says what to install: `apt install curl`, or `apt install ca-certificates openssl`, after which `wget`
+hands the connection to `openssl s_client` with certificate and host name verification against
+`/etc/ssl/certs/ca-certificates.crt` (or `$SSL_CERT_FILE`). `--no-check-certificate` fetches without verification when you ask
+for it. `apt` itself is unaffected: kpkg checks the repository signatures and hashes, so it fetches `https://` sources
+with `--no-check-certificate` when `curl` is missing. The base has no `sudo`: log in as root or install it. Enabling anything
+at boot is left to you, so the base starts only `networking` and `syslog`.
 
 ## Shells
 

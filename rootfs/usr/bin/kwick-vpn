@@ -439,10 +439,8 @@ require_arch() {
 }
 
 fetch() {
-  if have curl; then curl -fsSL "$1" -o "$2"
-  elif have wget; then wget -q -O "$2" "$1"
-  else apt_install curl ca-certificates && curl -fsSL "$1" -o "$2"
-  fi
+  have curl || apt_install curl ca-certificates
+  curl -fsSL "$1" -o "$2"
 }
 
 primary_fprs() {

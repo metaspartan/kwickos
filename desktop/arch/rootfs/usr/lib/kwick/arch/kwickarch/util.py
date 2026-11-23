@@ -25,6 +25,8 @@ EXPORT_BIN = os.environ.get("KWICK_ARCH_BIN", "/usr/local/lib/kwick-arch/bin")
 SELF = "/usr/bin/kwick-arch"
 BUILDER = "kwickbuild"
 BUILDER_UID = 64990
+ID_BASE = 2147352576
+ID_COUNT = 65536
 
 DEFAULTS = {
     "MIRRORS": "https://geo.mirror.pkgbuild.com/$repo/os/$arch https://mirror.rackspace.com/archlinux/$repo/os/$arch https://mirrors.kernel.org/archlinux/$repo/os/$arch",

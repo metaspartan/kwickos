@@ -29,7 +29,7 @@ kwick-arch shell
 flowchart LR
   B["archlinux-bootstrap-*.tar.zst\n+ .sig (geo.mirror.pkgbuild.com)"] -->|gpgv against Debian's\narchlinux-keyring, pinned key| R[("/var/lib/kwick/arch/root")]
   T[(security.archlinux.org\nissues/all.json)] --> G{CVE gate}
-  P["pacman -Su in bwrap (root)\nSigLevel Required"] --> G --> R
+  P["pacman -Su in bwrap as the root\nof a user namespace, offline\nSigLevel Required"] --> G --> R
   A[(aur.archlinux.org\nRPC + cgit)] --> V["review: PKGBUILD, .SRCINFO,\nrisk report, pinned commit"] --> M["makepkg as uid 64990\nread-only root, build step offline"] --> R
   R -->|bwrap as the user| U["apps: $HOME, Wayland/X11,\nPipeWire, GPU, fonts, D-Bus"]
   R --> E["exports: /usr/local/share/applications,\n/usr/local/lib/kwick-arch/bin"]
@@ -50,10 +50,20 @@ any `SigLevel` or `RemoteFileSigLevel` contains `Never`, `Optional` or `TrustAll
 passes). `LocalFileSigLevel = Optional` is left alone because locally built AUR packages are unsigned. Installs are always
 `pacman -Su` plus the targets, so the environment never ends up in a partial upgrade.
 
-**Root operations** (`pacman`, `pacman-key`, `locale-gen`, `useradd`) run inside `bwrap` with the Arch root bound read-write
-at `/`, a private `/dev`, `/proc`, `/tmp` and `/run`, separate PID, IPC, UTS and cgroup namespaces, and the host's
-`/etc/resolv.conf`. Hooks and install scripts therefore run in the Arch root, never in the host. pacman 7's download sandbox
-(`DownloadUser = alpm`, Landlock) stays enabled.
+**Root operations** (`pacman`, `pacman-key`, `locale-gen`, `useradd`) run inside `bwrap` in a user namespace of their own: ids
+0-65535 of the environment are host ids 2147352576-2147418111 (systemd's foreign UID range; no host user has them), and the Arch
+root is owned by those ids on the host. Root inside the environment is therefore not root on the host. kwick-arch creates the
+namespace and writes the mapping itself (`kwickarch/nsexec.py`, before it starts `bwrap`), and moves an environment created by an
+older version onto these ids the first time it runs. In the namespace `bwrap` binds the Arch root read-write at `/` and nothing else
+of the host but `/etc/resolv.conf` read-only and the per-call directories named below; `/dev` is a private tmpfs with only `null`,
+`zero`, `full`, `random`, `urandom` and `tty`, `/proc` is a new instance for a new PID namespace (its `sys` and other kernel knobs
+read-only), `/sys` is not mounted, `/tmp` and `/run` are private, and IPC, UTS and cgroup namespaces are separate. The process keeps
+only `CAP_CHOWN`, `CAP_DAC_OVERRIDE`, `CAP_FOWNER`, `CAP_FSETID`, `CAP_SETUID`, `CAP_SETGID` and `CAP_SYS_CHROOT` (pacman runs
+scriptlets through `chroot`), all of them valid only inside the namespace, with `no_new_privs`, so a scriptlet cannot mount,
+create device nodes, load modules, change sysctls or gain capabilities through setuid or file capabilities, and a setuid file it
+creates belongs to an unprivileged host id. Every transaction that runs hooks or install scripts (`-S`, `-Su`, `-U`, `-R`) is done
+in two steps: `--downloadonly` with network, then the transaction itself in a network namespace of its own, so scriptlets have no
+network either. pacman 7's download sandbox (`DownloadUser = alpm`, Landlock) stays enabled.
 
 **Running apps.** `kwick-arch run -- CMD` starts `bwrap` as the calling user (an unprivileged user namespace, no setuid helper):
 the Arch `/usr`, `/etc`, `/var` and `/opt` read-only, the host `/dev` (GPU render nodes, input, sound), `/sys` read-only, `/tmp`
@@ -137,13 +147,14 @@ kwick-arch never installs from the AUR without a review:
    from that review, so the build uses the commit the user saw even if the AUR changed in between.
 6. Dependencies: repository dependencies go through the CVE gate and are installed with `--asdeps`; AUR dependencies are reviewed
    the same way (each with its own risk report) and built first. `base-devel` (and `git` for git sources) are installed on first use.
-7. Build: `makepkg` runs as the unprivileged user `kwickbuild` (uid 64990) inside the Arch root mounted read-only, with no
+7. Build: `makepkg` runs as the unprivileged user `kwickbuild` (uid 64990, host uid 2147417566) inside the Arch root mounted read-only, with no
    capabilities and `no_new_privs`, in a per-build directory under `/var/lib/kwick/arch/build` (mode 0700, so no host user can
    reach into it). Step one (`makepkg --nobuild`, with network) downloads, checks sha256/b2 sums and PGP signatures against
    `validpgpkeys` (keys are fetched from keyserver.ubuntu.com by full fingerprint), extracts and runs `prepare()`. Step two
    (`makepkg --noextract --holdver`) runs `build()`, `check()` and `package()` in a network namespace with no network at all. A
    build that needs the network fails there; `--build-network` (or `AUR_NETWORK_BUILD=1`) allows it after you have looked at why.
-8. The package is installed with `pacman -U`. Make dependencies that were installed only for the build are removed again
+8. The package is installed with `pacman -U` in the root sandbox above, so its install script runs offline as the environment's
+   root, not the host's. Make dependencies that were installed only for the build are removed again
    (`base-devel` and `git` stay). The pin (pkgbase, commit, digest of the reviewed files, risk, number of findings) is stored in
    `/var/lib/kwick/arch/state.json` and shown by `list --json` and `info --aur`.
 
@@ -252,8 +263,8 @@ version comparison. The result is `/var/lib/kwick/update/cve.json` (`fixable`: C
 by urgency for CVEs without a fix; `packages[]` with `source`, `version`, `fixable` CVE IDs, `fixed_in`, `open` high/medium CVE
 IDs) and `cve.tsv`. `kwick-update status --json` carries it as `"cve"`, the text status prints a summary line, and
 `kwick-update cve [--json] [refresh]` lists it together with the Arch environment's findings. On a Debian trixie container the CVE
-set matched `debsecan --suite trixie` exactly (186 of 186). Without `curl` (the headless base has only BusyBox `wget`, which does
-not validate certificates) the check records an error instead of trusting unverified data.
+set matched `debsecan --suite trixie` exactly (186 of 186). Without `curl` (the headless base has only BusyBox `wget`, which refuses
+`https://` without `openssl`) the check records an error instead of trusting unverified data.
 
 ## Architectures
 
@@ -271,5 +282,8 @@ The package is `Architecture: all` so `status --json` can report this on every m
   Intel, virtio/virgl, nouveau) work through `mesa`.
 * Programs that need setuid helpers, system services or their own D-Bus system services (for example CUPS backends, VPN
   daemons) do not work from the environment; it runs apps, not services.
+* Inside `kwick-arch run` the environment's files show as owned by `nobody`, because their host ids (see Root operations) are not
+  mapped into the user's namespace. Programs that insist on root-owned system files (for example `sudo`) do not work there.
+* Install scripts run without network. One that downloads something at install time fails at that step.
 * The tracker gate covers repository packages; AUR packages are not in the Arch tracker, so for them the review is the gate.
 * The dock or task manager may show the host's icon for an Arch app whose Wayland app ID equals a host desktop file.

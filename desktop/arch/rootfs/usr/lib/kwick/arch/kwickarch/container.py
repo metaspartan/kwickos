@@ -5,6 +5,7 @@ import pwd
 import grp
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -39,8 +40,48 @@ def resolv():
     return p if os.path.isfile(p) else None
 
 
+NSEXEC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nsexec.py")
+
+ROOT_CAPS = ("CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER", "CAP_FSETID", "CAP_SETUID", "CAP_SETGID", "CAP_SYS_CHROOT")
+BUILD_CAPS = ("CAP_SETUID", "CAP_SETGID", "CAP_SETPCAP")
+
+
+def host_id(n):
+    return util.ID_BASE + n
+
+
+def adopt(top):
+    base = util.ID_BASE
+    n = util.ID_COUNT
+
+    def fix(p):
+        st = os.lstat(p)
+        uid = st.st_uid + base if st.st_uid < n else -1
+        gid = st.st_gid + base if st.st_gid < n else -1
+        if uid == -1 and gid == -1:
+            return
+        os.lchown(p, uid, gid)
+        if not stat.S_ISLNK(st.st_mode) and st.st_mode & 0o6000:
+            os.chmod(p, stat.S_IMODE(st.st_mode))
+
+    for dp, dn, fn in os.walk(top):
+        for name in dn + fn:
+            fix(os.path.join(dp, name))
+    fix(top)
+
+
+def adopt_root():
+    try:
+        if os.lstat(util.ROOT).st_uid < util.ID_COUNT:
+            adopt(util.ROOT)
+    except FileNotFoundError:
+        pass
+
+
 def root_argv(cmd, net=True, ro=False, binds=(), env=None, user=None, cwd=None):
-    a = ["bwrap", "--ro-bind" if ro else "--bind", util.ROOT, "/", "--dev", "/dev", "--perms", "1777", "--tmpfs", "/dev/shm", "--proc", "/proc",
+    adopt_root()
+    a = [sys.executable, "-I", NSEXEC, str(util.ID_BASE), str(util.ID_COUNT), "--",
+         "bwrap", "--ro-bind" if ro else "--bind", util.ROOT, "/", "--dev", "/dev", "--perms", "1777", "--tmpfs", "/dev/shm", "--proc", "/proc",
          "--perms", "1777", "--tmpfs", "/tmp", "--tmpfs", "/run", "--unshare-pid", "--unshare-ipc", "--unshare-uts", "--unshare-cgroup-try",
          "--hostname", "kwick-arch", "--die-with-parent", "--new-session"]
     if net:
@@ -51,7 +92,9 @@ def root_argv(cmd, net=True, ro=False, binds=(), env=None, user=None, cwd=None):
         a += ["--unshare-net"]
     for src, dst, rw in binds:
         a += ["--bind" if rw else "--ro-bind", src, dst]
-    a += ["--cap-add", "ALL"]
+    a += ["--cap-drop", "ALL"]
+    for c in BUILD_CAPS if user is not None else ROOT_CAPS:
+        a += ["--cap-add", c]
     a += ["--clearenv", "--setenv", "PATH", "/usr/local/sbin:/usr/local/bin:/usr/bin", "--setenv", "LANG", "C.UTF-8",
           "--setenv", "HOME", "/root" if user is None else "/build/home", "--setenv", "TERM", os.environ.get("TERM", "dumb")]
     for k, v in (env or {}).items():
@@ -88,6 +131,11 @@ def pacman(args, check=True, capture=False, net=True):
     pacman_conf_ok()
     quiet = [] if (sys.stdout.isatty() and not util.Out.json and not capture) else ["--noprogressbar"]
     return in_root(["pacman", "--noconfirm", "--color", "never"] + quiet + list(args), check=check, capture=capture, net=net)
+
+
+def transaction(args):
+    pacman(list(args) + ["--downloadonly"])
+    return pacman(args, net=False)
 
 
 def dearmor(path):
@@ -185,7 +233,9 @@ def extract(tar, dest):
             return None
         if not member.name.startswith(prefix):
             return None
-        m = member.replace(name=member.name[len(prefix):], deep=False)
+        if member.uid >= util.ID_COUNT or member.gid >= util.ID_COUNT:
+            return None
+        m = member.replace(name=member.name[len(prefix):], uid=host_id(member.uid), gid=host_id(member.gid), deep=False)
         if m.islnk() and m.linkname.startswith(prefix):
             m = m.replace(linkname=m.linkname[len(prefix):], deep=False)
         mode = m.mode
@@ -249,6 +299,7 @@ def configure_root():
         gen.add("%s UTF-8" % lang)
     write(os.path.join(r, "etc/locale.gen"), "".join(sorted(x + "\n" for x in gen)))
     write(os.path.join(r, "etc/locale.conf"), "LANG=%s\n" % (lang if lang.endswith("UTF-8") else "en_US.UTF-8"))
+    adopt(r)
 
 
 XDG_OPEN = """#!/bin/sh
@@ -268,8 +319,8 @@ def ensure_builder():
     with open(pw) as f:
         if re.search(r"(?m)^%s:" % util.BUILDER, f.read()):
             return
-    in_root(["groupadd", "-g", str(util.BUILDER_UID), util.BUILDER])
-    in_root(["useradd", "-u", str(util.BUILDER_UID), "-g", str(util.BUILDER_UID), "-d", "/build/home", "-M", "-s", "/usr/bin/nologin", util.BUILDER])
+    in_root(["groupadd", "-g", str(util.BUILDER_UID), util.BUILDER], net=False)
+    in_root(["useradd", "-u", str(util.BUILDER_UID), "-g", str(util.BUILDER_UID), "-d", "/build/home", "-M", "-s", "/usr/bin/nologin", util.BUILDER], net=False)
 
 
 def init_keyring():
@@ -287,6 +338,7 @@ def bootstrap():
     util.say("Unpacking the verified bootstrap ...")
     extract(tar, new)
     os.chmod(new, 0o755)
+    os.chown(new, host_id(0), host_id(0))
     if os.path.exists(util.ROOT):
         shutil.rmtree(util.ROOT)
     os.replace(new, util.ROOT)
