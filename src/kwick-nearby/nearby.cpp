@@ -376,7 +376,7 @@ void Nearby::updateNetwork()
             for (quint16 port = Protocol::Port; port < Protocol::Port + 4 && !ok; ++port) {
                 ok = m_server->start(m_identity.serverConfiguration(), port);
             }
-            m_networkProblem = ok ? QString() : QStringLiteral("Nearby Share could not open its network port.");
+            m_networkProblem = ok ? QString() : QStringLiteral("Send Nearby could not open its network port.");
             Q_EMIT searchingChanged();
         }
         m_server->setSelf(selfInfo());
@@ -483,7 +483,7 @@ void Nearby::setItems(const QStringList &paths)
 QString Nearby::itemsTitle() const
 {
     if (m_paths.isEmpty()) {
-        return m_draft.trimmed().isEmpty() ? QStringLiteral("Nearby Share") : QStringLiteral("Text");
+        return m_draft.trimmed().isEmpty() ? QStringLiteral("Send Nearby") : QStringLiteral("Text");
     }
     if (m_paths.size() == 1) {
         return m_itemList.value(0).toMap().value(QStringLiteral("name")).toString();
@@ -555,7 +555,7 @@ void Nearby::openSheet(const QStringList &paths, const QString &text, bool compo
     if (!m_sheet) {
         return;
     }
-    m_sheet->setTitle(QStringLiteral("Nearby Share"));
+    m_sheet->setTitle(QStringLiteral("Send Nearby"));
     m_sheet->setIcon(QIcon::fromTheme(QStringLiteral("kwick-nearby")));
     m_sheet->setColor(m_dark ? QColor(30, 30, 30) : QColor(246, 246, 246));
     m_sheet->setResizeMode(QQuickView::SizeRootObjectToView);
@@ -942,7 +942,7 @@ void Nearby::showIncoming()
         if (!m_incomingView) {
             return;
         }
-        m_incomingView->setTitle(QStringLiteral("Nearby Share"));
+        m_incomingView->setTitle(QStringLiteral("Send Nearby"));
         m_incomingView->setIcon(QIcon::fromTheme(QStringLiteral("kwick-nearby")));
         m_incomingView->setColor(Qt::transparent);
         m_incomingView->setResizeMode(QQuickView::SizeViewToRootObject);

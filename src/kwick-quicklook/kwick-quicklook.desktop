@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Quick Look
+Name=Glance
 Comment=Preview files instantly
 Icon=kwick-quicklook
 Exec=kwick-quicklook %F
-Keywords=preview;quick look;viewer;
+Keywords=preview;glance;quick look;quicklook;viewer;
 Categories=Utility;Viewer;
 NoDisplay=true
 StartupNotify=false

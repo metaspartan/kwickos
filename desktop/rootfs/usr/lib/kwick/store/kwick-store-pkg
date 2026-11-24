@@ -45,7 +45,7 @@ job_begin() {
 	mkdir -p "$VAR"
 	chmod 755 "$VAR"
 	[ -n "$(busy_pid "$VAR/job")" ] && die "another install is running"
-	[ -n "$(busy_pid "$UPD/job")" ] && die "Software Update is installing updates; try again when it finishes"
+	[ -n "$(busy_pid "$UPD/job")" ] && die "The Updates app is installing updates; try again when it finishes"
 	JOBKIND=$1
 	JOBTARGET=$2
 	printf '%s %s %s %s\n' "$$" "$JOBKIND" "$JOBTARGET" "$(now)" >"$VAR/job"

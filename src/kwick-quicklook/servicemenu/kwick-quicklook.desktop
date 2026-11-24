@@ -5,6 +5,6 @@ X-KDE-Priority=TopLevel
 Actions=quicklook
 
 [Desktop Action quicklook]
-Name=Quick Look
+Name=Glance
 Icon=kwick-quicklook
 Exec=kwick-quicklook --toggle %F

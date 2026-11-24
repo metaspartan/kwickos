@@ -9,7 +9,7 @@ ApplicationWindow {
     height: 800
     minimumWidth: 940
     minimumHeight: 620
-    title: Look.win ? "Store" : Look.gnu ? "Software" : "App Store"
+    title: "Software"
     color: Look.window
 
     property var home: ({})

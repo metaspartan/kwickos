@@ -147,7 +147,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 4
             ToolGlyph { theme: root; icon: "reveal"; tip: "Show in Files"; onClicked: ql.reveal() }
-            ToolGlyph { theme: root; icon: "nearby"; tip: "Share Nearby…"; onClicked: ql.share() }
+            ToolGlyph { theme: root; icon: "nearby"; tip: "Send Nearby…"; onClicked: ql.share() }
             ToolGlyph { theme: root; icon: "share"; tip: "Copy"; onClicked: { ql.copyPath(); copied.restart() } }
             ToolGlyph { theme: root; icon: "expand"; tip: "Full Screen"; onClicked: ql.toggleFullScreen() }
             Rectangle {

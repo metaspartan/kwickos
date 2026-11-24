@@ -86,10 +86,10 @@
     },
     {
       "id": "controlcenter",
-      "title": "Control Center",
+      "title": "Quick Settings",
       "subtitle": "Wi-Fi, Bluetooth, Focus, sound and brightness",
       "category": "search",
-      "keywords": "quick settings wifi bluetooth volume brightness",
+      "keywords": "control center wifi bluetooth volume brightness",
       "command": "kwick-keys widget org.kwickos.controlcenter",
       "sessions": ["kde"],
       "keys": {}
@@ -123,10 +123,10 @@
     },
     {
       "id": "nearby",
-      "title": "Nearby Share",
+      "title": "Send Nearby",
       "subtitle": "Send files to phones and computers nearby",
       "category": "capture",
-      "keywords": "airdrop localsend quick share send",
+      "keywords": "nearby share airdrop localsend quick share send",
       "command": "kwick-nearby",
       "keys": {}
     },

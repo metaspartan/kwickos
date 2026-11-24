@@ -1,17 +1,17 @@
-# Nearby Share
+# Send Nearby
 
-Nearby Share sends files and text between KwickOS and the phones and computers around it. It speaks the open
+Send Nearby sends files and text between KwickOS and the phones and computers around it. It speaks the open
 [LocalSend protocol v2](https://github.com/localsend/protocol), so it works with the LocalSend app on Android, iPhone,
 Windows, macOS and Linux, and between KwickOS computers. Nothing has to be set up and no account is involved.
 
 ## Using it
 
-* **Send**: right-click files in Files (Dolphin or Nautilus) and choose **Share Nearby…**, press the share button in
-  Quick Look's toolbar or on Capture's screenshot thumbnail, or open **Nearby Share** from the launcher or Search
+* **Send**: right-click files in Files (Dolphin or Nautilus) and choose **Send Nearby…**, press the share button in
+  Glance's toolbar or on Capture's screenshot thumbnail, or open **Send Nearby** from the launcher or Search
   to type a message or choose files. The sheet lists the devices it finds; click one to send. Click it again to stop.
   A device that asks for a PIN gets a PIN field.
-* **Receive**: choose who can find you under *Allow me to be discovered by* (in the sheet, in Settings › Nearby Share
-  or in the KDE Control Center):
+* **Receive**: choose who can find you under *Allow me to be discovered by* (in the sheet, in Settings › Send Nearby
+  or in Quick Settings on KDE):
   * **Receiving Off** (default): nothing listens; you can still send.
   * **Known Devices Only**: only devices you accepted something from before can find you and ask.
   * **Everyone for 10 Minutes**: any device on the network can ask; then it falls back to Known Devices Only.
@@ -41,7 +41,7 @@ Wi-Fi access points do this), the sheet scans the local /24 over HTTPS after a f
   fingerprint it announced, otherwise the transfer fails with *Certificate mismatch*. A known device is only ever sent
   to over HTTPS; one that announces `"protocol":"http"` fails with *Not verified*.
 * Fingerprints are broadcast in the clear, so a fingerprint in a JSON body or announcement proves nothing. A device is
-  marked known only after its own certificate was checked: its server certificate when Nearby Share connects to it
+  marked known only after its own certificate was checked: its server certificate when Send Nearby connects to it
   over HTTPS, or the TLS client certificate it presents when it connects. Devices seen only through an announcement,
   or over plain HTTP, are listed as new devices. An unverified announcement never changes a verified entry: from the
   same address it only keeps the device alive (the alias and model change after the device re-registers over HTTPS), and
@@ -63,4 +63,4 @@ Wi-Fi access points do this), the sheet scans the local /24 over HTTPS after a f
 `server.cpp` (HTTPS server), `discovery.cpp` (multicast, register, subnet scan), `sender.cpp` (uploads),
 `identity.cpp` (certificate), `nearby.cpp` (policy, windows), `qml/` (share sheet and prompt),
 `nautilus/` (Nautilus menu extension). Settings: `desktop/rootfs/usr/share/kwick/settings/PageNearby.qml`;
-Control Center: `NearbySource.qml` and `NearbyPage.qml` in `org.kwickos.controlcenter`.
+Quick Settings: `NearbySource.qml` and `NearbyPage.qml` in `org.kwickos.controlcenter`.

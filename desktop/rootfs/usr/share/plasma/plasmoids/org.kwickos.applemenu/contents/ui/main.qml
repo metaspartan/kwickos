@@ -62,11 +62,11 @@ PlasmoidItem {
             onClicked: root.run("kwick-settings")
         }
         PlasmaExtras.MenuItem {
-            text: "App Store…"
+            text: "Software…"
             onClicked: root.run("kwick-store || plasma-discover")
         }
         PlasmaExtras.MenuItem {
-            text: "Software Update…"
+            text: "Updates…"
             onClicked: root.run("kwick-software-update || kwick-settings software-update")
         }
         PlasmaExtras.MenuItem { separator: true }

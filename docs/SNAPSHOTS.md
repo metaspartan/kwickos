@@ -46,7 +46,7 @@ root (the Settings page asks through polkit, see [Permissions](#permissions)).
 | `type` | `single`, `pre` or `post` |
 | `pre`, `post` | the other half of a pre/post pair, 0 when none |
 | `date` | Unix time it was taken |
-| `desc` | description (`apt-get install vim`, `Software Update (3 updates)`, `Hourly`, ...) |
+| `desc` | description (`apt-get install vim`, `System update (3 updates)`, `Hourly`, ...) |
 | `cleanup` | `number`, `timeline` or empty (kept until deleted) |
 | `important` | kept longer by the cleanup |
 | `kernel` | kernel release that was running (system snapshots) |
@@ -106,8 +106,8 @@ kernel and the default kernel id. For a `post` snapshot, `changes` holds the lis
   snapshot described by the command that ran (`apt-get install vim`), the post hook a `post` snapshot linked to it, then
   records the changed files in the background and applies the retention policy. A dry run, `--download-only` and a transaction
   with nothing to do take no snapshot. `dpkg -i` on its own takes none either (as on Debian).
-* **Every Software Update.** `kwick-update upgrade` wraps the whole update (system packages and Flatpak apps) in one pair,
-  "Software Update (N updates)", and tells the apt hooks to stay quiet so there is one pair, not two.
+* **Every update.** `kwick-update upgrade` wraps the whole update (system packages and Flatpak apps) in one pair,
+  "System update (N updates)", and tells the apt hooks to stay quiet so there is one pair, not two.
 * **Every hour.** BusyBox `crond` runs `kwick-snapshot timeline` at a random minute of every hour (`KWICK_JOB=snapshot` in
   root's crontab, the same convention as `kwick-update`). It takes a system snapshot and, when `/home` is a subvolume, a home
   snapshot, skips a set that already has one from the last 50 minutes, and then cleans up. The job is cheap: two
@@ -249,7 +249,7 @@ KwickOS Settings, **Snapshots** (`kwick-settings snapshots`; the **Snapshots** l
   Snapshot**. **Options…** has the switches for software-change, hourly system and hourly home snapshots, how many hourly, daily,
   weekly, monthly and software-change snapshots to keep, and how much of the disk to leave free.
 * **System** and **Home Folders**, each a timeline grouped by day (Today, Yesterday, weekday, date) with a time ruler on the right
-  that jumps to a day, like Time Machine's. A software change is one row ("Installed vim", "Updated software", "Software Update
+  that jumps to a day, like Time Machine's. A software change is one row ("Installed vim", "Updated software", "System update
   (3 updates)") with the time before and after.
 * Opening a row shows the snapshot: **Changes** lists the software that was updated, installed or removed and the changed files
   (for a single snapshot, compared with now; comparing files with now asks for a password), **Files** browses the snapshot with

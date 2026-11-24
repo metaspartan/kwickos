@@ -45,7 +45,7 @@ static GList *get_file_items(NautilusMenuProvider *provider, GList *files)
             return NULL;
         }
     }
-    NautilusMenuItem *item = nautilus_menu_item_new("KwickNearby::share", "Share Nearby…", "Send to a phone or computer nearby", "kwick-nearby");
+    NautilusMenuItem *item = nautilus_menu_item_new("KwickNearby::share", "Send Nearby…", "Send to a phone or computer nearby", "kwick-nearby");
     g_object_set_data_full(G_OBJECT(item), "kwick-files", nautilus_file_info_list_copy(files), (GDestroyNotify)nautilus_file_info_list_free);
     g_signal_connect(item, "activate", G_CALLBACK(share_activate), NULL);
     return g_list_append(NULL, item);

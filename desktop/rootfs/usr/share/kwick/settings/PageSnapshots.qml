@@ -450,7 +450,7 @@ ColumnLayout {
         width: 520
         SetRow {
             label: "Before and after software changes"
-            hint: "Every update, install and removal, from Software Update, the terminal or any app store"
+            hint: "Every update, install and removal, from Updates, Software, the terminal or any other installer"
             Toggle { enabled: !page.busy; checked: !!page.conf.apt; onToggled: function (v) { page.setConf("apt", v) } }
         }
         SetRow {

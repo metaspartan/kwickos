@@ -5,7 +5,7 @@
   <vendor_url>https://github.com/metaspartan/kwickos</vendor_url>
   <action id="org.kwickos.update">
     <description>Install software updates and manage boot kernels</description>
-    <message>Software Update wants to make changes. Authentication is required to install updates or change the boot kernel.</message>
+    <message>The Updates app wants to make changes. Authentication is required to install updates or change the boot kernel.</message>
     <icon_name>system-software-update</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>

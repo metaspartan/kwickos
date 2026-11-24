@@ -5,6 +5,6 @@ X-KDE-Priority=TopLevel
 Actions=nearby
 
 [Desktop Action nearby]
-Name=Share Nearby…
+Name=Send Nearby…
 Icon=kwick-nearby
 Exec=kwick-nearby --share %F

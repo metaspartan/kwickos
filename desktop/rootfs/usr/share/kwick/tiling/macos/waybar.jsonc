@@ -16,7 +16,7 @@
     "format": "{@APPID@}",
     "max-length": 40,
     "separate-outputs": true,
-    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.kwickos.settings.qml": "KwickOS Settings", "kwick-settings": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "org.kwickos.store.qml": "App Store", "kwick-store": "App Store", "org.kwickos.softwareupdate.qml": "Software Update", "kwick-software-update": "Software Update", "steam": "Steam", "kwick-quicklook": "Quick Look", "kwick-capture": "Capture" }
+    "rewrite": { "": "Files", "foot": "Terminal", "org.gnome.Nautilus": "Files", "org.gnome.TextEditor": "Text Editor", "firefox-esr": "Firefox", "org.kwickos.settings.qml": "KwickOS Settings", "kwick-settings": "KwickOS Settings", "org.gnome.Ptyxis": "Terminal", "org.kde.konsole": "Terminal", "org.kde.dolphin": "Files", "org.kde.kate": "Text Editor", "org.kde.discover": "Software", "org.kwickos.store.qml": "Software", "kwick-store": "Software", "org.kwickos.softwareupdate.qml": "Updates", "kwick-software-update": "Updates", "steam": "Steam", "kwick-quicklook": "Glance", "kwick-capture": "Capture" }
   },
   "privacy": {
     "icon-spacing": 6,

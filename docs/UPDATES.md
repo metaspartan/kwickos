@@ -1,7 +1,7 @@
-# Software Update
+# Updates
 
 KwickOS keeps itself current through apt (Debian 13 and the KwickOS repository) and, on the desktop, Flatpak (Flathub).
-`kwick-update` is the one command behind it, in both editions, and the **Software Update** page of KwickOS Settings is a
+`kwick-update` is the one command behind it, in both editions, and the **Updates** page of KwickOS Settings is a
 window onto that command. Kernels are part of the same page, through `kwick-kernel` ([KERNELS](KERNELS.md)).
 
 ```
@@ -89,7 +89,7 @@ built by KwickOS, not Debian, so Debian's security archive does not cover them. 
 
 ## Snapshots around updates
 
-On a Btrfs install `kwick-update upgrade` takes a `pre` snapshot before it starts and a `post` snapshot when it ends ("Software Update (N updates)"), so the whole update can be undone from the Snapshots page or the boot menu. apt and kpkg transactions outside Software Update get their own pairs through the `DPkg::Pre-Invoke`/`Post-Invoke` hooks; during Software Update those hooks stay quiet. On ext4 nothing changes. See [SNAPSHOTS](SNAPSHOTS.md).
+On a Btrfs install `kwick-update upgrade` takes a `pre` snapshot before it starts and a `post` snapshot when it ends ("System update (N updates)"), so the whole update can be undone from the Snapshots page or the boot menu. apt and kpkg transactions outside the Updates app get their own pairs through the `DPkg::Pre-Invoke`/`Post-Invoke` hooks; during an Updates run those hooks stay quiet. On ext4 nothing changes. See [SNAPSHOTS](SNAPSHOTS.md).
 
 ## Automatic updates
 
@@ -161,10 +161,10 @@ Older systems reach `kwick-core` like this:
 * **Desktop ISO installs before 0.7.1** have only `kwick-base` registered and nothing KwickOS could upgrade. The repository
   therefore carries `zsh-autosuggestions` (in the package set of every desktop image of the 0.6 and 0.7 releases) as Debian's package with one added
   dependency, on `kwick-update`, and the version `+kwick1` (`scripts/mkcarrierpkg.sh`, rebuilt from Debian's current package
-  for every release, data and maintainer scripts unchanged). The first `apt upgrade` or Software Update run takes it and with it
+  for every release, data and maintainer scripts unchanged). The first `apt upgrade` or Updates run takes it and with it
   `kwick-update` and `kwick-core`. `kwick-update`'s postinst sees a desktop (`/usr/share/kwick/settings` and a Desktop
   `/etc/kwick-edition`) whose `kwick-desktop` is not installed and starts `kwick-update adopt-desktop --wait`, which waits until
-  apt and any Software Update task are done, then runs `apt-get install kwick-desktop` as a logged task with the kernel trial
+  apt and any Updates task are done, then runs `apt-get install kwick-desktop` as a logged task with the kernel trial
   guard. That installs `kwick-desktop` over the files already on disk (kpkg overwrites files no package owns and files of
   `kwick-base`), its dependencies including the generic kernel package, and from then on desktop updates arrive with the rest of
   the system. If it cannot run then (no network), `kwick-update upgrade` installs `kwick-desktop` first the next time.
@@ -180,14 +180,14 @@ On adoption the postinst also leaves out what only a first install does (the `kw
 `/etc/network/interfaces`), so the installer's choices stand.
 
 An update that stops half-way (a maintainer script that fails) leaves packages unconfigured. apt then ends with an error
-that names them, and `kwick-update upgrade` runs `dpkg --configure -a` before it installs anything, so Software Update
+that names them, and `kwick-update upgrade` runs `dpkg --configure -a` before it installs anything, so the Updates app
 finishes the interrupted update by itself.
 
 ## The notification
 
 After a scheduled check that found something new, `kwick-update notify` finds the running desktop shells (plasmashell,
 gnome-shell, Hyprland, sway), takes the session bus address from their environment and, as that user, sends one notification
-through `gdbus` ("Software Updates Available", with the count and a new release if there is one). Clicking it opens
+through `gdbus` ("Updates Available", with the count and a new release if there is one). Clicking it opens
 `kwick-settings software-update`. The same set of updates is announced once. No process stays in the session: the helper that
 waits for the click exits when the notification is closed, or after an hour.
 
@@ -197,13 +197,13 @@ waits for the click exits when the notification is closed, or after an hour.
 `pkexec /usr/sbin/kwick-update`. Installing and kernel changes ask for an administrator password once and keep the
 authorization for a few minutes (`auth_admin_keep`), so a session of changes is one prompt.
 `rules.d/50-kwickos-update.rules` lets local, active members of `sudo` or `wheel` run `kwick-update check`, `status` and `log`
-without a prompt, so opening Software Update can refresh a stale list silently. The Settings page uses `sudo -n` first when
+without a prompt, so opening the Updates app can refresh a stale list silently. The Settings page uses `sudo -n` first when
 it is allowed (the live session) and `pkexec` otherwise.
 
 ## Settings page
 
-KwickOS Settings, **Software Update** (`kwick-settings software-update`, also `update` or `kernel`; the launcher has a
-Software Update action):
+KwickOS Settings, **Updates** (`kwick-settings software-update`, also `update` or `kernel`; the launcher has an
+Updates action):
 
 * **Automatic Updates** with an info button that opens the options sheet (check, download, install system, security and app
   updates, notifications, check interval).
@@ -224,4 +224,4 @@ Software Update action):
   the desktop has a graphics driver). Every kernel change asks first and says what
   happens if the kernel does not start.
 
-The GPU page now points at Software Update for kernels instead of listing them itself.
+The GPU page now points at Updates for kernels instead of listing them itself.

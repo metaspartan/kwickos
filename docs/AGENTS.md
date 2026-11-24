@@ -247,8 +247,8 @@ through kwick-mcp, even when a granted folder contains them, and `secrets.json` 
 
 ### Settings
 
-`settings_list` returns a typed schema of 60 settings: every page of KwickOS Settings that a user changes, plus the quick settings of
-the Control Center. Each entry has `key`, `group`, `title`, `type` (`enum`, `bool`, `int`, `number`, `string`, `path`, `list`), the
+`settings_list` returns a typed schema of 60 settings: every page of KwickOS Settings that a user changes, plus the toggles in
+Quick Settings. Each entry has `key`, `group`, `title`, `type` (`enum`, `bool`, `int`, `number`, `string`, `path`, `list`), the
 allowed `values` or `min`/`max`/`step`, `privileged`, `desktops`, `available` with a `reason`, and the current `value`.
 `settings_get` reads values by `keys` or `group`; `settings_set {"settings": {...}}` changes up to 20 at once (the old
 `{"appearance": ..., "layout": ...}` form still works). Every value is validated against the schema before the consent dialog;
@@ -263,7 +263,7 @@ commands are run with argument vectors, never through a shell.
 | terminal | `shell.login` (privileged), `shell.prompt` | `kwick-agents-priv login-shell` (runs `kwick-shell --user` for the calling user only), `kwick-shell prompt` |
 | display | `display.night_light`, `display.brightness`, `display.scale` | KWin `NightColor` with `kwriteconfig6 --notify` or GNOME `night-light-enabled`; PowerDevil `org.kde.ScreenBrightness` or `brightnessctl`; `kscreen-doctor`, `swaymsg output`, `hyprctl keyword monitor` |
 | sound | `sound.volume`, `sound.mute` | `wpctl` on the default sink |
-| notifications | `notifications.do_not_disturb` | Plasma `plasmanotifyrc [DoNotDisturb] Until` (what the Control Center's Focus writes), GNOME `show-banners` |
+| notifications | `notifications.do_not_disturb` | Plasma `plasmanotifyrc [DoNotDisturb] Until` (what Focus in Quick Settings writes), GNOME `show-banners` |
 | network | `network.wifi`, `bluetooth.enabled`, `nearby.visibility`, `nearby.name` | `nmcli radio wifi`, `kwick-bluetooth power`, `kwick-nearby --set` |
 | power | `power.profile` | power-profiles-daemon over D-Bus (`ActiveProfile`), `powerprofilesctl` as fallback |
 | touch | `touch.tablet_mode`, `touch.on_screen_keyboard`, `touch.rotation` | `kwick-touch` |

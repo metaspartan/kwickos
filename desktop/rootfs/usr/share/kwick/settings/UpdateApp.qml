@@ -9,7 +9,7 @@ ApplicationWindow {
     height: 780
     minimumWidth: 720
     minimumHeight: 520
-    title: "Software Update"
+    title: "Updates"
     color: Theme.bg
 
     Component.onCompleted: {
@@ -39,7 +39,7 @@ ApplicationWindow {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 0
-                Text { Layout.fillWidth: true; text: "Software Update"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 24; font.weight: Font.DemiBold }
+                Text { Layout.fillWidth: true; text: "Updates"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 24; font.weight: Font.DemiBold }
                 Text { Layout.fillWidth: true; text: "KwickOS, apps and kernels"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 12 }
             }
             Rectangle {
@@ -53,7 +53,7 @@ ApplicationWindow {
                     id: storeRow
                     anchors.centerIn: parent
                     spacing: 6
-                    Text { text: "App Store…"; color: Theme.controlText; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.Medium }
+                    Text { text: "Software…"; color: Theme.controlText; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.Medium }
                 }
                 MouseArea { id: storeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Sys.run("setsid kwick-store updates >/dev/null 2>&1 &") }
             }

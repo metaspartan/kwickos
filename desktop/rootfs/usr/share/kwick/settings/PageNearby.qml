@@ -92,7 +92,7 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         visible: page.loaded && !page.installed
-        text: "Nearby Share is not installed. It comes with the kwick-desktop package."
+        text: "Send Nearby is not installed. It comes with the kwick-desktop package."
         color: Theme.bad
         font.family: Theme.sans
         font.pixelSize: 12
@@ -233,12 +233,12 @@ ColumnLayout {
     Card {
         Cell {
             title: "Ports"
-            subtitle: "Nearby Share uses TCP and UDP port " + (page.st.port || 53317) + " (LocalSend protocol 2, encrypted with TLS). Allow both in a firewall to receive; sending only needs outgoing connections."
+            subtitle: "Send Nearby uses TCP and UDP port " + (page.st.port || 53317) + " (LocalSend protocol 2, encrypted with TLS). Allow both in a firewall to receive; sending only needs outgoing connections."
         }
         Cell {
             last: true
             title: "Security code"
-            subtitle: page.st.fingerprint ? String(page.st.fingerprint).match(/.{1,4}/g).slice(0, 8).join(" ") : "Created the first time Nearby Share runs"
+            subtitle: page.st.fingerprint ? String(page.st.fingerprint).match(/.{1,4}/g).slice(0, 8).join(" ") : "Created the first time Send Nearby runs"
         }
     }
 }

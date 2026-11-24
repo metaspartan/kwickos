@@ -15,7 +15,7 @@ PlasmoidItem {
     preferredRepresentation: fullRepresentation
     Plasmoid.icon: "kwick-spotlight-symbolic"
     Plasmoid.title: "Spotlight"
-    toolTipMainText: "Spotlight"
+    toolTipMainText: "Search"
     toolTipSubText: "Search apps, files and settings"
     Plasmoid.onActivated: search()
 

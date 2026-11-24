@@ -43,7 +43,7 @@ ColumnLayout {
             spacing: 2
             Text { Layout.fillWidth: true; text: "Updates"; color: Look.text; font.family: Look.display; font.pixelSize: Look.titleSize; font.weight: Look.win ? Font.DemiBold : Font.Bold }
             Text {
-                text: Store.checking ? "Checking for updates…" : page.u.available === false ? "Software Update is not installed" : "Last checked " + page.when(page.u.checked)
+                text: Store.checking ? "Checking for updates…" : page.u.available === false ? "The Updates app is not installed" : "Last checked " + page.when(page.u.checked)
                 color: Look.sub
                 font.family: Look.sans
                 font.pixelSize: 13
@@ -193,14 +193,14 @@ ColumnLayout {
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: page.system.length + " package" + (page.system.length === 1 ? "" : "s") + "  ·  " + page.bytes(page.system.reduce(function (a, s) { return a + (s.size || 0) }, 0)) + ".  Kernels, restarts and automatic updates are in Software Update."
+                    text: page.system.length + " package" + (page.system.length === 1 ? "" : "s") + "  ·  " + page.bytes(page.system.reduce(function (a, s) { return a + (s.size || 0) }, 0)) + ".  Kernels, restarts and automatic updates are in the Updates app."
                     color: Look.sub
                     font.family: Look.sans
                     font.pixelSize: 12
                     wrapMode: Text.WordWrap
                 }
             }
-            Btn { text: "Software Update…"; flat: Look.mac; onClicked: Store.run("setsid kwick-software-update >/dev/null 2>&1 &") }
+            Btn { text: "Updates…"; flat: Look.mac; onClicked: Store.run("setsid kwick-software-update >/dev/null 2>&1 &") }
             Btn {
                 visible: page.system.length > 0
                 primary: true

@@ -156,17 +156,17 @@ Files sidebar.
 
 The everyday tools are part of the desktop. They follow the layout, the accent color and the light or dark appearance.
 
-| App Store | Software Update |
+| Software | Updates |
 |---|---|
-| <img src="docs/img/app-store.png" width="420" alt="App Store"> | <img src="docs/img/software-update.png" width="420" alt="Software Update with the installed kernels"> |
-| **Snapshots** | **Quick Look** |
-| <img src="docs/img/snapshots-settings-dark.png" width="420" alt="Snapshots"> | <img src="docs/img/quick-look.png" width="420" alt="Quick Look previewing a photo"> |
-| **Nearby Share** | **Capture** |
-| <img src="docs/img/nearby-share.png" width="420" alt="Nearby Share sheet"> | <img src="docs/img/capture.png" width="420" alt="Capture toolbar"> |
+| <img src="docs/img/app-store.png" width="420" alt="Software"> | <img src="docs/img/software-update.png" width="420" alt="Updates with the installed kernels"> |
+| **Snapshots** | **Glance** |
+| <img src="docs/img/snapshots-settings-dark.png" width="420" alt="Snapshots"> | <img src="docs/img/quick-look.png" width="420" alt="Glance previewing a photo"> |
+| **Send Nearby** | **Capture** |
+| <img src="docs/img/nearby-share.png" width="420" alt="Send Nearby sheet"> | <img src="docs/img/capture.png" width="420" alt="Capture toolbar"> |
 | **Settings: Agents** | **Settings: Shells** |
 | <img src="docs/img/settings-agents.png" width="420" alt="Agents page in Settings"> | <img src="docs/img/settings-shells.png" width="420" alt="Shells page in Settings"> |
-| **Settings: Privacy & Security** | **Clipboard history and Control Center** |
-| <img src="docs/img/settings-privacy.png" width="420" alt="Privacy and Security page in Settings"> | <img src="docs/img/clipboard.png" width="205" alt="Clipboard history"> <img src="docs/img/control-center.png" width="205" alt="Control Center"> |
+| **Settings: Privacy & Security** | **Clipboard history and Quick Settings** |
+| <img src="docs/img/settings-privacy.png" width="420" alt="Privacy and Security page in Settings"> | <img src="docs/img/clipboard.png" width="205" alt="Clipboard history"> <img src="docs/img/control-center.png" width="205" alt="Quick Settings"> |
 | **Keyboard Shortcuts** | **Settings: Keyboard** |
 | <img src="docs/img/keyboard-shortcuts.png" width="420" alt="Keyboard shortcut cheat sheet over the desktop"> | <img src="docs/img/settings-keyboard.png" width="420" alt="Keyboard page in Settings"> |
 | **Settings: Appearance** | **Settings: Local Models** |
@@ -174,16 +174,16 @@ The everyday tools are part of the desktop. They follow the layout, the accent c
 | **An agent using the desktop** | **Asking before an agent acts** |
 | <img src="docs/img/agent-control.png" width="420" alt="An AI agent typing in Kate with the control capsule at the top"> | <img src="docs/img/agent-consent.png" width="420" alt="Consent dialog for an AI agent"> |
 
-* **App Store** (`kwick-store`) finds and installs apps from Flathub and Debian, AI agents, and Arch and the AUR once they are
+* **Software** (`kwick-store`) finds and installs apps from Flathub and Debian, AI agents, and Arch and the AUR once they are
   turned on, with Updates and Installed views.
-* **Software Update** checks KwickOS, apps and kernels, and lists the installed kernels with try-once and roll back.
+* **Updates** checks KwickOS, apps and kernels, and lists the installed kernels with try-once and roll back.
 * **Snapshots** keeps Btrfs snapshots before and after every software change and every hour. Browse one, bring back a file, or
   start the computer from it. [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md)
-* **Quick Look** previews the selected file in Files with Space. **Capture** (Meta+Shift+S) takes screenshots and recordings and
+* **Glance** previews the selected file in Files with Space. **Capture** (Meta+Shift+S) takes screenshots and recordings and
   copies text from the screen.
-* **Nearby Share** sends files to phones and computers nearby and works with LocalSend on Android, iPhone, Windows, macOS and
-  Linux. It is in Files, Quick Look, Capture, Settings and the Control Center.
-* **Clipboard history** opens with Meta+V. The **Control Center** in the menu bar has Bluetooth, Nearby Share, network, Focus,
+* **Send Nearby** sends files to phones and computers nearby and works with LocalSend on Android, iPhone, Windows, macOS and
+  Linux. It is in Files, Glance, Capture, Settings and Quick Settings.
+* **Clipboard history** opens with Meta+V. **Quick Settings** in the menu bar has Bluetooth, Send Nearby, network, Focus,
   Night Light, display, sound and media.
 * **Keyboard Shortcuts** opens with Meta+K (Cmd+/ in the macOS layout): every shortcut on one searchable sheet that can also
   run them. Settings > Keyboard records new shortcuts with a click and warns about conflicts, and `kwick-keys` sets, resets,
@@ -295,9 +295,9 @@ Cross builds, the source tree, releases and CI: [docs/BUILDING.md](docs/BUILDING
 | [BENCHMARKS](docs/BENCHMARKS.md) and [COMPATIBILITY](docs/COMPATIBILITY.md) | measurements and the package matrix |
 | [HARDWARE](docs/HARDWARE.md) | kernel flavors, GPUs, Apple Silicon, GB10, riscv64 boards |
 | [KERNELS](docs/KERNELS.md) | `kwick-kernel`: install, switch, try once and roll back kernels |
-| [UPDATES](docs/UPDATES.md) | `kwick-update` and the Software Update page: checks, updates, automatic updates, notifications |
+| [UPDATES](docs/UPDATES.md) | `kwick-update` and the Updates page: checks, updates, automatic updates, notifications |
 | [SNAPSHOTS](docs/SNAPSHOTS.md) | `kwick-snapshot` and the Snapshots page: Btrfs snapshots around every update and every hour, file restore, rollback, starting a snapshot from the boot menu |
-| [NEARBY](docs/NEARBY.md) | Nearby Share: sending files to phones and computers nearby, LocalSend compatible |
+| [NEARBY](docs/NEARBY.md) | Send Nearby: sending files to phones and computers nearby, LocalSend compatible |
 | [SHELLS](docs/SHELLS.md) | `kwick-shell` and `kwick-desktop shell`: terminal shells, prompt presets and desktop shells |
 | [KEYS](docs/KEYS.md) | `kwick-keys`, Settings > Keyboard and the cheat sheet: one keymap for Plasma, GNOME, Hyprland and sway |
 | [GAMING](docs/GAMING.md), [PEN](docs/PEN.md), [AGENTS](docs/AGENTS.md), [STORAGE](docs/STORAGE.md), [VPN](docs/VPN.md), [DARLING](docs/DARLING.md), [ARCH](docs/ARCH.md) | optional packages |

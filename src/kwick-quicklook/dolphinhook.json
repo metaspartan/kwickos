@@ -1,6 +1,6 @@
 {
     "KPlugin": {
-        "Name": "Quick Look",
-        "Description": "Space opens Quick Look on the selected files"
+        "Name": "Glance",
+        "Description": "Space opens Glance on the selected files"
     }
 }

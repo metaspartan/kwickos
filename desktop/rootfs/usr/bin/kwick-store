@@ -6,7 +6,7 @@ case ${1:-} in
   -h|--help)
     cat <<'EOF'
 usage: kwick-store [updates | installed | search TEXT | app SOURCE:ID]
-  opens the App Store; SOURCE is flathub, apt, arch, aur, agent or model
+  opens Software; SOURCE is flathub, apt, arch, aur, agent or model
 EOF
     exit 0 ;;
 esac
@@ -14,6 +14,6 @@ export QT_QUICK_CONTROLS_STYLE=Basic
 export QML_XHR_ALLOW_FILE_READ=1
 export KWICK_STORE_ARGS="$*"
 if [ -x /usr/lib/kwick/kwick-settings-app ]; then
-  KWICK_APP_ID=kwick-store KWICK_APP_ICON=kwick-software KWICK_APP_NAME="App Store" KWICK_APP_QML="$dir/Main.qml" exec /usr/lib/kwick/kwick-settings-app
+  KWICK_APP_ID=kwick-store KWICK_APP_ICON=kwick-software KWICK_APP_NAME="Software" KWICK_APP_QML="$dir/Main.qml" exec /usr/lib/kwick/kwick-settings-app
 fi
 exec "$qml" -a widget "$dir/Main.qml"

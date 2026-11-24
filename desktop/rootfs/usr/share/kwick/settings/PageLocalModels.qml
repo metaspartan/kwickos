@@ -345,8 +345,8 @@ ColumnLayout {
         Cell {
             last: true
             title: "Local models are not in this version of kwick-agents"
-            subtitle: "Update kwick-agents in Software Update to run models on this computer."
-            Btn { text: "Software Update…"; onClicked: Sys.run("kwick-settings software-update") }
+            subtitle: "Update kwick-agents in Updates to run models on this computer."
+            Btn { text: "Updates…"; onClicked: Sys.run("kwick-settings software-update") }
         }
     }
 

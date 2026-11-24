@@ -8,11 +8,11 @@
             }
         ],
         "Category": "System Information",
-        "Description": "A macOS style Control Center: Wi-Fi, Bluetooth, network, Focus, Night Light, display brightness, sound and now playing in one menu bar popup",
+        "Description": "Menu bar Quick Settings: Wi-Fi, Bluetooth, network, Focus, Night Light, display brightness, sound and now playing in one popup",
         "Icon": "kwick-controlcenter",
         "Id": "org.kwickos.controlcenter",
         "License": "GPL-2.0-or-later",
-        "Name": "Control Center",
+        "Name": "Quick Settings (menu bar)",
         "Version": "1.0"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

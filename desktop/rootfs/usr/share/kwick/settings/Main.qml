@@ -40,17 +40,17 @@ ApplicationWindow {
         { name: "Gaming", icon: "gaming", color: "#ff453a", page: "PageGaming.qml" },
         { name: "Storage", icon: "storage", color: "#64d2ff", page: "PageStorage.qml" },
         { name: "VPN", icon: "vpn", color: "#2c5aa0", page: "PageVPN.qml" },
-        { name: "Nearby Share", icon: "nearby", color: "#0a84ff", page: "PageNearby.qml", keys: "airdrop localsend quick share send receive files phone transfer pin" },
+        { name: "Send Nearby", icon: "nearby", color: "#0a84ff", page: "PageNearby.qml", keys: "nearby share airdrop localsend quick share send receive files phone transfer pin" },
         { name: "Agents", icon: "agents", color: "#5e5ce6", page: "PageAgents.qml", keys: "ai agents mcp claude codex gemini opencode ollama llama keys permissions sandbox local models inference gguf huggingface hugging face" },
         { name: "Privacy & Security", icon: "privacy", color: "#0a84ff", page: "PagePrivacy.qml", keys: "camera microphone mic screen recording sharing location permissions flatpak portal firmware fwupd lvfs secure boot encryption security" },
         { name: "About", icon: "about", color: "#64d2ff", page: "PageAbout.qml" },
-        { name: "Software Update", icon: "update", color: "#8e8e93", page: "PageUpdate.qml", keys: "updates upgrade kernel" },
+        { name: "Updates", icon: "update", color: "#8e8e93", page: "PageUpdate.qml", keys: "software update upgrade kernel" },
         { name: "Snapshots", icon: "snapshots", color: "#22b39a", page: "PageSnapshots.qml", keys: "time machine backup restore rollback undo btrfs history versions" }
     ]
 
     function matches(p, q) {
         var n = p.name.toLowerCase().replace(/[^a-z0-9]+/g, " ")
-        return n.indexOf(q) === 0 || (n + " " + (p.keys || "")).split(" ").some(function (w) { return w !== "" && w.indexOf(q) === 0 })
+        return n.indexOf(q) === 0 || (" " + n + " " + (p.keys || "")).indexOf(" " + q.trim()) >= 0
     }
 
     Component.onCompleted: {

@@ -12,7 +12,7 @@
         "Icon": "systemsettings-quick-settings",
         "Id": "org.kwickos.quicksettings",
         "License": "GPL-2.0-or-later",
-        "Name": "Quick Settings",
+        "Name": "Quick Settings (Windows)",
         "Version": "1.0"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

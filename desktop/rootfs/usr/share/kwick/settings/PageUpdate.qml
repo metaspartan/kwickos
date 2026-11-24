@@ -263,7 +263,7 @@ ColumnLayout {
         Cell {
             last: true
             title: "kwick-update is not installed"
-            subtitle: "Software Update needs /usr/sbin/kwick-update, which ships with KwickOS 0.6.3 and later images."
+            subtitle: "The Updates page needs /usr/sbin/kwick-update, which ships with KwickOS 0.6.3 and later images."
         }
     }
 

@@ -56,7 +56,7 @@ int main(int argc, char **argv)
     }
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("kwick-quicklook"));
-    app.setApplicationDisplayName(QStringLiteral("Quick Look"));
+    app.setApplicationDisplayName(QStringLiteral("Glance"));
     app.setOrganizationDomain(QStringLiteral("kwickos.org"));
     app.setDesktopFileName(QStringLiteral("kwick-quicklook"));
     app.setQuitOnLastWindowClosed(false);

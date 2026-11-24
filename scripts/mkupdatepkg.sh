@@ -31,7 +31,7 @@ deb_control "$P" kwick-update "$VER" all admin <<EOT
 Replaces: kwick-base
 Depends: kwick-core (>= $VER)
 Recommends: curl
-Description: KwickOS Software Update, kernel manager and system snapshots
+Description: KwickOS Updates, kernel manager and system snapshots
  kwick-update (checks, upgrades, automatic updates through crond),
  kwick-kernel (install, try once, default, roll back) with the boot
  confirmation service that settles one-shot kernel trials, and

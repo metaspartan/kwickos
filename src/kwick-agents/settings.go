@@ -956,8 +956,8 @@ func settingsTable() []*setting {
 				return m["powered"], nil
 			},
 			set: func(c *setCtx, v any) error { return c.run(30*time.Second, "kwick-bluetooth", "power", onOff(v)) }},
-		{Key: "nearby.visibility", Group: "network", Title: "Nearby Share visibility", Type: "enum", Values: []string{"off", "contacts", "everyone"}, Needs: []string{"kwick-nearby"},
-			Description: "Who can see this computer for Nearby Share; 'everyone' falls back to 'contacts' after 10 minutes.",
+		{Key: "nearby.visibility", Group: "network", Title: "Send Nearby visibility", Type: "enum", Values: []string{"off", "contacts", "everyone"}, Needs: []string{"kwick-nearby"},
+			Description: "Who can see this computer for Send Nearby; 'everyone' falls back to 'contacts' after 10 minutes.",
 			get: func(c *setCtx) (any, error) {
 				m := jsonOf(c, "kwick-nearby", "--status")
 				if m == nil {
@@ -971,7 +971,7 @@ func settingsTable() []*setting {
 			set: func(c *setCtx, v any) error {
 				return c.run(30*time.Second, "kwick-nearby", "--set", "visibility", v.(string))
 			}},
-		{Key: "nearby.name", Group: "network", Title: "Nearby Share device name", Type: "string", Pattern: aliasPat, Needs: []string{"kwick-nearby"},
+		{Key: "nearby.name", Group: "network", Title: "Send Nearby device name", Type: "string", Pattern: aliasPat, Needs: []string{"kwick-nearby"},
 			get: func(c *setCtx) (any, error) {
 				m := jsonOf(c, "kwick-nearby", "--status")
 				if m == nil {

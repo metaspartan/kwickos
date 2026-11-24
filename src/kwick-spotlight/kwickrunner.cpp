@@ -51,7 +51,8 @@ QString keywordsFor(const QString &page)
         {QStringLiteral("VPN"), QStringLiteral("wireguard openvpn tailscale network tunnel")},
         {QStringLiteral("Privacy & Security"), QStringLiteral("camera microphone mic screen recording sharing location permissions firmware fwupd secure boot encryption")},
         {QStringLiteral("About"), QStringLiteral("system version hardware info specs this computer")},
-        {QStringLiteral("Software Update"), QStringLiteral("upgrade apt packages updates")},
+        {QStringLiteral("Send Nearby"), QStringLiteral("nearby share airdrop localsend send receive files phone transfer")},
+        {QStringLiteral("Updates"), QStringLiteral("software update upgrade apt packages kernel")},
     };
     return words.value(page);
 }
@@ -182,7 +183,7 @@ void KwickRunner::loadPages()
     const bool updateApp = QFileInfo::exists(QStringLiteral("/usr/share/applications/kwick-software-update.desktop"));
     for (auto it = entry.globalMatch(text); it.hasNext();) {
         const auto m = it.next();
-        if (updateApp && m.captured(1) == QLatin1String("Software Update")) {
+        if (updateApp && m.captured(1) == QLatin1String("Updates")) {
             continue;
         }
         const QString svg = SettingsDir + QStringLiteral("/icons/obj-") + m.captured(2) + QStringLiteral(".svg");

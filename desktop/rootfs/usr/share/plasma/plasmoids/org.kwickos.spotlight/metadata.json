@@ -8,11 +8,11 @@
             }
         ],
         "Category": "Windows and Tasks",
-        "Description": "The Spotlight magnifier in the macOS menu bar: opens KwickOS search",
+        "Description": "The search magnifier in the macOS menu bar: opens KwickOS Search",
         "Icon": "kwick-spotlight",
         "Id": "org.kwickos.spotlight",
         "License": "GPL-2.0-or-later",
-        "Name": "Spotlight",
+        "Name": "Search",
         "Version": "1.0"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

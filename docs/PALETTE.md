@@ -52,10 +52,10 @@ colour all get the same treatment. For orange:
 
 | Role | Dark | Light | How it is derived | KwickOS use |
 |---|---|---|---|---|
-| `controlAccentColor` | `#FF9F0A` | `#FF9500` | the swatch | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Control Center toggles), Settings switches and sliders, App Store, Search, installer |
-| fill | `#D28308` | `#D97F00` | the accent with its brightness lowered until white text on it reaches 3:1 | GTK `accent_bg_color` (suggested buttons, menu highlight), Settings and App Store filled buttons, fuzzel selection |
+| `controlAccentColor` | `#FF9F0A` | `#FF9500` | the swatch | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Quick Settings toggles), Settings switches and sliders, Software, Search, installer |
+| fill | `#D28308` | `#D97F00` | the accent with its brightness lowered until white text on it reaches 3:1 | GTK `accent_bg_color` (suggested buttons, menu highlight), Settings and Software filled buttons, fuzzel selection |
 | hover, pressed | `#C17907`, `#B06E07` | `#C87500`, `#B66B00` | the fill at 92 % and 84 % brightness, so white text stays above 3:1 | Settings buttons |
-| accent as text | `#FF9F0A` | `#9C5B00` | the accent brightened (dark) or darkened (light) until it reaches 4.5:1 on the window colour `#323232` or `#ECECEC` | GTK `accent_color`, Settings and App Store accent text, accent sidebar icons |
+| accent as text | `#FF9F0A` | `#9C5B00` | the accent brightened (dark) or darkened (light) until it reaches 4.5:1 on the window colour `#323232` or `#ECECEC` | GTK `accent_color`, Settings and Software accent text, accent sidebar icons |
 | `selectedContentBackgroundColor` | `#D06F00` (208, 111, 0) | `#E07A00` (224, 122, 0) | the highlight colour at 1.15 times its saturation, brightness 0.816 (dark) or 0.882 (light), hue moved 4.5 or 2.3 degrees towards the nearest of red, green and blue; then darkened until white text reaches 3:1 | KDE Selection (list and text selection, white text), GTK 3 `theme_selected_bg_color` |
 | `selectedTextBackgroundColor` | `#896B42` (137, 107, 66) | `#FFDFB3` (255, 223, 179) | 30 % of the highlight colour over `#565559` (dark) or white (light) | foot selection, GTK text selection, Settings text fields |
 | `linkColor` | `#419CFF` | `#0068DA` | fixed | links stay blue, as macOS keeps `linkColor` blue with every accent |
@@ -112,14 +112,14 @@ It applies to the KDE Selection colours, GTK 3 `theme_selected_bg_color` and `th
 foot and Settings text fields. Sidebars do not follow it in the macOS layout: as in Finder and System Settings, the selected
 sidebar row is a subtle translucent grey (white at 0.1 in the dark appearance, black at 0.08 in the light one, rounded, with
 normal text), in Dolphin and KDE file dialogs (the KwickMac style draws `KFilePlacesView` rows), GTK 3 and GTK 4 sidebars,
-Settings and the App Store. The Windows and Linux layouts keep sidebar selection in the highlight colour.
+Settings and Software. The Windows and Linux layouts keep sidebar selection in the highlight colour.
 
 #### Sidebar icons
 
 Sidebar glyphs of the three KwickOS icon themes use `ColorScheme-ActiveText`, and `kwick-layout sidebar neutral|accent`
 (`~/.config/kwick/sidebar`) sets KDE's ForegroundActive to the text colour or to the accent as text. Neutral, the default in
 the macOS and Windows layouts, draws them white (dark) or dark grey (light); accent, the Linux layout's default and what macOS
-itself does, draws them in the accent. GTK sidebars (`@SIDEBAR_ICON@`), Settings and the App Store follow the same choice.
+itself does, draws them in the accent. GTK sidebars (`@SIDEBAR_ICON@`), Settings and Software follow the same choice.
 
 #### Wallpaper tinting
 
@@ -132,7 +132,7 @@ itself does, draws them in the accent. GTK sidebars (`@SIDEBAR_ICON@`), Settings
   translucent windows (only `MenuOpacity`), and an alpha in the colour scheme would darken every other Qt window, so the colour
   scheme stays opaque. Open Files windows are reopened when the switch changes.
 * Settings: the sidebar becomes translucent at the same opacity and `kwick-settings-app` asks KWin for blur behind the window.
-* Hyprland: file managers, Settings, System Settings and the App Store get `opacity 0.94 0.9` (`~/.config/hypr/kwick-tint.conf`),
+* Hyprland: file managers, Settings, System Settings and Software get `opacity 0.94 0.9` (`~/.config/hypr/kwick-tint.conf`),
   which Hyprland's blur fills in.
 * GNOME Shell and sway have no blur behind application windows, so tinting does nothing there.
 

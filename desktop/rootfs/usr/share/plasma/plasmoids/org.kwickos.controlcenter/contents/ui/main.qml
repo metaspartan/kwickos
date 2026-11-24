@@ -50,8 +50,8 @@ PlasmoidItem {
     }
 
     Plasmoid.icon: "kwick-controlcenter-symbolic"
-    Plasmoid.title: "Control Center"
-    toolTipMainText: "Control Center"
+    Plasmoid.title: "Quick Settings"
+    toolTipMainText: "Quick Settings"
     toolTipSubText: ""
     onExpandedChanged: {
         now = Date.now()
@@ -177,7 +177,7 @@ PlasmoidItem {
                     ToggleRow {
                         visible: !!root.nearby && root.nearby.available
                         icon: "kwick-nearby-symbolic"
-                        title: "Nearby Share"
+                        title: "Send Nearby"
                         hasDetails: true
                         on: !!root.nearby && root.nearby.on
                         subtitle: root.nearby ? root.nearby.subtitle : ""

@@ -63,7 +63,7 @@ Meta is Cmd (⌘) in the macOS layout, Win in the Windows layout and Super on Li
 | Reload sway | | | | Meta+Shift+C (sway) |
 | Take Back Control from an AI Agent | Meta+Alt+Esc (reserved) | same | same | Meta+Alt+Esc |
 
-Settings, Control Center (Plasma), Nearby Share, Web Browser outside the tiling sessions, the On-Screen Keyboard outside the
+Settings, Quick Settings (Plasma), Send Nearby, Web Browser outside the tiling sessions, the On-Screen Keyboard outside the
 Windows layout and Next Desktop Layout (macOS, Windows and Linux in turn) have no default and can be given one. The defaults never
 clash with each other in any session or layout (the unit test checks all twelve), and in the lab VM `kwick-keys conflicts` found
 nothing in Plasma (all three layouts) or Hyprland. On GNOME it reports one older clash: KwickOS gives Super+S to the overview,

@@ -76,9 +76,9 @@ ColumnLayout {
         Cell {
             last: true
             title: "Linux " + page.kernel
-            subtitle: "Install, try and roll back kernels in Software Update"
+            subtitle: "Install, try and roll back kernels in Updates"
             Btn {
-                text: "Software Update…"
+                text: "Updates…"
                 onClicked: {
                     for (var i = 0; i < win.pages.length; i++)
                         if (win.pages[i].page === "PageUpdate.qml") win.current = i

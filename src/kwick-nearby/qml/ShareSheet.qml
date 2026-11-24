@@ -232,7 +232,7 @@ Rectangle {
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Nearby.networkProblem !== "" ? "Nearby Share Is Unavailable" : "Looking for Nearby Devices…"
+                text: Nearby.networkProblem !== "" ? "Send Nearby Is Unavailable" : "Looking for Nearby Devices…"
                 color: look.label
                 font.family: look.sans
                 font.pixelSize: 13
@@ -243,7 +243,7 @@ Rectangle {
                 width: 380
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                text: Nearby.networkProblem !== "" ? Nearby.networkProblem : "Open LocalSend or Nearby Share on the other device. Both devices need to be on the same network."
+                text: Nearby.networkProblem !== "" ? Nearby.networkProblem : "Open LocalSend or Send Nearby on the other device. Both devices need to be on the same network."
                 color: look.secondary
                 font.family: look.sans
                 font.pixelSize: 12

@@ -359,7 +359,7 @@ cmd_upgrade() {
 	split=$((sys * 92 / total))
 	rc=0
 	snap_pre=""
-	sdesc="Software Update ($total update$([ "$total" = 1 ] || echo s))"
+	sdesc="System update ($total update$([ "$total" = 1 ] || echo s))"
 	if [ -x /usr/sbin/kwick-snapshot ]; then
 		progress 1 "Taking a snapshot…"
 		snap_pre=$(/usr/sbin/kwick-snapshot create --type pre --cleanup number -d "$sdesc" 2>/dev/null)
@@ -625,8 +625,8 @@ cmd_notify() {
 cmd_toast() {
 	have gdbus || exit 0
 	id=$(gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
-		--method org.freedesktop.Notifications.Notify "Software Update" 0 kwick-settings "Software Updates Available" "$2" \
-		'["default", "Open Software Update", "open", "Details…"]' '{"desktop-entry": <"kwick-settings">}' 'int32 -1' 2>/dev/null |
+		--method org.freedesktop.Notifications.Notify "Updates" 0 kwick-settings "Updates Available" "$2" \
+		'["default", "Open Updates", "open", "Details…"]' '{"desktop-entry": <"kwick-settings">}' 'int32 -1' 2>/dev/null |
 		sed -n 's/^(uint32 \([0-9]*\),)$/\1/p')
 	[ -n "$id" ] || exit 0
 	timeout 3600 gdbus monitor --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications 2>/dev/null | while read -r line; do

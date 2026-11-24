@@ -81,17 +81,17 @@ has to pass first:
 
 ## Built-in apps
 
-| App Store | App Store, light | Software Update |
+| Software | Software, light | Updates |
 |---|---|---|
-| <img src="img/app-store.png" width="280" alt="App Store"> | <img src="img/app-store-light.png" width="280" alt="App Store, light"> | <img src="img/software-update.png" width="280" alt="Software Update"> |
+| <img src="img/app-store.png" width="280" alt="Software"> | <img src="img/app-store-light.png" width="280" alt="Software, light"> | <img src="img/software-update.png" width="280" alt="Updates"> |
 
-| Quick Look | Capture | Nearby Share |
+| Glance | Capture | Send Nearby |
 |---|---|---|
-| <img src="img/quick-look.png" width="280" alt="Quick Look"> | <img src="img/capture.png" width="280" alt="Capture"> | <img src="img/nearby-share.png" width="280" alt="Nearby Share"> |
+| <img src="img/quick-look.png" width="280" alt="Glance"> | <img src="img/capture.png" width="280" alt="Capture"> | <img src="img/nearby-share.png" width="280" alt="Send Nearby"> |
 
-| Clipboard history (Meta+V) | Control Center | Control Center, light |
+| Clipboard history (Meta+V) | Quick Settings | Quick Settings, light |
 |---|---|---|
-| <img src="img/clipboard.png" width="280" alt="Clipboard history"> | <img src="img/control-center.png" width="280" alt="Control Center"> | <img src="img/control-center-light.png" width="280" alt="Control Center, light"> |
+| <img src="img/clipboard.png" width="280" alt="Clipboard history"> | <img src="img/control-center.png" width="280" alt="Quick Settings"> | <img src="img/control-center-light.png" width="280" alt="Quick Settings, light"> |
 
 Keyboard Shortcuts (Cmd+/ in the macOS layout, Meta+K elsewhere), searchable and grouped by category:
 

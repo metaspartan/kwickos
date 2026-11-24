@@ -38,7 +38,7 @@ ColumnLayout {
 
         PlasmaComponents3.Label {
             Layout.fillWidth: true
-            text: "Nearby Share"
+            text: "Send Nearby"
             font.weight: Font.Bold
         }
 
@@ -136,7 +136,7 @@ ColumnLayout {
     }
 
     MenuRow {
-        text: "Nearby Share Settings…"
+        text: "Send Nearby Settings…"
         onClicked: page.openSettings()
     }
 }

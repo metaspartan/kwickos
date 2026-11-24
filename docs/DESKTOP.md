@@ -19,8 +19,8 @@ extension keeps white panel text in `stylesheet-light.css`, and on Hyprland the 
   ("Sun Nov 15  9:41 AM", the `org.kwickos.clock` applet with a calendar popup), a floating dock with 48 px icons, and
   traffic-light buttons at the top left of windows with 10 px corners, a hairline edge and a large soft shadow, and
   macOS menus from the `KwickMac` widget style. The KwickOS mark opens the KwickOS menu (`org.kwickos.applemenu`: About This
-  Computer, System Settings, App Store, Force Quit, Sleep, Restart, Shut Down, Lock Screen, Log Out). Next to the clock sits
-  Control Center (`org.kwickos.controlcenter`): Wi-Fi, Bluetooth with a device list, network, Focus (Do Not Disturb), Night
+  Computer, System Settings, Software, Force Quit, Sleep, Restart, Shut Down, Lock Screen, Log Out). Next to the clock sits
+  Quick Settings (`org.kwickos.controlcenter`): Wi-Fi, Bluetooth with a device list, network, Focus (Do Not Disturb), Night
   Light, display brightness, sound and now playing; volume and brightness leave the menu bar for it. Every Qt menu (app menus
   in the menu bar, context menus, dock and tray menus) is drawn like macOS 27: 12 px rounded translucent panels with a soft
   shadow, 24 px rows with an inset accent highlight, glyph shortcuts (⌃⌥⇧⌘) and icons only in menus where every item has
@@ -36,7 +36,7 @@ extension keeps white panel text in `stylesheet-light.css`, and on Hyprland the 
   Recommended, All apps as Category, Grid or List, and the account and power menus; Meta opens it. Quick Settings
   (`org.kwickos.quicksettings`) groups the network, volume and battery icons and opens Wi-Fi, Bluetooth, VPN, Airplane mode,
   Energy saver and Night light tiles, brightness and volume sliders, media controls and sound output, Wi-Fi, Bluetooth and VPN
-  pages. The clock (`org.kwickos.notificationcenter`) opens the notification center with the calendar and a Focus session, and
+  pages. The clock (`org.kwickos.notificationcenter`) opens notifications with the calendar and a Focus session, and
   its right edge peeks at the desktop. Alt+Tab uses a Windows 11 style card switcher (`kwick_fluent`), flyouts have 8 px corners
   and a soft shadow, and windows have 32 px title bars with 46x32 caption buttons and a red close hover. The shared Fluent QML
   controls live in `/usr/share/kwick/qml/fluent`. Light and dark follow `kwick-layout appearance` (KwickFluent / KwickFluentLight;
@@ -88,7 +88,7 @@ Shells, or with `kwick-desktop shell NAME`; terminal shells and prompt presets w
 
 `kwick-settings` is a QML app with pages for Appearance (layout and accent color), Dock, Effects, Fonts, Desktop Session, Shells,
 Keyboard (every shortcut, recorded with a click; `kwick-settings keyboard`, see [KEYS](KEYS.md)), GPU,
-Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Software Update (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). It runs in `/usr/lib/kwick/kwick-settings-app` (built from `src/kwick-settings`), which sets the Wayland app id to `kwick-settings`, so KWin (Alt+Tab, Overview, window icons), the dock and the taskbar match `kwick-settings.desktop`; without that binary it falls back to `qml6` with the app id `org.kwickos.settings.qml`, which `kwick-settings.desktop` names in `StartupWMClass`. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
+Gaming, VPN, Storage and About (name, processor, graphics, memory, startup disk, display, kernel; `kwick-settings about`) and Updates (updates, automatic updates and kernels; `kwick-settings software-update`, see [UPDATES](UPDATES.md)). It runs in `/usr/lib/kwick/kwick-settings-app` (built from `src/kwick-settings`), which sets the Wayland app id to `kwick-settings`, so KWin (Alt+Tab, Overview, window icons), the dock and the taskbar match `kwick-settings.desktop`; without that binary it falls back to `qml6` with the app id `org.kwickos.settings.qml`, which `kwick-settings.desktop` names in `StartupWMClass`. It tells you when no GPU compositor is running and offers to install `kwick-gpu`. KDE System Settings uses
 the same KwickOS object icons.
 
 The accent color defaults to Apple's orange in the macOS layout (`#FF9F0A` dark, `#FF9500` light; links stay blue) and to each
@@ -101,7 +101,7 @@ popup buttons for the Highlight color (list and text selection: the accent, grap
 and the Sidebar icon color (neutral or accent; `kwick-layout sidebar`), and the "Allow wallpaper tinting in windows" switch
 (`kwick-layout tint`). In the macOS layout sidebars use a subtle grey rounded selection and neutral icons by default, and
 wallpaper tinting is on while KWin's blur is on. `kwick-layout` writes the derived colours to `~/.config/kwick/colors.json`
-(`kwick-layout colors --json`), which Settings and the App Store read. When upgrading from a release with the blue default, the first
+(`kwick-layout colors --json`), which Settings and Software read. When upgrading from a release with the blue default, the first
 `kwick-layout` run records an earlier choice: an `AccentColor` in `kdeglobals` that is one of the Settings colours other than
 blue, or blue when GNOME's `accent-color` was also set to blue in the user's dconf (only Settings writes it on Plasma), is kept.
 Everyone else follows the new default, and the next login applies orange once. See [PALETTE](PALETTE.md#accent).
@@ -169,11 +169,11 @@ locations, krunner_shell`, with apps matched by `krunner_kwick` so no KDE activi
 `kwick-spotlight --list-runners` lists the installed ones, `--query TEXT` and `--mode apps|files|actions|clipboard` open it with
 text or a browse mode, and `KWICK_SPOTLIGHT_TRACE=1` logs open and keystroke timings.
 
-## Quick Look
+## Glance
 
 Press Space on a file in Files and a preview window opens at once; Space or Esc closes it, the arrow keys move to the next file,
 Return opens it in its default app ("Open with …" in the toolbar), F goes full screen, Ctrl+C copies the file. Cmd+Y (Ctrl+Y)
-previews the selected file in Search, and the Files context menu has "Quick Look" too.
+previews the selected file in Search, and the Files context menu has "Glance" too.
 
 It previews images (animated GIF and WebP play, Ctrl+scroll or double-click zooms), PDF (every page, rendered with Poppler),
 video and audio (Qt Multimedia with FFmpeg, with a scrubber), text and source code with syntax highlighting (KSyntaxHighlighting,
@@ -286,7 +286,7 @@ profile, connect time and tunnel address. `kwick-vpn` works on both editions; se
 `kwick-bluetooth` is the shared Bluetooth backend on top of `bluetoothctl`, independent of the layout and the desktop:
 `status`, `list` (address, name, connected, battery, icon), `json`, `power on|off|toggle`, `connect|disconnect|toggle
 <address>`, `menu` (a fuzzel menu with the paired devices) and `settings` (the Bluetooth settings of the running desktop).
-Plasma gets the Bluetooth agent, pairing and settings from `bluedevil` and the device list in Control Center; the Hyprland and
+Plasma gets the Bluetooth agent, pairing and settings from `bluedevil` and the device list in Quick Settings; the Hyprland and
 sway bars open `kwick-bluetooth menu` on click and the settings on right-click; GNOME uses its own Quick Settings.
 
 ## GPUs

@@ -79,7 +79,7 @@ were the starting points.
 | Layout switch with windows open | macOS, Windows, Linux and back: every open window has the new buttons; before the fix the Dolphin windows that `kwick-layout` reopens kept the previous plugin's decoration |
 
 Not verified: the CI desktop workflow itself (the Docker build with the essentials' packages and the package step), arm64 and
-riscv64, the Raspberry Pi image, the adoption through the Software Update page (the CLI `apt upgrade` path was run), a desktop
+riscv64, the Raspberry Pi image, the adoption through the Updates page (the CLI `apt upgrade` path was run), a desktop
 installed from a 0.6.x ISO, and a GNOME session after the Lock Screen change (the defaults and the keymap were checked in the VM).
 
 ## Tree that was tested (first round)
@@ -169,7 +169,7 @@ Not verified for `kwick-kernel`: systemd-boot (the `loader/entries` and `bootctl
 (BPI-F3) and Apple paths, BIOS GRUB, installs that need a generated initramfs (btrfs, xfs, ZFS, LUKS), arm64 and riscv64,
 the Settings page in a running KDE session, and `kwick-kernel-confirm.service` under real systemd (kinit ran it).
 
-## Software update and kernel trials, end to end
+## Updates and kernel trials, end to end
 
 Run on 2026-11-20 with KVM VMs (QEMU, OVMF or SeaBIOS) in a lab container. Everything came from this tree: kpkg,
 BusyBox and kinit, the virt kernels 7.3.4 and 7.3.5 (`scripts/build-kernel.sh`), the generic kernel 7.3.5 (the generic
@@ -214,7 +214,7 @@ U-Boot sandbox: `sed` maps `mmc 0:1` and `mmc 2:1` to two host image files and r
 Desktop: an existing 0.4.0 desktop install (a qcow2 overlay on a lab disk) was upgraded with `apt-get upgrade` from
 repository B. kpkg installed the new dependency `kwick-update` of `kwick-essentials` 0.6.5, which brought
 `kwick-update` and `kwick-kernel` and enabled `kwick-kernel-confirm.service` and `kwick-boot-ok.service`. The Settings
-Software Update page from this tree, with the polkit policy and rule, was then checked:
+Updates page from this tree, with the polkit policy and rule, was then checked:
 * opening it with a stale check runs `pkexec kwick-update check` without a prompt, with progress;
 * Update Now shows the KDE polkit dialog, installs the generic 7.3.5 kernel and arms its trial;
 * the trial boot is confirmed and promoted;
@@ -242,7 +242,7 @@ installed systems got the same files copied in, because the installer copies the
 | Fresh install, UEFI GRUB, `--swap file:2G`, default file system | subvolumes `@ @home @root @srv @var_log @var_cache @var_tmp @snapshots @swap`; fstab with `compress=zstd:1`, `/.snapshots` `nosuid,nodev`; snapshot 1 "Fresh install"; crontab line and `kwick-snapshot-boot.service` enabled; `btrfs-progs` installed into the target |
 | First boot | `/` mounted `subvol=/@` with `noatime,compress=zstd:1` (after `ROOT_FLAGS`); `kwick-snapshot status`: subvolumes layout, rollback available, snapshot entries in GRUB |
 | `apt-get install sl` (kpkg `DPkg::Pre-Invoke`/`Post-Invoke`) | pre 2 and post 3, described "apt-get install sl"; `changes` lists `/usr/games/sl`, the docs and the dpkg files; `packages 2 3` shows `+ sl` |
-| `kwick-update upgrade` (4 Debian security updates) | exactly one pair, 4/5 "Software Update (4 updates)", no extra apt pair; `packages 4 5` lists the four version changes |
+| `kwick-update upgrade` (4 Debian security updates) | exactly one pair, 4/5 "System update (4 updates)", no extra apt pair; `packages 4 5` lists the four version changes |
 | BusyBox `crond` | with the clock set before the job's minute, `crond` ran `kwick-snapshot timeline` (syslog line), which took root 6 and home 1 |
 | `boot-once 7` (GRUB `next_entry`) | first attempt exposed that the installer's `grub.cfg` had no one-shot logic; fixed, and `boot-once` now runs `kwick-kernel sync` when `grub.cfg` lacks it. Then: booted `rootflags=subvol=@snapshots/root/7/snapshot kwick.snapshot=7`, `/` an overlay, a file changed after the snapshot shows its old content, `next_entry` cleared, `create` refused, apt worked without snapshots; the next boot was the normal system with nothing changed |
 | Broken system (GRUB) | `/usr/sbin/kinit` replaced by garbage and `libc.so.6` deleted: every boot ends in "Kernel panic ... Attempted to kill init", "Rebooting in 10 seconds", in a loop |
@@ -340,7 +340,7 @@ Analyzer on real AUR packages: `yay`, `zoom`, `ttf-ms-fonts`, `downgrade`, `pama
 
 Not verified for kwick-arch: GNOME and Hyprland sessions (only KDE Wayland), PipeWire audio from an Arch app, NVIDIA, a real arm64
 machine, an upgrade that the gate refuses with live tracker data (covered only by the unit test), AUR packages with AUR
-dependencies, the Store GUI and the Software Update page (owned elsewhere; only their CLI/JSON was exercised), and the VM's own
+dependencies, the Store GUI and the Updates page (owned elsewhere; only their CLI/JSON was exercised), and the VM's own
 older kpkg lacks `${source:Version}`, so `debsec` fell back to binary versions there (current kpkg provides it).
 
 ## AI agents (kwick-agents, kwick-mcp)

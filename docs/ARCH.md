@@ -120,7 +120,7 @@ in `/etc/kwick/arch.conf` for the strict behaviour.
 The check is only as good as the tracker. It does not know about issues that Arch has not filed, and its pkgbase matching can
 over-report split packages (for example `systemd-libs` for an AVG filed against `systemd`).
 
-### Periodic re-check and Software Update
+### Periodic re-check and the Updates page
 
 `kwick-arch upgrade --check` refreshes the sync databases into a temporary directory (as root inside the root bwrap; as a normal
 user inside a user-namespace bwrap with pacman's download sandbox disabled for that temporary copy), compares them with the
@@ -128,7 +128,7 @@ installed packages and reports: available updates with the CVEs they fix or stil
 packages with a newer version (they need a new review, see below), and every installed package with open advisories. As root the
 result is saved in `/var/lib/kwick/arch/check.json`; a normal user gets that saved result if it is less than an hour old.
 
-`kwick-update check` (and so the scheduled check and the Software Update page) runs it when the environment is enabled. Arch updates
+`kwick-update check` (and so the scheduled check and the Updates page) runs it when the environment is enabled. Arch updates
 appear in `kwick-update status --json` as `updates` entries of `"kind":"arch"` (`"security":true` when the update fixes an
 advisory), the status JSON gains an `"arch"` object with the check summary and the vulnerable packages, and
 `kwick-update upgrade arch` (or `upgrade all`) runs `kwick-arch upgrade --yes`. A refused Arch upgrade is logged as "held back"

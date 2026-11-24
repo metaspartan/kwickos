@@ -8,7 +8,7 @@
             }
         ],
         "Category": "Date and Time",
-        "Description": "Windows 11 style taskbar clock with the notification center, calendar and focus session in one flyout",
+        "Description": "Windows 11 style taskbar clock with notifications, the calendar and focus session in one flyout",
         "Icon": "preferences-system-time",
         "Id": "org.kwickos.notificationcenter",
         "License": "GPL-2.0-or-later",

@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Nearby Share Receiver
+Name=Send Nearby Receiver
 Exec=/usr/bin/kwick-nearby --autostart
 Icon=kwick-nearby
 NoDisplay=true

@@ -30,7 +30,7 @@
   },
   "custom/store": {
     "exec": "/usr/lib/kwick/dock-state 'org.kwickos.store.qml|org.kde.discover|org.gnome.Software'",
-    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "App Store",
+    "return-type": "json", "interval": 5, "signal": 9, "tooltip-format": "Software",
     "on-click": "/usr/lib/kwick/dock-state open 'org.kwickos.store.qml|org.kde.discover|org.gnome.Software' kwick-app software"
   },
   "custom/steam": {

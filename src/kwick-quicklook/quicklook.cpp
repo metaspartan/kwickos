@@ -295,7 +295,7 @@ void QuickLook::createView()
         return;
     }
     m_view = new QQuickView();
-    m_view->setTitle(QStringLiteral("Quick Look"));
+    m_view->setTitle(QStringLiteral("Glance"));
     m_view->setResizeMode(QQuickView::SizeRootObjectToView);
     m_view->setColor(m_dark ? QColor(30, 30, 30) : QColor(245, 245, 245));
     m_view->setMinimumSize(QSize(360, 240));

@@ -125,7 +125,7 @@ void usage()
                         << "  --status                  print the settings as JSON\n"
                         << "  --set KEY VALUE           alias, visibility (off|contacts|everyone), folder, pin, require-pin\n"
                         << "  --forget FINGERPRINT|all  forget a known device\n\n"
-                        << "Nearby Share speaks the LocalSend protocol v2 on TCP and UDP port 53317.\n";
+                        << "Send Nearby speaks the LocalSend protocol v2 on TCP and UDP port 53317.\n";
 }
 }
 
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
         }
     }
     app.setApplicationName(QStringLiteral("kwick-nearby"));
-    app.setApplicationDisplayName(QStringLiteral("Nearby Share"));
+    app.setApplicationDisplayName(QStringLiteral("Send Nearby"));
     app.setOrganizationDomain(QStringLiteral("kwickos.org"));
     app.setDesktopFileName(QStringLiteral("kwick-nearby"));
     app.setQuitOnLastWindowClosed(false);

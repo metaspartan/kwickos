@@ -20,9 +20,9 @@ mkdir -p "$DEST/usr/share/kglobalaccel"
 ln -sf ../applications/kwick-capture.desktop "$DEST/usr/share/kglobalaccel/kwick-capture.desktop"
 mkdir -p "$DEST/usr/share/doc/kwick-native"
 cat > "$DEST/usr/share/doc/kwick-native/copyright" <<'COPYRIGHT'
-kwick-quicklook (Quick Look previews for Files, Nautilus and Spotlight, with a Dolphin
+kwick-quicklook (Glance previews for Files, Nautilus and Search, with a Dolphin
 Space-key hook), kwick-capture (screenshots, screen recording, markup, text
-recognition and color picking) and kwick-nearby (Nearby Share: file and text sharing
+recognition and color picking) and kwick-nearby (Send Nearby: file and text sharing
 with nearby devices over the LocalSend protocol v2, with a Nautilus menu extension)
 
 Source: src/kwick-quicklook, src/kwick-capture and src/kwick-nearby in the KwickOS repository.
