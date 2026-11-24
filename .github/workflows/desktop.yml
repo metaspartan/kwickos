@@ -66,6 +66,14 @@ jobs:
       - name: Desktop rootfs (Plasma, drivers, firmware, effects)
         run: docker build --progress=plain --build-context kwinflipsrc=src/kwin-flip --build-context kwinglasssrc=src/kwin-liquidglass --build-context macstylesrc=src/kwick-macstyle --build-context spotlightsrc=src/kwick-spotlight --build-context settingssrc=src/kwick-settings --build-context nativesrc=src --build-context kwickscripts=scripts --build-arg BASE=kwickos:$(cat VERSION)-$ARCH -t kwickos-desktop:ci desktop/
 
+      - name: KwickOS packages the image registers (kwick-desktop and what it depends on)
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash -c "
+            bash /src/scripts/mkkernelpkg.sh $ARCH generic && bash /src/scripts/mkgpupkg.sh && bash /src/scripts/mkgamingpkg.sh &&
+            bash /src/scripts/mkessentialspkg.sh && bash /src/scripts/mkupdatepkg.sh && bash /src/scripts/mkcorepkg.sh $ARCH &&
+            bash /src/scripts/mkdesktoppkg.sh $ARCH"
+          ls -l out/repo/pool/main/
+
       - name: Desktop live ISO
         run: |
           docker create --name deskx kwickos-desktop:ci /bin/true

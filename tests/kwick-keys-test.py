@@ -233,6 +233,22 @@ check("respect a later change made outside kwick-keys", not kk.should_write({"wr
 check("restore after a reset", kk.should_write({"written": {"t": ["Meta+Q"]}}, "t", ["Meta+W"], ["Meta+Q"], False))
 check("custom always wins", kk.should_write({"written": {"t": ["Meta+Q"]}}, "t", ["Meta+Q"], ["Meta+Tab"], True))
 
+lock = km.by_id["lock"]
+check("no Lock Screen on GNOME (gnome-shell cannot lock without GDM)", not any(lock.available("gnome", l) for l in ("macos", "windows", "linux")))
+check("Lock Screen stays on Plasma, Hyprland and sway", all(lock.available(s, "macos") for s in ("kde", "hyprland", "sway")))
+check("the GNOME cheat sheet does not list Meta+L", "Meta+L" not in [str(c) for c, _, _ in km.expanded("gnome", "macos")])
+
+calls, store = [], {("org.gnome.settings-daemon.plugins.media-keys", "screensaver"): "['<Super>l']"}
+saved = (kk.have, kk.gsettings_get, kk.run)
+kk.have = lambda n: True
+kk.gsettings_get = lambda s, k: store.get((s, k), "@as []")
+kk.run = lambda cmd, *a, **kw: calls.append(cmd)
+st = {"written": {"gnome:org.gnome.settings-daemon.plugins.media-keys:screensaver": ["Meta+L"]}, "stolen": []}
+kk.apply_gnome(km, "macos", st, True)
+kk.have, kk.gsettings_get, kk.run = saved
+check("GNOME's Super+L that kwick-keys wrote earlier is reset", ["gsettings", "reset", "org.gnome.settings-daemon.plugins.media-keys", "screensaver"] in calls, calls)
+check("the reset is forgotten afterwards", "gnome:org.gnome.settings-daemon.plugins.media-keys:screensaver" not in st["written"])
+
 out = os.path.join(TMP, "export.json")
 km.overrides = {"spotlight": [kk.parse("Meta+Alt+Space")]}
 km.save()

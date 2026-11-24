@@ -42,6 +42,7 @@ kwin_plugin settings mksettingspkg.sh
 chmod 755 "$P/usr/lib/kwick/fetch-effects"
 "$P/usr/lib/kwick/fetch-effects" "$P" all
 mkdir -p "$P/etc/kinit"; printf 'tty1\n' > "$P/etc/kinit/no-getty"
+deb_conffiles "$P"
 deps=$(grep -hv '^#' "$SRC/desktop/packages.list" | tr -s ' \n' '\n' | grep -Ev '^(firmware-|intel-media-va-driver-non-free|intel-microcode|amd64-microcode)' | tr '\n' ',' | sed 's/,$//; s/^,//; s/,/, /g')
 deps="linux-image-kwick-generic | linux-image-kwick-rpi, kwick-gpu, kwick-gaming, kwick-essentials, kwick-update, $deps"
 deb_control "$P" kwick-desktop "$VER" "$ARCH" metapackages 40000 <<EOF
@@ -54,7 +55,22 @@ deb_script "$P" postinst <<'EOF'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
-if [ -f /etc/network/interfaces ] && grep -E '^[[:space:]]*iface[[:space:]]' /etc/network/interfaces | grep -qvE '^[[:space:]]*iface[[:space:]]+lo[[:space:]]'; then
+FIRST=0; ADOPT=0
+if [ -z "${2:-}" ]; then
+  if grep -qs Desktop /etc/kwick-edition; then ADOPT=1; else FIRST=1; fi
+fi
+H=/usr/share/kwick/conffiles.md5
+if [ -f "$H" ] && [ -f /var/lib/dpkg/info/kwick-desktop.conffiles ]; then
+  while read -r f; do
+    [ -f "$f.dpkg-dist" ] && [ -f "$f" ] || continue
+    if grep -qxF "$(md5sum < "$f" | cut -d' ' -f1)  $f" "$H"; then
+      mv -f "$f.dpkg-dist" "$f"
+    else
+      echo "KwickOS Desktop: kept your changes to $f; the new version is $f.dpkg-dist"
+    fi
+  done < /var/lib/dpkg/info/kwick-desktop.conffiles
+fi
+if [ $FIRST = 1 ] && [ -f /etc/network/interfaces ] && grep -E '^[[:space:]]*iface[[:space:]]' /etc/network/interfaces | grep -qvE '^[[:space:]]*iface[[:space:]]+lo[[:space:]]'; then
   cp /etc/network/interfaces /etc/network/interfaces.kwick-headless
   printf 'auto lo\niface lo inet loopback\n\nsource-directory /etc/network/interfaces.d\n' > /etc/network/interfaces
 fi
@@ -63,7 +79,7 @@ install -d -m 1733 /var/lib/kwick/cores
 [ -w /proc/sys/kernel/core_pattern ] && sed -n 's/^kernel.core_pattern = //p' /usr/lib/sysctl.d/60-kwick-cores.conf > /proc/sys/kernel/core_pattern 2>/dev/null || true
 touch -r /usr /etc/.updated /var/.updated
 command -v kwick-shell >/dev/null && kwick-shell --default zsh >/dev/null 2>&1 || true
-if ! id kwick >/dev/null 2>&1; then
+if [ $FIRST = 1 ] && ! id kwick >/dev/null 2>&1; then
   adduser --disabled-password --gecos "KwickOS" --shell /bin/zsh kwick >/dev/null 2>&1 || true
   for g in sudo video render audio input netdev bluetooth plugdev users; do grep -q "^$g:" /etc/group && adduser kwick $g >/dev/null 2>&1 || true; done
   echo "kwick: set a password with 'passwd kwick' (no password = no login except autologin)"
@@ -90,7 +106,7 @@ fi
 rm -f /usr/lib/*/qt6/plugins/discover/packagekit-backend.so /usr/lib/*/qt6/plugins/discover/kns-backend.so
 for t in KwickOS KwickOS-Fluent KwickOS-Linux hicolor; do command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t /usr/share/icons/$t >/dev/null 2>&1 || true; done
 mkdir -p /etc/sddm.conf.d
-[ -f /etc/sddm.conf.d/20-autologin.conf ] || printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf
+[ $FIRST = 0 ] || [ -f /etc/sddm.conf.d/20-autologin.conf ] || printf '[Autologin]\nUser=kwick\nSession=plasma\nRelogin=false\n' > /etc/sddm.conf.d/20-autologin.conf
 printf 'tty1\n' > /etc/kinit/no-getty
 if [ -d /etc/sudoers.d ]; then
   printf 'kwick ALL=(root) NOPASSWD: /usr/sbin/kwick-gpu steam\n' > /etc/sudoers.d/kwick-steam
@@ -106,6 +122,8 @@ command -v flatpak >/dev/null && flatpak remote-add --if-not-exists flathub http
 nohup setsid sh -c 'for i in $(seq 1 600); do flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break; sleep 1; done; /usr/sbin/kwick-gpu install >/var/log/kwick-gpu.log 2>&1; /usr/bin/kwick-gaming install overlay >/var/log/kwick-gaming.log 2>&1' >/dev/null 2>&1 &
 if [ -n "${2:-}" ]; then
   echo "KwickOS Desktop updated from $2. Restart to use the new desktop."
+elif [ $ADOPT = 1 ]; then
+  echo "KwickOS Desktop: the desktop already on this system is now the kwick-desktop package and gets updates with the rest of the system. Restart to use the new desktop."
 else
   echo "KwickOS Desktop installed. Reboot to start the desktop (kernel: generic flavor via kwick-kernel-install)."
 fi

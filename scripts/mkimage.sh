@@ -21,21 +21,17 @@ kdeb() {
   OUT=$t SRC=$SRC bash "$SRC/scripts/mkkernelpkg.sh" "$ARCH" "$2" >/dev/null
   ls "$t"/repo/pool/main/linux-image-kwick-"$2"_*.deb
 }
+. "$SRC/scripts/deb.sh"
 register() {
-  local R=$1 deb=$2 pkg x
-  pkg=$(dpkg-deb -f "$deb" Package)
-  x="$W/ctl-$pkg"; rm -rf "$x"; mkdir -p "$x"
-  dpkg-deb -x "$deb" "$R"
-  dpkg-deb -e "$deb" "$x"
-  for s in preinst postinst prerm postrm md5sums conffiles; do
-    [ -f "$x/$s" ] && cp -p "$x/$s" "$R/var/lib/dpkg/info/$pkg.$s"
-  done
-  dpkg-deb --fsys-tarfile "$deb" | tar -t | sed -e 's|^\./|/|' -e 's|/$||' -e 's|^$|/.|' | sort -u > "$R/var/lib/dpkg/info/$pkg.list"
-  { echo; dpkg-deb -f "$deb" | awk '{ print } /^Package:/ { print "Status: install ok installed" }'; echo; } >> "$R/var/lib/dpkg/status"
-  chmod 755 "$R"
+  local R=$1 deb
+  shift
+  for deb in $(deb_base_pkgs "$ARCH" "$W/basepkg" "$D/kwickos-rootfs-$ARCH.tar.gz") "$@"; do deb_register "$R" "$deb"; done
+  deb_core_links "$R"
+  deb_check_deps "$R"
 }
 RD="$W/rootfs-disk"; cp -a "$R0" "$RD"
 register "$RD" "$(kdeb "$KV" virt)"
+ln -sf /usr/lib/systemd/system/kwick-growroot.service "$RD/etc/systemd/system/multi-user.target.wants/kwick-growroot.service"
 
 ( cd "$R0" && find . -mindepth 1 | LC_ALL=C sort | cpio --quiet -o -H newc -R 0:0 ) | zstd -19 -T"${SOURCE_DATE_EPOCH:-$(date +%s)}" -q > "$D/kwickos-$ARCH-initramfs.cpio.zst"
 

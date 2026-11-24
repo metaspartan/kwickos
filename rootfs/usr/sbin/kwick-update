@@ -43,6 +43,7 @@ usage: kwick-update <command> [options]
   log [N]                        last N lines of the task log
   notify                         tell the desktop sessions about pending updates
   scheduled                      what crond runs: check, then download or install as configured
+  adopt-desktop [--wait]         install kwick-desktop over a desktop an older image left unregistered
 EOF
 }
 
@@ -342,6 +343,10 @@ cmd_upgrade() {
 		log "finishing packages an earlier update left unconfigured"
 		dpkg --configure -a >>"$VAR/log" 2>&1 || log "dpkg --configure -a did not finish"
 	fi
+	if { [ "$what" = all ] || [ "$what" = system ]; } && desktop_unregistered; then
+		adopt_desktop 1 20 || true
+		rm -f "$VAR/updates"
+	fi
 	[ -f "$VAR/updates" ] || collect
 	sys=0
 	app=0
@@ -399,6 +404,49 @@ cmd_upgrade() {
 		e=$(last_error)
 		log "update failed: ${e:-see the log}"
 		job_end 1 "${e:-The update did not finish}"
+	fi
+}
+
+desktop_unregistered() {
+	[ -d /usr/share/kwick/settings ] && grep -qs Desktop /etc/kwick-edition || return 1
+	case $(dpkg-query -W -f='${Status}' kwick-desktop 2>/dev/null) in *" installed") return 1 ;; esac
+	return 0
+}
+
+adopt_desktop() {
+	log "this desktop came from an image that did not register it with the package manager; installing kwick-desktop over it so desktop updates arrive"
+	kernel_guard_on
+	run_fed "$1" "$2" 0 apt-get install -y kwick-desktop
+	r=$?
+	kernel_guard_off same
+	if [ $r = 0 ]; then
+		log "kwick-desktop is installed; desktop updates now come with the system updates"
+	else
+		log "kwick-desktop could not be installed yet; the next update tries again"
+	fi
+	return $r
+}
+
+cmd_adopt() {
+	need_root adopt-desktop
+	if [ "${1:-}" = --wait ]; then
+		i=0
+		while [ $i -lt 3600 ]; do
+			desktop_unregistered || return 0
+			[ -z "$(job_pid)" ] && flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null && break
+			sleep 2
+			i=$((i + 2))
+		done
+	fi
+	desktop_unregistered || { say "kwick-desktop is installed"; return 0; }
+	job_begin adopt "Registering the desktop…"
+	if adopt_desktop 2 94; then
+		collect
+		job_end 0 "Desktop registered"
+	else
+		e=$(last_error)
+		collect
+		job_end 1 "${e:-kwick-desktop could not be installed}"
 	fi
 }
 
@@ -700,6 +748,7 @@ log) cmd_log "$@" ;;
 cve) cmd_cve "$@" ;;
 notify) cmd_notify ;;
 scheduled) cmd_scheduled ;;
+adopt-desktop) cmd_adopt "$@" ;;
 _toast) cmd_toast "$@" ;;
 help | -h | --help) usage ;;
 *)

@@ -1037,6 +1037,7 @@ def apply_gnome(km, layout, state, quiet, steal=()):
                 run(["gsettings", "set", schema, k, gvariant_list(cur + [back.gnome()])])
     state["stolen"] = left
     custom_paths = []
+    live = set()
     for a in km.actions:
         if a.fixed or "gnome" not in a.sessions:
             continue
@@ -1067,6 +1068,7 @@ def apply_gnome(km, layout, state, quiet, steal=()):
             if gt is None or "schema" not in gt or raw is None:
                 continue
             tkey = "gnome:%s:%s" % (gt["schema"], gt["key"])
+            live.add(tkey)
             current = [parse_gnome(s) for s in gvariant_strings(raw)]
             current_s = [str(c) for c in current if c is not None]
             if not avail and tkey not in state["written"]:
@@ -1078,6 +1080,11 @@ def apply_gnome(km, layout, state, quiet, steal=()):
             else:
                 run(["gsettings", "set", gt["schema"], gt["key"], gvariant_list([c.gnome() for c in desired])])
             state["written"][tkey] = desired_s
+    for tkey in [k for k in state["written"] if k.startswith("gnome:") and k not in live]:
+        _, schema, key = tkey.split(":", 2)
+        if gsettings_get(schema, key) is not None:
+            run(["gsettings", "reset", schema, key])
+        del state["written"][tkey]
     raw = gsettings_get(GNOME_MEDIA, "custom-keybindings")
     if raw is not None:
         cur = gvariant_strings(raw)

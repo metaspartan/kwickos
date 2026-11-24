@@ -62,6 +62,26 @@ Results of the second round:
 * **GNOME**: all three layouts re-run, macOS dock shows one editor entry. The `/usr/local` override of `org.gnome.TextEditor.desktop` now carries the `kwick-editor` icon (not re-captured).
 * Not re-run in round two: Hyprland screenshots, sway, wobbly/lamp/flame captures.
 
+## 0.7.1 update delivery
+
+Lab: `integ-vmlab` container with `/dev/kvm`, one VM at a time (SMP 2). The repository was built from the working tree with
+`VERSION` set to 0.7.1 (kernel packages, `kwick-core` with the new kinit, `kwick-update`, `kwick-desktop`, the
+`zsh-autosuggestions` carrier) and signed with a dev key; the CI images of the 0.7.0 release candidate and the 0.6.5 release
+were the starting points.
+
+| Case | Result |
+| --- | --- |
+| 0.6.5 release qcow2, nothing but `kwick-base` and `linux-image-kwick-virt 7.3.5-1` registered | `apt upgrade` upgrades the kernel to `7.3.6-2` and installs `kwick-core` and `kwick-update` 0.7.1 first; `/usr/bin/kpkg` and `/usr/sbin/kinit` are the new ones, `/etc/kwick-release` says 0.7.1, the next boot runs the new kinit |
+| CI headless qcow2 (0.7.0 RC), kernel already `7.3.6-1` | `apt upgrade`: "Installing dependencies: kwick-core kwick-update, Upgrading: linux-image-kwick-virt" (8.4 MB), the kernel stays the default |
+| GPT growth | both images grown with `qemu-img resize +3G`: `kwick-growroot /` moved the backup header, grew partition 2 and ext4 online (1024 to 4096 MiB), a second run changes nothing, the disk boots again and `sfdisk --verify` reports no errors; `tests/growroot-gpt.sh` covers GPT, MBR and a damaged GPT on loop devices |
+| Desktop installed from the 0.7.0 desktop ISO (only `kwick-base` registered), with a line added to `/etc/xdg/kwinrc` and `/etc/xdg/kdeglobals` set to an older shipped version | `apt upgrade` takes `zsh-autosuggestions 0.7.1-1+kwick1`, `kwick-core`, `kwick-update`; right after apt, `kwick-update adopt-desktop` installs `kwick-desktop 0.7.1`, `linux-image-kwick-generic`, `kwick-gpu`, `kwick-gaming`, `kwick-essentials` (logged task "Desktop registered"); `kwinrc` kept with `kwinrc.dpkg-dist` next to it, `kdeglobals` replaced by the new version, no `kwick` user and no autologin created, `dpkg -S /usr/bin/kwick-layout` names `kwick-desktop`; Plasma starts after the restart |
+| Desktop ISO built by `mkdesktop-iso.sh` from the CI desktop root plus the essentials' Debian packages | the live system has all seven packages registered and `apt-get check` clean, `kpkg` hard-linked; installed with `kwick-install run` (btrfs, GRUB), then a `kwick-desktop 0.7.2` in the repository is a normal upgrade (the new `kwick-layout` lands, a user edit in `kwinrc` stays) |
+| Layout switch with windows open | macOS, Windows, Linux and back: every open window has the new buttons; before the fix the Dolphin windows that `kwick-layout` reopens kept the previous plugin's decoration |
+
+Not verified: the CI desktop workflow itself (the Docker build with the essentials' packages and the package step), arm64 and
+riscv64, the Raspberry Pi image, the adoption through the Software Update page (the CLI `apt upgrade` path was run), a desktop
+installed from a 0.6.x ISO, and a GNOME session after the Lock Screen change (the defaults and the keymap were checked in the VM).
+
 ## Tree that was tested (first round)
 
 HEAD `f1e0d43` plus the working tree for the first install; the effects, sessions and Steam runs used a repo rebuilt from HEAD

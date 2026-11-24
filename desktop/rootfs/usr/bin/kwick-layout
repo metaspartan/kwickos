@@ -675,6 +675,8 @@ kde() {
   refresh_icons
   dbus-send --session --type=signal /KDEPlatformTheme org.kde.KDEPlatformTheme.refreshFonts >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+  kwin_deco_wait "$LIB" "$DECO"
+  [ -z "${DOLPHIN_RELOAD:-}" ] || (dolphin_reload) >/dev/null 2>&1 &
   snaplayouts
   command -v kwick-keys >/dev/null 2>&1 && kwick-keys apply --session kde --quiet >/dev/null 2>&1
   js=/usr/share/kwick/plasma/$want.js
@@ -769,7 +771,20 @@ files() {
   kw kdeglobals General TerminalApplication kwick-terminal
   kw kdeglobals General TerminalService kwick-terminal.desktop
   gsettings set org.gnome.desktop.default-applications.terminal exec kwick-terminal 2>/dev/null || true
-  [ "$before" = "$after" ] || (dolphin_reload) >/dev/null 2>&1 &
+  [ "$before" = "$after" ] || DOLPHIN_RELOAD=1
+}
+
+kwin_deco_wait() {
+  command -v qdbus6 >/dev/null 2>&1 || return 0
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    info=$(qdbus6 org.kde.KWin /KWin org.kde.KWin.supportInformation 2>/dev/null | sed -n '/^Decoration$/,/^$/p')
+    [ -n "$info" ] || return 0
+    if printf '%s\n' "$info" | grep -qx "Plugin: $1"; then
+      case $1 in *aurorae) printf '%s\n' "$info" | grep -qx "Theme: $2" && return 0 ;; *) return 0 ;; esac
+    fi
+    sleep 0.25
+  done
+  return 1
 }
 
 dolphin_reload() {

@@ -10,7 +10,7 @@ Every file is on the [latest release](https://github.com/metaspartan/kwickos/rel
 | `kwickos-amd64-desktop.iso` | KDE Plasma 6 desktop live ISO, boots in **UEFI and BIOS** (also `arm64`, UEFI) |
 | `kwickos-amd64.iso` | headless live ISO (UEFI, generic kernel, broad hardware), runs from RAM |
 | `kwickos-amd64-headless.iso` | headless live and installer ISO, boots in **UEFI and BIOS** (`make headless-iso`) |
-| `kwickos-amd64.qcow2` / `.img.zst` | VM/cloud disk: ESP (kernel) + ext4 root, 1 GiB |
+| `kwickos-amd64.qcow2` / `.img.zst` | VM/cloud disk: ESP (kernel) + ext4 root, 1 GiB; grow the disk (`qemu-img resize`, a bigger cloud volume) and `kwick-growroot.service` grows the GPT partition and ext4 to fill it at boot |
 | `kwickos-amd64.efi` | the kernel itself (virt flavor), a UEFI app and `-kernel` image for QEMU/Firecracker |
 | `kwickos-amd64-initramfs.cpio.zst` | the whole OS as an initramfs (microVMs, CI sandboxes) |
 | `kwickos-rootfs-amd64.tar.gz` | rootfs tarball (containers, chroots, WSL) |

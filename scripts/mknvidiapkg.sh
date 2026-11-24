@@ -5,7 +5,7 @@ SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}
 . "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 . "$SRC/config/nvidia.env"
 K="$OUT/$ARCH/kernel-$FLAVOR"; O="$BUILD/kernel-$ARCH-$FLAVOR"
-KREL=$(cat "$K/version"); KVER=${KREL%-kwick}
+KREL=$(cat "$K/version"); KVER=${KREL%-kwick}; KDEBV=$(kernel_deb_version "$KVER")
 case $ARCH in
   amd64) KARCH=x86_64; CROSS=; HOSTM=x86_64 ;;
   arm64) KARCH=arm64; CROSS=aarch64-linux-gnu-; HOSTM=aarch64 ;;
@@ -52,7 +52,7 @@ options nvidia NVreg_PreserveVideoMemoryAllocations=1
 EOT
 cp "$W/COPYING" "$P/usr/share/doc/$PKG/copyright" 2>/dev/null || true
 deb_control "$P" "$PKG" "$VER" "$ARCH" kernel <<EOT
-Depends: $IMGPKG (= $KVER-1), kmod
+Depends: $IMGPKG (= $KDEBV), kmod
 Provides: kwick-nvidia-kmod, nvidia-kernel-open-dkms (= $VER), nvidia-kernel-dkms-any (= $NVIDIA_DRIVER_VERSION), nvidia-kernel-$NVIDIA_DRIVER_VERSION
 Recommends: firmware-nvidia-gsp (= $NVIDIA_DRIVER_VERSION)
 Description: NVIDIA open GPU kernel modules $NVIDIA_DRIVER_VERSION for KwickOS kernel $KREL

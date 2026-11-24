@@ -31,3 +31,9 @@ dash-max-icon-size=48
 show-trash=true
 show-mounts=false
 show-show-apps-button=false
+
+[org.gnome.desktop.lockdown]
+disable-lock-screen=true
+
+[org.gnome.settings-daemon.plugins.media-keys]
+screensaver=@as []

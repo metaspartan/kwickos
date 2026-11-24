@@ -348,9 +348,9 @@
       "title": "Lock Screen",
       "category": "system",
       "keywords": "lock screensaver away",
+      "sessions": ["kde", "hyprland", "sway"],
       "command": "swaylock -f",
       "kde": { "component": "ksmserver", "action": "Lock Session", "friendly": "Session Management" },
-      "gnome": { "schema": "org.gnome.settings-daemon.plugins.media-keys", "key": "screensaver" },
       "keys": { "*": ["Meta+L"], "kde": ["Meta+L", "ScreenSaver"] }
     },
     {

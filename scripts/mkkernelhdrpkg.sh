@@ -5,7 +5,7 @@ OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; SRC=${SRC:-/src}
 . "$(cd "$(dirname "$0")" && pwd)/deb.sh"
 K="$OUT/$ARCH/kernel-$FLAVOR"; O="$BUILD/kernel-$ARCH-$FLAVOR"
 KREL=$(cat "$K/version")
-KVER=${KREL%%-kwick*}
+KVER=${KREL%%-kwick*}; KDEBV=$(kernel_deb_version "$KVER")
 case $ARCH in
   amd64) KARCH=x86_64; CROSS= ;;
   arm64) KARCH=arm64; CROSS=aarch64-linux-gnu- ;;
@@ -30,11 +30,11 @@ make -C "$KSRC" O="$O" ARCH="$KARCH" CROSS_COMPILE="$CROSS" run-command \
   KBUILD_RUN_COMMAND="\${srctree}/scripts/package/install-extmod-build $D" >/dev/null
 cp "$O/.config" "$D/.config"
 ln -s "../../usr/src/linux-headers-$KREL" "$P/lib/modules/$KREL/build"
-deb_control "$P" "$PKG" "$KVER-1" "$ARCH" kernel <<EOT
-Depends: $IMGPKG (= $KVER-1), make, gcc | gcc-14, libc6-dev
+deb_control "$P" "$PKG" "$KDEBV" "$ARCH" kernel <<EOT
+Depends: $IMGPKG (= $KDEBV), make, gcc | gcc-14, libc6-dev
 Provides: kwick-kernel-headers, linux-headers-$KREL
 Description: Linux $KVER kernel build tree for out-of-tree modules ($FLAVOR flavor)
  Provides /lib/modules/$KREL/build so DKMS and external module builds
  (NVIDIA open modules, ZFS, v4l2loopback, ...) work against the KwickOS kernel.
 EOT
-deb_build "$P" "$PKG" "$KVER-1" "$ARCH" "($ARCH)"
+deb_build "$P" "$PKG" "$KDEBV" "$ARCH" "($ARCH)"

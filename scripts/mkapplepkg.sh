@@ -5,7 +5,7 @@ SRC=${SRC:-/src}; OUT=${OUT:-/out}
 ARCH=arm64; FLAVOR=apple
 K="$OUT/$ARCH/kernel-$FLAVOR"
 KREL=$(cat "$K/version")
-KVER=${KREL%-kwick}
+KVER=${KREL%-kwick}; KDEBV=$(kernel_deb_version "$KVER")
 VER=$(kwick_version)
 
 P=$(mktemp -d)
@@ -13,7 +13,8 @@ mkdir -p "$P/DEBIAN" "$P/usr/lib/kwick/kernels/$KREL"
 cp "$K/vmlinuz" "$K/config" "$P/usr/lib/kwick/kernels/$KREL/"
 zstd -dc "$K/modules.tar.zst" | tar -C "$P/usr" -x
 zstd -dc "$K/dtbs.tar.zst" | tar -C "$P/usr/lib/kwick/kernels/$KREL" -x
-deb_control "$P" kwick-kernel-asahi "$KVER-1" arm64 kernel <<EOT
+deb_control "$P" kwick-kernel-asahi "$KDEBV" arm64 kernel <<EOT
+Pre-Depends: kwick-update (>= $VER)
 Depends: kwick-apple-boot, kmod
 Provides: linux-image, linux-image-$KREL
 Conflicts: linux-image-kwick-generic, linux-image-kwick-gb10
@@ -30,7 +31,7 @@ if [ "\$1" = configure ] && [ -x /usr/sbin/kwick-apple-boot ]; then
 fi
 exit 0
 EOT
-deb_build "$P" kwick-kernel-asahi "$KVER-1" arm64
+deb_build "$P" kwick-kernel-asahi "$KDEBV" arm64
 
 P=$(mktemp -d)
 mkdir -p "$P/DEBIAN" "$P/usr/sbin" "$P/usr/lib/kwick" "$P/etc"

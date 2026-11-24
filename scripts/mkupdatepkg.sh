@@ -29,8 +29,8 @@ done
 find "$P" -type d -exec chmod 755 {} +
 deb_control "$P" kwick-update "$VER" all admin <<EOT
 Replaces: kwick-base
-Depends: kwick-core
-Recommends: curl, ca-certificates
+Depends: kwick-core (>= $VER)
+Recommends: curl
 Description: KwickOS Software Update, kernel manager and system snapshots
  kwick-update (checks, upgrades, automatic updates through crond),
  kwick-kernel (install, try once, default, roll back) with the boot
@@ -60,6 +60,15 @@ done
 if [ -f /etc/profile ] && ! grep -q ashrc /etc/profile; then
   printf '%s\n' 'if [ -z "${BASH_VERSION:-}${ZSH_VERSION:-}" ]; then ENV=/etc/ashrc; export ENV; fi' \
     'case $- in *i*) [ -z "${ZSH_VERSION:-}" ] && [ -r /etc/ashrc ] && . /etc/ashrc ;; esac' >> /etc/profile
+fi
+if [ -d /usr/share/kwick/settings ] && grep -qs Desktop /etc/kwick-edition; then
+  case $(dpkg-query -W -f='${Status}' kwick-desktop 2>/dev/null) in
+    *" installed") ;;
+    *)
+      echo "kwick-update: this desktop was installed from an image that did not register kwick-desktop; it is installed as soon as this apt run ends, so desktop updates arrive (progress: kwick-update log)"
+      nohup setsid /usr/sbin/kwick-update adopt-desktop --wait >/dev/null 2>&1 &
+      ;;
+  esac
 fi
 exit 0
 EOT

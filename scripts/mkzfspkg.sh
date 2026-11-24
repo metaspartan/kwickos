@@ -6,7 +6,7 @@ SRC=${SRC:-/src}; OUT=${OUT:-/out}; BUILD=${BUILD:-/build}; CACHE=${CACHE:-/cach
 eval "$(sed 's/\r$//' "$SRC/config/zfs.env")"
 K="$OUT/$ARCH/kernel-$FLAVOR"; O="$BUILD/kernel-$ARCH-$FLAVOR"
 [ -f "$K/version" ] || { echo "no kernel in $K: build the $FLAVOR kernel first"; exit 1; }
-KREL=$(cat "$K/version"); KVER=${KREL%-kwick}
+KREL=$(cat "$K/version"); KVER=${KREL%-kwick}; KDEBV=$(kernel_deb_version "$KVER")
 case $ARCH in
   amd64) KARCH=x86_64; CROSS=; HOSTM=x86_64 ;;
   arm64) KARCH=arm64; CROSS=aarch64-linux-gnu-; HOSTM=aarch64 ;;
@@ -119,7 +119,7 @@ xz --check=crc32 --lzma2=dict=1MiB "$MD"/*.ko
   cat "$W/LICENSE" 2>/dev/null || true
 } > "$P/usr/share/doc/$PKG/copyright"
 deb_control "$P" "$PKG" "$VER" "$ARCH" kernel <<EOT
-Depends: $IMGPKG (= $KVER-1), kmod
+Depends: $IMGPKG (= $KDEBV), kmod
 Provides: zfs-modules (= $ZFS_VERSION), kwick-zfs-modules (= $VER)
 Conflicts: zfs-dkms
 Description: OpenZFS $ZFS_VERSION kernel modules for KwickOS kernel $KREL

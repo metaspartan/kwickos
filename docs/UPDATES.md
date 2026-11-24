@@ -44,8 +44,10 @@ Setting up lines). Only one task runs at a time. `upgrade security` installs onl
 Closing Settings while a task runs does not stop it: the window closes at once, the task finishes (including the kernel
 trial setup at the end), and the page reattaches to a running task when it is opened again.
 Kernels reach a system as the package `linux-image-kwick-<flavor>`. Images register the kernel they boot as that
-package (`scripts/mkimage.sh`: `linux-image-kwick-virt` on the disk image, the live kernel's package on the ISO), so a
-plain `kwick-update upgrade` brings kernel updates on a headless system too. Images built before this had the kernel
+package (`scripts/mkimage.sh`: `linux-image-kwick-virt` on the disk image, the live kernel's package on the ISO, and
+`linux-image-kwick-generic` on the desktop ISO since 0.7.1), so a plain `kwick-update upgrade` brings kernel updates on a
+headless system too. Kernel packages pre-depend on `kwick-update`, so apt configures the new `kwick-kernel` before it unpacks
+a kernel and the kernel's maintainer scripts never run an older one. Images built before this had the kernel
 only on the ESP: there, `kwick-kernel install latest` installs the package once and later updates follow.
 
 When the upgrade brings a new kernel package, `kwick-update` does not let the package switch the default kernel. It sets
@@ -129,6 +131,53 @@ architecture, taken from the release's root file system): kinit, kpkg, `/etc/kwi
 system runs the release's init and package manager (kinit from the next boot) and reports the release it is on. kpkg never
 lets a package overwrite `/usr/sbin/kinit` or `/usr/bin/kpkg`, so the package ships both under `/usr/lib/kwick/core` and its
 postinst moves them into place. On a current image both packages take over the same files from the base.
+
+### How every installed system gets kwick-core and the desktop package
+
+What an image registers in `/var/lib/dpkg/status` decides what `apt upgrade` can move, because an upgrade only touches packages
+that are installed. `kwick-base` (the base system) is never upgraded, so each image registers real packages next to it:
+
+| image | registered since 0.7.1 | registered before |
+|---|---|---|
+| headless disk image and ISO (`mkimage.sh`) | `kwick-core`, `kwick-update`, `linux-image-kwick-virt` or `-generic` | the kernel only |
+| Raspberry Pi image (`mkrpiimage.sh`) | `kwick-core`, `kwick-update`, `kwick-rpi-firmware`, `linux-image-kwick-rpi` | firmware and kernel |
+| desktop ISO (`mkdesktop-iso.sh`) | `kwick-core`, `kwick-update`, `kwick-gpu`, `kwick-gaming`, `kwick-essentials`, `linux-image-kwick-generic`, `kwick-desktop` | nothing but `kwick-base` |
+| root file system tarball and container | `kwick-base` only | the same |
+
+The images extract each package over the root and record its file list, maintainer scripts and conffile checksums
+(`deb_register` in `scripts/deb.sh`), then `scripts/dpkg-depcheck.py` fails the build if any registered package has an unmet
+dependency, so a fresh system never starts with a broken dependency that a later `apt remove` would resolve by removing it.
+`kwick-core` keeps its copies of kinit and kpkg as hard links to `/usr/sbin/kinit` and `/usr/bin/kpkg`, so the image does not
+grow. The desktop image installs the Debian packages `kwick-essentials` depends on for the same reason.
+
+Older systems reach `kwick-core` like this:
+
+* **Headless images and Raspberry Pi images** have their kernel registered. Every kernel package (`linux-image-kwick-*`,
+  `kwick-kernel-asahi`) has `Pre-Depends: kwick-update (>= release)`, and `kwick-update` depends on `kwick-core (>= release)`, so
+  the next kernel upgrade installs both, configured before the kernel is unpacked (the new `kwick-kernel` then handles the kernel).
+  The kernel packages' Debian revision went from `-1` to `-2` in 0.7.1 (`kernel_deb_version`), so a system already on the newest
+  kernel still gets this upgrade once; the kernel itself is the same and stays the default. The chain has no cycle: `kwick-core`
+  depends on nothing.
+* **Desktop ISO installs before 0.7.1** have only `kwick-base` registered and nothing KwickOS could upgrade. The repository
+  therefore carries `zsh-autosuggestions` (in the package set of every desktop image of the 0.6 and 0.7 releases) as Debian's package with one added
+  dependency, on `kwick-update`, and the version `+kwick1` (`scripts/mkcarrierpkg.sh`, rebuilt from Debian's current package
+  for every release, data and maintainer scripts unchanged). The first `apt upgrade` or Software Update run takes it and with it
+  `kwick-update` and `kwick-core`. `kwick-update`'s postinst sees a desktop (`/usr/share/kwick/settings` and a Desktop
+  `/etc/kwick-edition`) whose `kwick-desktop` is not installed and starts `kwick-update adopt-desktop --wait`, which waits until
+  apt and any Software Update task are done, then runs `apt-get install kwick-desktop` as a logged task with the kernel trial
+  guard. That installs `kwick-desktop` over the files already on disk (kpkg overwrites files no package owns and files of
+  `kwick-base`), its dependencies including the generic kernel package, and from then on desktop updates arrive with the rest of
+  the system. If it cannot run then (no network), `kwick-update upgrade` installs `kwick-desktop` first the next time.
+* **Containers** have no kernel and get nothing unless their user installs a package that needs it; an image that never runs
+  apt is not affected.
+
+Your changes to the desktop's files in `/etc` are kept. `kwick-desktop` declares its `/etc` files (except `/etc/skel`) as
+conffiles. When it is installed over a desktop that already has them, or upgraded from a version without conffiles, kpkg keeps
+any file that differs from the package's and puts the new one next to it as `.dpkg-dist`. The postinst then compares each kept
+file with `/usr/share/kwick/conffiles.md5`, the checksums of every version of those files KwickOS has ever shipped: a file that
+matches one was never edited and is replaced by the new version; any other file is yours and stays, with a message that names it.
+On adoption the postinst also leaves out what only a first install does (the `kwick` user, SDDM autologin, the move of
+`/etc/network/interfaces`), so the installer's choices stand.
 
 An update that stops half-way (a maintainer script that fails) leaves packages unconfigured. apt then ends with an error
 that names them, and `kwick-update upgrade` runs `dpkg --configure -a` before it installs anything, so Software Update

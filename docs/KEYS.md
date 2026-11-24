@@ -56,7 +56,7 @@ Meta is Cmd (⌘) in the macOS layout, Win in the Windows layout and Super on Li
 | Switch to Workspace 1-9 | Meta+Ctrl+1..9 (Plasma) | same | same | Meta+1..9 |
 | Move to Workspace 1-9 | Meta+Ctrl+Shift+1..9 (Plasma) | same | same | Meta+Shift+1..9 |
 | Next / Previous Workspace | Meta+Ctrl+Right / Left (Plasma), Meta+PgDown / PgUp, Meta+Alt+arrows, Ctrl+Alt+arrows (GNOME) | same | same | Meta+Tab / Meta+Shift+Tab |
-| Lock Screen | Meta+L (Plasma also the Screensaver key) | same | same | Meta+L |
+| Lock Screen | Meta+L (Plasma also the Screensaver key; none on GNOME, see below) | same | same | Meta+L |
 | Log Out | Ctrl+Alt+Del | Ctrl+Alt+Del | Ctrl+Alt+Del | Meta+Shift+E |
 | Next Keyboard Layout (Plasma) | Meta+Alt+K | Meta+Alt+K | Meta+Alt+K | |
 | On-Screen Keyboard | | Meta+Ctrl+O | | |
@@ -69,6 +69,15 @@ clash with each other in any session or layout (the unit test checks all twelve)
 nothing in Plasma (all three layouts) or Hyprland. On GNOME it reports one older clash: KwickOS gives Super+S to the overview,
 and GNOME also uses Super+S for quick settings.
 Media, volume and brightness keys and the mouse bindings of the tiling sessions are not part of the keymap.
+
+**GNOME has no Lock Screen.** gnome-shell builds its lock screen only when GDM runs (it asks GDM's D-Bus service before it
+creates the screen shield, and unlocking goes through GDM's reauthentication channel). KwickOS starts every session from SDDM,
+so in a GNOME session the lock is disabled: `loginctl lock-session`, Super+L and the screensaver key reach nothing. mutter has no
+`ext-session-lock` protocol either, so swaylock and the other Wayland lockers cannot cover it, and switching to the SDDM greeter
+leaves the session one Ctrl+Alt+F-key away. Rather than a key that silently does nothing, Lock Screen is left out of the GNOME
+keymap and cheat sheet, GNOME's own Super+L binding is cleared (`screensaver=[]` in `90_kwickos.gschema.override`, and kwick-keys
+resets a Super+L it wrote before), and `org.gnome.desktop.lockdown disable-lock-screen` is set so GNOME Settings shows the lock
+as unavailable. Use Plasma, Hyprland or sway when you need a screen lock.
 
 ## Settings > Keyboard
 
@@ -123,7 +132,7 @@ Ctrl+Alt+F1 to F12 or Ctrl+Alt+Backspace.
   hidden `kwick-keys-*.desktop` files in `~/.local/share/applications`, registered with kglobalaccel as service shortcuts
   (`doRegister`, `setShortcut` with the present flag), the same way Plasma's own custom commands work. Konsole, Dolphin and
   Capture keep their own desktop files. Conflicts come from `kglobalshortcutsrc` and from a live `getGlobalShortcutsByKey` query.
-* **GNOME.** Shell and mutter keys (close, full screen, snap, workspaces, overview, lock, log out, Spotlight's extension key) are
+* **GNOME.** Shell and mutter keys (close, full screen, snap, workspaces, overview, log out, Spotlight's extension key) are
   set with gsettings; commands become custom keybindings under `/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/kwick-keys-*`;
   Clipboard History and Capture are grabbed by the `kwick-clipboard` extension, which watches `~/.config/kwick/keys/gnome.json`.
 * **Hyprland and sway.** `~/.config/hypr/kwick-keys.conf` and `~/.config/sway/kwick-keys.conf` are generated and included from the

@@ -11,24 +11,10 @@ KREL=$(cat "$K/version")
 W="$BUILD/img-$ARCH-rpi"; rm -rf "$W"; mkdir -p "$W/boot"
 R="$W/rootfs"; cp -a "$R0" "$R"
 
-register() {
-  local deb=$1 pkg x
-  pkg=$(dpkg-deb -f "$deb" Package)
-  x="$W/ctl-$pkg"; mkdir -p "$x"
-  dpkg-deb -x "$deb" "$R"
-  dpkg-deb -e "$deb" "$x"
-  for s in preinst postinst prerm postrm md5sums conffiles; do
-    [ -f "$x/$s" ] && cp -p "$x/$s" "$R/var/lib/dpkg/info/$pkg.$s"
-  done
-  dpkg-deb --fsys-tarfile "$deb" | tar -t | sed -e 's|^\./|/|' -e 's|/$||' -e 's|^$|/.|' | sort -u > "$R/var/lib/dpkg/info/$pkg.list"
-  echo >> "$R/var/lib/dpkg/status"
-  dpkg-deb -f "$deb" | awk '{ print } /^Package:/ { print "Status: install ok installed" }' >> "$R/var/lib/dpkg/status"
-  echo >> "$R/var/lib/dpkg/status"
-  echo "registered $pkg $(dpkg-deb -f "$deb" Version)"
-}
-register "$FDEB"
-register "$KDEB"
-chmod 755 "$R"
+. "$SRC/scripts/deb.sh"
+for deb in $(deb_base_pkgs "$ARCH" "$W/basepkg" "$D/kwickos-rootfs-$ARCH.tar.gz") "$FDEB" "$KDEB"; do deb_register "$R" "$deb"; done
+deb_core_links "$R"
+deb_check_deps "$R"
 [ -f "$R/usr/lib/kwick/kernels/$KREL/vmlinuz" ] || { echo "kernel package does not hold $KREL"; exit 1; }
 
 mkdir -p "$R/boot/firmware" "$R/var/lib/kwick" "$R/etc/systemd/system/multi-user.target.wants"
