@@ -59,9 +59,25 @@ Text installer:
 |---|---|---|
 | <img src="img/settings-agents.png" width="280" alt="Settings agents"> | <img src="img/settings-shells.png" width="280" alt="Settings shells"> | <img src="img/settings-privacy.png" width="280" alt="Settings privacy and security"> |
 
-KDE System Settings with the KwickOS object icons:
+| Appearance: accent, highlight, sidebar icons and tinting | Keyboard | Local Models |
+|---|---|---|
+| <img src="img/appearance.png" width="280" alt="Settings appearance options"> | <img src="img/settings-keyboard.png" width="280" alt="Settings keyboard"> | <img src="img/local-models.png" width="280" alt="Settings local models"> |
+
+KDE System Settings with the KwickOS object icons, and a KDE app's settings dialog with the macOS-style switches, radio buttons
+and accent default button:
 
 <img src="img/settings-kde.png" width="860" alt="KDE System Settings">
+
+<img src="img/kde-settings-dialog.png" width="860" alt="Dolphin settings dialog with macOS-style controls">
+
+## Agents
+
+An agent typing in Kate through `kwick-mcp`, with the control capsule and its Stop button at the top, and the consent dialog it
+has to pass first:
+
+| An agent using the desktop | Consent |
+|---|---|
+| <img src="img/agent-control.png" width="420" alt="An AI agent using the desktop"> | <img src="img/agent-consent.png" width="420" alt="Consent dialog for an AI agent"> |
 
 ## Built-in apps
 
@@ -76,6 +92,10 @@ KDE System Settings with the KwickOS object icons:
 | Clipboard history (Meta+V) | Control Center | Control Center, light |
 |---|---|---|
 | <img src="img/clipboard.png" width="280" alt="Clipboard history"> | <img src="img/control-center.png" width="280" alt="Control Center"> | <img src="img/control-center-light.png" width="280" alt="Control Center, light"> |
+
+Keyboard Shortcuts (Cmd+/ in the macOS layout, Meta+K elsewhere), searchable and grouped by category:
+
+<img src="img/keyboard-shortcuts.png" width="860" alt="Keyboard shortcut cheat sheet over the desktop">
 
 Snapshots: [SNAPSHOTS.md](SNAPSHOTS.md).
 

@@ -167,6 +167,12 @@ The everyday tools are part of the desktop. They follow the layout, the accent c
 | <img src="docs/img/settings-agents.png" width="420" alt="Agents page in Settings"> | <img src="docs/img/settings-shells.png" width="420" alt="Shells page in Settings"> |
 | **Settings: Privacy & Security** | **Clipboard history and Control Center** |
 | <img src="docs/img/settings-privacy.png" width="420" alt="Privacy and Security page in Settings"> | <img src="docs/img/clipboard.png" width="205" alt="Clipboard history"> <img src="docs/img/control-center.png" width="205" alt="Control Center"> |
+| **Keyboard Shortcuts** | **Settings: Keyboard** |
+| <img src="docs/img/keyboard-shortcuts.png" width="420" alt="Keyboard shortcut cheat sheet over the desktop"> | <img src="docs/img/settings-keyboard.png" width="420" alt="Keyboard page in Settings"> |
+| **Settings: Appearance** | **Settings: Local Models** |
+| <img src="docs/img/appearance.png" width="420" alt="Appearance page in Settings with accent, highlight and sidebar icon colors"> | <img src="docs/img/local-models.png" width="420" alt="Local Models page in Settings"> |
+| **An agent using the desktop** | **Asking before an agent acts** |
+| <img src="docs/img/agent-control.png" width="420" alt="An AI agent typing in Kate with the control capsule at the top"> | <img src="docs/img/agent-consent.png" width="420" alt="Consent dialog for an AI agent"> |
 
 * **App Store** (`kwick-store`) finds and installs apps from Flathub and Debian, AI agents, and Arch and the AUR once they are
   turned on, with Updates and Installed views.
@@ -184,6 +190,11 @@ The everyday tools are part of the desktop. They follow the layout, the accent c
   checks, imports and exports them, the same on Plasma, GNOME, Hyprland and sway. [docs/KEYS.md](docs/KEYS.md)
 * **Settings** has new pages for Agents (sandboxed coding agents, a keystore and the kwick-mcp server), Shells (the desktop shell,
   the terminal shell and its prompt) and Privacy & Security (what uses the camera, microphone and screen, and app permissions).
+  Appearance picks the accent, the highlight and sidebar icon colours and whether windows take a tint of the wallpaper.
+* **Local Models** (Settings > Agents) installs llama.cpp for this machine's GPU or CPU, shows which curated models fit, and
+  serves the chosen one on one local endpoint. [docs/INFERENCE.md](docs/INFERENCE.md)
+* **Agents can use the desktop** through `kwick-mcp` once you allow it: a capsule at the top of the screen shows which agent is in
+  control, with a Stop button. [docs/AGENTS.md](docs/AGENTS.md)
 
 ## Kwick Effects
 
