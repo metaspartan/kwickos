@@ -8,7 +8,7 @@ Rectangle {
     implicitWidth: 44
     implicitHeight: 26
     radius: 13
-    opacity: enabled ? 1 : 0.4
+    opacity: enabled ? 1 : Theme.light ? 0.55 : 0.4
     color: checked ? Theme.accent : Theme.track
     Behavior on color { ColorAnimation { duration: 140 } }
 
@@ -19,6 +19,8 @@ Rectangle {
         y: 2
         x: t.checked ? parent.width - width - 2 : 2
         color: "#ffffff"
+        border.width: Theme.light ? 1 : 0
+        border.color: "#1f000000"
         Behavior on x { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
     }
 

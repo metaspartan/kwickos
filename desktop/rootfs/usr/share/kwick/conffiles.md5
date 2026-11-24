@@ -20,6 +20,7 @@ c67c611198348a40170e1b5f633ba440  /etc/systemd/system/dbus.service.d/kwick.conf
 41aa1c76db2bf574df8dd94851f4bac1  /etc/xdg/autostart/kwick-appearance-watch.desktop
 a90ed95a99f0a97eef8c1daade2ff9e2  /etc/xdg/autostart/kwick-gnome-layout.desktop
 14b98c59b3156ea34061f02e2a884850  /etc/xdg/autostart/kwick-installer-live.desktop
+c31672997ce63242bd7d3ca0bc7242a8  /etc/xdg/autostart/kwick-keys.desktop
 7a27ade7cffccc074c83db6d3af60daf  /etc/xdg/autostart/kwick-liquidglass.desktop
 3074115c1b4ce77f60adb89740e944f6  /etc/xdg/autostart/kwick-output-scale.desktop
 31d702694ee95e7980c80b1b68fdd4b0  /etc/xdg/autostart/kwick-pipewire.desktop

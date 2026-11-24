@@ -2026,6 +2026,53 @@ def cmd_refresh(args):
     out(r)
 
 
+def appstream_stale():
+    rc, o, _ = run(["flatpak", "remotes", "--columns=name"], timeout=30)
+    if rc != 0:
+        return []
+    a = fp_arch()
+    stale = []
+    for r in sorted(set(l.strip() for l in o.splitlines() if l.strip())):
+        t = 0
+        for base in ("/var/lib/flatpak/appstream", os.path.join(HOME, ".local/share/flatpak/appstream")):
+            for name in (".timestamp", os.path.join("active", "appstream.xml.gz")):
+                f = os.path.join(base, r, a, name)
+                if os.path.exists(f):
+                    t = max(t, os.path.getmtime(f))
+        if time.time() - t > REFRESH_AGE:
+            stale.append(r)
+    return stale
+
+
+def cmd_appstream(args):
+    if not which("flatpak"):
+        out({"updated": False, "stale": []})
+        return
+    stale = appstream_stale()
+    if "--check" in args or not stale:
+        out({"updated": False, "stale": stale})
+        return
+    os.makedirs(CACHE, exist_ok=True)
+    lock = open(os.path.join(CACHE, ".appstream.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        lock.close()
+        out({"updated": True, "stale": appstream_stale()})
+        return
+    try:
+        ok = True
+        for r in stale:
+            rc, _, _ = run(["flatpak", "update", "--appstream", "--noninteractive", r], timeout=900)
+            ok = ok and rc == 0
+        index(check_only=True)
+    finally:
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        lock.close()
+    out({"updated": ok, "stale": appstream_stale()})
+
+
 def cmd_appearance(args):
     cfg = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config"), "kwick")
     rd = lambda n, d: (open(os.path.join(cfg, n)).read().strip() if os.path.isfile(os.path.join(cfg, n)) else "") or d
@@ -2070,6 +2117,7 @@ CMDS = {
     "userjob": cmd_userjob,
     "launch": cmd_launch,
     "refresh": cmd_refresh,
+    "appstream": cmd_appstream,
     "appearance": cmd_appearance,
 }
 

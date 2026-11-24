@@ -1,0 +1,14 @@
+#!/bin/sh
+bm=${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/bookmarks
+[ -e "$bm" ] && exit 0
+command -v xdg-user-dir >/dev/null 2>&1 || exit 0
+command -v xdg-user-dirs-update >/dev/null 2>&1 && xdg-user-dirs-update >/dev/null 2>&1
+mkdir -p "${bm%/*}" || exit 0
+tmp=$(mktemp "$bm.XXXXXX") || exit 0
+for k in DOCUMENTS MUSIC PICTURES VIDEOS DOWNLOAD; do
+  p=$(xdg-user-dir "$k" 2>/dev/null)
+  [ -n "$p" ] && [ "$p" != "$HOME" ] && [ -d "$p" ] || continue
+  python3 -Ic 'import pathlib, sys; print(pathlib.Path(sys.argv[1]).as_uri())' "$p" 2>/dev/null
+done > "$tmp"
+if [ -s "$tmp" ]; then mv -f "$tmp" "$bm"; else rm -f "$tmp"; fi
+exit 0

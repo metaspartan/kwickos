@@ -38,6 +38,7 @@ QtObject {
     readonly property color good: light ? "#28cd41" : "#32d74b"
     readonly property color warn: light ? "#ff9500" : "#ff9f0a"
     readonly property color bad: light ? "#ff3b30" : "#ff453a"
+    readonly property color info: light ? "#007aff" : "#0a84ff"
     readonly property color goodBg: light ? "#dcf5e1" : "#1e3a28"
     readonly property color warnBg: light ? "#fff1d6" : "#2e2412"
     readonly property color badBg: light ? "#fde3e1" : "#40201e"

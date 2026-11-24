@@ -190,7 +190,8 @@ FocusScope {
     }
 
     Rectangle {
-        anchors.fill: parent
+        width: parent.width
+        height: Math.max(parent.height, Window.height)
         color: Theme.scrim
         opacity: p.picking ? 1 : 0
         visible: opacity > 0.01

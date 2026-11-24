@@ -58,20 +58,30 @@ ApplicationWindow {
         visible = true
         updateBlur()
         Sys.refreshAll()
-        Sys.run("printenv KWICK_SETTINGS_PAGE", function (out) {
-            var want = out.trim().toLowerCase().replace(/[-_]/g, " ")
-            var exact = -1
-            for (var i = 0; i < pages.length; i++)
-                if (want !== "" && pages[i].name.toLowerCase() === want) { exact = i; break }
-            if (exact >= 0) { current = exact; return }
-            for (var j = 0; j < pages.length; j++)
-                if (want !== "" && matches(pages[j], want)) { current = j; break }
-            if (/^(local models?|local ai|inference)$/.test(want)) {
-                sub = "PageLocalModels.qml"
-                for (var k = 0; k < pages.length; k++)
-                    if (pages[k].name === "Agents") current = k
+        var args = Qt.application.arguments
+        for (var i = 0; i < args.length - 1; i++) {
+            if (args[i] === "--page") {
+                openPage(args[i + 1])
+                return
             }
-        })
+        }
+        Sys.run("printenv KWICK_SETTINGS_PAGE", function (out) { win.openPage(out) })
+    }
+
+    function openPage(name) {
+        var want = String(name || "").trim().toLowerCase().replace(/[-_]/g, " ")
+        if (want === "")
+            return
+        if (/^(local models?|local ai|inference)$/.test(want)) {
+            for (var k = 0; k < pages.length; k++)
+                if (pages[k].name === "Agents") current = k
+            sub = "PageLocalModels.qml"
+            return
+        }
+        for (var i = 0; i < pages.length; i++)
+            if (pages[i].name.toLowerCase() === want) { current = i; return }
+        for (var j = 0; j < pages.length; j++)
+            if (matches(pages[j], want)) { current = j; return }
     }
 
     Timer {

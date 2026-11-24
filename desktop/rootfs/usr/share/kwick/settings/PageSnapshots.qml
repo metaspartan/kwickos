@@ -79,7 +79,9 @@ ColumnLayout {
     function describe(desc) {
         var m = /^(apt-get|apt|kpkg|aptitude)\s+(\S+)\s*(.*)$/.exec(desc || "")
         if (!m) return desc || "Software change"
-        var what = m[3].trim().split(/\s+/).filter(function (w) { return w !== "" && w.indexOf("=") < 0 })
+        var what = m[3].trim().split(/\s+/).filter(function (w) { return w !== "" && w.indexOf("=") < 0 && w.charAt(0) !== "-" }).map(function (w) {
+            return /\.deb$/.test(w) ? w.replace(/^.*\//, "").replace(/\.deb$/, "").split("_")[0] : w
+        })
         var list = what.slice(0, 3).join(", ") + (what.length > 3 ? " and " + (what.length - 3) + " more" : "")
         switch (m[2]) {
         case "install": case "reinstall": return list ? "Installed " + list : "Installed software"
@@ -1223,7 +1225,7 @@ ColumnLayout {
                                         anchors.verticalCenter: parent.verticalCenter
                                         visible: fe.modelData.state !== "same"
                                         label: fe.modelData.state === "gone" ? "Not on this computer now" : "Changed since"
-                                        tint: fe.modelData.state === "gone" ? Theme.warn : Theme.accent
+                                        tint: fe.modelData.state === "gone" ? Theme.warn : Theme.info
                                         implicitHeight: 16
                                     }
                                 }
@@ -1291,7 +1293,7 @@ ColumnLayout {
 
                         Repeater {
                             model: [
-                                { s: "u", title: "Updated", tint: Theme.accent },
+                                { s: "u", title: "Updated", tint: Theme.info },
                                 { s: "+", title: "Installed", tint: Theme.good },
                                 { s: "-", title: "Removed", tint: Theme.bad }
                             ]
@@ -1353,7 +1355,7 @@ ColumnLayout {
                             Layout.topMargin: 6
                             spacing: 8
                             Text { text: "CHANGED FILES"; color: Theme.sub; font.family: Theme.sans; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 0.4 }
-                            Badge { visible: !viewer.changesNeedRoot; label: String(viewer.changes.length); tint: Theme.accent; implicitHeight: 16 }
+                            Badge { visible: !viewer.changesNeedRoot; label: String(viewer.changes.length); tint: Theme.info; implicitHeight: 16 }
                             Item { Layout.fillWidth: true }
                             Btn { visible: viewer.changesNeedRoot; text: "Compare Files with Now…"; enabled: !page.busy; onClicked: viewer.compareNow() }
                         }
@@ -1377,7 +1379,7 @@ ColumnLayout {
                                             Layout.preferredWidth: 14
                                             horizontalAlignment: Text.AlignHCenter
                                             text: cf.modelData.s === "+" ? "+" : cf.modelData.s === "-" ? "−" : "•"
-                                            color: cf.modelData.s === "+" ? Theme.good : cf.modelData.s === "-" ? Theme.bad : Theme.accent
+                                            color: cf.modelData.s === "+" ? Theme.good : cf.modelData.s === "-" ? Theme.bad : Theme.info
                                             font.family: Theme.mono
                                             font.pixelSize: 13
                                             font.weight: Font.DemiBold

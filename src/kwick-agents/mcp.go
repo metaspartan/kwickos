@@ -46,10 +46,16 @@ type Server struct {
 	shared    *brokerState
 	outMu     sync.Mutex
 	out       io.Writer
+	gone      chan struct{}
+	goneOnce  sync.Once
 }
 
 func newServer(agent string, roots []string, sandboxed bool) *Server {
-	return &Server{agent: agent, roots: roots, sandboxed: sandboxed, shared: &brokerState{agent: agent}}
+	return &Server{agent: agent, roots: roots, sandboxed: sandboxed, shared: &brokerState{agent: agent}, gone: make(chan struct{})}
+}
+
+func (s *Server) hangUp() {
+	s.goneOnce.Do(func() { close(s.gone) })
 }
 
 func (s *Server) send(v any) {
@@ -101,6 +107,7 @@ func (s *Server) serve(in io.Reader, out io.Writer) {
 			break
 		}
 	}
+	s.hangUp()
 	wg.Wait()
 }
 
@@ -253,11 +260,14 @@ func (s *Server) callTool(name string, args map[string]any) (map[string]any, boo
 			total, _ := ctlLimits()
 			ask = fmt.Sprintf("Control your mouse, keyboard, windows and clipboard for up to %d minutes, until it is done or you stop it (%sthe Stop button shown at the top of the screen). Password and permission prompts stay off limits.\n\nFirst action: %s", int(total.Minutes()), hotkeyText(), detail)
 		}
-		ok, how := requestConsent(s.agent, s.client, t.Cap, ask)
+		ok, how := requestConsent(s.agent, s.client, t.Cap, ask, s.gone)
 		entry.Decision = "ask:" + how
 		if !ok {
 			if how == "timeout" {
 				return fail(fmt.Sprintf("Not done: the user did not answer the permission request for %s. They can answer with 'kwick-agents consent' or allow it with 'kwick-agents grant %s %s allow'.", t.Cap, s.agent, t.Cap)), true
+			}
+			if how == "gone" {
+				return fail("Not done: the client disconnected before the user answered the permission request."), true
 			}
 			return fail(fmt.Sprintf("Denied by the user: %s needs the %s permission. Do not retry; tell the user what you wanted to do.", t.Name, t.Cap)), true
 		}

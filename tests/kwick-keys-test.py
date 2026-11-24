@@ -260,6 +260,47 @@ with open(kk.USER_FILE, "w", encoding="utf-8") as f:
 km3 = kk.Keymap()
 check("bad user overrides are ignored", not km3.overrides, km3.overrides)
 
+os.unlink(kk.USER_FILE)
+km4 = kk.Keymap()
+saved = (kk.run, kk.kde_ready, kk.APPS, kk.have)
+kk.APPS = os.path.join(TMP, "apps")
+kk.run = lambda cmd, *a, **kw: (1, "")
+check("without kglobalaccel there is nothing to talk to", not kk.kde_ready())
+kk.kde_ready = lambda wait=0: False
+kk.have = lambda n: True
+probs = kk.do_apply(km4, "kde", "macos")
+check("apply before KWin starts reports a problem", probs and "next login" in probs[0], probs)
+check("apply before KWin starts records nothing as written", not os.path.exists(kk.STATE_FILE) or "kde:kwick-keys-keys.desktop:_launch" not in kk.load_state()["written"])
+check("a first login with no KDE shortcuts counts as missing", kk.kde_missing(km4, "macos"))
+os.makedirs(kk.APPS, exist_ok=True)
+own = [a for a in km4.actions if not a.fixed and a.available("kde", "macos") and (a.target("kde", "macos") or {}).get("own") and km4.chords(a, "kde", "macos")]
+check("the cheat sheet launcher is owned by kwick-keys", "keys" in [a.id for a in own])
+with open(kk.KDE_RC, "w") as f:
+    for a in own:
+        for v in a.values():
+            name = kk.kde_target(a.target("kde", "macos"), a, v)[0]
+            open(os.path.join(kk.APPS, name), "w").close()
+            f.write("[services][%s]\n_launch=%s\n" % (name, km4.chords(a, "kde", "macos")[0]))
+check("the Cmd+/ entry in kglobalshortcutsrc is found", ("kwick-keys-keys.desktop", "_launch") in kk.read_kde_rc()[0])
+check("with the launcher and its shortcut in place nothing is missing", not kk.kde_missing(km4, "macos"))
+stamp = kk.apply_stamp("kde", "macos")
+check("the stamp names the session and layout", stamp.startswith("kde macos "))
+check("a layout switch changes the stamp", stamp != kk.apply_stamp("kde", "windows"))
+os.makedirs(kk.STATE_DIR, exist_ok=True)
+with open(kk.STAMP_FILE % "kde", "w") as f:
+    f.write(stamp)
+calls = []
+kk.do_apply = lambda *a, **kw: calls.append(a) or []
+rc = kk.cmd_apply(["--session", "kde", "--layout", "macos", "--if-needed", "--quiet"])
+check("a later login with the stamp and shortcuts in place does nothing", rc == 0 and not calls, calls)
+os.unlink(kk.KDE_RC)
+rc = kk.cmd_apply(["--session", "kde", "--layout", "macos", "--if-needed", "--quiet"])
+check("shortcuts missing from kglobalshortcutsrc are written again", not calls and rc == 1, (rc, calls))
+kk.kde_ready = lambda wait=0: True
+rc = kk.cmd_apply(["--session", "kde", "--layout", "macos", "--if-needed", "--quiet"])
+check("once kglobalaccel is up they are applied", rc == 0 and len(calls) == 1, (rc, calls))
+kk.run, kk.APPS, kk.have = saved[0], saved[2], saved[3]
+
 print()
 if FAILS:
     print("%d failed: %s" % (len(FAILS), ", ".join(FAILS)))

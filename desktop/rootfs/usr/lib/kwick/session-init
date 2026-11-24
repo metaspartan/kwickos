@@ -3,8 +3,13 @@ de=${1:-gnome}
 c=${XDG_CONFIG_HOME:-$HOME/.config}/kwick
 d=${XDG_DATA_HOME:-$HOME/.local/share}
 [ -d "$c" ] && [ -d "$d/Trash/info" ] || mkdir -p "$c" "$d/Trash/files" "$d/Trash/info"
+/usr/lib/kwick/user-dirs
+[ -e "$d/gnome-shell/lock-warning-shown" ] || { mkdir -p -m 700 "$d/gnome-shell" && : > "$d/gnome-shell/lock-warning-shown"; }
 layout=$(kwick-layout)
 state="$layout $(kwick-layout appearance) $(kwick-layout accent)"
-[ "$(cat "$c/$de.applied" 2>/dev/null)" = "$state" ] && exit 0
-kwick-layout "$layout" >/dev/null 2>&1
-echo "$state" > "$c/$de.applied"
+if [ "$(cat "$c/$de.applied" 2>/dev/null)" != "$state" ]; then
+  kwick-layout "$layout" >/dev/null 2>&1
+  echo "$state" > "$c/$de.applied"
+fi
+[ "$de" = gnome ] && command -v kwick-keys >/dev/null 2>&1 && kwick-keys apply --session gnome --if-needed --quiet >/dev/null 2>&1
+exit 0

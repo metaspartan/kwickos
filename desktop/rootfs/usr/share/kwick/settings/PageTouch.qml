@@ -81,7 +81,7 @@ ColumnLayout {
                 implicitWidth: badge.implicitWidth + 20
                 implicitHeight: 22
                 radius: 11
-                color: on ? Qt.rgba(Theme.good.r, Theme.good.g, Theme.good.b, 0.16) : Theme.control
+                color: on ? Qt.rgba(Theme.good.r, Theme.good.g, Theme.good.b, 0.16) : Theme.light ? Theme.line : Theme.control
                 Text {
                     id: badge
                     anchors.centerIn: parent

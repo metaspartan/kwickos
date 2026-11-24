@@ -32,6 +32,10 @@ show-trash=true
 show-mounts=false
 show-show-apps-button=false
 
+[org.gnome.mutter]
+auto-maximize=false
+center-new-windows=true
+
 [org.gnome.desktop.lockdown]
 disable-lock-screen=true
 

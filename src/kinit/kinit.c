@@ -2228,7 +2228,7 @@ static int stage1(void)
 	write_file("/proc/sys/kernel/printk", "4 4 1 7");
 	if (access("/etc/fstab", R_OK) == 0) { char *a[] = { "mount", "-a", NULL }; run_wait(a); }
 	coldplug();
-	{ char *a[] = { "systemd-tmpfiles", "--create", NULL }; cmd_tmpfiles(2, a); }
+	{ char *a[] = { "systemd-tmpfiles", "--create", "--remove", NULL }; cmd_tmpfiles(3, a); }
 	ctl_listen();
 	load_boot_units();
 	start_wanted();

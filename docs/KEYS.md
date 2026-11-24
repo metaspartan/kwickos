@@ -108,7 +108,7 @@ kwick-keys list [--json]            every action and its shortcuts
 kwick-keys set ACTION CHORD [CHORD...]   change a shortcut; none removes it, --force takes it from others
 kwick-keys reset [ACTION...]        back to the default (all with no ACTION)
 kwick-keys conflicts [--all] [--json]    shortcuts used twice, here or by Plasma, GNOME, Hyprland or sway
-kwick-keys apply                    write the shortcuts into this desktop and reload them
+kwick-keys apply [--if-needed]      write the shortcuts into this desktop and reload them
 kwick-keys export [FILE]            your changes as JSON
 kwick-keys import FILE [--merge]    load an export (replaces your changes unless --merge)
 kwick-keys run ACTION[:VALUE]       do what a shortcut does (run workspace:3)
@@ -143,7 +143,10 @@ Ctrl+Alt+F1 to F12 or Ctrl+Alt+Backspace.
 custom keybindings it created and its two include files. A stock shortcut is written once when its KwickOS default is missing; if
 you then change it in KDE or GNOME settings, kwick-keys leaves it alone until you change that action in KwickOS. Keys taken with
 **Use Anyway** or `--force` are recorded in `~/.local/state/kwick/keys-applied.json` and handed back on reset. `kwick-layout`
-runs `kwick-keys apply` on every layout switch, so the per-layout defaults follow it.
+runs `kwick-keys apply` on every layout switch, so the per-layout defaults follow it. At login,
+`/etc/xdg/autostart/kwick-keys.desktop` (Plasma, once KWin's shortcut service is up) and the GNOME session setup run
+`kwick-keys apply --if-needed`, which does nothing when `~/.local/state/kwick/keys-SESSION.stamp` matches the layout and keymap and
+the shortcuts are still in `kglobalshortcutsrc`, so a new account gets its shortcuts at the first login.
 
 ## Compared with Omarchy
 

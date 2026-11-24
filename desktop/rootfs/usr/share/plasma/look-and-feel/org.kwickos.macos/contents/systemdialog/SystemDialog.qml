@@ -28,11 +28,16 @@ ColumnLayout {
     }
 
     function plainButtons() {
+        const primary = footerButtonBox.standardButton(QQC2.DialogButtonBox.Ok)
+            || footerButtonBox.standardButton(QQC2.DialogButtonBox.Yes)
+            || footerButtonBox.standardButton(QQC2.DialogButtonBox.Save)
+            || footerButtonBox.standardButton(QQC2.DialogButtonBox.Apply);
         for (const button of footerButtonBox.contentChildren) {
             if (button.icon) {
                 button.icon.name = "";
                 button.icon.source = "";
             }
+            button.Accessible.defaultButton = button === primary;
         }
     }
 

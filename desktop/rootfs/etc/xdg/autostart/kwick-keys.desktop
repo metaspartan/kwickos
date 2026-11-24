@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KwickOS shortcuts
+Comment=Writes the KwickOS keyboard shortcuts into KDE when they are missing or out of date
+Exec=kwick-keys apply --session kde --if-needed --quiet
+NoDisplay=true
+X-KDE-autostart-phase=2
+OnlyShowIn=KDE;

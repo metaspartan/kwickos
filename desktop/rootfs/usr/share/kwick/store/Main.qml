@@ -14,6 +14,8 @@ ApplicationWindow {
 
     property var home: ({})
     property bool homeLoading: true
+    property bool catalogUpdating: false
+    readonly property bool catalogWait: catalogUpdating && !(Store.sources.flathub && Store.sources.flathub.catalog) && cur.view === "home"
     property var stack: [{ view: "home" }]
     readonly property var cur: stack[stack.length - 1]
     property string root: "home"
@@ -167,6 +169,20 @@ ApplicationWindow {
             Store.loadUpdates()
             Store.call("refresh", function (r) {
                 if (r && (r.rebuilt || (r.count && win.home.count !== undefined && r.count !== win.home.count))) win.loadHome()
+                win.updateCatalog()
+            })
+        })
+    }
+
+    function updateCatalog() {
+        Store.call("appstream --check", function (a) {
+            if (!a || !(a.stale || []).length) return
+            win.catalogUpdating = true
+            Store.call("appstream", function (r) {
+                Store.loadSources(function () {
+                    win.catalogUpdating = false
+                    if (r && r.updated) win.loadHome()
+                })
             })
         })
     }
@@ -502,6 +518,7 @@ ApplicationWindow {
 
                 Flickable {
                     id: flick
+                    visible: !win.catalogWait
                     anchors.fill: parent
                     anchors.topMargin: Look.mac && win.stack.length > 1 ? 40 : 0
                     clip: true
@@ -530,11 +547,11 @@ ApplicationWindow {
                 }
 
                 ColumnLayout {
-                    visible: win.homeLoading && win.cur.view === "home"
+                    visible: (win.homeLoading || win.catalogWait) && win.cur.view === "home"
                     anchors.centerIn: parent
                     spacing: 12
                     BusyIndicator { Layout.alignment: Qt.AlignHCenter; running: parent.visible }
-                    Text { text: "Loading the catalog…"; color: Look.sub; font.family: Look.sans; font.pixelSize: 13 }
+                    Text { Layout.alignment: Qt.AlignHCenter; text: win.catalogWait ? "Updating the app catalog…" : "Loading the catalog…"; color: Look.sub; font.family: Look.sans; font.pixelSize: 13 }
                 }
             }
         }

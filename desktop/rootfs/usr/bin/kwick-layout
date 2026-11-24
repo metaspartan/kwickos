@@ -74,6 +74,16 @@ fi
 de=$(printf '%s' "${XDG_CURRENT_DESKTOP:-}" | tr 'A-Z' 'a-z')
 kw() { kwriteconfig6 --file "$1" --group "$2" --key "$3" "$4"; }
 
+tmpf=
+trap '[ -z "$tmpf" ] || rm -f "$tmpf"; exit 143' HUP INT TERM
+atomic() {
+  dst=$1; shift
+  tmpf=$(mktemp "$dst.XXXXXX") || return 1
+  if chmod 644 "$tmpf" && "$@" > "$tmpf" && mv -f "$tmpf" "$dst"; then tmpf=; return 0; fi
+  rm -f "$tmpf"; tmpf=
+  return 1
+}
+
 light() { [ "$MODE" = light ]; }
 
 accents() {
@@ -306,7 +316,7 @@ colorsjson() {
     "$c" "$(highlight)" "$(sidebar)" "$([ "$want" = macos ] && echo neutral || echo highlight)" "$(tinton && echo true || echo false)" "$want" "$(one "$dd")" "$(one "$dl")"
 }
 
-writecolors() { colorsjson > "$cfg/colors.json.new" && mv "$cfg/colors.json.new" "$cfg/colors.json"; }
+writecolors() { rm -f "$cfg/colors.json.new"; atomic "$cfg/colors.json" colorsjson; }
 
 palette() { [ -f "$1/palette-$MODE" ] && accentpal "$MODE" "$1/palette-$MODE" | sed 's/^\(@[A-Z_]*@\) \(.*\)$/s|\1|\2|g/'; true; }
 
@@ -320,6 +330,15 @@ gtk3theme() {
   fi
 }
 
+gtk3css() {
+  printf '@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained%s.css");\n' "$([ "$1" = dark ] && echo -dark)"
+  accentpal "$1" "$2/palette-$1" | sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' | while read -r gn gv; do
+    printf '@define-color kwick_%s %s;\n' "$(printf '%s' "$gn" | tr 'A-Z' 'a-z')" "$gv"
+  done
+}
+
+importcolors() { echo "@import 'colors.css';"; cat "$1" 2>/dev/null; }
+
 gtk3themes() {
   gd=/usr/share/kwick/gtk/$want
   [ -f "$gd/gtk-3.0.css" ] || return 0
@@ -327,12 +346,8 @@ gtk3themes() {
     [ -f "$gd/palette-$gm" ] || continue
     gt=${XDG_DATA_HOME:-$HOME/.local/share}/themes/KwickOS-$want-$gm/gtk-3.0
     mkdir -p "$gt"
-    {
-      printf '@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained%s.css");\n' "$([ $gm = dark ] && echo -dark)"
-      accentpal "$gm" "$gd/palette-$gm" | sed -n 's/^@\([A-Z_]*\)@ \(.*\)$/\1 \2/p' | while read -r gn gv; do
-        printf '@define-color kwick_%s %s;\n' "$(printf '%s' "$gn" | tr 'A-Z' 'a-z')" "$gv"
-      done
-    } > "$gt/gtk.css.new" && mv "$gt/gtk.css.new" "$gt/gtk.css"
+    rm -f "$gt/gtk.css.new"
+    atomic "$gt/gtk.css" gtk3css "$gm" "$gd"
     printf '[Desktop Entry]\nType=X-GNOME-Metatheme\nName=KwickOS %s %s\n\n[X-GNOME-Metatheme]\nGtkTheme=KwickOS-%s-%s\n' "$want" "$gm" "$want" "$gm" > "${gt%/gtk-3.0}/index.theme"
   done
 }
@@ -364,10 +379,11 @@ kdegtk() {
   [ "$want" = linux ] && [ -d /usr/share/themes/Breeze/gtk-3.0 ] && t=Breeze
   for v in gtk-3.0 gtk-4.0; do
     f=${XDG_CONFIG_HOME:-$HOME/.config}/$v
+    rm -f "$f/gtk.css.new"
     [ -f "$f/settings.ini" ] && sed -i -e "s/^gtk-decoration-layout=.*/gtk-decoration-layout=$(gtklayout)/" \
       -e "s/^gtk-icon-theme-name=.*/gtk-icon-theme-name=$(icontheme)/" "$f/settings.ini"
     if [ "$t" = Breeze ] && ! grep -qs "@import 'colors.css'" "$f/gtk.css"; then
-      { echo "@import 'colors.css';"; cat "$f/gtk.css" 2>/dev/null; } > "$f/gtk.css.new" && mv "$f/gtk.css.new" "$f/gtk.css"
+      atomic "$f/gtk.css" importcolors "$f/gtk.css"
     fi
   done
   gtkprefer "$([ "$t" = Breeze ] && ! light && echo true || echo false)"
@@ -452,6 +468,26 @@ gtklinux() {
   fi
 }
 
+gtkside() { [ "$1" = macos ] && echo start || echo end; }
+
+gtk4css() {
+  g=/usr/share/kwick/gtk/$1/gtk-4.0.css
+  [ -f "$g" ] || return 0
+  sed -e "s/@RADIUS@/$rad/g" -e "$(palette "${g%/*}")" "$g" | sed "s/^windowcontrols\([ :.,{]\)/windowcontrols.$(gtkside "$1")\1/"
+}
+
+gtk4controls() { awk '{ b = b $0 "\n" } /^}/ { if (b ~ /windowcontrols[^{]*\{/) printf "\n%s", b; b = "" }'; }
+
+gtk4other() {
+  if [ "$want" = macos ]; then
+    o=$(cat "$cfg/gtk-end" 2>/dev/null)
+    case $o in linux|windows) echo "$o" ;; *) echo windows ;; esac
+  else
+    echo "$want" > "$cfg/gtk-end"
+    echo macos
+  fi
+}
+
 gtkstyle() {
   GC=${XDG_CONFIG_HOME:-$HOME/.config}
   rad=$(curradius); [ -n "$rad" ] || rad=$(defrad)
@@ -461,6 +497,9 @@ gtkstyle() {
     if [ -f "$t" ] && [ "$v" = gtk-3.0 ] && [ -f "${t%/*}/palette-$MODE" ]; then
       gtk3themes
       sed -e "s/@RADIUS@/$rad/g" -e "$(symbolic "${t%/*}")" "$t" > "$GC/$v/gtk.css"
+    elif [ -f "$t" ] && [ "$v" = gtk-4.0 ]; then
+      gtk4css "$want" > "$GC/$v/gtk.css"
+      gtk4css "$(gtk4other)" | gtk4controls >> "$GC/$v/gtk.css"
     elif [ -f "$t" ]; then
       sed -e "s/@RADIUS@/$rad/g" -e "$(palette "${t%/*}")" "$t" > "$GC/$v/gtk.css"
     elif [ -n "$(curradius)" ]; then
@@ -923,6 +962,7 @@ tiling() {
   case $want in macos) wp=KwickGlass ;; windows) wp=KwickFluent ;; *) wp=KwickOS ;; esac
   ICO=$(icontheme)
   fontconf tiling
+  [ -x /usr/lib/kwick/user-dirs ] && /usr/lib/kwick/user-dirs
   for v in gtk-3.0 gtk-4.0; do
     mkdir -p "$C/$v"
     sed -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICO|" -e "s|^gtk-font-name=.*|gtk-font-name=$ui $pt|" \

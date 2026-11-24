@@ -62,7 +62,7 @@ tabletactive() {
 
 edges() {
   case $layout in
-    macos) echo "4 None KRunner None" ;;
+    macos) echo "4 None None None search" ;;
     windows) echo "6 None None ApplicationLauncher" ;;
     *) echo "0 ApplicationLauncher None None" ;;
   esac
@@ -127,7 +127,7 @@ do_action() {
     overview) kwq org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut Overview ;;
     exposeclass) kwq org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut ExposeClass ;;
     desktop) kwq org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut "Show Desktop" ;;
-    search) kwq org.kde.krunner /App org.kde.krunner.App.display ;;
+    search) kwq org.kde.kglobalaccel /component/kwick_spotlight org.kde.kglobalaccel.Component.invokeShortcut toggle || kwq org.kde.krunner /App org.kde.krunner.App.display ;;
   esac
 }
 
@@ -223,11 +223,34 @@ wvkbd_start() {
   sleep 0.4
 }
 
+vkget() { qdbus6 org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Get org.kde.kwin.VirtualKeyboard "$1" 2>/dev/null; }
+vkshown() {
+  i=0
+  while [ $i -lt "$1" ]; do
+    [ "$(vkget visible)" = true ] && return 0
+    sleep 0.25; i=$((i + 1))
+  done
+  return 1
+}
+vkrestart() {
+  [ "$(vkget enabled)" = true ] || return 0
+  kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled false
+  kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard enabled true
+  i=0
+  while [ $i -lt 25 ] && ! pgrep -u "$(id -u)" -x plasma-keyboard >/dev/null 2>&1; do sleep 0.2; i=$((i + 1)); done
+  sleep 1.5
+}
+
 keyboard() {
   case $de in
     kde)
       case $1 in
-        show) kwq org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard.forceActivate ;;
+        show)
+          kwq org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard.forceActivate
+          vkshown 6 && return 0
+          vkrestart
+          kwq org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard.forceActivate
+          vkshown 12 ;;
         hide) kwq org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Set org.kde.kwin.VirtualKeyboard active false ;;
         toggle)
           if [ "$(qdbus6 org.kde.KWin /VirtualKeyboard org.freedesktop.DBus.Properties.Get org.kde.kwin.VirtualKeyboard visible 2>/dev/null)" = true ]; then keyboard hide; else keyboard show; fi ;;
@@ -270,10 +293,11 @@ apply_kde() {
     kw TouchEdges Top "$3"
     kw TouchEdges Bottom "$4"
     kw TouchEdges Right None
+    kw Plugins kwick_touchsearchEnabled "$([ "${5:-}" = search ] && echo true || echo false)"
     changed=1
   fi
   kde_rotation && changed=1
-  [ -n "$changed" ] && kwq org.kde.KWin /KWin reconfigure
+  [ -n "$changed" ] && { kwq org.kde.KWin /KWin reconfigure; kwq org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect overview; kwq org.kde.KWin /Scripting org.kde.kwin.Scripting.start; }
   [ -n "$changed" ] && { mkdir -p "${stamp%/*}"; echo "$state" > "$stamp"; }
   g=on
   [ "$(pad_actions)" = "- - - -" ] && g=off

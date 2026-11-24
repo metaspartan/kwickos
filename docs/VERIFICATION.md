@@ -290,7 +290,7 @@ qt6-virtualkeyboard-plugin qml6-module-org-kde-layershell` came from Debian with
 | Installer (`kwick-installer-gui --dry-run`): language search | keyboard appears with the sheet, typed text lands in the field at once | `touch-installer.png` |
 | `kwick-touch tablet on` / `auto` | `tabletMode` true then false over D-Bus; Plasma enlarges dock and menu bar, Settings badge says Tablet | `touch-tablet-mode.png` |
 | Touchpad, macOS layout: 3 up, 3 down, 4 spread | Overview, App windows (ExposeClass), show desktop | `touch-gesture-overview.png` |
-| Touchscreen: swipe up from the bottom edge, down from the top edge, 3 fingers up | Overview, KRunner, Overview | `touch-edge-overview.png` |
+| Touchscreen: swipe up from the bottom edge, down from the top edge, 3 fingers up | Overview, Search, Overview | `touch-edge-overview.png` |
 | Rotation lock on KDE | `autoRotation` in `kwinoutputconfig.json` flips between `InTabletMode` and `Never` | file contents |
 | Gesture watcher | starts from autostart at login, survives touchpad hotplug | `ps` |
 | Hyprland | `Hyprland --verify-config` ok with `kwick-touch.conf`; live: `workspace_swipe_touch` 1, fingers 3 (4 after `kwick-layout windows`); tapping the bar's keyboard button shows and hides `wvkbd` | `touch-hyprland-osk.png` |

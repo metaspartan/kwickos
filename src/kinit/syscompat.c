@@ -300,6 +300,30 @@ static void tf_meta(int dfd, const char *name, int have_mode, mode_t mode, uid_t
 	close(fd);
 }
 
+static int tf_remove;
+
+static void tf_purge(int fd)
+{
+	struct stat top;
+	DIR *d = fdopendir(fd);
+	if (!d) { close(fd); return; }
+	if (fstat(dirfd(d), &top)) { closedir(d); return; }
+	struct dirent *e;
+	while ((e = readdir(d))) {
+		if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+		struct stat st;
+		if (fstatat(dirfd(d), e->d_name, &st, AT_SYMLINK_NOFOLLOW) || st.st_dev != top.st_dev) continue;
+		if (S_ISDIR(st.st_mode)) {
+			int sub = openat(dirfd(d), e->d_name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+			if (sub >= 0) tf_purge(sub);
+			unlinkat(dirfd(d), e->d_name, AT_REMOVEDIR);
+		} else {
+			unlinkat(dirfd(d), e->d_name, 0);
+		}
+	}
+	closedir(d);
+}
+
 static void tmpfiles_line(char *line)
 {
 	char *t[7];
@@ -326,6 +350,10 @@ static void tmpfiles_line(char *line)
 		if (!exists) mkdirat(dfd, nm, have_mode ? mode : 0755);
 		else if (!S_ISDIR(st.st_mode)) break;
 		tf_meta(dfd, nm, have_mode, mode, uid, gid);
+		if (type == 'D' && exists && tf_remove) {
+			int fd = openat(dfd, nm, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+			if (fd >= 0) tf_purge(fd);
+		}
 		break;
 	case 'f': case 'F': {
 		if (exists && !S_ISREG(st.st_mode)) break;
@@ -366,8 +394,10 @@ static void tmpfiles_line(char *line)
 static int cmd_tmpfiles(int argc, char **argv)
 {
 	int create = 0, any = 0;
+	tf_remove = 0;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--create") || !strcmp(argv[i], "--boot")) create = 1;
+		else if (!strcmp(argv[i], "--remove")) tf_remove = 1;
 		else if (!strcmp(argv[i], "--root") && i + 1 < argc) i++;
 		else if (argv[i][0] != '-') { if (create) conf_each(tmpfiles_dirs, argv[i], tmpfiles_line); any = 1; }
 	}

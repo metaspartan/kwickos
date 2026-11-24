@@ -52,7 +52,7 @@ and on the touchscreen 3-finger up/down and left/right. KwickOS adds the rest pe
 
 | Layout | Touchpad (added by `kwick-touch`) | Touchscreen edge swipes (KWin `TouchEdges`) |
 | --- | --- | --- |
-| macOS | 3 fingers up: Mission Control (Overview); 3 down: App windows; 4-finger pinch: Search (KRunner); 4-finger spread: show desktop | up from the bottom: Mission Control; down from the top: Search |
+| macOS | 3 fingers up: Mission Control (Overview); 3 down: App windows; 4-finger pinch: Search; 4-finger spread: show desktop | up from the bottom: Mission Control; down from the top: Search |
 | Windows | 3 fingers up: Task view; 3 down: show desktop | in from the left: Task view; up from the bottom: Start |
 | Linux | KWin defaults only | down from the top: Overview; in from the left: launcher |
 
@@ -60,7 +60,7 @@ The extra touchpad gestures come from a small watcher, `kwick-touch gestured`: `
 one `awk`, started at login by `/etc/xdg/autostart/kwick-touch.desktop` when the layout needs it and `/dev/input` is readable (the
 desktop user is in the `input` group). It keeps running so touchpads plugged in later work too, and exits when the compositor's
 Wayland socket goes away. It fires the KWin shortcuts `Overview`, `ExposeClass` and `Show Desktop` through `kglobalaccel`, or
-KRunner, 0.3 s after the gesture ends (KWin's own 3-finger release would otherwise close the Overview again). Unlike KWin's
+Search, 0.3 s after the gesture ends (KWin's own 3-finger release would otherwise close the Overview again). Unlike KWin's
 4-finger gestures these do not follow the fingers.
 
 GNOME keeps its own gestures (3 fingers up for Activities, left/right for workspaces, swipe up from the bottom edge of a

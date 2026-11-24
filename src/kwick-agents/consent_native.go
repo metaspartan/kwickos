@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -56,10 +58,16 @@ func consentAnswer(line string) string {
 	return ""
 }
 
-func askNative(title, who, capName, desc, detail string) (string, bool) {
+func dieWithRequester(c *exec.Cmd) {
+	c.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGTERM}
+}
+
+func askNative(title, who, capName, desc, detail string, gone <-chan struct{}) (string, bool) {
 	if desktopKind() != "kde" || os.Getenv("WAYLAND_DISPLAY") == "" {
 		return "", false
 	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	qml := lookPath("qml6")
 	if qml == "" || !exists(consentQML()) {
 		return "", false
@@ -86,6 +94,7 @@ func askNative(title, who, capName, desc, detail string) (string, bool) {
 	cfg, _ := json.Marshal(consentConfig{Title: title, Agent: who, Action: action, Detail: body, Capability: capName, Appearance: app, Layout: layout, Accent: currentAccentHex()})
 	cmd := exec.Command(qml, consentQML(), "--", string(cfg))
 	cmd.Env = append(os.Environ(), "QT_QPA_PLATFORM=wayland")
+	dieWithRequester(cmd)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return "", false
@@ -93,6 +102,8 @@ func askNative(title, who, capName, desc, detail string) (string, bool) {
 	if cmd.Start() != nil {
 		return "", false
 	}
+	stop := cancelOnGone(cmd, gone)
+	defer stop()
 	done := make(chan struct{})
 	go keepConsentAbove(title, done)
 	ans := ""

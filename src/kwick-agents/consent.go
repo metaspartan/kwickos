@@ -9,9 +9,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -150,10 +152,35 @@ func guiEnv() bool {
 	return os.Getenv("WAYLAND_DISPLAY") != "" || os.Getenv("DISPLAY") != ""
 }
 
-func askDialog(title, text string) (string, bool) {
+func cancelOnGone(c *exec.Cmd, gone <-chan struct{}) func() {
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-gone:
+			if c.Process != nil {
+				c.Process.Signal(syscall.SIGTERM)
+			}
+		case <-done:
+		}
+	}()
+	return func() { close(done) }
+}
+
+func isGone(gone <-chan struct{}) bool {
+	select {
+	case <-gone:
+		return true
+	default:
+		return false
+	}
+}
+
+func askDialog(title, text string, gone <-chan struct{}) (string, bool) {
 	if !guiEnv() {
 		return "", false
 	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	de := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP"))
 	tools := []string{"zenity", "kdialog"}
 	if strings.Contains(de, "kde") {
@@ -169,7 +196,19 @@ func askDialog(title, text string) (string, bool) {
 		} else {
 			c = exec.Command("zenity", "--question", "--title="+title, "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--extra-button=Always allow", "--width=460", "--icon=dialog-password")
 		}
-		out, err := c.Output()
+		dieWithRequester(c)
+		var buf strings.Builder
+		c.Stdout = &buf
+		if c.Start() != nil {
+			continue
+		}
+		stop := cancelOnGone(c, gone)
+		err := c.Wait()
+		stop()
+		if isGone(gone) {
+			return "", true
+		}
+		out := buf.String()
 		code := exitCode(err)
 		if err != nil && code == 127 {
 			continue
@@ -185,7 +224,7 @@ func askDialog(title, text string) (string, bool) {
 			}
 			continue
 		}
-		if strings.TrimSpace(string(out)) == "Always allow" {
+		if strings.TrimSpace(out) == "Always allow" {
 			return "always", true
 		}
 		if code == 0 {
@@ -198,9 +237,21 @@ func askDialog(title, text string) (string, bool) {
 	if lookPath("notify-send") != "" {
 		c := exec.Command("notify-send", "--app-name=KwickOS Agents", "--urgency=critical", "--icon=dialog-password", "--wait",
 			"--action=once=Allow once", "--action=always=Always allow", "--action=deny=Deny", title, text)
-		out, err := c.Output()
+		dieWithRequester(c)
+		var buf strings.Builder
+		c.Stdout = &buf
+		if c.Start() != nil {
+			return "", false
+		}
+		stop := cancelOnGone(c, gone)
+		err := c.Wait()
+		stop()
+		if isGone(gone) {
+			return "", true
+		}
+		out := buf.String()
 		if err == nil {
-			switch strings.TrimSpace(string(out)) {
+			switch strings.TrimSpace(out) {
 			case "once":
 				return "once", true
 			case "always":
@@ -225,7 +276,7 @@ type pendingReq struct {
 
 func pendingDir() string { return filepath.Join(runtimeDir(), "pending") }
 
-func askPending(agent, client, cap, detail string, wait time.Duration) string {
+func askPending(agent, client, cap, detail string, wait time.Duration, gone <-chan struct{}) string {
 	d := pendingDir()
 	os.MkdirAll(d, 0o700)
 	b := make([]byte, 4)
@@ -241,6 +292,9 @@ func askPending(agent, client, cap, detail string, wait time.Duration) string {
 	defer os.Remove(ans)
 	deadline := time.Now().Add(wait)
 	for time.Now().Before(deadline) {
+		if isGone(gone) {
+			return "gone"
+		}
 		if b, err := os.ReadFile(ans); err == nil {
 			switch strings.TrimSpace(string(b)) {
 			case "once", "always":
@@ -255,7 +309,7 @@ func askPending(agent, client, cap, detail string, wait time.Duration) string {
 
 var consentMu sync.Mutex
 
-func requestConsent(agent, client, cap, detail string) (bool, string) {
+func requestConsent(agent, client, cap, detail string, gone <-chan struct{}) (bool, string) {
 	consentMu.Lock()
 	defer consentMu.Unlock()
 	if d := decide(agent, cap); d == "allow" {
@@ -274,9 +328,12 @@ func requestConsent(agent, client, cap, detail string) (bool, string) {
 		who = who + " (" + client + ")"
 	}
 	text := fmt.Sprintf("The AI agent %s asks to: %s.\n\n%s\n\nCapability: %s", who, strings.ToLower(c.Description[:1])+c.Description[1:], detail, cap)
-	ans, ok := askNative(consentTitle, who, cap, c.Description, detail)
-	if !ok {
-		ans, ok = askDialog(consentTitle, text)
+	ans, ok := askNative(consentTitle, who, cap, c.Description, detail, gone)
+	if !ok && !isGone(gone) {
+		ans, ok = askDialog(consentTitle, text, gone)
+	}
+	if isGone(gone) {
+		return false, "gone"
 	}
 	if !ok {
 		wait := 90 * time.Second
@@ -285,9 +342,9 @@ func requestConsent(agent, client, cap, detail string) (bool, string) {
 				wait = d
 			}
 		}
-		ans = askPending(agent, client, cap, detail, wait)
-		if ans == "timeout" {
-			return false, "timeout"
+		ans = askPending(agent, client, cap, detail, wait, gone)
+		if ans == "timeout" || ans == "gone" {
+			return false, ans
 		}
 	}
 	switch ans {
