@@ -393,7 +393,7 @@ void Spotlight::createView()
     clock.start();
     m_view = new QQuickView();
     m_view->setColor(Qt::transparent);
-    m_view->setTitle(QStringLiteral("Spotlight"));
+    m_view->setTitle(QStringLiteral("Search"));
     m_view->setResizeMode(QQuickView::SizeRootObjectToView);
 
     if (m_layered) {

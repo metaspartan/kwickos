@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     }
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("kwick-spotlight"));
-    app.setApplicationDisplayName(QStringLiteral("Spotlight"));
+    app.setApplicationDisplayName(QStringLiteral("Search"));
     app.setOrganizationDomain(QStringLiteral("kwickos.org"));
     app.setDesktopFileName(QStringLiteral("kwick-search"));
     app.setQuitOnLastWindowClosed(false);

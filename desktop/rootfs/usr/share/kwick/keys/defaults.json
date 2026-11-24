@@ -15,7 +15,7 @@
       "category": "search",
       "keywords": "find launcher run krunner",
       "command": "kwick-search",
-      "kde": { "component": "kwick-spotlight", "action": "toggle", "friendly": "KwickOS Spotlight" },
+      "kde": { "component": "kwick-spotlight", "action": "toggle", "friendly": "KwickOS Search" },
       "gnome": { "schema": "org.gnome.shell.extensions.kwick-spotlight", "key": "toggle" },
       "keys": { "*": ["Meta+Space"], "kde/windows": ["Meta+S", "Meta+Space"] }
     },
@@ -26,7 +26,7 @@
       "category": "search",
       "keywords": "paste copy history",
       "command": "kwick-search --mode clipboard",
-      "kde": { "component": "kwick-spotlight", "action": "clipboard", "friendly": "KwickOS Spotlight" },
+      "kde": { "component": "kwick-spotlight", "action": "clipboard", "friendly": "KwickOS Search" },
       "gnome": { "grab": "clipboard" },
       "keys": { "*": ["Meta+V"] }
     },

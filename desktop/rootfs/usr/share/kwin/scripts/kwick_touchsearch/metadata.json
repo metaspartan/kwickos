@@ -6,12 +6,12 @@
                 "Name": "KwickOS"
             }
         ],
-        "Description": "Swiping down from the top edge of a touchscreen opens Spotlight",
+        "Description": "Swiping down from the top edge of a touchscreen opens Search",
         "EnabledByDefault": false,
         "Icon": "edit-find",
         "Id": "kwick_touchsearch",
         "License": "MIT",
-        "Name": "Touch Spotlight"
+        "Name": "Touch Search"
     },
     "X-Plasma-API": "javascript",
     "X-Plasma-MainScript": "code/main.js"

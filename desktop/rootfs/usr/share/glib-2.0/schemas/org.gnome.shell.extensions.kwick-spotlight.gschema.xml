@@ -3,7 +3,7 @@
   <schema id="org.gnome.shell.extensions.kwick-spotlight" path="/org/gnome/shell/extensions/kwick-spotlight/">
     <key name="toggle" type="as">
       <default>['&lt;Super&gt;space']</default>
-      <summary>Show or hide Spotlight Search</summary>
+      <summary>Show or hide Search</summary>
     </key>
   </schema>
 </schemalist>

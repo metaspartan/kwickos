@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Spotlight Search
+Name=Search
 Exec=kwick-spotlight --daemon
 OnlyShowIn=KDE;
 X-KDE-autostart-phase=2
