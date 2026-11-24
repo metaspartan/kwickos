@@ -18,12 +18,18 @@ rm -rf /tmp/bb/busybox-*
 echo "kinit: $(stat -c %s "$OUT/kinit") bytes"
 
 TB="$CACHE/busybox-$BB_VER.tar.bz2"
-if ! printf '%s  %s
-' "$BB_SHA256" "$TB" | sha256sum -c - >/dev/null 2>&1; then
+bbok() { printf '%s  %s
+' "$BB_SHA256" "$1" | sha256sum -c - >/dev/null 2>&1; }
+if ! bbok "$TB"; then
 	rm -f "$TB"
-	wget -q -O "$TB.part" "https://busybox.net/downloads/busybox-$BB_VER.tar.bz2"
-	printf '%s  %s
-' "$BB_SHA256" "$TB.part" | sha256sum -c - >/dev/null || { rm -f "$TB.part"; echo "busybox-$BB_VER.tar.bz2: checksum mismatch" >&2; exit 1; }
+	for try in 1 2 3; do
+		for u in "https://busybox.net/downloads/busybox-$BB_VER.tar.bz2" "https://sources.buildroot.net/busybox/busybox-$BB_VER.tar.bz2" "https://distfiles.alpinelinux.org/distfiles/edge/busybox-$BB_VER.tar.bz2"; do
+			rm -f "$TB.part"
+			wget -q -T 60 -O "$TB.part" "$u" && bbok "$TB.part" && break 2
+		done
+		sleep $((try * 30))
+	done
+	bbok "$TB.part" || { rm -f "$TB.part"; echo "busybox-$BB_VER.tar.bz2: no mirror served a file with the pinned checksum" >&2; exit 1; }
 	mv "$TB.part" "$TB"
 fi
 cd /tmp/bb
