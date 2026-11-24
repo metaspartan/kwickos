@@ -215,7 +215,7 @@ Spotlight::Spotlight(QObject *parent)
     if (m_desktop == QLatin1String("kde")) {
         m_action = new QAction(this);
         m_action->setObjectName(QStringLiteral("toggle"));
-        m_action->setText(QStringLiteral("Spotlight Search"));
+        m_action->setText(QStringLiteral("Search"));
         connect(m_action, &QAction::triggered, this, [this]() {
             m_openClock.start();
             toggle();
