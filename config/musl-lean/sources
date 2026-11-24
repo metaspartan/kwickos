@@ -10,7 +10,7 @@ openssl+CVE-2026-95692 - 0e328604c0038de6629a29322ae5f02d2f5f5128c2625b57ca64262
 openssl+CVE-2026-107496 - 77d3759d279c71af59629c4a0fa82d8272a099762f2fa9e3f66d7ca5ed544157 https://gitlab.alpinelinux.org/alpine/aports/-/raw/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/CVE-2026-107496.patch
 libressl 4.4.1 290cdf1b53c086255dc302f118b98602a444e9ae6d11e9bfdd8c9b1b60aa3a22 https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/libressl-4.4.1.tar.gz
 pcre2 10.49 53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384 https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.bz2
-expat 2.10.0 c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f https://github.com/libexpat/libexpat/releases/download/R_2_10_0/expat-2.10.0.tar.xz
+expat 2.11.0 61e7614b602201c28a189dafee78f5bceaee192bbde46a930752ff09cf5542fa https://github.com/libexpat/libexpat/releases/download/R_2_11_0/expat-2.11.0.tar.xz
 nginx 1.30.7 2565b5c837050e958f70fb0f73c48e2bca4542ad349fd356f46fb0c72610bc6e https://nginx.org/download/nginx-1.30.7.tar.gz
 openssh 10.6p2 9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.6p2.tar.gz
 git 2.56.1 f0b0bf89264b9bd2e1c640363e7529643989da76281600473c50745cd34a607f https://www.kernel.org/pub/software/scm/git/git-2.56.1.tar.xz
