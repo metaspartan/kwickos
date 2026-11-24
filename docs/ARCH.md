@@ -4,7 +4,7 @@
 into the Debian-compatible system. Arch packages are linked against Arch's glibc and libraries, so installing them into the
 host root would break it. Instead they live in an Arch environment that KwickOS manages under `/var/lib/kwick/arch/root`,
 and the programs installed there run with bubblewrap as you, on your desktop, with your files. Apps show up in the menu,
-in Spotlight/KRunner and on `PATH` like native ones.
+in Search/KRunner and on `PATH` like native ones.
 
 Nothing about this is automatic: the package is optional (`apt install kwick-arch`) and the environment only exists after
 `kwick-arch enable`. It is built by `scripts/mkarchpkg.sh`. x86_64 only (see [Architectures](#architectures)).
@@ -84,7 +84,7 @@ started through it have your user's rights over your home directory, exactly as 
 **Exports.** After an install, every `.desktop` file a requested package ships in `/usr/share/applications` is copied to
 `/usr/local/share/applications` with `Exec=` rewritten to `/usr/bin/kwick-arch run -- ...`, `TryExec` and `DBusActivatable`
 dropped, the icon resolved to the file inside the Arch root, and `X-KwickOS-Arch-Package` added. KDE's KService database (menu,
-KRunner, Spotlight) and GNOME pick it up from there. If the host already has a desktop file with the same name, the export is named
+KRunner, Search) and GNOME pick it up from there. If the host already has a desktop file with the same name, the export is named
 `kwick-arch-<name>.desktop` and its `Name=` gets " (Arch)". Each `/usr/bin` program of a requested package gets a wrapper in
 `/usr/local/lib/kwick-arch/bin`, which `/etc/profile.d/30-kwick-arch.sh` appends to the end of `PATH`, so host commands always win.
 Dependencies and the bootstrap's own packages are not exported. `remove`, `disable` and package removal take the exports away.

@@ -10,8 +10,8 @@ ColumnLayout {
             model: [
                 { id: "kde", name: "KDE Plasma", sub: "The default KwickOS desktop with KWin effects, Wayland and X11" },
                 { id: "gnome", name: "GNOME", sub: "GNOME Shell with dock, blur, wobbly windows and a 3D cube" },
-                { id: "hyprland", name: "Hyprland", sub: "Animated tiling Wayland compositor with waybar, fuzzel and Spotlight" },
-                { id: "sway", name: "Sway", sub: "Lightweight i3-style tiling with waybar, fuzzel and Spotlight" }
+                { id: "hyprland", name: "Hyprland", sub: "Animated tiling Wayland compositor with waybar, fuzzel and Search" },
+                { id: "sway", name: "Sway", sub: "Lightweight i3-style tiling with waybar, fuzzel and Search" }
             ]
             delegate: Item {
                 id: sr

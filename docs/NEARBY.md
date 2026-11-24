@@ -7,7 +7,7 @@ Windows, macOS and Linux, and between KwickOS computers. Nothing has to be set u
 ## Using it
 
 * **Send**: right-click files in Files (Dolphin or Nautilus) and choose **Share Nearby…**, press the share button in
-  Quick Look's toolbar or on Capture's screenshot thumbnail, or open **Nearby Share** from the launcher or Spotlight
+  Quick Look's toolbar or on Capture's screenshot thumbnail, or open **Nearby Share** from the launcher or Search
   to type a message or choose files. The sheet lists the devices it finds; click one to send. Click it again to stop.
   A device that asks for a PIN gets a PIN field.
 * **Receive**: choose who can find you under *Allow me to be discovered by* (in the sheet, in Settings › Nearby Share

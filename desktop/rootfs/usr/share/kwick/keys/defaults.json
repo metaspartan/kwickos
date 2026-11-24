@@ -10,7 +10,7 @@
   "actions": [
     {
       "id": "spotlight",
-      "title": "Spotlight Search",
+      "title": "Search",
       "subtitle": "Search apps, files, actions and the web",
       "category": "search",
       "keywords": "find launcher run krunner",

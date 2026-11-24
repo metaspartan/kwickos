@@ -52,7 +52,7 @@ colour all get the same treatment. For orange:
 
 | Role | Dark | Light | How it is derived | KwickOS use |
 |---|---|---|---|---|
-| `controlAccentColor` | `#FF9F0A` | `#FF9500` | the swatch | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Control Center toggles), Settings switches and sliders, App Store, Spotlight, installer |
+| `controlAccentColor` | `#FF9F0A` | `#FF9500` | the swatch | KDE `AccentColor`, DecorationFocus and DecorationHover (focus rings, hover, Control Center toggles), Settings switches and sliders, App Store, Search, installer |
 | fill | `#D28308` | `#D97F00` | the accent with its brightness lowered until white text on it reaches 3:1 | GTK `accent_bg_color` (suggested buttons, menu highlight), Settings and App Store filled buttons, fuzzel selection |
 | hover, pressed | `#C17907`, `#B06E07` | `#C87500`, `#B66B00` | the fill at 92 % and 84 % brightness, so white text stays above 3:1 | Settings buttons |
 | accent as text | `#FF9F0A` | `#9C5B00` | the accent brightened (dark) or darkened (light) until it reaches 4.5:1 on the window colour `#323232` or `#ECECEC` | GTK `accent_color`, Settings and App Store accent text, accent sidebar icons |

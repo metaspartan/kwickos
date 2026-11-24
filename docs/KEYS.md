@@ -34,7 +34,7 @@ Meta is Cmd (⌘) in the macOS layout, Win in the Windows layout and Super on Li
 
 | Action | macOS (Plasma, GNOME) | Windows (Plasma, GNOME) | Linux (Plasma, GNOME) | Tiling, every layout |
 |---|---|---|---|---|
-| Spotlight Search | Meta+Space | Meta+S or Meta+Space (Plasma), Meta+Space (GNOME) | Meta+Space | Meta+Space |
+| Search | Meta+Space | Meta+S or Meta+Space (Plasma), Meta+Space (GNOME) | Meta+Space | Meta+Space |
 | Clipboard History | Meta+V | Meta+V | Meta+V | Meta+V |
 | Keyboard Shortcuts (cheat sheet) | Meta+/ | Meta+K | Meta+K | Meta+K or Meta+/ |
 | App Launcher (fuzzel) | | | | Meta+D |
@@ -127,12 +127,12 @@ Ctrl+Alt+F1 to F12 or Ctrl+Alt+Backspace.
 
 ## How each session gets the shortcuts
 
-* **Plasma.** Actions KWin, ksmserver, Spotlight or another app already own are changed in place through kglobalaccel's D-Bus
+* **Plasma.** Actions KWin, ksmserver, Search or another app already own are changed in place through kglobalaccel's D-Bus
   interface (`setForeignShortcut`), which takes effect at once and is saved in `kglobalshortcutsrc`. Command actions become small
   hidden `kwick-keys-*.desktop` files in `~/.local/share/applications`, registered with kglobalaccel as service shortcuts
   (`doRegister`, `setShortcut` with the present flag), the same way Plasma's own custom commands work. Konsole, Dolphin and
   Capture keep their own desktop files. Conflicts come from `kglobalshortcutsrc` and from a live `getGlobalShortcutsByKey` query.
-* **GNOME.** Shell and mutter keys (close, full screen, snap, workspaces, overview, log out, Spotlight's extension key) are
+* **GNOME.** Shell and mutter keys (close, full screen, snap, workspaces, overview, log out, Search's extension key) are
   set with gsettings; commands become custom keybindings under `/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/kwick-keys-*`;
   Clipboard History and Capture are grabbed by the `kwick-clipboard` extension, which watches `~/.config/kwick/keys/gnome.json`.
 * **Hyprland and sway.** `~/.config/hypr/kwick-keys.conf` and `~/.config/sway/kwick-keys.conf` are generated and included from the

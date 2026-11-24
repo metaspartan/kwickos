@@ -276,7 +276,7 @@ Item {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: input.text === ""
-                    text: spotlight.mode !== "" ? "Search " + root.modes.find(m => m.name === spotlight.mode).label : spotlight.layout === "macos" ? "Spotlight Search" : "Search"
+                    text: spotlight.mode !== "" ? "Search " + root.modes.find(m => m.name === spotlight.mode).label : "Search"
                     color: root.tertiary
                     font: input.font
                     renderType: Text.NativeRendering

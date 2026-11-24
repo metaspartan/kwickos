@@ -866,7 +866,7 @@ gnomespotlight() {
     *'[]'*) gsettings set $mk custom-keybindings "['$p']" ;;
     *) gsettings set $mk custom-keybindings "$(printf '%s' "$cur" | sed "s|]\$|, '$p']|")" ;;
   esac
-  gsettings set $mk.custom-keybinding:$p name 'Spotlight Search'
+  gsettings set $mk.custom-keybinding:$p name 'Search'
   gsettings set $mk.custom-keybinding:$p command 'kwick-search'
   gsettings set $mk.custom-keybinding:$p binding '<Super>space'
 }

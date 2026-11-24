@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Spotlight Search
+Name=Search
 Icon=edit-find
 Exec=kwick-search
 NoDisplay=true

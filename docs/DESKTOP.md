@@ -54,7 +54,7 @@ GNOME and Hyprland follow the Plasma layouts. In macOS the 28 px menu bar shows 
 Window and Help menus; Hyprland has no global menu), and the dock has the same pinned apps in the same order (Files, Firefox,
 Terminal, Text Editor, Software, Settings), running dots, a separator and Trash. In Windows the 48 px taskbar has Start, Search,
 the same pinned apps plus Steam, an underline under running apps and a two-line clock. The macOS launcher on Hyprland (fuzzel) opens
-near the top like Spotlight and the Windows one opens above the taskbar like Start. Running GTK 4 apps pick up the window buttons of
+near the top like the macOS search bar and the Windows one opens above the taskbar like Start. Running GTK 4 apps pick up the window buttons of
 a new layout when they are restarted.
 
 On Hyprland the macOS menu bar is a fully transparent 32 px waybar: the KwickOS logo, the focused app in bold, the workspaces, then
@@ -114,11 +114,11 @@ warns about conflicts with KwickOS and with the desktop's own shortcuts, and res
 the same from a terminal. Hyprland and sway read their keyboard bindings from the generated `kwick-keys.conf` include. The default
 shortcuts per layout, the chord rules and how each session is written are in [KEYS](KEYS.md).
 
-## Spotlight Search
+## Search
 
-<img src="img/spotlight.png" width="420" alt="Spotlight Search, dark"> <img src="img/spotlight-light.png" width="420" alt="Spotlight Search, light">
+<img src="img/spotlight.png" width="420" alt="Search, dark"> <img src="img/spotlight-light.png" width="420" alt="Search, light">
 
-On Plasma, Cmd+Space (Meta+Space) opens Spotlight Search in every layout, and Win+S does too in the Windows layout (it takes
+On Plasma, Cmd+Space (Meta+Space) opens Search in every layout, and Win+S does too in the Windows layout (it takes
 Win+S from "Stop Current Activity"). Meta on its own keeps its layout's meaning (nothing on macOS, Start on Windows, the launcher
 on Linux), and Alt+Space stays KRunner. The Search button on the Windows taskbar and `kwick-search` open it as well. On GNOME
 Super+Space opens it through the `kwick-spotlight` Shell extension (Super+S keeps the overview), and the Search button of the
@@ -142,14 +142,14 @@ second press, and a click outside closes it. It follows the appearance (`~/.conf
 color (`AccentColor` in `kdeglobals`, macOS orange when unset) and the window corner radius, and keeps the last search for the next
 time.
 
-Every key typed after the shortcut lands in the field, even when typed at once. On Plasma, Hyprland and sway Spotlight is a
+Every key typed after the shortcut lands in the field, even when typed at once. On Plasma, Hyprland and sway Search is a
 layer-shell surface that stays mapped as a 1x1 transparent surface below the desktop while closed; opening it moves it to the
 overlay layer with exclusive keyboard focus in one commit, so the compositor routes the next key to it before the first frame is
 drawn. The QML is loaded at start and the runners are loaded one at a time between events, so the shortcut is never stuck behind
 them, and the UI is drawn by Qt Quick's software renderer, which keeps the main thread free (with GL on a slow GPU, resizing the
 surface and syncing frames stalled it for 100 to 700 ms, long enough for client-side key repeat to double letters). GNOME has no
 layer shell, so there it is a frameless maximized window that closes when it loses focus; the extension grabs the keyboard when
-Super+Space is pressed, keeps the typed text (and Return or Esc) until the Spotlight window is shown, hands it over with
+Super+Space is pressed, keeps the typed text (and Return or Esc) until the Search window is shown, hands it over with
 `kwick-spotlight --append=TEXT [--submit]` and only then gives the window the keyboard, so nothing is lost or reordered.
 
 Where it runs decides the material: Liquid Glass or KWin blur on Plasma, Hyprland's blur (`layerrule = blur, kwick-spotlight`) on
@@ -161,7 +161,7 @@ are results too.
 backend, so it needs no extra service. Its own runner, `krunner_kwick` (also used by KRunner), adds the KwickOS Settings pages,
 the actions and the files. The file index is the names and dates of everything in your home folder except hidden folders,
 `node_modules` and `__pycache__`, kept in memory (a few MB for 100,000 files), built in the background the first time you search
-and refreshed when it is older than 90 seconds as Spotlight opens; there is no indexing daemon and nothing is written to disk.
+and refreshed when it is older than 90 seconds as Search opens; there is no indexing daemon and nothing is written to disk.
 Baloo and plocate are not used. The runners run inside `kwick-spotlight`, so KRunner and Plasma need not be running. The runners can
 be changed with `Runners=` in the `[General]` group of `~/.config/kwickspotlightrc` (the default on Plasma is `krunner_kwick,
 krunner_services, krunner_systemsettings, calculator, windows, locations, krunner_shell`; elsewhere `krunner_kwick, calculator,
@@ -173,7 +173,7 @@ text or a browse mode, and `KWICK_SPOTLIGHT_TRACE=1` logs open and keystroke tim
 
 Press Space on a file in Files and a preview window opens at once; Space or Esc closes it, the arrow keys move to the next file,
 Return opens it in its default app ("Open with …" in the toolbar), F goes full screen, Ctrl+C copies the file. Cmd+Y (Ctrl+Y)
-previews the selected file in Spotlight, and the Files context menu has "Quick Look" too.
+previews the selected file in Search, and the Files context menu has "Quick Look" too.
 
 It previews images (animated GIF and WebP play, Ctrl+scroll or double-click zooms), PDF (every page, rendered with Poppler),
 video and audio (Qt Multimedia with FFmpeg, with a scrubber), text and source code with syntax highlighting (KSyntaxHighlighting,
@@ -197,13 +197,13 @@ bar: Entire Screen, Window, Selection, Record Screen, Record Selection, Copy Tex
 clipboard and saved as "Screenshot 2026-11-21 at 14.03.22.png"; a thumbnail in the corner opens Markup (pen, highlighter,
 line, arrow, rectangle, oval, text, redact, crop, undo) or can be dragged into another app. Copy Text recognizes the text in a
 selection with Tesseract on the device (installed the first time you use it, about 10 MB) and puts it on the clipboard; Pick
-Color shows HEX, RGB and HSL with copy buttons and keeps recent colors. The Screenshot app and Spotlight's Capture actions open
+Color shows HEX, RGB and HSL with copy buttons and keeps recent colors. The Screenshot app and Search's Capture actions open
 the same tool. Backends: KWin's ScreenShot2 or Spectacle on Plasma, the screenshot and screencast portals with GStreamer on
 GNOME, grim, slurp and wf-recorder on Hyprland and sway.
 
 ## Clipboard history
 
-Super+V opens Spotlight's clipboard view on every desktop: search everything you copied, Return copies it back, Cmd+Return pins
+Super+V opens Search's clipboard view on every desktop: search everything you copied, Return copies it back, Cmd+Return pins
 or unpins it (pinned items stay on top). On Plasma the history is Klipper's; on GNOME the `kwick-clipboard` Shell extension keeps
 it and on Hyprland and sway `kwick-clipboard watch` (wl-paste) does, in `~/.local/share/kwick/clipboard` (200 text items,
 1 MB each, nothing marked as a password by a password manager). Pins live there on every desktop. `kwick-clipboard clear` empties

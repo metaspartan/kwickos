@@ -22,8 +22,8 @@ meta() {
 	case $1 in
 	plasma) M_TITLE="KDE Plasma" M_SESSION=kde M_DE=kde M_BAR= M_KIND=desktop M_TK="Qt 6, KWin" M_LIC=GPL-2.0-or-later M_SRC=debian M_PKG=plasma-workspace M_DESC="The default KwickOS desktop: KWin effects, the macOS, Windows and Linux layouts, Wayland and X11" ;;
 	gnome) M_TITLE="GNOME Shell" M_SESSION=gnome M_DE=gnome M_BAR= M_KIND=desktop M_TK="GTK 4, Mutter" M_LIC=GPL-2.0-or-later M_SRC=debian M_PKG=gnome-shell M_DESC="GNOME with the KwickOS dock, blur, wobbly windows and the 3D cube" ;;
-	hyprland) M_TITLE="Hyprland + Waybar" M_SESSION=hyprland M_DE=hyprland M_BAR=waybar M_KIND=tiling M_TK="Hyprland, Waybar" M_LIC=BSD-3-Clause M_SRC=kwickos M_PKG=kwick-hyprland M_DESC="Animated tiling with the KwickOS bar, dock and Spotlight for every layout" ;;
-	sway) M_TITLE="Sway + Waybar" M_SESSION=sway M_DE=sway M_BAR=waybar M_KIND=tiling M_TK="Sway, Waybar" M_LIC=MIT M_SRC=debian M_PKG=sway M_DESC="Lightweight i3-style tiling with the KwickOS bar and Spotlight" ;;
+	hyprland) M_TITLE="Hyprland + Waybar" M_SESSION=hyprland M_DE=hyprland M_BAR=waybar M_KIND=tiling M_TK="Hyprland, Waybar" M_LIC=BSD-3-Clause M_SRC=kwickos M_PKG=kwick-hyprland M_DESC="Animated tiling with the KwickOS bar, dock and Search for every layout" ;;
+	sway) M_TITLE="Sway + Waybar" M_SESSION=sway M_DE=sway M_BAR=waybar M_KIND=tiling M_TK="Sway, Waybar" M_LIC=MIT M_SRC=debian M_PKG=sway M_DESC="Lightweight i3-style tiling with the KwickOS bar and Search" ;;
 	dms) M_TITLE="Dux Shell" M_SESSION=hyprland M_DE=hyprland M_BAR=dms M_KIND=quickshell M_TK="Quickshell (QML), Hyprland" M_LIC=MIT M_SRC=upstream M_PKG=kwick-quickshell M_DESC="Material 3 shell built on Quickshell (formerly DankMaterialShell): bar, dock, launcher, control center, notifications and lock screen" ;;
 	noctalia) M_TITLE="Noctalia" M_SESSION=hyprland M_DE=hyprland M_BAR=noctalia M_KIND=native M_TK="C++ and Wayland, Hyprland" M_LIC=MIT M_SRC=kwickos M_PKG=kwick-noctalia M_DESC="A sleek, customizable desktop shell crafted for Wayland, with bar, dock, launcher and lock screen" ;;
 	*) return 1 ;;

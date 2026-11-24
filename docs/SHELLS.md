@@ -117,7 +117,7 @@ kwick-shell desktop ...               the same commands
 | --- | --- | --- | --- | --- | --- |
 | `plasma` | KDE Plasma | Plasma | the default KwickOS desktop | Debian 13 | GPL-2.0-or-later |
 | `gnome` | GNOME Shell | GNOME | GNOME with the KwickOS dock and effects | Debian 13 | GPL-2.0-or-later |
-| `hyprland` | Hyprland + Waybar | Hyprland | KwickOS bar, dock and Spotlight on Hyprland 0.49.0 | `kwick-hyprland` | BSD-3-Clause |
+| `hyprland` | Hyprland + Waybar | Hyprland | KwickOS bar, dock and Search on Hyprland 0.49.0 | `kwick-hyprland` | BSD-3-Clause |
 | `sway` | Sway + Waybar | Sway | the same bar on Sway | Debian 13 | MIT |
 | `dms` | Dux Shell 2.1.2 | Hyprland | Material 3 shell built on Quickshell (formerly DankMaterialShell) | official release, pinned and checked with SHA-256, plus `kwick-quickshell` | MIT |
 | `noctalia` | Noctalia 5.6.0 | Hyprland | native Wayland shell (C++, no Qt) | `kwick-noctalia`, built from the pinned release | MIT |
@@ -126,7 +126,7 @@ kwick-shell desktop ...               the same commands
 * `hyprland`, `dms` and `noctalia` all run in the Hyprland session and only change what draws the bar. The choice is per user
   (`~/.config/kwick/hypr-shell`), and inside Hyprland it switches at once: `/usr/lib/kwick/hypr-shell` stops Waybar, the dock, mako and
   swaybg and starts the new shell, or the other way round. Outside Hyprland it applies at the next login.
-* Hyprland itself still comes from `kwick-hyprland`; the KwickOS key bindings (Spotlight, capture, clipboard, layouts) keep working
+* Hyprland itself still comes from `kwick-hyprland`; the KwickOS key bindings (Search, capture, clipboard, layouts) keep working
   with every bar.
 * Appearance: `kwick-layout appearance dark|light` (and the Appearance page) also switch Dux Shell
   (`dms ipc call theme dark|light`) and Noctalia (`noctalia msg theme-mode-set dark|light`). The first start seeds each shell with
