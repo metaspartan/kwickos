@@ -44,7 +44,12 @@ fetch() {
   f="$CACHE/musl-lean/${url##*/}"
   if ! printf '%s  %s\n' "$sum" "$f" | sha256sum -c - >/dev/null 2>&1; then
     rm -f "$f"
-    wget -q -O "$f.part" "$url"
+    local n=0
+    until { if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 3 --retry-delay 5 -A "kwickos-build/1.0" -o "$f.part" "$url"; else wget -q -O "$f.part" "$url"; fi; }; do
+      n=$((n + 1))
+      [ $n -lt 6 ] || { rm -f "$f.part"; echo "$1: download failed: $url" >&2; exit 1; }
+      sleep $((n * 20))
+    done
     printf '%s  %s\n' "$sum" "$f.part" | sha256sum -c - >/dev/null || { rm -f "$f.part"; echo "$1: checksum mismatch for $url" >&2; exit 1; }
     mv "$f.part" "$f"
   fi
