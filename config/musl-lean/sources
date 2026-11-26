@@ -11,7 +11,7 @@ openssl+CVE-2026-107496 - 77d3759d279c71af59629c4a0fa82d8272a099762f2fa9e3f66d7c
 libressl 4.4.1 290cdf1b53c086255dc302f118b98602a444e9ae6d11e9bfdd8c9b1b60aa3a22 https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/libressl-4.4.1.tar.gz
 pcre2 10.49 53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384 https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.bz2
 expat 2.11.0 61e7614b602201c28a189dafee78f5bceaee192bbde46a930752ff09cf5542fa https://github.com/libexpat/libexpat/releases/download/R_2_11_0/expat-2.11.0.tar.xz
-nginx 1.30.7 2565b5c837050e958f70fb0f73c48e2bca4542ad349fd356f46fb0c72610bc6e https://nginx.org/download/nginx-1.30.7.tar.gz
+nginx 1.30.8 f867314ada32e717b949930859656c48a72dc6657aec598db58af2f98a40e1c1 https://nginx.org/download/nginx-1.30.8.tar.gz
 openssh 10.6p2 9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.6p2.tar.gz
 git 2.56.1 f0b0bf89264b9bd2e1c640363e7529643989da76281600473c50745cd34a607f https://www.kernel.org/pub/software/scm/git/git-2.56.1.tar.xz
 python 3.14.10 de414a57119abef52784d8993e341d53aed635fc2b05c2607d9f98a2c5b72032 https://www.python.org/ftp/python/3.14.10/Python-3.14.10.tar.xz
