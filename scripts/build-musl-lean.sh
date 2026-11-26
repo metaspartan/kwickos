@@ -42,6 +42,11 @@ fetch() {
   sum=$(pin "$1" 3); url=$(pin "$1" 4)
   [ -n "$sum" ] || { echo "$1: not pinned in $SOURCES" >&2; exit 1; }
   f="$CACHE/musl-lean/${url##*/}"
+  local v="$SRC/config/musl-lean/patches/${url##*/}"
+  if [ -f "$v" ] && printf '%s  %s\n' "$sum" "$v" | sha256sum -c - >/dev/null 2>&1; then
+    FILE=$v
+    return
+  fi
   if ! printf '%s  %s\n' "$sum" "$f" | sha256sum -c - >/dev/null 2>&1; then
     rm -f "$f"
     local n=0
