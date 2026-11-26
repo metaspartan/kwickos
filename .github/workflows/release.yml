@@ -143,12 +143,67 @@ jobs:
           name: kwick-shells-${{ matrix.arch }}
           path: shells-out/repo/pool/main/kwick-*.deb
 
+  extras:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            kind: lean
+            runner: ubuntu-24.04
+          - arch: arm64
+            kind: lean
+            runner: ubuntu-24.04-arm
+          - arch: riscv64
+            kind: lean
+            runner: ubuntu-24.04
+          - arch: arm64
+            kind: plugins
+            runner: ubuntu-24.04-arm
+          - arch: riscv64
+            kind: plugins
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 350
+    env:
+      A: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: matrix.arch == 'riscv64'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - id: c
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: extras-out/kwick-extras.tgz
+          key: kwick-extras-${{ matrix.kind }}-${{ matrix.arch }}-${{ hashFiles('VERSION', 'config/musl-lean/sources', 'scripts/build-musl-lean.sh', 'scripts/mkleancurlpkg.sh', 'scripts/kwin-plugin.sh', 'scripts/mkflippkg.sh', 'scripts/mkglasspkg.sh', 'scripts/mkmacstylepkg.sh', 'scripts/mkroundedpkg.sh', 'scripts/mkkeyboardpkg.sh', 'scripts/mkspotlightpkg.sh', 'scripts/mksettingspkg.sh', 'scripts/mknativepkg.sh', 'src/kwin-flip/**', 'src/kwin-liquidglass/**', 'src/kwick-macstyle/**', 'src/kwick-spotlight/**', 'src/kwick-settings/**', 'src/kwick-nearby/**', 'src/kwick-quicklook/**', 'src/kwick-capture/**') }}
+      - name: Build ${{ matrix.kind }} for ${{ matrix.arch }}
+        if: steps.c.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p out
+          if [ "${{ matrix.kind }}" = lean ]; then
+            docker run --rm --platform linux/$A -e JOBS="$(nproc)" -v "$PWD:/src" -v "$PWD/out:/out" alpine:3.22 sh -c "apk add -q --no-cache bash curl && bash /src/scripts/build-musl-lean.sh $A"
+            docker run --rm --platform linux/$A -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash /src/scripts/mkleancurlpkg.sh
+          else
+            docker run --rm --platform linux/$A -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-$A && bash /src/scripts/mkglasspkg.sh /out/kwin-liquidglass-$A && bash /src/scripts/mkmacstylepkg.sh /out/kwin-macstyle-$A && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-$A && bash /src/scripts/mkkeyboardpkg.sh /out/kwin-keyboard-$A && bash /src/scripts/mkspotlightpkg.sh /out/kwin-spotlight-$A && bash /src/scripts/mksettingspkg.sh /out/kwin-settings-$A && bash /src/scripts/mknativepkg.sh /out/kwin-native-$A"
+          fi
+          sudo chown -R "$(id -u):$(id -g)" out
+          mkdir -p extras-out
+          tar -C out -czf extras-out/kwick-extras.tgz .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kwick-extras-${{ matrix.kind }}-${{ matrix.arch }}
+          path: extras-out/kwick-extras.tgz
+
   publish:
     permissions:
       contents: write
       packages: write
-    needs: [plan, security, build, desktop, hyprland, shells, rpi]
-    if: ${{ always() && needs.build.result == 'success' && needs.security.result == 'success' }}
+    needs: [plan, security, build, desktop, hyprland, shells, rpi, extras]
+    if: ${{ always() && needs.build.result == 'success' && needs.security.result == 'success' && needs.extras.result == 'success' }}
     runs-on: ubuntu-24.04
     env:
       TAG: ${{ needs.plan.outputs.tag }}
@@ -248,10 +303,8 @@ jobs:
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkupdatepkg.sh
           for a in amd64 arm64 riscv64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkcorepkg.sh $a /src/dl/kwickos-$a/kwickos-rootfs-$a.tar.gz; done
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkstoragepkg.sh
-          for a in amd64 arm64 riscv64; do docker run --rm --platform linux/$a -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash /src/scripts/mkleancurlpkg.sh; done
           docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash /src/scripts/mkcarrierpkg.sh
-          for a in amd64 arm64 riscv64; do docker run --rm --platform linux/$a -e JOBS="$(nproc)" -v "$PWD:/src" -v "$PWD/out:/out" alpine:3.22 sh -c "apk add -q --no-cache bash curl && bash /src/scripts/build-musl-lean.sh $a"; done
-          for a in arm64 riscv64; do docker run --rm --platform linux/$a -v "$PWD:/src" -v "$PWD/out:/out" debian:trixie bash -c "bash /src/scripts/mkflippkg.sh /out/kwin-flip-$a && bash /src/scripts/mkglasspkg.sh /out/kwin-liquidglass-$a && bash /src/scripts/mkmacstylepkg.sh /out/kwin-macstyle-$a && bash /src/scripts/mkroundedpkg.sh /out/kwin-rounded-$a && bash /src/scripts/mkkeyboardpkg.sh /out/kwin-keyboard-$a && bash /src/scripts/mkspotlightpkg.sh /out/kwin-spotlight-$a && bash /src/scripts/mksettingspkg.sh /out/kwin-settings-$a && bash /src/scripts/mknativepkg.sh /out/kwin-native-$a"; done
+          sudo mkdir -p out; for t in dl/kwick-extras-*/kwick-extras.tgz; do sudo tar -C out -xzf "$t"; done
           for a in amd64 arm64 riscv64; do docker run --rm -v "$PWD:/src" -v "$PWD/out:/out" kwick-builder bash /src/scripts/mkdesktoppkg.sh $a; done
           sudo chown -R "$(id -u):$(id -g)" out
           cp dl/kwickos-zfs-*/kwick-zfs*.deb out/repo/pool/main/ 2>/dev/null || echo "::warning::no OpenZFS module packages in this release"
